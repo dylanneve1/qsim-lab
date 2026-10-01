@@ -517,6 +517,21 @@ fn compile_state(circuit: &Circuit) -> Result<StateCompiled, SimError> {
     })
 }
 
+/// Size `d` of the dense active register [`CompressedState::new`] would
+/// need for a unitary `circuit` (an upper bound on its non-Clifford
+/// rotation count): the rank of the x-parts of the Heisenberg-mapped
+/// rotation axes. Polynomial time (no amplitudes are touched), so planners
+/// can call it to decide between the compressed state and a full state
+/// vector. Panics on non-unitary circuits like [`CompressedState::new`].
+pub fn active_dimension(circuit: &Circuit) -> Result<usize, SimError> {
+    let comp = compile_state(circuit)?;
+    let mut frame = Gf2Frame::new(comp.n, comp.w);
+    for (q, _) in &comp.rots {
+        frame.push(&q[..comp.w]);
+    }
+    Ok(frame.basis.len())
+}
+
 /// Statistics of a compressed-state run.
 #[derive(Clone, Debug, Default)]
 pub struct CompressedStats {
