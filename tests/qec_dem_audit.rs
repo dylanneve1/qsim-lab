@@ -27,6 +27,8 @@ use rand::SeedableRng;
 
 struct Stats {
     det: Vec<usize>,
+    /// per-shot defect count: sum and sum of squares (pooled check)
+    ndef: (f64, f64),
     raw_logical: usize,
     decoded_errors: usize,
 }
@@ -37,6 +39,7 @@ fn tableau_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut S
     let nd = sc.decoder.graph.num_nodes;
     let mut s = Stats {
         det: vec![0; nd],
+        ndef: (0.0, 0.0),
         raw_logical: 0,
         decoded_errors: 0,
     };
@@ -47,6 +50,9 @@ fn tableau_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut S
         for &d in &defects {
             s.det[d] += 1;
         }
+        let k = defects.len() as f64;
+        s.ndef.0 += k;
+        s.ndef.1 += k * k;
         s.raw_logical += raw as usize;
         s.decoded_errors += (raw ^ sc.decoder.decode(&defects)) as usize;
     }
@@ -57,6 +63,7 @@ fn fast_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut StdR
     let nd = sc.decoder.graph.num_nodes;
     let mut s = Stats {
         det: vec![0; nd],
+        ndef: (0.0, 0.0),
         raw_logical: 0,
         decoded_errors: 0,
     };
@@ -67,6 +74,9 @@ fn fast_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut StdR
         for &d in &defects {
             s.det[d] += 1;
         }
+        let k = defects.len() as f64;
+        s.ndef.0 += k;
+        s.ndef.1 += k * k;
         s.raw_logical += flip as usize;
         s.decoded_errors += (flip ^ sc.decoder.decode(&defects)) as usize;
     }
@@ -124,6 +134,12 @@ fn fast_detector_sampler_matches_tableau_d3() {
             failures.push(d);
         }
     }
+    // Pooled check: mean number of detection events per shot (Welch z).
+    let n = shots as f64;
+    let mv = |(a, b): (f64, f64)| (a / n, (b / n - (a / n).powi(2)) / n);
+    let ((mt, vt), (mf, vf)) = (mv(tab.ndef), mv(fast.ndef));
+    let zn = (mt - mf) / (vt + vf).sqrt().max(1e-12);
+    println!("mean detection events/shot: tableau {mt:.5} fast {mf:.5} z={zn:+.1}");
     let zl = z(tab.raw_logical, shots, fast.raw_logical, shots);
     let ze = z(tab.decoded_errors, shots, fast.decoded_errors, shots);
     println!(
@@ -137,7 +153,7 @@ fn fast_detector_sampler_matches_tableau_d3() {
         fast.decoded_errors as f64 / shots as f64
     );
     assert!(
-        failures.is_empty() && zl.abs() < zcrit && ze.abs() < zcrit,
+        failures.is_empty() && zl.abs() < zcrit && ze.abs() < zcrit && zn.abs() < zcrit,
         "detector model disagrees with circuit: {} detectors beyond {zcrit}σ (worst {worst:.1}σ), logical z={zl:.1}, decoded z={ze:.1}",
         failures.len()
     );
