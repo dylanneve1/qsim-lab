@@ -127,7 +127,7 @@ Reading it:
   inside and gets 93/586.
 - **ZX wins where Hadamard structure is deep**: the ripple modular adder,
   where PyZX reaches 70 vs our 112 (n=3), i.e. ZX is ~1.6x better there
-  (about 1.9-2.4x across sizes), and the doubled Toffoli ladder, which is
+  (1.57-1.68x across n=3..6 and the controlled-U_a rows), and the doubled Toffoli ladder, which is
   the identity and which the ZX tools find, while folding only halves it.
   Folding stops at every `H` on the *same* wire. ZX pivoting removes
   the Hadamard pair of a Toffoli (path-sum `HH`/`Elim` rules) and exposes
