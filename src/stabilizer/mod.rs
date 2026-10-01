@@ -402,6 +402,15 @@ impl Tableau {
         self.measure_with(a, None, rng).0
     }
 
+    /// Resets qubit `a` to |0>, collapsing the state.
+    pub fn reset_qubit<R: Rng + ?Sized>(&mut self, a: usize, rng: &mut R) {
+        assert!(a < self.n, "qubit out of range");
+        let (outcome, random) = self.measure_with(a, Some(false), rng);
+        if !random && outcome {
+            self.x(a);
+        }
+    }
+
     /// Measures every qubit in order.
     ///
     /// Measuring qubits one at a time costs `O(n^2)` per deterministic
@@ -643,6 +652,16 @@ impl Simulator for Tableau {
             });
         }
         Ok(self.measure_qubit(q, rng))
+    }
+    fn reset(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<(), SimError> {
+        if q >= self.n {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: self.n,
+            });
+        }
+        self.reset_qubit(q, rng);
+        Ok(())
     }
 }
 

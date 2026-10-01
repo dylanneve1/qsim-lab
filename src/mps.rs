@@ -348,6 +348,13 @@ impl Mps {
         outcome
     }
 
+    /// Resets qubit `q` to |0>, collapsing the state.
+    pub fn reset_qubit<R: Rng + ?Sized>(&mut self, q: usize, rng: &mut R) {
+        if self.measure_qubit(q, rng) {
+            self.apply_gate(&Gate::X(q)).expect("valid qubit");
+        }
+    }
+
     /// Draws `shots` bitstrings without collapsing the state (for up to 128
     /// qubits). With the centre at site 0 every other site is
     /// right-isometric, so conditional probabilities can be read off left
@@ -400,6 +407,16 @@ impl Simulator for Mps {
             });
         }
         Ok(self.measure_qubit(q, rng))
+    }
+    fn reset(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<(), SimError> {
+        if q >= self.n {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: self.n,
+            });
+        }
+        self.reset_qubit(q, rng);
+        Ok(())
     }
 }
 

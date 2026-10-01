@@ -22,6 +22,8 @@ pub enum SimError {
     },
     /// The Pauli-path simulator exceeded its term budget.
     TooManyTerms { terms: usize, limit: usize },
+    /// A classical bit index referenced by a conditional operation was out of range.
+    ClassicalBitOutOfRange { bit: usize, available: usize },
 }
 
 impl fmt::Display for SimError {
@@ -40,6 +42,12 @@ impl fmt::Display for SimError {
             ),
             SimError::TooManyTerms { terms, limit } => {
                 write!(f, "{terms} Pauli terms exceeds the limit of {limit}")
+            }
+            SimError::ClassicalBitOutOfRange { bit, available } => {
+                write!(
+                    f,
+                    "classical bit {bit} is out of range ({available} available)"
+                )
             }
         }
     }
@@ -73,6 +81,20 @@ pub trait Simulator {
     fn apply(&mut self, gate: &Gate) -> Result<(), SimError>;
     /// Measures qubit `q` in the computational basis, collapsing the state.
     fn measure(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<bool, SimError>;
+    /// Resets qubit `q` to the computational basis state |0>.
+    fn reset(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<(), SimError> {
+        if q >= self.num_qubits() {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: self.num_qubits(),
+            });
+        }
+        let outcome = self.measure(q, rng)?;
+        if outcome {
+            self.apply(&Gate::X(q))?;
+        }
+        Ok(())
+    }
 }
 
 /// One instruction of a circuit.
@@ -80,6 +102,23 @@ pub trait Simulator {
 pub enum Op {
     Gate(Gate),
     Measure(usize),
+    Reset(usize),
+    /// Classical condition: apply `gate` if measured bit `meas_index` equals `target_value`.
+    ClassicControlled {
+        gate: Gate,
+        meas_index: usize,
+        target_value: bool,
+    },
+    /// Stochastic Pauli X flip on qubit `q` with probability `p`.
+    XFlip(usize, f64),
+    /// Stochastic Pauli Y flip on qubit `q` with probability `p`.
+    YFlip(usize, f64),
+    /// Stochastic Pauli Z flip on qubit `q` with probability `p`.
+    ZFlip(usize, f64),
+    /// Single-qubit depolarizing error on qubit `q` with probability `p`.
+    Depolarize1q(usize, f64),
+    /// Two-qubit depolarizing error on qubits `(a, b)` with probability `p`.
+    Depolarize2q(usize, usize, f64),
 }
 
 /// An ordered list of gates and measurements on `num_qubits` qubits.
@@ -149,6 +188,58 @@ impl Circuit {
         }
         self
     }
+    pub fn reset(&mut self, q: usize) -> &mut Self {
+        self.ops.push(Op::Reset(q));
+        self
+    }
+    /// Conditionally applies `gate` if measured bit `meas_index` is `true`.
+    pub fn c_if(&mut self, meas_index: usize, gate: Gate) -> &mut Self {
+        self.ops.push(Op::ClassicControlled {
+            gate,
+            meas_index,
+            target_value: true,
+        });
+        self
+    }
+    /// Conditionally applies `gate` if measured bit `meas_index` equals `target_value`.
+    pub fn classic_controlled(
+        &mut self,
+        gate: Gate,
+        meas_index: usize,
+        target_value: bool,
+    ) -> &mut Self {
+        self.ops.push(Op::ClassicControlled {
+            gate,
+            meas_index,
+            target_value,
+        });
+        self
+    }
+    /// Stochastic Pauli X flip on qubit `q` with probability `p`.
+    pub fn x_flip(&mut self, q: usize, p: f64) -> &mut Self {
+        self.ops.push(Op::XFlip(q, p));
+        self
+    }
+    /// Stochastic Pauli Y flip on qubit `q` with probability `p`.
+    pub fn y_flip(&mut self, q: usize, p: f64) -> &mut Self {
+        self.ops.push(Op::YFlip(q, p));
+        self
+    }
+    /// Stochastic Pauli Z flip on qubit `q` with probability `p`.
+    pub fn z_flip(&mut self, q: usize, p: f64) -> &mut Self {
+        self.ops.push(Op::ZFlip(q, p));
+        self
+    }
+    /// Single-qubit depolarizing error on qubit `q` with probability `p`.
+    pub fn depolarize_1q(&mut self, q: usize, p: f64) -> &mut Self {
+        self.ops.push(Op::Depolarize1q(q, p));
+        self
+    }
+    /// Two-qubit depolarizing error on qubits `(a, b)` with probability `p`.
+    pub fn depolarize_2q(&mut self, a: usize, b: usize, p: f64) -> &mut Self {
+        self.ops.push(Op::Depolarize2q(a, b, p));
+        self
+    }
 
     /// Appends all operations of `other` (which must not be wider).
     pub fn append(&mut self, other: &Circuit) -> &mut Self {
@@ -157,11 +248,11 @@ impl Circuit {
         self
     }
 
-    /// Iterates over the gates, skipping measurements.
+    /// Iterates over the gates, skipping measurements, resets, and noise channels.
     pub fn gates(&self) -> impl Iterator<Item = &Gate> + '_ {
         self.ops.iter().filter_map(|op| match op {
             Op::Gate(g) => Some(g),
-            Op::Measure(_) => None,
+            _ => None,
         })
     }
 
@@ -175,11 +266,15 @@ impl Circuit {
     }
 
     pub fn is_clifford(&self) -> bool {
-        self.gates().all(|g| g.is_clifford())
+        self.ops.iter().all(|op| match op {
+            Op::Gate(g) => g.is_clifford(),
+            Op::ClassicControlled { gate, .. } => gate.is_clifford(),
+            _ => true,
+        })
     }
 
     /// The inverse circuit (gates reversed and inverted). Panics if the
-    /// circuit contains measurements.
+    /// circuit contains non-gate operations.
     pub fn inverse(&self) -> Circuit {
         let ops = self
             .ops
@@ -187,13 +282,87 @@ impl Circuit {
             .rev()
             .map(|op| match op {
                 Op::Gate(g) => Op::Gate(g.inverse()),
-                Op::Measure(_) => panic!("cannot invert a measurement"),
+                _ => panic!("cannot invert a circuit with non-gate operations"),
             })
             .collect();
         Circuit {
             num_qubits: self.num_qubits,
             ops,
         }
+    }
+
+    /// Runs the circuit on a simulator with a noise model and returns the
+    /// measurement outcomes in program order.
+    pub fn run_noisy<S: Simulator + ?Sized>(
+        &self,
+        sim: &mut S,
+        noise: &crate::noise::NoiseModel,
+        rng: &mut dyn RngCore,
+    ) -> Result<Vec<bool>, SimError> {
+        let mut out = Vec::new();
+        for op in &self.ops {
+            match op {
+                Op::Gate(g) => {
+                    sim.apply(g)?;
+                    crate::noise::apply_gate_noise(sim, g, noise, rng)?;
+                }
+                Op::Measure(q) => {
+                    let mut b = sim.measure(*q, rng)?;
+                    if noise.p_meas > 0.0 && rng.random::<f64>() < noise.p_meas {
+                        b = !b;
+                    }
+                    out.push(b);
+                }
+                Op::Reset(q) => {
+                    sim.reset(*q, rng)?;
+                    if noise.p_reset > 0.0 && rng.random::<f64>() < noise.p_reset {
+                        sim.apply(&Gate::X(*q))?;
+                    }
+                }
+                Op::ClassicControlled {
+                    gate,
+                    meas_index,
+                    target_value,
+                } => {
+                    if *meas_index >= out.len() {
+                        return Err(SimError::ClassicalBitOutOfRange {
+                            bit: *meas_index,
+                            available: out.len(),
+                        });
+                    }
+                    if out[*meas_index] == *target_value {
+                        sim.apply(gate)?;
+                        crate::noise::apply_gate_noise(sim, gate, noise, rng)?;
+                    }
+                }
+                Op::XFlip(q, p) => {
+                    if *p > 0.0 && rng.random::<f64>() < *p {
+                        sim.apply(&Gate::X(*q))?;
+                    }
+                }
+                Op::YFlip(q, p) => {
+                    if *p > 0.0 && rng.random::<f64>() < *p {
+                        sim.apply(&Gate::Y(*q))?;
+                    }
+                }
+                Op::ZFlip(q, p) => {
+                    if *p > 0.0 && rng.random::<f64>() < *p {
+                        sim.apply(&Gate::Z(*q))?;
+                    }
+                }
+                Op::Depolarize1q(q, p) => {
+                    if let Some(err) = crate::noise::sample_depolarizing_1q(*p, *q, rng) {
+                        sim.apply(&err)?;
+                    }
+                }
+                Op::Depolarize2q(a, b, p) => {
+                    for err in crate::noise::sample_depolarizing_2q(*p, *a, *b, rng) {
+                        sim.apply(&err)?;
+                    }
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// Runs the circuit on a simulator and returns the measurement outcomes
@@ -203,14 +372,7 @@ impl Circuit {
         sim: &mut S,
         rng: &mut dyn RngCore,
     ) -> Result<Vec<bool>, SimError> {
-        let mut out = Vec::new();
-        for op in &self.ops {
-            match op {
-                Op::Gate(g) => sim.apply(g)?,
-                Op::Measure(q) => out.push(sim.measure(*q, rng)?),
-            }
-        }
-        Ok(out)
+        self.run_noisy(sim, &crate::noise::NoiseModel::none(), rng)
     }
 
     /// A random Clifford circuit with `depth` layers. Each layer applies a

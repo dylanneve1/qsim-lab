@@ -307,14 +307,14 @@ impl<T: Real> StateVector<T> {
         Ok(())
     }
 
-    /// Applies every gate of a circuit; measurements are not allowed here
-    /// (use [`Circuit::run`] for circuits with measurements).
+    /// Applies every gate of a circuit; non-gate operations are not allowed here
+    /// (use [`Circuit::run`] for circuits with measurements or noise).
     pub fn apply_circuit(&mut self, c: &Circuit) -> Result<(), SimError> {
         for op in &c.ops {
             match op {
                 crate::circuit::Op::Gate(g) => self.apply_gate(g)?,
-                crate::circuit::Op::Measure(_) => {
-                    panic!("apply_circuit: use Circuit::run for measurements")
+                _ => {
+                    panic!("apply_circuit: use Circuit::run for non-gate operations")
                 }
             }
         }
@@ -554,6 +554,13 @@ impl<T: Real> StateVector<T> {
         outcome
     }
 
+    /// Resets qubit `q` to |0>, collapsing the state.
+    pub fn reset_qubit<R: Rng + ?Sized>(&mut self, q: usize, rng: &mut R) {
+        if self.measure_qubit(q, rng) {
+            self.apply_gate(&Gate::X(q)).expect("valid qubit");
+        }
+    }
+
     /// Draws `shots` samples of all qubits without collapsing the state.
     /// Each sample is a basis index (bit `q` = outcome of qubit `q`).
     ///
@@ -610,6 +617,16 @@ impl<T: Real> Simulator for StateVector<T> {
             });
         }
         Ok(self.measure_qubit(q, rng))
+    }
+    fn reset(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<(), SimError> {
+        if q >= self.n {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: self.n,
+            });
+        }
+        self.reset_qubit(q, rng);
+        Ok(())
     }
 }
 
