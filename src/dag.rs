@@ -1488,12 +1488,9 @@ pub fn components(c: &Circuit) -> Result<Vec<Vec<usize>>, DagError> {
 /// rotation by `ε` changes amplitudes by at most `ε / 2`.
 pub const ANGLE_EPS: f64 = 1e-13;
 
-/// An optimised circuit: `U_original = e^{i global_phase} U_circuit`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Optimized {
-    pub circuit: Circuit,
-    pub global_phase: f64,
-}
+/// An optimised circuit: `U_original = e^{i global_phase} U_circuit` (the
+/// same type the flat-list passes in [`crate::compile`] return).
+pub use crate::compile::Optimized;
 
 /// Options for [`peephole`].
 #[derive(Clone, Copy, Debug)]
@@ -1760,6 +1757,8 @@ fn combine(first: &Gate, second: &Gate) -> Option<(Option<Gate>, f64)> {
         // Same set of three qubits and same target: same controls.
         (Ccx(_, _, t1), Ccx(_, _, t2)) if t1 == t2 => return Some((None, 0.0)),
         (ISwap(..), ISwapdg(..)) | (ISwapdg(..), ISwap(..)) => return Some((None, 0.0)),
+        // U(θ, φ, λ)† = U(-θ, -λ, -φ) exactly.
+        (U(..), U(..)) if *second == first.inverse() => return Some((None, 0.0)),
         _ => {}
     }
     let (ra, rb) = (rot_of(first)?, rot_of(second)?);

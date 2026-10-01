@@ -131,18 +131,22 @@ fn counts(label: &str, c: &Circuit) {
     };
     let (o_adj, _) = dag::optimize_with(c, adj).unwrap();
     let (o, st) = dag::optimize_with(c, PeepholeOptions::default()).unwrap();
+    let flat = qsim_lab::compile::optimize(c).circuit;
     let g0 = c.num_gates();
     let pct = |x: usize| 100.0 * (g0 as f64 - x as f64) / g0.max(1) as f64;
     println!(
-        "{label:<34} gates {g0:>7} | optimize() {:>7} ({:>5.1}%) | dag-adjacent {:>7} ({:>5.1}%) | dag-commute {:>7} ({:>5.1}%) | T {:>5} -> {:>5} / {:>5} | passes {} searches {} steps {}",
+        "{label:<34} gates {g0:>7} | optimize() {:>7} ({:>5.1}%) | dag-adjacent {:>7} ({:>5.1}%) | compile::optimize {:>7} ({:>5.1}%) | dag-commute {:>7} ({:>5.1}%) | T {:>5} -> opt {:>5} / compile {:>5} / dag {:>5} | passes {} searches {} steps {}",
         base.num_gates(),
         pct(base.num_gates()),
         o_adj.circuit.num_gates(),
         pct(o_adj.circuit.num_gates()),
+        flat.num_gates(),
+        pct(flat.num_gates()),
         o.circuit.num_gates(),
         pct(o.circuit.num_gates()),
         c.t_count(),
         base.t_count(),
+        flat.t_count(),
         o.circuit.t_count(),
         st.passes,
         st.searches,
@@ -235,6 +239,9 @@ fn run_timing() {
         let t_base = time_min(5, || {
             std::hint::black_box(c.optimize());
         });
+        let t_flat = time_min(5, || {
+            std::hint::black_box(qsim_lab::compile::optimize(&c));
+        });
         let t_peep = time_min(5, || {
             std::hint::black_box(dag::optimize(&c).unwrap());
         });
@@ -267,10 +274,11 @@ fn run_timing() {
             std::hint::black_box(dag::light_cone(&c, &[0]).unwrap());
         });
         println!(
-            "n={n:>3} ops={ops:>8} | from_circuit {:>6.1} ns/op | to_circuit {:>6.1} ns/op | optimize() {:>6.1} ns/op | dag peephole {:>7.1} ns/op | dag light cone {:>6.1} ns/op | dag adjacent-only {:>6.1} ns/op | topo after rewrite {:>6.1} ns/op",
+            "n={n:>3} ops={ops:>8} | from_circuit {:>6.1} ns/op | to_circuit {:>6.1} ns/op | optimize() {:>6.1} ns/op | compile::optimize {:>6.1} ns/op | dag peephole {:>7.1} ns/op | dag light cone {:>6.1} ns/op | dag adjacent-only {:>6.1} ns/op | topo after rewrite {:>6.1} ns/op",
             1e9 * t_build / ops,
             1e9 * t_out / ops,
             1e9 * t_base / ops,
+            1e9 * t_flat / ops,
             1e9 * t_peep / ops,
             1e9 * t_cone / ops,
             1e9 * t_adj / ops,

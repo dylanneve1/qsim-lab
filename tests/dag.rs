@@ -11,6 +11,7 @@
 
 use num_complex::Complex64 as C;
 use proptest::prelude::*;
+use qsim_lab::compile;
 use qsim_lab::dag::{self, Dag, PeepholeOptions};
 use qsim_lab::{Circuit, Gate, Op, StateVectorF64};
 use rand::rngs::StdRng;
@@ -611,6 +612,11 @@ fn light_cone_matches_flat_pass_and_is_exact() {
         let outputs: Vec<usize> = (0..n).filter(|_| rng.random_bool(0.3)).collect();
         let ours = dag::light_cone(&c, &outputs).unwrap();
         assert_eq!(ours, flat_light_cone(&c, &outputs), "seed {seed}");
+        assert_eq!(
+            ours,
+            compile::analysis::light_cone(&c, &outputs),
+            "seed {seed}"
+        );
         if n <= 4 {
             assert_same_states(
                 &labelled_states(&c, None, &outputs),
@@ -728,6 +734,7 @@ proptest! {
         let outputs: Vec<usize> = (0..n).filter(|q| (seed >> q) & 1 == 1).collect();
         let ours = dag::light_cone(&c, &outputs).unwrap();
         prop_assert_eq!(&ours, &flat_light_cone(&c, &outputs));
+        prop_assert_eq!(&ours, &compile::analysis::light_cone(&c, &outputs));
         assert_same_states(
             &labelled_states(&c, None, &outputs),
             &labelled_states(&ours, None, &outputs),
@@ -803,4 +810,25 @@ fn ops_commute_is_complete_on_named_gates() {
             );
         }
     }
+}
+
+/// A/B against the flat-list commutation-aware peephole of the compile
+/// module: both are exact, and the DAG pass (which also commutes across
+/// measurements, Pauli noise and classically controlled gates, and runs to
+/// a fixpoint) never leaves more gates on unitary circuits.
+#[test]
+fn peephole_vs_compile_peephole() {
+    let (mut ours, mut theirs) = (0, 0);
+    for seed in 0..300 {
+        let n = 1 + (seed as usize % 5);
+        let c = random_circuit(31_000 + seed, n, 40, 0.0);
+        let o = dag::optimize(&c).unwrap();
+        let f = compile::optimize(&c);
+        let a = amps(&c);
+        assert!(max_phase_diff(&a, &amps(&o.circuit), o.global_phase) < 1e-12);
+        assert!(max_phase_diff(&a, &amps(&f.circuit), f.global_phase) < 1e-12);
+        ours += o.circuit.num_gates();
+        theirs += f.circuit.num_gates();
+    }
+    assert!(ours <= theirs, "dag {ours} vs compile {theirs}");
 }
