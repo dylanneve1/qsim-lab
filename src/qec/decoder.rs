@@ -166,6 +166,8 @@ impl UnionFindDecoder {
         let mut edge_growth = vec![0usize; num_edges];
         let mut edge_merged = vec![false; num_edges];
         let mut sides = vec![0usize; num_edges];
+        let mut first_pos = vec![0usize; num_edges];
+        let mut second_pos = vec![0usize; num_edges];
         let mut frontier: Vec<usize> = Vec::new();
 
         // Spanning forest of merged tree edges: (neighbor, flips_logical)
@@ -188,6 +190,7 @@ impl UnionFindDecoder {
             // number of active sides growing into it (1, or 2 when it joins two
             // different active clusters).
             frontier.clear();
+            let mut scan_pos = 0usize;
             for &root in &active_roots {
                 for &u in &cluster_members[root] {
                     for &e_idx in &self.graph.adj[u] {
@@ -199,9 +202,13 @@ impl UnionFindDecoder {
                         if dsu.find(v) != root {
                             if sides[e_idx] == 0 {
                                 frontier.push(e_idx);
+                                first_pos[e_idx] = scan_pos;
+                            } else {
+                                second_pos[e_idx] = scan_pos;
                             }
                             sides[e_idx] += 1;
                         }
+                        scan_pos += 1;
                     }
                 }
             }
@@ -216,15 +223,31 @@ impl UnionFindDecoder {
                 let need = 2 * self.graph.edges[e].weight.max(1) - edge_growth[e];
                 delta = delta.min(need.div_ceil(sides[e]));
             }
-            let mut edges_to_merge = Vec::new();
+            // Edges completing in the final step are merged in the order a
+            // unit-step scan would complete them (the position of the
+            // increment that crosses 2w), which keeps the spanning forest, and
+            // hence the correction, identical to unit stepping.
+            let mut completed: Vec<(usize, usize)> = Vec::new();
             for &e in &frontier {
+                let full = 2 * self.graph.edges[e].weight.max(1);
+                let before_last = edge_growth[e] + (delta - 1) * sides[e];
                 edge_growth[e] += delta * sides[e];
-                sides[e] = 0;
-                if edge_growth[e] >= 2 * self.graph.edges[e].weight.max(1) {
-                    edge_merged[e] = true;
-                    let edge = self.edges(e);
-                    edges_to_merge.push((edge.u, edge.v, edge.flips_logical));
+                if edge_growth[e] >= full {
+                    let pos = if before_last + 1 >= full {
+                        first_pos[e]
+                    } else {
+                        second_pos[e]
+                    };
+                    completed.push((pos, e));
                 }
+                sides[e] = 0;
+            }
+            completed.sort_unstable();
+            let mut edges_to_merge = Vec::with_capacity(completed.len());
+            for &(_, e) in &completed {
+                edge_merged[e] = true;
+                let edge = self.edges(e);
+                edges_to_merge.push((edge.u, edge.v, edge.flips_logical));
             }
             if frontier.is_empty() {
                 break; // odd cluster with no way out (cannot happen with a boundary)

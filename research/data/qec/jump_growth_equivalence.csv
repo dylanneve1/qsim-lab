@@ -1,0 +1,16 @@
+# d,rounds,p,shots,errors,rate,wilson_lo,wilson_hi,secs,method,decoder,seed
+# frozen = unit-step growth decoder (exp/qec dbc3e86 code); new = event-driven growth with unit-step merge order
+# frozen:
+3,3,0.006,200000,3352,1.676000e-2,1.620661e-2,1.733195e-2,0.17,DetectorErrorModel,circuit,21
+5,5,0.006,200000,3864,1.932000e-2,1.872591e-2,1.993255e-2,0.97,DetectorErrorModel,circuit,21
+7,7,0.006,200000,3605,1.802500e-2,1.745112e-2,1.861740e-2,2.36,DetectorErrorModel,circuit,21
+9,9,0.006,200000,2999,1.499500e-2,1.447161e-2,1.553702e-2,5.64,DetectorErrorModel,circuit,21
+# new (first attempt, merge order = frontier order; NOT identical):
+5,5,0.006,200000,3856,1.928000e-2,1.868653e-2,1.989194e-2,1.03,DetectorErrorModel,circuit,21
+7,7,0.006,200000,3607,1.803500e-2,1.746096e-2,1.862755e-2,2.56,DetectorErrorModel,circuit,21
+9,9,0.006,200000,3007,1.503500e-2,1.451091e-2,1.557772e-2,8.33,DetectorErrorModel,circuit,21
+# new (final, unit-step merge order; identical counts):
+3,3,0.006,200000,3352,1.676000e-2,1.620661e-2,1.733195e-2,0.28,DetectorErrorModel,circuit,21
+5,5,0.006,200000,3864,1.932000e-2,1.872591e-2,1.993255e-2,1.48,DetectorErrorModel,circuit,21
+7,7,0.006,200000,3605,1.802500e-2,1.745112e-2,1.861740e-2,3.29,DetectorErrorModel,circuit,21
+9,9,0.006,200000,2999,1.499500e-2,1.447161e-2,1.553702e-2,7.74,DetectorErrorModel,circuit,21
