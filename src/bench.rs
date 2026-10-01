@@ -318,6 +318,7 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
     header(&[
         "n",
         "k",
+        "auto k",
         "paths",
         "SV (s)",
         "HSF full (s)",
@@ -332,7 +333,13 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
         let xs: Vec<usize> = (0..amps)
             .map(|_| rng.random_range(0..1usize << n))
             .collect();
-        let h = HybridSchrodingerFeynman::auto(&c, HsfOptions::default()).expect("plan");
+        // planted partition so that k is controlled; auto's cut reported too
+        let part: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
+        let h = HybridSchrodingerFeynman::new(&c, &part, HsfOptions::default()).expect("plan");
+        let o = HsfOptions::default();
+        let auto_k = crate::hsf::auto_partition(&c, &o)
+            .and_then(|p| crate::hsf::cut_bits(&c, &p, &o))
+            .expect("valid");
         let (mut t_sv, mut t_full, mut t_amp) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
         let mut err = 0.0f64;
         for _ in 0..reps {
@@ -355,6 +362,7 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
         row(&[
             n.to_string(),
             h.num_cut_gates().to_string(),
+            auto_k.to_string(),
             h.num_paths().to_string(),
             format!("{t_sv:.3}"),
             if full {
@@ -531,7 +539,8 @@ pub fn hsf_point(n: usize, k: usize, depth: usize, amps: usize, mode: &str) {
             (1, dt)
         }
         _ => {
-            let h = HybridSchrodingerFeynman::auto(&c, HsfOptions::default()).expect("plan");
+            let part: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
+            let h = HybridSchrodingerFeynman::new(&c, &part, HsfOptions::default()).expect("plan");
             let (_, dt) = timed(|| {
                 if mode == "full" {
                     h.state_vector().map(|_| ())
