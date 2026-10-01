@@ -21,11 +21,13 @@
 
 pub mod analysis;
 pub mod peephole;
+pub mod phasefold;
 pub mod plan;
 pub mod stabsv;
 pub mod stateprop;
 
 pub use peephole::{optimize, Optimized, PeepholeOptions};
+pub use phasefold::{phase_fold, phase_fold_with_stats, PhaseFoldStats};
 pub use plan::{
     compile_sampling, compile_unitary, expectation_z_product, SamplingPlan, UnitaryPlan,
 };
