@@ -325,6 +325,56 @@ fn main() {
         }
         sampling_case("midcircuit 16q", &c, true);
     }
+    if want("noisy") {
+        // Repetition-code memory: d data qubits, d-1 ancillas measured and
+        // reset every round, depolarizing noise, a classically controlled
+        // correction, and an unrelated idle noisy register. Clifford + noise:
+        // the tableau runs it; the baseline is the state vector shot by shot.
+        let d = 7;
+        let rounds = 3;
+        let n = 2 * d - 1 + 4;
+        let mut c = Circuit::new(n);
+        for q in 0..d {
+            c.h(q).cnot(q, (q + 1) % d); // some entanglement on the data
+        }
+        for _ in 0..rounds {
+            for a in 0..d - 1 {
+                let anc = d + a;
+                c.cnot(a, anc).cnot(a + 1, anc);
+                c.depolarize_2q(a, anc, 0.01);
+                c.measure(anc).reset(anc);
+            }
+            for q in 0..d {
+                c.depolarize_1q(q, 0.005);
+            }
+        }
+        c.classic_controlled(Gate::X(0), 0, true);
+        for q in 0..d {
+            c.measure(q);
+        }
+        for q in 2 * d - 1..n {
+            c.h(q).z_flip(q, 0.1).h(q).measure(q); // independent register
+        }
+        sampling_case(&format!("rep-code d{d} x{rounds} rounds + noise"), &c, true);
+
+        // Teleportation chain with feed-forward on a non-Clifford state.
+        let hops = 6;
+        let n = 2 * hops + 1;
+        let mut c = Circuit::new(n);
+        c.ry(0, 0.7).t(0);
+        let mut m = 0;
+        for h in 0..hops {
+            let (src, a, b) = (2 * h, 2 * h + 1, 2 * h + 2);
+            c.h(a).cnot(a, b).cnot(src, a).h(src);
+            c.x_flip(a, 0.02);
+            c.measure(src).measure(a);
+            c.classic_controlled(Gate::X(b), m + 1, true);
+            c.classic_controlled(Gate::Z(b), m, true);
+            m += 2;
+        }
+        c.measure(n - 1);
+        sampling_case(&format!("teleport chain {hops} hops (feed-forward)"), &c, true);
+    }
     if want("unitary") {
         let n = 22;
         let mut c = algorithms::qft(n);

@@ -1,0 +1,6 @@
+[bench.sh] load at start: 7.57
+min of 7 runs; sampling cases draw 1000 shots with f32 amplitudes; compiled time includes compilation.
+| workload | qubits | gates | always-SV (s) | compiled (s) | compile only (s) | speedup | notes |
+|---|---|---|---|---|---|---|---|
+| qft20+measure | 20 | 220 | 0.0517 | 0.0023 | 0.0001 | 22.3x | gates 220→220 (peephole) →20 (state prop) →20 (cone) ; suffix 0 ; comps [1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau] |
+| qft22+measure | 22 | 264 | 0.2332 | 0.0027 | 0.0001 | 86.8x | gates 264→264 (peephole) →22 (state prop) →22 (cone) ; suffix 0 ; comps [1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau, 1q/1g/Tableau] |

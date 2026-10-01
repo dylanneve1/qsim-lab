@@ -1,0 +1,6 @@
+[bench.sh] load at start: 7.57
+min of 7 runs; sampling cases draw 1000 shots with f32 amplitudes; compiled time includes compilation.
+| workload | qubits | gates | always-SV (s) | compiled (s) | compile only (s) | speedup | notes |
+|---|---|---|---|---|---|---|---|
+| grover9 (+6 anc) | 15 | 1335 | 0.0449 | 0.0442 | 0.0005 | 1.0x | gates 1335→1335 (peephole) →1327 (state prop) →1327 (cone) ; suffix 0 ; comps [15q/1327g/StateVector] |
+| grover11 (+8 anc) | 19 | 3441 | 0.5148 | 0.5430 | 0.0012 | 0.9x | gates 3441→3441 (peephole) →3431 (state prop) →3431 (cone) ; suffix 0 ; comps [19q/3431g/StateVector] |
