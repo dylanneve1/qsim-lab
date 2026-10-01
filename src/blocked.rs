@@ -1378,9 +1378,13 @@ impl<T: Real> StateVector<T> {
             .iter()
             .map(|op| match op {
                 Op::Gate(g) => *g,
-                Op::Measure(_) => {
-                    panic!("apply_circuit_blocked: use Circuit::run for measurements")
-                }
+                // Measurements, resets, noise channels and classically
+                // conditioned ops are not unitary gates; the blocked
+                // executor only handles gate sequences.
+                _ => panic!(
+                    "apply_circuit_blocked: only unitary gates are supported; \
+                     use Circuit::run for measurements, resets, noise and classical control"
+                ),
             })
             .collect();
         self.apply_gates_blocked(&gates, cfg)
