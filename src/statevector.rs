@@ -243,7 +243,9 @@ impl<T: Real> StateVector<T> {
         &self.amps
     }
 
-    pub(crate) fn amplitudes_mut(&mut self) -> &mut [Complex<T>] {
+    /// Mutable access to the amplitudes (the caller is responsible for
+    /// keeping the state meaningful, e.g. normalised if it is to be measured).
+    pub fn amplitudes_mut(&mut self) -> &mut [Complex<T>] {
         &mut self.amps
     }
 

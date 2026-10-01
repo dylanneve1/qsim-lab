@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 29d94be9e34a183767c7b2edf88c0ab73b018b1c5a85c1fb51d5c8787f62c072 # shrinks to (c, _part, elim, _asap) = (Circuit { num_qubits: 2, ops: [Gate(Rx(1, 1.7901789054410338)), Gate(Rx(0, 2.609727607051127)), Gate(Cz(0, 1))] }, [false, false], false, false)
