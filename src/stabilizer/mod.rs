@@ -436,10 +436,13 @@ impl Tableau {
         } else {
             (0, 0)
         };
+        // one block at a time (fewer concurrent streams, as in plain CHP)
         for k in 0..w {
             rd[k] ^= xdc[k] & zdt[k] & !(xdt[k] ^ zdc[k]);
             xdt[k] ^= xdc[k];
             zdc[k] ^= zdt[k];
+        }
+        for k in 0..w {
             rs[k] ^= xsc[k] & zst[k] & !(xst[k] ^ zsc[k]);
             xst[k] ^= xsc[k];
             zsc[k] ^= zst[k];
@@ -475,6 +478,8 @@ impl Tableau {
             rd[k] ^= xda[k] & xdb[k] & (zda[k] ^ zdb[k]);
             zda[k] ^= xdb[k];
             zdb[k] ^= xda[k];
+        }
+        for k in 0..w {
             rs[k] ^= xsa[k] & xsb[k] & (zsa[k] ^ zsb[k]);
             zsa[k] ^= xsb[k];
             zsb[k] ^= xsa[k];

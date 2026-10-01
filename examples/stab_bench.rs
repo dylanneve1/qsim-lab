@@ -47,6 +47,8 @@ trait Tab: Simulator {
     fn stats(&self) -> String {
         String::new()
     }
+    /// Hint that no single-qubit measurement follows (new tableau only).
+    fn untrack(&mut self) {}
 }
 
 impl Tab for RefTableau {
@@ -82,6 +84,9 @@ impl Tab for Tableau {
     }
     fn stats(&self) -> String {
         format!("switches={}", self.layout_switches())
+    }
+    fn untrack(&mut self) {
+        self.set_sign_tracking(false)
     }
 }
 
@@ -257,6 +262,9 @@ fn ghz_once<T: Tab>(n: usize, phase: &str) -> (f64, u64) {
     let mut rng = StdRng::seed_from_u64(2);
     let t0 = Instant::now();
     let mut t = T::new_tab(n);
+    if std::env::var("STAB_TRACK").as_deref() == Ok("0") {
+        t.untrack();
+    }
     t.h_(0);
     for q in 1..n {
         t.cnot_(q - 1, q);
