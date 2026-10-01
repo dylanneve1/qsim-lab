@@ -28,6 +28,8 @@ use crate::gate::{is_multiple_of_half_pi, Gate};
 use rayon::prelude::*;
 use std::f64::consts::FRAC_PI_4;
 
+pub use crate::pauli_frame::FrameOptions;
+
 /// Default cap on the number of Pauli terms kept at once.
 pub const DEFAULT_MAX_TERMS: usize = 1 << 22;
 
@@ -37,10 +39,10 @@ pub const DEFAULT_MAX_TERMS: usize = 1 << 22;
 /// with `(x, z) = (1, 1)` meaning Y, as in the CHP tableau.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PauliSum {
-    n: usize,
-    w: usize,
-    keys: Vec<u64>,
-    coefs: Vec<f64>,
+    pub(crate) n: usize,
+    pub(crate) w: usize,
+    pub(crate) keys: Vec<u64>,
+    pub(crate) coefs: Vec<f64>,
 }
 
 /// Statistics of a propagation run.
@@ -140,70 +142,12 @@ impl PauliSum {
     /// Conjugates every term by a Clifford gate: `P -> G P G†`.
     fn conjugate_clifford(&mut self, g: &Gate) {
         let w = self.w;
-        let bit = |k: &[u64], q: usize| (k[q / 64] >> (q % 64)) & 1;
-        let flip = |k: &mut [u64], q: usize| k[q / 64] ^= 1 << (q % 64);
         let g = *g;
         self.keys
             .par_chunks_mut(2 * w)
             .zip(self.coefs.par_iter_mut())
             .for_each(|(k, c)| {
-                let neg = match g {
-                    Gate::H(a) => {
-                        let (x, z) = (bit(k, a), bit(k, w * 64 + a));
-                        if x != z {
-                            flip(k, a);
-                            flip(k, w * 64 + a);
-                        }
-                        x & z
-                    }
-                    Gate::S(a) | Gate::Sdg(a) => {
-                        let (x, z) = (bit(k, a), bit(k, w * 64 + a));
-                        if x == 1 {
-                            flip(k, w * 64 + a);
-                        }
-                        if matches!(g, Gate::S(_)) {
-                            x & z
-                        } else {
-                            x & (z ^ 1)
-                        }
-                    }
-                    Gate::X(a) => bit(k, w * 64 + a),
-                    Gate::Z(a) => bit(k, a),
-                    Gate::Y(a) => bit(k, a) ^ bit(k, w * 64 + a),
-                    Gate::Cnot(ct, t) => {
-                        let (xc, zc) = (bit(k, ct), bit(k, w * 64 + ct));
-                        let (xt, zt) = (bit(k, t), bit(k, w * 64 + t));
-                        if xc == 1 {
-                            flip(k, t);
-                        }
-                        if zt == 1 {
-                            flip(k, w * 64 + ct);
-                        }
-                        xc & zt & (xt ^ zc ^ 1)
-                    }
-                    Gate::Cz(a, b) => {
-                        let (xa, za) = (bit(k, a), bit(k, w * 64 + a));
-                        let (xb, zb) = (bit(k, b), bit(k, w * 64 + b));
-                        if xb == 1 {
-                            flip(k, w * 64 + a);
-                        }
-                        if xa == 1 {
-                            flip(k, w * 64 + b);
-                        }
-                        xa & xb & (za ^ zb)
-                    }
-                    Gate::Swap(a, b) => {
-                        for off in [0, w * 64] {
-                            if bit(k, off + a) != bit(k, off + b) {
-                                flip(k, off + a);
-                                flip(k, off + b);
-                            }
-                        }
-                        0
-                    }
-                    _ => unreachable!("not a Clifford gate: {g:?}"),
-                };
-                if neg == 1 {
+                if conj_string(k, w, &g) == 1 {
                     *c = -*c;
                 }
             });
@@ -260,10 +204,106 @@ impl PauliSum {
     }
 }
 
+/// Conjugates one Hermitian Pauli string (`2w` words, x then z) by a
+/// Clifford gate, `P -> G P G†`, in place. Returns 1 if the sign flips.
+pub(crate) fn conj_string(k: &mut [u64], w: usize, g: &Gate) -> u64 {
+    let bit = |k: &[u64], q: usize| (k[q / 64] >> (q % 64)) & 1;
+    let flip = |k: &mut [u64], q: usize| k[q / 64] ^= 1 << (q % 64);
+    match *g {
+        Gate::H(a) => {
+            let (x, z) = (bit(k, a), bit(k, w * 64 + a));
+            if x != z {
+                flip(k, a);
+                flip(k, w * 64 + a);
+            }
+            x & z
+        }
+        Gate::S(a) | Gate::Sdg(a) => {
+            let (x, z) = (bit(k, a), bit(k, w * 64 + a));
+            if x == 1 {
+                flip(k, w * 64 + a);
+            }
+            if matches!(g, Gate::S(_)) {
+                x & z
+            } else {
+                x & (z ^ 1)
+            }
+        }
+        Gate::X(a) => bit(k, w * 64 + a),
+        Gate::Z(a) => bit(k, a),
+        Gate::Y(a) => bit(k, a) ^ bit(k, w * 64 + a),
+        Gate::Cnot(ct, t) => {
+            let (xc, zc) = (bit(k, ct), bit(k, w * 64 + ct));
+            let (xt, zt) = (bit(k, t), bit(k, w * 64 + t));
+            if xc == 1 {
+                flip(k, t);
+            }
+            if zt == 1 {
+                flip(k, w * 64 + ct);
+            }
+            xc & zt & (xt ^ zc ^ 1)
+        }
+        Gate::Cz(a, b) => {
+            let (xa, za) = (bit(k, a), bit(k, w * 64 + a));
+            let (xb, zb) = (bit(k, b), bit(k, w * 64 + b));
+            if xb == 1 {
+                flip(k, w * 64 + a);
+            }
+            if xa == 1 {
+                flip(k, w * 64 + b);
+            }
+            xa & xb & (za ^ zb)
+        }
+        Gate::Swap(a, b) => {
+            for off in [0, w * 64] {
+                if bit(k, off + a) != bit(k, off + b) {
+                    flip(k, off + a);
+                    flip(k, off + b);
+                }
+            }
+            0
+        }
+        _ => unreachable!("not a Clifford gate: {g:?}"),
+    }
+}
+
 /// Exact expectation value `<0| U† O U |0>` of a Pauli observable for a
-/// circuit `U` of arbitrary gates (non-Clifford gates are decomposed into
-/// Clifford gates and Z rotations). Returns the value and path statistics.
+/// circuit `U` of arbitrary gates. Uses the rotation-frame engine with
+/// exact pruning ([`FrameOptions::default`]); see [`crate::pauli_frame`].
+/// Returns the value and path statistics.
 pub fn expectation(
+    circuit: &Circuit,
+    observable: &PauliSum,
+    max_terms: usize,
+) -> Result<(f64, PathStats), SimError> {
+    expectation_with(
+        circuit,
+        observable,
+        &FrameOptions {
+            max_terms,
+            ..FrameOptions::default()
+        },
+    )
+}
+
+/// [`expectation`] with explicit engine options. Falls back to the legacy
+/// engine for registers wider than 512 qubits.
+pub fn expectation_with(
+    circuit: &Circuit,
+    observable: &PauliSum,
+    opt: &FrameOptions,
+) -> Result<(f64, PathStats), SimError> {
+    assert_eq!(observable.n, circuit.num_qubits);
+    match crate::pauli_frame::expectation(circuit, observable, opt) {
+        Some(r) => r,
+        None => expectation_legacy(circuit, observable, opt.max_terms),
+    }
+}
+
+/// The original engine: pushes the observable through every gate, one pass
+/// over all terms per gate, and merges by sorting after every split.
+/// Kept as the reference for cross-checks and benchmarks.
+pub fn expectation_legacy(
     circuit: &Circuit,
     observable: &PauliSum,
     max_terms: usize,

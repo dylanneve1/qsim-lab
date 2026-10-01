@@ -39,6 +39,7 @@ pub mod circuit;
 pub mod gate;
 pub mod mps;
 pub mod noise;
+pub mod pauli_frame;
 pub mod pauli_path;
 pub mod qec;
 pub mod stabilizer;

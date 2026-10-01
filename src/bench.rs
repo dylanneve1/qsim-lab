@@ -172,6 +172,46 @@ pub fn stab_ghz(ns: &[usize]) {
 /// circuits the value itself is 0; correctness is covered by the tests,
 /// which compare against the state vector).
 pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
+    clifford_t_with(n, depth, ts, max_terms, "frame", f64::INFINITY, 1);
+}
+
+/// Pauli-path engine selected by name in [`clifford_t_with`].
+pub fn path_engine(
+    engine: &str,
+    max_terms: usize,
+) -> impl Fn(&Circuit, &PauliSum) -> Result<(f64, pauli_path::PathStats), crate::SimError> {
+    let legacy = engine == "legacy";
+    let opt = pauli_path::FrameOptions {
+        max_terms,
+        prune: !engine.contains("noprune"),
+        merge_rotations: !engine.contains("nomerge"),
+        parallel: !engine.contains("serial"),
+        fuse: !engine.contains("nofuse"),
+        ..Default::default()
+    };
+    move |c: &Circuit, o: &PauliSum| {
+        if legacy {
+            pauli_path::expectation_legacy(c, o, max_terms)
+        } else {
+            pauli_path::expectation_with(c, o, &opt)
+        }
+    }
+}
+
+/// [`clifford_t`] with a choice of engine (`legacy`, `frame`, and `frame`
+/// variants containing `noprune` / `nomerge` / `serial`), stopping after the
+/// first circuit that takes longer than `time_limit` seconds. Times are the
+/// minimum over `repeat` runs.
+pub fn clifford_t_with(
+    n: usize,
+    depth: usize,
+    ts: &[usize],
+    max_terms: usize,
+    engine: &str,
+    time_limit: f64,
+    repeat: usize,
+) {
+    let eval = path_engine(engine, max_terms);
     let max_t = ts.iter().copied().max().unwrap_or(0);
     let mut rng = StdRng::seed_from_u64(3);
     let final_block = Circuit::random_clifford(n, depth, &mut rng);
@@ -197,24 +237,49 @@ pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
          Clifford block of depth {depth} followed by one T gate.\n",
         fmt_bytes(state_bytes::<f32>(n))
     );
-    header(&["T gates", "gates total", "Pauli terms (peak)", "time (s)"]);
+    header(&[
+        "T gates",
+        "gates total",
+        "Pauli terms (peak)",
+        "<Z_0>",
+        "time (s)",
+    ]);
     for &t in ts {
         let c = build(t);
         let obs = PauliSum::z_product(n, &[0]);
-        let t0 = Instant::now();
-        match pauli_path::expectation(&c, &obs, max_terms) {
-            Ok((_, st)) => row(&[
-                t.to_string(),
-                c.num_gates().to_string(),
-                st.peak_terms.to_string(),
-                format!("{:.4}", secs(t0)),
-            ]),
+        let mut best = f64::INFINITY;
+        let mut res = None;
+        for _ in 0..repeat.max(1) {
+            let t0 = Instant::now();
+            let r = eval(&c, &obs);
+            best = best.min(secs(t0));
+            let failed = r.is_err();
+            res = Some(r);
+            if failed || best > time_limit {
+                break;
+            }
+        }
+        match res.expect("ran at least once") {
+            Ok((v, st)) => {
+                let dt = best;
+                row(&[
+                    t.to_string(),
+                    c.num_gates().to_string(),
+                    st.peak_terms.to_string(),
+                    format!("{v:+.12e}"),
+                    format!("{dt:.4}"),
+                ]);
+                if dt > time_limit {
+                    break;
+                }
+            }
             Err(e) => {
                 row(&[
                     t.to_string(),
                     c.num_gates().to_string(),
                     format!("aborted: {e}"),
-                    format!("{:.4}", secs(t0)),
+                    "-".to_string(),
+                    format!("{best:.4}"),
                 ]);
                 break;
             }
@@ -279,5 +344,91 @@ pub fn mps_random(n: usize, max_bond: usize, depths: &[usize]) {
             fmt_bytes(m.bytes() as u128),
             format!("{dt:.3}"),
         ]);
+    }
+}
+
+/// A Cuccaro ripple-carry adder `|a, b, c_in> -> |a, a + b, c_out>` on
+/// `bits`-bit registers (`2 bits + 2` qubits: carry-in 0, a_i = 1 + 2i,
+/// b_i = 2 + 2i, carry-out last), applied to a uniform superposition of
+/// `a` and `b`. It has `2 bits` Toffolis, i.e. `14 bits` T gates.
+pub fn cuccaro_adder(bits: usize) -> Circuit {
+    let n = 2 * bits + 2;
+    let (a, b) = (|i: usize| 1 + 2 * i, |i: usize| 2 + 2 * i);
+    let cout = n - 1;
+    let mut c = Circuit::new(n);
+    for i in 0..bits {
+        c.h(a(i)).h(b(i));
+    }
+    // MAJ(x, y, z) = CNOT(z,y) CNOT(z,x) CCX(x,y,z)
+    let maj = |c: &mut Circuit, x: usize, y: usize, z: usize| {
+        c.cnot(z, y).cnot(z, x).gate(Gate::Ccx(x, y, z));
+    };
+    let uma = |c: &mut Circuit, x: usize, y: usize, z: usize| {
+        c.gate(Gate::Ccx(x, y, z)).cnot(z, x).cnot(x, y);
+    };
+    let carry = |i: usize| if i == 0 { 0 } else { a(i - 1) };
+    for i in 0..bits {
+        maj(&mut c, carry(i), b(i), a(i));
+    }
+    c.cnot(a(bits - 1), cout);
+    for i in (0..bits).rev() {
+        uma(&mut c, carry(i), b(i), a(i));
+    }
+    c
+}
+
+/// Pauli-path cost of `<Z_cout>` and `<Z_{b_top} Z_cout>` after a Cuccaro
+/// adder, for each register width.
+pub fn adder(widths: &[usize], max_terms: usize, engine: &str, repeat: usize, time_limit: f64) {
+    let eval = path_engine(engine, max_terms);
+    header(&[
+        "bits",
+        "qubits",
+        "T gates",
+        "observable",
+        "Pauli terms (peak)",
+        "value",
+        "time (s)",
+    ]);
+    for &bits in widths {
+        let c = cuccaro_adder(bits);
+        let n = c.num_qubits;
+        let tcount = c.gates().filter(|g| matches!(g, Gate::Ccx(..))).count() * 7;
+        let mut slow = false;
+        for (name, qs) in [
+            ("Z_cout".to_string(), vec![n - 1]),
+            ("Z_b0 Z_b_top".to_string(), vec![2, 2 * bits]),
+        ] {
+            let obs = PauliSum::z_product(n, &qs);
+            let mut best = f64::INFINITY;
+            let mut res = None;
+            for _ in 0..repeat.max(1) {
+                let t0 = Instant::now();
+                let r = eval(&c, &obs);
+                best = best.min(secs(t0));
+                let failed = r.is_err();
+                res = Some(r);
+                if failed || best > time_limit {
+                    break;
+                }
+            }
+            let (peak, val) = match res.expect("ran") {
+                Ok((v, st)) => (st.peak_terms.to_string(), format!("{v:+.12e}")),
+                Err(e) => (format!("aborted: {e}"), "-".to_string()),
+            };
+            slow |= best > time_limit || val == "-";
+            row(&[
+                bits.to_string(),
+                n.to_string(),
+                tcount.to_string(),
+                name,
+                peak,
+                val,
+                format!("{best:.4}"),
+            ]);
+        }
+        if slow {
+            break;
+        }
     }
 }
