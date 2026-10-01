@@ -24,8 +24,14 @@
 //! Measurements are `Z`-type barriers: diagonal gates commute with a
 //! computational-basis measurement (the projectors are diagonal), so they
 //! may move across it, but nothing merges with it.
+//!
+//! Resets, noise channels and classically controlled gates are full
+//! barriers on their qubits: nothing commutes past them and nothing merges
+//! with them (they are copied through unchanged). Some of them do commute
+//! with some gates (`ZFlip` with diagonal gates, say), but treating them as
+//! opaque keeps the pass obviously correct for non-unitary circuits.
 
-use super::{axis_on, qubits_of, Axis};
+use super::{axis_on, op_qubits, qubits_of, Axis};
 use crate::circuit::{Circuit, Op};
 use crate::gate::Gate;
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU};
@@ -75,7 +81,6 @@ pub fn optimize_with(c: &Circuit, opts: PeepholeOptions) -> Optimized {
     };
     for op in &c.ops {
         match *op {
-            Op::Measure(q) => b.push_raw(Op::Measure(q)),
             Op::Gate(g) => {
                 let Some(g) = canonical(g, &mut b.phase) else {
                     continue;
@@ -84,6 +89,14 @@ pub fn optimize_with(c: &Circuit, opts: PeepholeOptions) -> Optimized {
                     b.push_raw(Op::Gate(g));
                 }
             }
+            Op::Measure(_)
+            | Op::Reset(_)
+            | Op::ClassicControlled { .. }
+            | Op::XFlip(..)
+            | Op::YFlip(..)
+            | Op::ZFlip(..)
+            | Op::Depolarize1q(..)
+            | Op::Depolarize2q(..) => b.push_raw(*op),
         }
     }
     let ops = b.ops.into_iter().flatten().collect();
@@ -105,17 +118,19 @@ struct Builder {
     opts: PeepholeOptions,
 }
 
-fn op_qubits(op: &Op) -> ([usize; 3], usize) {
-    match op {
-        Op::Gate(g) => qubits_of(g),
-        Op::Measure(q) => ([*q, 0, 0], 1),
-    }
-}
-
+/// How an already placed op acts on qubit `q`, for commutation checks.
+/// Non-unitary ops other than measurement are opaque barriers.
 fn op_axis(op: &Op, q: usize) -> Axis {
     match op {
         Op::Gate(g) => axis_on(g, q),
         Op::Measure(_) => Axis::Z,
+        Op::Reset(_)
+        | Op::ClassicControlled { .. }
+        | Op::XFlip(..)
+        | Op::YFlip(..)
+        | Op::ZFlip(..)
+        | Op::Depolarize1q(..)
+        | Op::Depolarize2q(..) => Axis::Other,
     }
 }
 

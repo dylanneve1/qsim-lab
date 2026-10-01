@@ -143,17 +143,17 @@ fn sampling_case(name: &str, c: &Circuit, baseline: bool) {
     let mut rng = StdRng::seed_from_u64(7);
     let mut rng2 = StdRng::seed_from_u64(8);
     let compile_t = min_time(REPS, || {
-        std::hint::black_box(compile_sampling(c, PlanOptions::default()));
+        std::hint::black_box(compile_sampling(c, PlanOptions::default()).unwrap());
     });
-    let plan = compile_sampling(c, PlanOptions::default());
-    let p0 = compile_sampling(c, PlanOptions::none());
+    let plan = compile_sampling(c, PlanOptions::default()).unwrap();
+    let p0 = compile_sampling(c, PlanOptions::none()).unwrap();
     let (base_t, comp_t) = ab(
         REPS,
         baseline.then_some(|| {
             std::hint::black_box(p0.sample::<f32, _>(SHOTS, &mut rng2).unwrap());
         }),
         || {
-            let p = compile_sampling(c, PlanOptions::default());
+            let p = compile_sampling(c, PlanOptions::default()).unwrap();
             std::hint::black_box(p.sample::<f32, _>(SHOTS, &mut rng).unwrap());
         },
     );
@@ -208,7 +208,7 @@ fn sampling_case(name: &str, c: &Circuit, baseline: bool) {
         let mut parts = Vec::new();
         for (label, o) in variants {
             let t = min_time(3, || {
-                let p = compile_sampling(c, o);
+                let p = compile_sampling(c, o).unwrap();
                 std::hint::black_box(p.sample::<f32, _>(SHOTS, &mut rng).unwrap());
             });
             parts.push(format!("{label} {t:.4}"));
@@ -337,7 +337,7 @@ fn main() {
                 std::hint::black_box(s);
             }),
             || {
-                let p = compile_unitary(&c, PlanOptions::default());
+                let p = compile_unitary(&c, PlanOptions::default()).unwrap();
                 std::hint::black_box(p.statevector::<f32>().unwrap());
             },
         );
@@ -369,12 +369,12 @@ fn main() {
                 std::hint::black_box(s);
             }),
             || {
-                let p = compile_unitary(&c, PlanOptions::default());
+                let p = compile_unitary(&c, PlanOptions::default()).unwrap();
                 std::hint::black_box(p.statevector::<f32>().unwrap());
             },
         );
         let t0 = t0.expect("baseline");
-        let p = compile_unitary(&c, PlanOptions::default());
+        let p = compile_unitary(&c, PlanOptions::default()).unwrap();
         row(
             "qft n22 on basis state (state vector)",
             &c,
@@ -398,7 +398,7 @@ fn main() {
                 std::hint::black_box(s);
             }),
             || {
-                let p = compile_unitary(&c, PlanOptions::default());
+                let p = compile_unitary(&c, PlanOptions::default()).unwrap();
                 std::hint::black_box(p.statevector::<f32>().unwrap());
             },
         );

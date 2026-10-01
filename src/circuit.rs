@@ -24,6 +24,9 @@ pub enum SimError {
     TooManyTerms { terms: usize, limit: usize },
     /// A classical bit index referenced by a conditional operation was out of range.
     ClassicalBitOutOfRange { bit: usize, available: usize },
+    /// The request needs something this circuit does not have (e.g. a
+    /// state vector or amplitude of a circuit with measurements or noise).
+    NotSupported { what: &'static str },
     /// Failed to parse OpenQASM source.
     QasmError(String),
 }
@@ -51,6 +54,7 @@ impl fmt::Display for SimError {
                     "classical bit {bit} is out of range ({available} available)"
                 )
             }
+            SimError::NotSupported { what } => write!(f, "not supported: {what}"),
             SimError::QasmError(msg) => write!(f, "OpenQASM error: {msg}"),
         }
     }

@@ -24,7 +24,17 @@
 //!
 //! The rewrite is exact for the state prepared from `|0...0>` (including
 //! the global phase, which is returned), not for the circuit as a unitary.
+//!
+//! Non-unitary ops: a measured qubit is materialised first and is unknown
+//! afterwards. A reset qubit is `|0>` and unentangled afterwards in every
+//! shot, so it becomes known (`|0>`) again; the reset is still emitted when
+//! the wire held an unknown state (a reset of a known product state only
+//! changes the discarded global phase of the shot and is dropped). Noise
+//! channels and classically controlled gates materialise their qubits and
+//! are emitted unchanged; their qubits stay unknown. For circuits with
+//! such ops the returned phase is meaningless (only distributions are).
 
+use super::qubits_of;
 use crate::circuit::{Circuit, Op};
 use crate::gate::Gate;
 use num_complex::Complex64;
@@ -82,11 +92,34 @@ pub fn propagate(c: &Circuit, keep: &[usize]) -> (Circuit, f64) {
     };
     for op in &c.ops {
         match *op {
+            Op::Gate(g) => p.gate(g),
             Op::Measure(q) => {
                 p.materialize(q);
                 p.out.measure(q);
             }
-            Op::Gate(g) => p.gate(g),
+            Op::Reset(q) => {
+                if p.k[q] == K::Unknown {
+                    p.out.reset(q);
+                }
+                // The wire now holds |0> (it already did if q was known).
+                p.k[q] = K::Z0;
+            }
+            Op::ClassicControlled { gate, .. } => {
+                let (qs, k) = qubits_of(&gate);
+                for &q in &qs[..k] {
+                    p.materialize(q);
+                }
+                p.out.ops.push(*op);
+            }
+            Op::XFlip(q, _) | Op::YFlip(q, _) | Op::ZFlip(q, _) | Op::Depolarize1q(q, _) => {
+                p.materialize(q);
+                p.out.ops.push(*op);
+            }
+            Op::Depolarize2q(a, b, _) => {
+                p.materialize(a);
+                p.materialize(b);
+                p.out.ops.push(*op);
+            }
         }
     }
     for &q in keep {

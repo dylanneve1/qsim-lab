@@ -6,11 +6,11 @@ mod common;
 use common::*;
 use num_complex::Complex64;
 use proptest::prelude::*;
-use qsim_lab::circuit::{Circuit, Op};
+use qsim_lab::circuit::{Circuit, Op, SimError};
 use qsim_lab::compile::analysis::{
     clifford_prefix, eliminate_swaps, light_cone, split_monomial_suffix,
 };
-use qsim_lab::compile::plan::{exact_outcome_distribution, Backend, PlanOptions};
+use qsim_lab::compile::plan::{exact_outcome_distribution, PlanOptions};
 use qsim_lab::compile::stabsv::clifford_statevector;
 use qsim_lab::compile::stateprop::propagate;
 use qsim_lab::compile::{compile_sampling, compile_unitary, expectation_z_product, optimize};
@@ -172,7 +172,7 @@ proptest! {
     fn unitary_plan_preserves_amplitudes(c in circuit_strategy(false)) {
         let want = sv_of(&c);
         for opts in [PlanOptions::default(), PlanOptions { peephole: false, ..PlanOptions::default() }] {
-            let p = compile_unitary(&c, opts);
+            let p = compile_unitary(&c, opts).unwrap();
             let got = p.statevector::<f64>().unwrap();
             assert_states_equal(&want, &got, 0.0)?;
             let f = p.factored::<f64>().unwrap();
@@ -194,7 +194,7 @@ proptest! {
     fn sampling_plan_terminal_distribution_is_exact(c in circuit_strategy(false), seed in 0u64..1000) {
         let t = terminal_version(&c, seed);
         let want = exact_outcome_distribution(&t);
-        let plan = compile_sampling(&t, PlanOptions::default());
+        let plan = compile_sampling(&t, PlanOptions::default()).unwrap();
         let got = plan.exact_distribution();
         prop_assert!(dist_close(&want, &got) < 1e-10, "{:?}\n{:?}", want, got);
     }
@@ -202,7 +202,7 @@ proptest! {
     #[test]
     fn sampling_plan_midcircuit_distribution_is_exact(c in circuit_strategy(true)) {
         let want = exact_outcome_distribution(&c);
-        let plan = compile_sampling(&c, PlanOptions::default());
+        let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
         let got = plan.exact_distribution();
         prop_assert!(dist_close(&want, &got) < 1e-10, "{:?}\n{:?}", want, got);
     }
@@ -305,7 +305,7 @@ fn sampled_frequencies_match_exact_distribution() {
             c = Circuit::random_clifford_t(n, 4, 0.1, &mut rng);
         }
         let t = terminal_version(&c, trial as u64);
-        let plan = compile_sampling(&t, PlanOptions::default());
+        let plan = compile_sampling(&t, PlanOptions::default()).unwrap();
         for comp in plan.components() {
             seen.insert(format!("{:?}", comp.backend));
         }
@@ -347,7 +347,7 @@ fn pauli_path_dispatch_is_used_and_exact() {
     let mut c = Circuit::random_clifford(n, 3, &mut rng);
     c.t(0).append(&Circuit::random_clifford(n, 2, &mut rng));
     c.measure(1).measure(2);
-    let plan = compile_sampling(&c, PlanOptions::default());
+    let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
     assert!(plan.stats.max_sv_qubits() <= 20, "{:?}", plan.stats);
     let s = plan.sample::<f32, _>(100, &mut rng).unwrap();
     assert_eq!(s.len(), 100);
@@ -365,7 +365,7 @@ fn independent_registers_beyond_memory_cap() {
             c.gate(qsim_lab::compile::analysis::relabel(g, |q| q + 8 * r));
         }
     }
-    let plan = compile_unitary(&c, PlanOptions::default());
+    let plan = compile_unitary(&c, PlanOptions::default()).unwrap();
     let f = plan.factored::<f64>().unwrap();
     // spot-check one amplitude against a per-register state vector product
     let x: u128 = 0x1234_5678;
@@ -386,11 +386,578 @@ fn qft_of_basis_state_factorises() {
         c.x(q);
     }
     c.append(&qsim_lab::algorithms::qft(n));
-    let plan = compile_unitary(&c, PlanOptions::default());
+    let plan = compile_unitary(&c, PlanOptions::default()).unwrap();
     assert!(plan.stats.max_sv_qubits() <= 1, "{:?}", plan.stats);
     let got = plan.statevector::<f64>().unwrap();
     let want = sv_of(&c);
     for i in 0..1 << n {
         assert!((got.amplitude(i) - want.amplitude(i)).norm() < 1e-12);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Non-unitary operations: resets, classical control and noise channels.
+// ---------------------------------------------------------------------------
+
+/// Independent reference for the outcome-record distribution of any
+/// circuit: a breadth-first list of weighted trajectories `(state, p,
+/// record)`, expanded op by op with the semantics of `Circuit::run`.
+/// Deliberately written differently from the library's recursive
+/// `exact_outcome_distribution`, which it also checks.
+fn reference_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
+    let mut out = BTreeMap::new();
+    for (_, p, r) in reference_trajectories(c) {
+        *out.entry(r).or_insert(0.0) += p;
+    }
+    out
+}
+
+/// The final classical-quantum state `sum_rec |rec><rec| (x) rho_rec`
+/// (unnormalised `rho_rec`, row-major), from the same trajectories. Equal
+/// cq states mean the rewrite is exact for everything an observer could
+/// later do with the qubits, not just for the recorded outcomes.
+fn reference_cq_state(c: &Circuit) -> BTreeMap<Vec<bool>, Vec<Complex64>> {
+    let dim = 1usize << c.num_qubits;
+    let mut out: BTreeMap<Vec<bool>, Vec<Complex64>> = BTreeMap::new();
+    for (s, p, r) in reference_trajectories(c) {
+        let rho = out
+            .entry(r)
+            .or_insert_with(|| vec![Complex64::new(0.0, 0.0); dim * dim]);
+        for i in 0..dim {
+            let ai = s.amplitude(i);
+            if ai.norm_sqr() == 0.0 {
+                continue;
+            }
+            for j in 0..dim {
+                rho[i * dim + j] += ai * s.amplitude(j).conj() * p;
+            }
+        }
+    }
+    out
+}
+
+fn cq_close(
+    a: &BTreeMap<Vec<bool>, Vec<Complex64>>,
+    b: &BTreeMap<Vec<bool>, Vec<Complex64>>,
+) -> f64 {
+    let mut worst: f64 = 0.0;
+    for k in a.keys().chain(b.keys()) {
+        match (a.get(k), b.get(k)) {
+            (Some(x), Some(y)) => {
+                for (u, v) in x.iter().zip(y) {
+                    worst = worst.max((u - v).norm());
+                }
+            }
+            (Some(x), None) | (None, Some(x)) => {
+                for u in x {
+                    worst = worst.max(u.norm());
+                }
+            }
+            (None, None) => unreachable!(),
+        }
+    }
+    worst
+}
+
+/// Weighted pure-state trajectories `(normalised state, probability,
+/// record)` of a circuit under the semantics of `Circuit::run`.
+fn reference_trajectories(c: &Circuit) -> Vec<(StateVectorF64, f64, Vec<bool>)> {
+    type Traj = (StateVectorF64, f64, Vec<bool>);
+    let mut trajs: Vec<Traj> = vec![(StateVectorF64::new(c.num_qubits), 1.0, Vec::new())];
+    let with_paulis = |trajs: Vec<Traj>, cases: &[(f64, Vec<Gate>)]| -> Vec<Traj> {
+        let mut next = Vec::new();
+        for (s, p, rec) in trajs {
+            for (w, gs) in cases {
+                if *w <= 0.0 {
+                    continue;
+                }
+                let mut t = s.clone();
+                for g in gs {
+                    t.apply_gate(g).unwrap();
+                }
+                next.push((t, p * w, rec.clone()));
+            }
+        }
+        next
+    };
+    let pauli = |k: usize, q: usize| -> Vec<Gate> {
+        match k {
+            1 => vec![Gate::X(q)],
+            2 => vec![Gate::Y(q)],
+            3 => vec![Gate::Z(q)],
+            _ => vec![],
+        }
+    };
+    for op in &c.ops {
+        trajs = match *op {
+            Op::Gate(g) => trajs
+                .into_iter()
+                .map(|(mut s, p, r)| {
+                    s.apply_gate(&g).unwrap();
+                    (s, p, r)
+                })
+                .collect(),
+            Op::ClassicControlled {
+                gate,
+                meas_index,
+                target_value,
+            } => trajs
+                .into_iter()
+                .map(|(mut s, p, r)| {
+                    if r[meas_index] == target_value {
+                        s.apply_gate(&gate).unwrap();
+                    }
+                    (s, p, r)
+                })
+                .collect(),
+            Op::Measure(q) | Op::Reset(q) => {
+                let record = matches!(op, Op::Measure(_));
+                let mut next = Vec::new();
+                for (s, p, r) in trajs {
+                    let p1 = s.prob_one(q);
+                    for (b, pb) in [(false, 1.0 - p1), (true, p1)] {
+                        if pb < 1e-14 {
+                            continue;
+                        }
+                        let mut t = s.clone();
+                        t.collapse(q, b);
+                        let mut r2 = r.clone();
+                        if record {
+                            r2.push(b);
+                        } else if b {
+                            t.apply_gate(&Gate::X(q)).unwrap();
+                        }
+                        next.push((t, p * pb, r2));
+                    }
+                }
+                next
+            }
+            Op::XFlip(q, p) => with_paulis(trajs, &[(1.0 - p, vec![]), (p, vec![Gate::X(q)])]),
+            Op::YFlip(q, p) => with_paulis(trajs, &[(1.0 - p, vec![]), (p, vec![Gate::Y(q)])]),
+            Op::ZFlip(q, p) => with_paulis(trajs, &[(1.0 - p, vec![]), (p, vec![Gate::Z(q)])]),
+            Op::Depolarize1q(q, p) => {
+                let mut cases = vec![(1.0 - p, vec![])];
+                cases.extend((1..4).map(|k| (p / 3.0, pauli(k, q))));
+                with_paulis(trajs, &cases)
+            }
+            Op::Depolarize2q(a, b, p) => {
+                let mut cases = vec![(1.0 - p, vec![])];
+                cases.extend((1..16).map(|k| {
+                    let mut e = pauli(k / 4, a);
+                    e.extend(pauli(k % 4, b));
+                    (p / 15.0, e)
+                }));
+                with_paulis(trajs, &cases)
+            }
+        };
+    }
+    trajs
+}
+
+/// One generated instruction of a noisy circuit (before indices are fixed).
+#[derive(Clone, Debug)]
+enum Ins {
+    Gate(Gate),
+    Measure(usize),
+    Reset(usize),
+    /// Conditional gate reading "some earlier measurement" (`pick` modulo
+    /// the number of measurements so far; dropped if there is none).
+    Cond(Gate, usize, bool),
+    Noise(usize, usize, usize, f64),
+}
+
+/// Circuits with every kind of op: gates (mostly inside blocks, so
+/// components appear), measurements, resets, classically controlled gates
+/// (often reading a measurement in another block) and noise channels.
+/// Branching ops are capped so the exact reference stays small.
+fn noisy_circuit_strategy() -> impl Strategy<Value = Circuit> {
+    (2usize..=5, 1usize..=3).prop_flat_map(|(n, blocks)| {
+        let blocks = blocks.min(n);
+        let block_of: Vec<Vec<usize>> = (0..blocks)
+            .map(|b| (0..n).filter(|q| q % blocks == b).collect())
+            .collect();
+        let gates = prop::strategy::Union::new(
+            block_of
+                .into_iter()
+                .map(|qs| gate_strategy(qs).boxed())
+                .collect::<Vec<_>>(),
+        );
+        let prob = prop_oneof![
+            Just(0.0),
+            Just(1.0),
+            Just(0.5),
+            (0.0f64..=1.0).prop_map(|p| p)
+        ];
+        let ins = prop_oneof![
+            12 => gates.clone().prop_map(Ins::Gate),
+            2 => (0..n).prop_map(Ins::Measure),
+            1 => (0..n).prop_map(Ins::Reset),
+            2 => (gates, 0usize..8, any::<bool>()).prop_map(|(g, m, v)| Ins::Cond(g, m, v)),
+            2 => (0usize..5, 0..n, 0..n, prob).prop_map(|(k, a, b, p)| Ins::Noise(k, a, b, p)),
+        ];
+        prop::collection::vec(ins, 0..30).prop_map(move |ins| {
+            let mut c = Circuit::new(n);
+            let (mut meas, mut branchy, mut noise) = (0usize, 0, 0);
+            for i in ins {
+                match i {
+                    Ins::Gate(g) => {
+                        c.gate(g);
+                    }
+                    Ins::Measure(q) | Ins::Reset(q) if branchy < 6 => {
+                        branchy += 1;
+                        if matches!(i, Ins::Measure(_)) {
+                            c.measure(q);
+                            meas += 1;
+                        } else {
+                            c.reset(q);
+                        }
+                    }
+                    Ins::Cond(g, m, v) if meas > 0 => {
+                        c.classic_controlled(g, m % meas, v);
+                    }
+                    Ins::Noise(k, a, b, p) if noise < 3 => {
+                        noise += 1;
+                        match k {
+                            0 => c.x_flip(a, p),
+                            1 => c.y_flip(a, p),
+                            2 => c.z_flip(a, p),
+                            3 => c.depolarize_1q(a, p),
+                            _ if a != b => c.depolarize_2q(a, b, p),
+                            _ => c.depolarize_1q(a, p),
+                        };
+                    }
+                    _ => {}
+                }
+            }
+            c
+        })
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(192))]
+
+    #[test]
+    fn noisy_reference_agrees_with_library_reference(c in noisy_circuit_strategy()) {
+        let want = reference_distribution(&c);
+        let got = exact_outcome_distribution(&c);
+        prop_assert!(dist_close(&want, &got) < 1e-10, "{:?}\n{:?}", want, got);
+    }
+
+    #[test]
+    fn peephole_preserves_noisy_cq_state(c in noisy_circuit_strategy()) {
+        let o = optimize(&c);
+        let d = cq_close(&reference_cq_state(&c), &reference_cq_state(&o.circuit));
+        prop_assert!(d < 1e-10, "{}: {:?}\n{:?}", d, c, o);
+    }
+
+    #[test]
+    fn state_propagation_preserves_noisy_cq_state(c in noisy_circuit_strategy()) {
+        let all: Vec<usize> = (0..c.num_qubits).collect();
+        let (o, _) = propagate(&c, &all);
+        let d = cq_close(&reference_cq_state(&c), &reference_cq_state(&o));
+        prop_assert!(d < 1e-10, "{}: {:?}\n{:?}", d, c, o);
+    }
+
+    #[test]
+    fn light_cone_preserves_noisy_distribution(c in noisy_circuit_strategy()) {
+        let want = reference_distribution(&c);
+        let got = reference_distribution(&light_cone(&c, &[]));
+        prop_assert!(dist_close(&want, &got) < 1e-10);
+    }
+
+    #[test]
+    fn state_propagation_preserves_noisy_distribution(c in noisy_circuit_strategy()) {
+        let (o, _) = propagate(&c, &[]);
+        let want = reference_distribution(&c);
+        prop_assert!(dist_close(&want, &reference_distribution(&o)) < 1e-10, "{:?}\n{:?}", c, o);
+    }
+
+    #[test]
+    fn swap_elimination_preserves_noisy_cq_state(c in noisy_circuit_strategy()) {
+        let (o, wire_of) = eliminate_swaps(&c);
+        // Undo the final wire permutation with explicit SWAPs, then the cq
+        // states must agree exactly.
+        let mut fixed = o.clone();
+        let mut at = wire_of.clone(); // at[q] = wire currently holding q
+        for q in 0..c.num_qubits {
+            let w = at[q];
+            if w != q {
+                fixed.swap(w, q);
+                let other = at.iter().position(|&x| x == q).unwrap();
+                at.swap(q, other);
+            }
+        }
+        prop_assert!(cq_close(&reference_cq_state(&c), &reference_cq_state(&fixed)) < 1e-10);
+    }
+
+    #[test]
+    fn clifford_prefix_keeps_noisy_circuit(c in noisy_circuit_strategy()) {
+        let (prefix, rest) = clifford_prefix(&c);
+        prop_assert!(prefix.ops.iter().all(|o| matches!(o, Op::Gate(g) if g.is_clifford())));
+        let mut joined = prefix.clone();
+        joined.append(&rest);
+        prop_assert!(cq_close(&reference_cq_state(&c), &reference_cq_state(&joined)) < 1e-10);
+    }
+
+    #[test]
+    fn sampling_plan_noisy_distribution_is_exact(c in noisy_circuit_strategy()) {
+        let want = reference_distribution(&c);
+        for opts in [
+            PlanOptions::default(),
+            PlanOptions { state_prop: false, ..PlanOptions::default() },
+            PlanOptions { peephole: false, swap_elim: false, ..PlanOptions::default() },
+            PlanOptions::none(),
+        ] {
+            let plan = compile_sampling(&c, opts).unwrap();
+            let got = plan.exact_distribution();
+            prop_assert!(dist_close(&want, &got) < 1e-10, "{:?}\n{:?}\n{:?}", opts, want, got);
+        }
+    }
+
+    #[test]
+    fn unitary_and_expectation_refuse_non_unitary(c in noisy_circuit_strategy()) {
+        let unitary = c.ops.iter().all(|o| matches!(o, Op::Gate(_)));
+        let u = compile_unitary(&c, PlanOptions::default());
+        let e = expectation_z_product(&c, &[0], PlanOptions::default());
+        if unitary {
+            prop_assert!(u.is_ok() && e.is_ok());
+        } else {
+            let refused = |r: Option<SimError>| matches!(r, Some(SimError::NotSupported { .. }));
+            prop_assert!(refused(u.err()));
+            prop_assert!(refused(e.err()));
+        }
+    }
+}
+
+/// `prefix; g; barrier; g' ; suffix` with `g'` equal or inverse to `g` on a
+/// shared qubit: the shape in which a peephole pass that wrongly commutes
+/// gates through a non-unitary op would merge them.
+fn sandwich_strategy() -> impl Strategy<Value = Circuit> {
+    (2usize..=3).prop_flat_map(|n| {
+        let all: Vec<usize> = (0..n).collect();
+        let gates = || prop::collection::vec(gate_strategy((0..n).collect()), 0..6);
+        let prob = prop_oneof![Just(1.0), Just(0.5), 0.0f64..=1.0];
+        (
+            gates(),
+            gate_strategy(all),
+            any::<bool>(),
+            (0usize..9, 0..n, prob, any::<bool>()),
+            gates(),
+        )
+            .prop_map(move |(pre, g, inv, (kind, j, p, v), post)| {
+                let mut c = Circuit::new(n);
+                c.h(0).measure(0); // a record for classical control
+                for g in pre {
+                    c.gate(g);
+                }
+                c.gate(g);
+                let qs = g.qubits();
+                let q = qs[j % qs.len()];
+                let other = (q + 1) % n;
+                match kind {
+                    0 => c.measure(q),
+                    1 => c.reset(q),
+                    2 => c.x_flip(q, p),
+                    3 => c.y_flip(q, p),
+                    4 => c.z_flip(q, p),
+                    5 => c.depolarize_1q(q, p),
+                    6 => c.depolarize_2q(q, other, p),
+                    7 => c.classic_controlled(Gate::H(q), 0, v),
+                    _ => c.classic_controlled(Gate::Cnot(other, q), 0, v),
+                };
+                c.gate(if inv { g.inverse() } else { g });
+                for g in post {
+                    c.gate(g);
+                }
+                c
+            })
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    #[test]
+    fn peephole_respects_non_unitary_barriers(c in sandwich_strategy()) {
+        let o = optimize(&c);
+        let d = cq_close(&reference_cq_state(&c), &reference_cq_state(&o.circuit));
+        prop_assert!(d < 1e-10, "{}: {:?}\n{:?}", d, c, o);
+        let all: Vec<usize> = (0..c.num_qubits).collect();
+        let (s, _) = propagate(&c, &all);
+        let d = cq_close(&reference_cq_state(&c), &reference_cq_state(&s));
+        prop_assert!(d < 1e-10, "stateprop {}: {:?}\n{:?}", d, c, s);
+    }
+}
+
+/// The reference's noise semantics against `Circuit::run` itself (Monte
+/// Carlo), and the compiled sampler's real sampling path against both.
+#[test]
+fn noisy_sampling_matches_run_and_reference() {
+    let mut rng = StdRng::seed_from_u64(77);
+    let mut circuits = Vec::new();
+    // Teleportation-style feed-forward with noise, plus an independent
+    // noisy register and an ancilla that is reset and reused.
+    let mut c = Circuit::new(5);
+    c.ry(0, 1.1).h(1).cnot(1, 2).cnot(0, 1).h(0);
+    c.depolarize_1q(1, 0.2).measure(0).measure(1);
+    c.classic_controlled(Gate::X(2), 1, true);
+    c.classic_controlled(Gate::Z(2), 0, true);
+    c.x_flip(2, 0.1).measure(2);
+    c.h(3).t(3).z_flip(3, 0.3).h(3).measure(3);
+    c.cnot(3, 4)
+        .measure(4)
+        .reset(4)
+        .h(4)
+        .depolarize_2q(3, 4, 0.4);
+    c.measure(4);
+    circuits.push(c);
+    // Clifford + noise: dispatched to the tableau.
+    let mut c = Circuit::new(4);
+    c.h(0)
+        .cnot(0, 1)
+        .y_flip(1, 0.25)
+        .measure(1)
+        .reset(1)
+        .cnot(0, 1);
+    c.classic_controlled(Gate::S(2), 0, false)
+        .h(2)
+        .depolarize_1q(2, 0.6);
+    c.measure(0).measure(1).measure(2).measure(3);
+    circuits.push(c);
+    let shots = 40_000;
+    for (ci, c) in circuits.iter().enumerate() {
+        let want = reference_distribution(c);
+        let plan = compile_sampling(c, PlanOptions::default()).unwrap();
+        assert!(dist_close(&want, &plan.exact_distribution()) < 1e-10);
+        let mut from_run: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
+        for _ in 0..shots {
+            let mut s = StateVectorF64::new(c.num_qubits);
+            *from_run
+                .entry(c.run(&mut s, &mut rng).unwrap())
+                .or_insert(0) += 1;
+        }
+        let mut from_plan: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
+        for r in plan.sample::<f64, _>(shots, &mut rng).unwrap() {
+            *from_plan.entry(r).or_insert(0) += 1;
+        }
+        for counts in [&from_run, &from_plan] {
+            for (k, p) in &want {
+                let f = *counts.get(k).unwrap_or(&0) as f64 / shots as f64;
+                let sigma = (p * (1.0 - p)).max(0.0).sqrt() / (shots as f64).sqrt();
+                assert!(
+                    (f - p).abs() < 6.0 * sigma + 1e-3,
+                    "circuit {ci}: {k:?} {f} vs {p}"
+                );
+            }
+            for k in counts.keys() {
+                assert!(want.contains_key(k), "circuit {ci}: impossible {k:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn non_unitary_ops_are_peephole_barriers() {
+    // X Reset X: merging the X pair across the reset would leave |0>.
+    let mut c = Circuit::new(2);
+    c.x(0).reset(0).x(0).measure(0);
+    assert_eq!(optimize(&c).circuit.num_gates(), 2);
+    // H ZFlip H is a bit flip, not a phase flip.
+    let mut c = Circuit::new(1);
+    c.h(0).z_flip(0, 0.5).h(0).measure(0);
+    assert_eq!(optimize(&c).circuit.num_gates(), 2);
+    // T, conditional H, T†: the T pair must not cancel through it.
+    let mut c = Circuit::new(2);
+    c.h(0).measure(0).h(1).t(1);
+    c.classic_controlled(Gate::H(1), 0, true);
+    c.tdg(1).measure(1);
+    let o = optimize(&c);
+    assert_eq!(o.circuit.ops.len(), c.ops.len());
+    let want = reference_distribution(&c);
+    assert!(dist_close(&want, &reference_distribution(&o.circuit)) < 1e-12);
+}
+
+#[test]
+fn classical_control_joins_components_and_light_cone() {
+    // q0 is measured; q1 is only touched by a gate conditioned on it.
+    let mut c = Circuit::new(3);
+    c.h(0).measure(0);
+    c.classic_controlled(Gate::X(1), 0, true);
+    c.measure(1);
+    c.h(2); // unmeasured, irrelevant
+    let comps = qsim_lab::compile::analysis::components(&c);
+    assert_eq!(comps, vec![vec![0, 1], vec![2]]);
+    let l = light_cone(&c, &[]);
+    assert_eq!(l.ops.len(), 4, "{l:?}");
+    let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
+    let d = plan.exact_distribution();
+    assert_eq!(d.len(), 2);
+    assert!((d[&vec![true, true]] - 0.5).abs() < 1e-12);
+    assert!((d[&vec![false, false]] - 0.5).abs() < 1e-12);
+    // restrict renumbers the classical index to the component's record.
+    let mut c = Circuit::new(2);
+    c.h(0).measure(0).h(1).measure(1);
+    c.classic_controlled(Gate::X(1), 1, true).measure(1);
+    assert_eq!(
+        qsim_lab::compile::analysis::components(&c),
+        vec![vec![0], vec![1]]
+    );
+    let r = qsim_lab::compile::analysis::restrict(&c, &[1]);
+    assert_eq!(
+        r.ops,
+        vec![
+            Op::Gate(Gate::H(0)),
+            Op::Measure(0),
+            Op::ClassicControlled {
+                gate: Gate::X(0),
+                meas_index: 0,
+                target_value: true
+            },
+            Op::Measure(0),
+        ]
+    );
+}
+
+#[test]
+fn invalid_circuits_are_rejected_like_run() {
+    let mut c = Circuit::new(2);
+    c.h(0).classic_controlled(Gate::X(1), 0, true).measure(0);
+    assert!(matches!(
+        compile_sampling(&c, PlanOptions::default()),
+        Err(SimError::ClassicalBitOutOfRange {
+            bit: 0,
+            available: 0
+        })
+    ));
+    let mut s = StateVectorF64::new(2);
+    let mut rng = StdRng::seed_from_u64(1);
+    assert!(matches!(
+        c.run(&mut s, &mut rng),
+        Err(SimError::ClassicalBitOutOfRange { .. })
+    ));
+    let mut c = Circuit::new(2);
+    c.reset(5);
+    assert!(matches!(
+        compile_sampling(&c, PlanOptions::default()),
+        Err(SimError::QubitOutOfRange { qubit: 5, .. })
+    ));
+    let mut c = Circuit::new(2);
+    c.x_flip(0, 1.5).measure(0);
+    assert!(compile_sampling(&c, PlanOptions::default()).is_err());
+}
+
+#[test]
+fn reset_makes_qubit_known_again() {
+    // After a reset the ancilla is |0> in every shot, so state propagation
+    // can drop the CNOT it controls and the plan splits into components.
+    let mut c = Circuit::new(3);
+    c.h(0).cnot(0, 1).measure(1).reset(1);
+    c.cnot(1, 2).h(2).measure(2).measure(0);
+    let (o, _) = propagate(&c, &[]);
+    assert!(!o.gates().any(|g| matches!(g, Gate::Cnot(1, 2))), "{o:?}");
+    let want = reference_distribution(&c);
+    assert!(dist_close(&want, &reference_distribution(&o)) < 1e-12);
+    let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
+    assert!(dist_close(&want, &plan.exact_distribution()) < 1e-12);
 }

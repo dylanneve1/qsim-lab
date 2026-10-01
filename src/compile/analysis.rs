@@ -1,15 +1,25 @@
 //! Structural analyses and the exact rewrites built on them.
 
-use super::{is_diagonal, is_monomial, qubits_of};
+use super::{classical_dependency, is_diagonal, is_monomial, op_qubits, qubits_of};
 use crate::circuit::{Circuit, Op};
 use crate::gate::Gate;
 
 /// Keeps only the operations in the backward light cone of the
 /// measurements and of the `outputs` qubits (whose final state the caller
-/// still needs). Every dropped gate acts only on qubits that nothing kept
-/// later touches, so tracing those qubits out shows that the joint
-/// distribution of the measurements, and the reduced state of `outputs`,
-/// are unchanged.
+/// still needs).
+///
+/// Walking backwards, an op is kept if it touches a live qubit, and then
+/// all its qubits become live. Every dropped op is a trace-preserving
+/// channel (a gate, reset, noise channel, or a classically controlled gate,
+/// which is a gate in every branch of the outcome record) on qubits that
+/// nothing kept later touches, so tracing those qubits out shows that the
+/// joint distribution of the measurement record, and the reduced state of
+/// `outputs`, are unchanged.
+///
+/// Every measurement is kept: it is part of the outcome record (and
+/// classically controlled ops address outcomes by their index). The
+/// classical dependency of a kept `ClassicControlled` op is therefore
+/// always kept, together with the light cone of the qubit it measured.
 pub fn light_cone(c: &Circuit, outputs: &[usize]) -> Circuit {
     let mut live = vec![false; c.num_qubits];
     for &q in outputs {
@@ -17,23 +27,26 @@ pub fn light_cone(c: &Circuit, outputs: &[usize]) -> Circuit {
     }
     let mut keep = vec![false; c.ops.len()];
     for (i, op) in c.ops.iter().enumerate().rev() {
-        match op {
-            Op::Measure(q) => {
-                keep[i] = true;
-                live[*q] = true;
-            }
-            Op::Gate(g) => {
-                let (qs, k) = qubits_of(g);
-                if qs[..k].iter().any(|&q| live[q]) {
-                    keep[i] = true;
-                    for &q in &qs[..k] {
-                        live[q] = true;
-                    }
-                }
+        let (qs, k) = op_qubits(op);
+        let keep_op = match op {
+            Op::Measure(_) => true,
+            Op::Gate(_)
+            | Op::Reset(_)
+            | Op::ClassicControlled { .. }
+            | Op::XFlip(..)
+            | Op::YFlip(..)
+            | Op::ZFlip(..)
+            | Op::Depolarize1q(..)
+            | Op::Depolarize2q(..) => qs[..k].iter().any(|&q| live[q]),
+        };
+        if keep_op {
+            keep[i] = true;
+            for &q in &qs[..k] {
+                live[q] = true;
             }
         }
     }
-    Circuit {
+    let out = Circuit {
         num_qubits: c.num_qubits,
         ops: c
             .ops
@@ -42,12 +55,24 @@ pub fn light_cone(c: &Circuit, outputs: &[usize]) -> Circuit {
             .filter(|(_, &k)| k)
             .map(|(op, _)| *op)
             .collect(),
-    }
+    };
+    debug_assert_eq!(
+        measurement_count(&out),
+        measurement_count(c),
+        "light cone must keep every measurement"
+    );
+    out
 }
 
-/// If every measurement is terminal (no gate touches a qubit after it is
-/// measured), returns the unitary body and the measured qubit of each
-/// outcome in program order.
+fn measurement_count(c: &Circuit) -> usize {
+    c.ops.iter().filter(|o| matches!(o, Op::Measure(_))).count()
+}
+
+/// If the circuit is unitary gates followed by terminal measurements (no
+/// gate touches a qubit after it is measured), returns the unitary body and
+/// the measured qubit of each outcome in program order. Circuits with
+/// resets, classically controlled gates or noise channels are never
+/// terminal (`None`).
 pub fn terminal_measurements(c: &Circuit) -> Option<(Circuit, Vec<usize>)> {
     let mut measured = vec![false; c.num_qubits];
     let mut body = Circuit::new(c.num_qubits);
@@ -65,6 +90,13 @@ pub fn terminal_measurements(c: &Circuit) -> Option<(Circuit, Vec<usize>)> {
                 }
                 body.gate(*g);
             }
+            Op::Reset(_)
+            | Op::ClassicControlled { .. }
+            | Op::XFlip(..)
+            | Op::YFlip(..)
+            | Op::ZFlip(..)
+            | Op::Depolarize1q(..)
+            | Op::Depolarize2q(..) => return None,
         }
     }
     Some((body, meas))
@@ -149,9 +181,14 @@ pub fn suffix_inputs(n: usize, meas: &[usize], suffix: &[Gate]) -> Vec<bool> {
     need
 }
 
-/// Connected components of the qubit-interaction graph (qubits joined by
-/// any multi-qubit gate). Every qubit appears in exactly one component;
+/// Connected components of the qubit-interaction graph: qubits are joined
+/// by any multi-qubit gate or noise channel, and a classically controlled
+/// gate joins its qubits to the qubit whose measurement it reads (a
+/// classical dependency: the components could not be sampled
+/// independently otherwise). Every qubit appears in exactly one component;
 /// components are sorted by their smallest qubit and each is ascending.
+///
+/// The circuit must pass [`validate`](super::validate).
 pub fn components(c: &Circuit) -> Vec<Vec<usize>> {
     let n = c.num_qubits;
     let mut parent: Vec<usize> = (0..n).collect();
@@ -162,13 +199,23 @@ pub fn components(c: &Circuit) -> Vec<Vec<usize>> {
         }
         x
     }
-    for g in c.gates() {
-        let (qs, k) = qubits_of(g);
+    fn union(p: &mut [usize], a: usize, b: usize) {
+        let (a, b) = (find(p, a), find(p, b));
+        if a != b {
+            p[a.max(b)] = a.min(b);
+        }
+    }
+    let mut meas_qubit = Vec::new();
+    for op in &c.ops {
+        let (qs, k) = op_qubits(op);
         for i in 1..k {
-            let (a, b) = (find(&mut parent, qs[0]), find(&mut parent, qs[i]));
-            if a != b {
-                parent[a.max(b)] = a.min(b);
-            }
+            union(&mut parent, qs[0], qs[i]);
+        }
+        if let Some(m) = classical_dependency(op) {
+            union(&mut parent, qs[0], meas_qubit[m]);
+        }
+        if let Op::Measure(q) = op {
+            meas_qubit.push(*q);
         }
     }
     let mut by_root: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -180,29 +227,49 @@ pub fn components(c: &Circuit) -> Vec<Vec<usize>> {
 }
 
 /// The ops of `c` acting on `qubits` (which must be a union of
-/// components), relabelled so `qubits[i]` becomes qubit `i`.
+/// [`components`]), relabelled so `qubits[i]` becomes qubit `i`.
+/// Classically controlled ops are renumbered to the measurement index
+/// within the restricted circuit.
 pub fn restrict(c: &Circuit, qubits: &[usize]) -> Circuit {
     let mut map = vec![usize::MAX; c.num_qubits];
     for (i, &q) in qubits.iter().enumerate() {
         map[q] = i;
     }
+    // Local index of every global measurement in the restriction.
+    let mut local_meas: Vec<Option<usize>> = Vec::new();
+    let mut n_local = 0;
     let mut out = Circuit::new(qubits.len());
     for op in &c.ops {
-        match *op {
-            Op::Measure(q) => {
-                if map[q] != usize::MAX {
-                    out.measure(map[q]);
-                }
-            }
-            Op::Gate(g) => {
-                let (qs, k) = qubits_of(&g);
-                if map[qs[0]] == usize::MAX {
-                    debug_assert!(qs[..k].iter().all(|&q| map[q] == usize::MAX));
-                    continue;
-                }
-                out.gate(relabel(&g, |q| map[q]));
+        let (qs, k) = op_qubits(op);
+        let inside = map[qs[0]] != usize::MAX;
+        debug_assert!(
+            qs[..k].iter().all(|&q| (map[q] != usize::MAX) == inside),
+            "restrict: qubits must be a union of components"
+        );
+        if let Op::Measure(_) = op {
+            local_meas.push(inside.then_some(n_local));
+            if inside {
+                n_local += 1;
             }
         }
+        if !inside {
+            continue;
+        }
+        let f = |q: usize| map[q];
+        let new = match *op {
+            Op::ClassicControlled {
+                gate,
+                meas_index,
+                target_value,
+            } => Op::ClassicControlled {
+                gate: relabel(&gate, f),
+                meas_index: local_meas[meas_index]
+                    .expect("restrict: classical dependency outside the component"),
+                target_value,
+            },
+            ref other => relabel_op(other, f),
+        };
+        out.ops.push(new);
     }
     out
 }
@@ -231,24 +298,45 @@ pub fn relabel(g: &Gate, f: impl Fn(usize) -> usize) -> Gate {
     }
 }
 
+/// The op with every qubit `q` replaced by `f(q)` (classical indices are
+/// unchanged).
+pub fn relabel_op(op: &Op, f: impl Fn(usize) -> usize) -> Op {
+    match *op {
+        Op::Gate(g) => Op::Gate(relabel(&g, f)),
+        Op::Measure(q) => Op::Measure(f(q)),
+        Op::Reset(q) => Op::Reset(f(q)),
+        Op::ClassicControlled {
+            gate,
+            meas_index,
+            target_value,
+        } => Op::ClassicControlled {
+            gate: relabel(&gate, f),
+            meas_index,
+            target_value,
+        },
+        Op::XFlip(q, p) => Op::XFlip(f(q), p),
+        Op::YFlip(q, p) => Op::YFlip(f(q), p),
+        Op::ZFlip(q, p) => Op::ZFlip(f(q), p),
+        Op::Depolarize1q(q, p) => Op::Depolarize1q(f(q), p),
+        Op::Depolarize2q(a, b, p) => Op::Depolarize2q(f(a), f(b), p),
+    }
+}
+
 /// Removes every SWAP by relabelling the wires of all later operations.
 ///
 /// Returns the new circuit and `wire_of`, where `wire_of[q]` is the wire
 /// that holds logical qubit `q` at the end. Measurements are relabelled
 /// too, so outcome records are unchanged; the final state of the original
 /// circuit on qubit `q` is the final state of the new one on `wire_of[q]`.
+/// A classically controlled SWAP is not eliminated (whether it happens
+/// depends on the shot); it is relabelled like every other op.
 pub fn eliminate_swaps(c: &Circuit) -> (Circuit, Vec<usize>) {
     let mut wire_of: Vec<usize> = (0..c.num_qubits).collect();
     let mut out = Circuit::new(c.num_qubits);
     for op in &c.ops {
-        match *op {
-            Op::Measure(q) => {
-                out.measure(wire_of[q]);
-            }
-            Op::Gate(Gate::Swap(a, b)) => wire_of.swap(a, b),
-            Op::Gate(g) => {
-                out.gate(relabel(&g, |q| wire_of[q]));
-            }
+        match op {
+            Op::Gate(Gate::Swap(a, b)) => wire_of.swap(*a, *b),
+            other => out.ops.push(relabel_op(other, |q| wire_of[q])),
         }
     }
     (out, wire_of)
@@ -260,27 +348,33 @@ pub fn eliminate_swaps(c: &Circuit) -> (Circuit, Vec<usize>) {
 /// its qubits is in the prefix. The prefix is closed under predecessors, so
 /// running it first and then the remaining ops in their original order is
 /// the same circuit (only commuting, qubit-disjoint ops change order).
+/// The prefix contains only unitary gates: measurements, resets, noise
+/// channels and classically controlled gates all go to the rest and close
+/// their qubits, so the rest keeps every measurement in its original order.
 pub fn clifford_prefix(c: &Circuit) -> (Circuit, Circuit) {
     let mut open = vec![true; c.num_qubits];
     let mut prefix = Circuit::new(c.num_qubits);
     let mut rest = Circuit::new(c.num_qubits);
     for op in &c.ops {
-        match *op {
-            Op::Measure(q) => {
+        let (qs, k) = op_qubits(op);
+        let to_prefix = match op {
+            Op::Gate(g) => g.is_clifford() && qs[..k].iter().all(|&q| open[q]),
+            Op::Measure(_)
+            | Op::Reset(_)
+            | Op::ClassicControlled { .. }
+            | Op::XFlip(..)
+            | Op::YFlip(..)
+            | Op::ZFlip(..)
+            | Op::Depolarize1q(..)
+            | Op::Depolarize2q(..) => false,
+        };
+        if to_prefix {
+            prefix.ops.push(*op);
+        } else {
+            for &q in &qs[..k] {
                 open[q] = false;
-                rest.measure(q);
             }
-            Op::Gate(g) => {
-                let (qs, k) = qubits_of(&g);
-                if g.is_clifford() && qs[..k].iter().all(|&q| open[q]) {
-                    prefix.gate(g);
-                } else {
-                    for &q in &qs[..k] {
-                        open[q] = false;
-                    }
-                    rest.gate(g);
-                }
-            }
+            rest.ops.push(*op);
         }
     }
     (prefix, rest)

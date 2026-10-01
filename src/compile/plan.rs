@@ -8,6 +8,7 @@ use super::analysis::{
 use super::peephole::optimize;
 use super::stabsv::clifford_statevector;
 use super::stateprop::propagate;
+use super::{require_unitary, validate};
 use crate::circuit::{Circuit, Op, SimError};
 use crate::gate::{is_multiple_of_half_pi, Gate};
 use crate::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
@@ -203,11 +204,9 @@ pub fn prepare_statevector<T: Real>(
 }
 
 fn apply_ops<T: Real>(s: &mut StateVector<T>, c: &Circuit) -> Result<(), SimError> {
-    for op in &c.ops {
-        match op {
-            Op::Gate(g) => s.apply_gate(g)?,
-            Op::Measure(_) => panic!("apply_ops: unitary circuit expected"),
-        }
+    require_unitary(c, "preparing a state vector of a non-unitary circuit")?;
+    for g in c.gates() {
+        s.apply_gate(g)?;
     }
     Ok(())
 }
@@ -255,7 +254,19 @@ fn front_end(
 }
 
 /// Compiles a circuit for sampling its measurement outcomes.
-pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
+///
+/// Any circuit [`Circuit::run`] accepts is supported. Unitary circuits with
+/// terminal measurements get the full treatment (classical suffix,
+/// per-component backend choice, Pauli paths). Circuits with mid-circuit
+/// measurements, resets, classically controlled gates or noise channels
+/// are split into independent components (classical control joins the
+/// reading and the measured qubits) and every component is run shot by
+/// shot with [`Circuit::run`], after the passes that are exact for them.
+///
+/// Fails with the error `Circuit::run` would report for invalid qubit or
+/// classical-bit indices.
+pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> Result<SamplingPlan, SimError> {
+    validate(c)?;
     let n = c.num_qubits;
     let mut stats = CompileStats::default();
     // Global phase and final wire positions are irrelevant for sampling:
@@ -299,13 +310,13 @@ pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
             });
         }
         fill_stats(&mut stats, &comps);
-        return SamplingPlan {
+        return Ok(SamplingPlan {
             n,
             kind: Kind::Terminal { meas, suffix },
             comps,
             opts,
             stats,
-        };
+        });
     }
     let c = if opts.light_cone {
         light_cone(&c, &[])
@@ -333,7 +344,10 @@ pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
         .into_iter()
         .map(|qs| {
             let circuit = restrict(&c, &qs);
-            let backend = if circuit.num_gates() == 0 {
+            // Idle only if nothing but measurements happen: a reset or a
+            // noise channel without any gate still needs simulating.
+            let idle = circuit.ops.iter().all(|o| matches!(o, Op::Measure(_)));
+            let backend = if idle {
                 Backend::Idle
             } else if opts.dispatch && circuit.is_clifford() {
                 Backend::Tableau
@@ -349,13 +363,13 @@ pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
         })
         .collect();
     fill_stats(&mut stats, &comps);
-    SamplingPlan {
+    Ok(SamplingPlan {
         n,
         kind: Kind::MidCircuit { src },
         comps,
         opts,
         stats,
-    }
+    })
 }
 
 fn fill_stats(stats: &mut CompileStats, comps: &[Component]) {
@@ -543,6 +557,7 @@ fn run_component_shots<T: Real, R: Rng>(
     let nq = comp.circuit.num_qubits;
     match comp.backend {
         Backend::Idle => {
+            // Only measurements of |0...0>: every outcome is 0.
             let k = comp.circuit.ops.len();
             Ok(vec![vec![false; k]; shots])
         }
@@ -572,8 +587,36 @@ fn run_component_shots<T: Real, R: Rng>(
 }
 
 /// Exact distribution of the outcome records of a circuit, by branching
-/// on every measurement of a state vector (tests and small circuits only).
+/// on every measurement, reset and noise channel of a state vector (tests
+/// and small circuits only: the number of branches is exponential).
+///
+/// Follows the semantics of [`Circuit::run`]: a reset measures and flips
+/// back to `|0>` without recording, `XFlip(q, p)` applies `X` with
+/// probability `p`, `Depolarize1q` applies each of `X, Y, Z` with
+/// probability `p/3`, `Depolarize2q` each of the 15 non-identity Pauli
+/// pairs with probability `p/15`, and a classically controlled gate is
+/// applied when the recorded outcome matches.
 pub fn exact_outcome_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
+    fn branch(
+        c: &Circuit,
+        i: usize,
+        s: &StateVector<f64>,
+        p: f64,
+        rec: &mut Vec<bool>,
+        out: &mut BTreeMap<Vec<bool>, f64>,
+        cases: &[(f64, &[Gate])],
+    ) {
+        for &(w, gates) in cases {
+            if w * p < 1e-300 || w <= 0.0 {
+                continue;
+            }
+            let mut t = s.clone();
+            for g in gates {
+                t.apply_gate(g).expect("valid");
+            }
+            go(c, i + 1, t, p * w, rec, out);
+        }
+    }
     fn go(
         c: &Circuit,
         i: usize,
@@ -584,10 +627,26 @@ pub fn exact_outcome_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
     ) {
         let mut s = s;
         let mut i = i;
+        let pauli = |k: usize, q: usize| match k {
+            1 => Some(Gate::X(q)),
+            2 => Some(Gate::Y(q)),
+            3 => Some(Gate::Z(q)),
+            _ => None,
+        };
         while i < c.ops.len() {
             match c.ops[i] {
                 Op::Gate(g) => s.apply_gate(&g).expect("valid"),
-                Op::Measure(q) => {
+                Op::ClassicControlled {
+                    gate,
+                    meas_index,
+                    target_value,
+                } => {
+                    if rec[meas_index] == target_value {
+                        s.apply_gate(&gate).expect("valid");
+                    }
+                }
+                Op::Measure(q) | Op::Reset(q) => {
+                    let record = matches!(c.ops[i], Op::Measure(_));
                     let p1 = s.prob_one(q);
                     for (outcome, po) in [(false, 1.0 - p1), (true, p1)] {
                         if po < 1e-14 {
@@ -595,10 +654,48 @@ pub fn exact_outcome_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
                         }
                         let mut t = s.clone();
                         t.collapse(q, outcome);
-                        rec.push(outcome);
+                        if record {
+                            rec.push(outcome);
+                        } else if outcome {
+                            t.apply_gate(&Gate::X(q)).expect("valid");
+                        }
                         go(c, i + 1, t, p * po, rec, out);
-                        rec.pop();
+                        if record {
+                            rec.pop();
+                        }
                     }
+                    return;
+                }
+                Op::XFlip(q, pf) | Op::YFlip(q, pf) | Op::ZFlip(q, pf) => {
+                    let e = match c.ops[i] {
+                        Op::XFlip(..) => Gate::X(q),
+                        Op::YFlip(..) => Gate::Y(q),
+                        _ => Gate::Z(q),
+                    };
+                    let pf = pf.clamp(0.0, 1.0);
+                    branch(c, i, &s, p, rec, out, &[(1.0 - pf, &[]), (pf, &[e])]);
+                    return;
+                }
+                Op::Depolarize1q(q, pd) => {
+                    let pd = pd.clamp(0.0, 1.0);
+                    let (x, y, z) = ([Gate::X(q)], [Gate::Y(q)], [Gate::Z(q)]);
+                    let cases: [(f64, &[Gate]); 4] = [
+                        (1.0 - pd, &[]),
+                        (pd / 3.0, &x),
+                        (pd / 3.0, &y),
+                        (pd / 3.0, &z),
+                    ];
+                    branch(c, i, &s, p, rec, out, &cases);
+                    return;
+                }
+                Op::Depolarize2q(a, b, pd) => {
+                    let pd = pd.clamp(0.0, 1.0);
+                    let errs: Vec<Vec<Gate>> = (1..16)
+                        .map(|k| pauli(k / 4, a).into_iter().chain(pauli(k % 4, b)).collect())
+                        .collect();
+                    let mut cases: Vec<(f64, &[Gate])> = vec![(1.0 - pd, &[])];
+                    cases.extend(errs.iter().map(|e| (pd / 15.0, &e[..])));
+                    branch(c, i, &s, p, rec, out, &cases);
                     return;
                 }
             }
@@ -629,13 +726,17 @@ pub struct UnitaryPlan {
     pub stats: CompileStats,
 }
 
-/// Compiles a measurement-free circuit for computing its state vector or
-/// individual amplitudes.
-pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> UnitaryPlan {
-    assert!(
-        c.ops.iter().all(|o| matches!(o, Op::Gate(_))),
-        "compile_unitary: circuit must not contain measurements"
-    );
+/// Compiles a unitary circuit for computing its state vector or individual
+/// amplitudes. Refuses ([`SimError::NotSupported`]) circuits with
+/// measurements, resets, classically controlled gates or noise channels,
+/// which have no single final state.
+pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> Result<UnitaryPlan, SimError> {
+    validate(c)?;
+    require_unitary(
+        c,
+        "compile_unitary needs a unitary circuit (no measurements, resets, \
+         classical control or noise); use compile_sampling",
+    )?;
     let mut stats = CompileStats::default();
     let all: Vec<usize> = (0..c.num_qubits).collect();
     let (c, global_phase, wire_of) = front_end(c, &all, &opts, &mut stats);
@@ -667,13 +768,13 @@ pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> UnitaryPlan {
         })
         .collect();
     fill_stats(&mut stats, &comps);
-    UnitaryPlan {
+    Ok(UnitaryPlan {
         n: c.num_qubits,
         global_phase,
         comps,
         use_prefix: opts.clifford_prefix,
         stats,
-    }
+    })
 }
 
 /// Component states of a [`UnitaryPlan`]; enough to evaluate any
@@ -817,11 +918,27 @@ impl<T: Real> FactoredState<T> {
 /// cone of the observable, the component factorisation (the expectation of
 /// a product over independent components is the product of expectations)
 /// and the cheaper of Pauli paths and the state vector per component.
+///
+/// Refuses ([`SimError::NotSupported`]) non-unitary circuits.
 pub fn expectation_z_product(
     c: &Circuit,
     qubits: &[usize],
     opts: PlanOptions,
 ) -> Result<f64, SimError> {
+    validate(c)?;
+    require_unitary(
+        c,
+        "expectation_z_product needs a unitary circuit (no measurements, resets, \
+         classical control or noise)",
+    )?;
+    for &q in qubits {
+        if q >= c.num_qubits {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: c.num_qubits,
+            });
+        }
+    }
     let mut stats = CompileStats::default();
     let (c, _, wire_of) = front_end(c, qubits, &opts, &mut stats);
     let qubits: Vec<usize> = qubits.iter().map(|&q| wire_of[q]).collect();

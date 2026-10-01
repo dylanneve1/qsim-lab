@@ -57,7 +57,7 @@ fn main() {
             },
         ),
     ] {
-        let p = compile_sampling(&c, o);
+        let p = compile_sampling(&c, o).unwrap();
         println!(
             "{name}: {:.4}",
             t(|| {

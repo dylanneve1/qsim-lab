@@ -306,7 +306,9 @@ pub fn clifford_statevector<T: Real>(prefix: &Circuit) -> StateVector<T> {
     for op in &prefix.ops {
         match op {
             Op::Gate(g) => s.apply(g),
-            Op::Measure(_) => panic!("clifford_statevector: prefix must be unitary"),
+            // Anything else (measurement, reset, noise, classical control)
+            // is not a unitary gate: callers pass `clifford_prefix` output.
+            other => panic!("clifford_statevector: prefix must be unitary, got {other:?}"),
         }
     }
     s.to_statevector()

@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a6f91f6f466e493776ab5244f89911462bb516bc5ea8d0931412a256b4fa995a # shrinks to c = Circuit { num_qubits: 2, ops: [Measure(0), ClassicControlled { gate: Ry(1, 0.0), meas_index: 0, target_value: false }, Measure(1)] }
+cc fc16654dbe4f99ab380212796584275574aaf1dfdb0c4a9de77f8a38a248863c # shrinks to c = Circuit { num_qubits: 2, ops: [Gate(H(0)), Measure(0), Gate(H(1)), Gate(Cz(0, 1)), Reset(0), Gate(Cz(0, 1))] }
+cc dede4e115193366a8f9ee5b209122fe2e2cfc9980e4d9d844e9ad34fa073bfe2 # shrinks to c = Circuit { num_qubits: 2, ops: [Gate(H(0)), Measure(0), Gate(H(1)), Gate(S(1)), YFlip(1, 1.0), Gate(S(1))] }
+cc 7ad85f227221bd7ae1c84667630e8b398b127114c5de3a6f50f145933b2d55e8 # shrinks to c = Circuit { num_qubits: 2, ops: [XFlip(0, 1.0), Gate(Swap(0, 1)), Measure(0)] }
