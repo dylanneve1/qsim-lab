@@ -35,12 +35,17 @@
 //!
 //! The same numbers are recorded in `research/pipeline.md`.
 
-use crate::circuit::{Circuit, SimError};
+use crate::circuit::{Circuit, Op, SimError};
 use crate::compile::plan::{
     compile_sampling, compile_unitary, expectation_z_product, AdaptiveRule, Backend, CompileStats,
     PlanOptions,
 };
+use crate::compile::repeat::exec::ExecOptions;
+use crate::compile::repeat::{DetectOptions, Program};
+use crate::compile::validate;
+use crate::gate::Gate;
 use crate::shor::Oracle;
+use crate::statevector::StateVector;
 use crate::statevector::{state_bytes, MAX_STATE_BYTES};
 use num_complex::Complex64;
 use rand::rngs::StdRng;
@@ -132,6 +137,44 @@ fn check_budget(stats: &CompileStats, budget: &Budget) -> Result<(), SimError> {
     Ok(())
 }
 
+/// Options of [`simulate_with`]. Everything defaults to off, so
+/// `SimOptions::default()` is exactly [`simulate`].
+#[derive(Clone, Debug, Default)]
+pub struct SimOptions {
+    /// Exploit repeated blocks (`compile::repeat`), or `None`.
+    pub repeat: Option<RepeatOptions>,
+}
+
+/// Options of the repeat pass (see `research/repeat.md`).
+#[derive(Clone, Debug)]
+pub struct RepeatOptions {
+    pub detect: DetectOptions,
+    pub exec: ExecOptions,
+    /// Ignore circuits where repeats let a simulator skip fewer gates.
+    pub min_saved_gates: usize,
+    /// Allow the symplectic power for Clifford blocks (not used for
+    /// amplitude requests, which need the global phase).
+    pub clifford_power: bool,
+    /// Skip deterministic steady-state rounds of Clifford circuits with
+    /// mid-circuit measurements.
+    pub steady_state: bool,
+    /// Largest register (qubits) for the dense fast paths.
+    pub dense_max_qubits: usize,
+}
+
+impl Default for RepeatOptions {
+    fn default() -> Self {
+        RepeatOptions {
+            detect: DetectOptions::default(),
+            exec: ExecOptions::default(),
+            min_saved_gates: 64,
+            clifford_power: true,
+            steady_state: true,
+            dense_max_qubits: 24,
+        }
+    }
+}
+
 /// Runs `circuit` for `request` on the cheapest exact engines.
 ///
 /// * [`Request::Samples`] accepts any circuit [`Circuit::run`] accepts
@@ -140,6 +183,204 @@ fn check_budget(stats: &CompileStats, budget: &Budget) -> Result<(), SimError> {
 /// * [`Request::Amplitudes`] and [`Request::Expectation`] need a unitary
 ///   circuit and return [`SimError::NotSupported`] otherwise.
 pub fn simulate(
+    circuit: &Circuit,
+    request: &Request,
+    budget: &Budget,
+) -> Result<Simulation, SimError> {
+    simulate_with(circuit, request, budget, &SimOptions::default())
+}
+
+/// [`simulate`] with options. With `opts.repeat` set, repeated blocks are
+/// found and simulated with the exact fast paths of `compile::repeat`;
+/// amplitudes, expectation values and outcome distributions are unchanged
+/// (amplitudes up to floating-point rounding). Circuits without a useful
+/// repeat take the ordinary path.
+pub fn simulate_with(
+    circuit: &Circuit,
+    request: &Request,
+    budget: &Budget,
+    opts: &SimOptions,
+) -> Result<Simulation, SimError> {
+    if let Some(ro) = &opts.repeat {
+        if let Some(r) = repeat_path(circuit, request, budget, ro) {
+            return r;
+        }
+    }
+    simulate_plain(circuit, request, budget)
+}
+
+fn is_terminal_unitary(c: &Circuit) -> bool {
+    let mut seen_measure = false;
+    for op in &c.ops {
+        match op {
+            Op::Gate(_) if !seen_measure => {}
+            Op::Measure(_) => seen_measure = true,
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// `None`: no useful repeat (or not applicable), use the ordinary path.
+fn repeat_path(
+    circuit: &Circuit,
+    request: &Request,
+    budget: &Budget,
+    ro: &RepeatOptions,
+) -> Option<Result<Simulation, SimError>> {
+    use crate::compile::repeat::{cliff, detect, exec, rewrite, Node};
+    validate(circuit).ok()?;
+    let prog = detect(circuit, &ro.detect);
+    let rep = prog.report();
+    if rep.saved_gates < ro.min_saved_gates {
+        return None;
+    }
+    let n = circuit.num_qubits;
+    let dense_ok = n <= ro.dense_max_qubits && state_bytes::<f64>(n) <= budget.mem_bytes;
+    // does any repeat need the dense engine (neither diagonal nor Clifford)?
+    fn needs_dense(nodes: &[Node], clifford_ok: bool) -> bool {
+        nodes.iter().any(|nd| match nd {
+            Node::Repeat { body, .. } => {
+                let mut flat = Vec::new();
+                fn gs(nodes: &[Node], out: &mut Vec<Gate>) -> bool {
+                    nodes.iter().all(|n| match n {
+                        Node::Ops(o) => o.iter().all(|op| match op {
+                            Op::Gate(g) => {
+                                out.push(*g);
+                                true
+                            }
+                            _ => false,
+                        }),
+                        Node::Repeat { body, .. } => gs(body, out),
+                        Node::Param { .. } => false,
+                    })
+                }
+                if !gs(body, &mut flat) {
+                    return true;
+                }
+                let diag = flat.iter().all(|g| {
+                    matches!(
+                        g,
+                        Gate::I(_)
+                            | Gate::Z(_)
+                            | Gate::S(_)
+                            | Gate::Sdg(_)
+                            | Gate::T(_)
+                            | Gate::Tdg(_)
+                            | Gate::Rz(..)
+                            | Gate::Phase(..)
+                            | Gate::Cz(..)
+                            | Gate::CPhase(..)
+                    )
+                });
+                !(diag || (clifford_ok && flat.iter().all(|g| g.is_clifford())))
+            }
+            Node::Param { .. } => false,
+            Node::Ops(_) => false,
+        })
+    }
+    match request {
+        Request::Samples { shots, seed } => {
+            let mut rng = StdRng::seed_from_u64(*seed);
+            if !is_terminal_unitary(circuit) {
+                // mid-circuit measurement: Clifford rounds on the tableau
+                if !(ro.steady_state && cliff::is_clifford_program(&prog)) {
+                    return None;
+                }
+                let mut out = Vec::with_capacity(*shots);
+                for _ in 0..*shots {
+                    let (bits, _) =
+                        cliff::sample_program(&prog, ro.steady_state, ro.clifford_power, &mut rng)?;
+                    out.push(bits);
+                }
+                return Some(Ok(Simulation {
+                    output: Output::Samples(out),
+                    engines: vec![(n, circuit.num_gates(), Backend::Tableau)],
+                }));
+            }
+            let measured: Vec<usize> = circuit
+                .ops
+                .iter()
+                .filter_map(|o| match o {
+                    Op::Measure(q) => Some(*q),
+                    _ => None,
+                })
+                .collect();
+            if needs_dense(&prog.nodes, ro.clifford_power) && dense_ok {
+                let gates_only = Program {
+                    num_qubits: n,
+                    nodes: strip_measures(&prog.nodes),
+                };
+                let mut run = || -> Result<Vec<Vec<bool>>, SimError> {
+                    let mut sv = StateVector::<f64>::try_new(n)?;
+                    exec::run_dense(&gates_only, &mut sv, &ro.exec)?;
+                    let idx = sv.sample(*shots, &mut rng);
+                    Ok(idx
+                        .into_iter()
+                        .map(|i| measured.iter().map(|&q| (i >> q) & 1 == 1).collect())
+                        .collect())
+                };
+                return Some(run().map(|s| Simulation {
+                    output: Output::Samples(s),
+                    engines: vec![(n, circuit.num_gates(), Backend::StateVector)],
+                }));
+            }
+            let rw = rewrite(&prog, ro.clifford_power);
+            Some(simulate_plain(&rw.circuit, request, budget))
+        }
+        Request::Amplitudes(xs) => {
+            // The global phase matters: no Clifford power.
+            if !is_unitary(circuit) || !dense_ok {
+                return None;
+            }
+            let run = || -> Result<Vec<Complex64>, SimError> {
+                let mut sv = StateVector::<f64>::try_new(n)?;
+                exec::run_dense(
+                    &Program {
+                        num_qubits: n,
+                        nodes: prog.nodes.clone(),
+                    },
+                    &mut sv,
+                    &ro.exec,
+                )?;
+                Ok(xs.iter().map(|&x| sv.amplitude(x as usize)).collect())
+            };
+            Some(run().map(|a| Simulation {
+                output: Output::Amplitudes(a),
+                engines: vec![(n, circuit.num_gates(), Backend::StateVector)],
+            }))
+        }
+        Request::Expectation(_) => {
+            if !is_unitary(circuit) {
+                return None;
+            }
+            let rw = rewrite(&prog, ro.clifford_power);
+            Some(simulate_plain(&rw.circuit, request, budget))
+        }
+    }
+}
+
+fn is_unitary(c: &Circuit) -> bool {
+    c.ops.iter().all(|o| matches!(o, Op::Gate(_)))
+}
+
+fn strip_measures(nodes: &[crate::compile::repeat::Node]) -> Vec<crate::compile::repeat::Node> {
+    use crate::compile::repeat::Node;
+    nodes
+        .iter()
+        .map(|n| match n {
+            Node::Ops(o) => Node::Ops(
+                o.iter()
+                    .filter(|op| matches!(op, Op::Gate(_)))
+                    .copied()
+                    .collect(),
+            ),
+            other => other.clone(),
+        })
+        .collect()
+}
+
+fn simulate_plain(
     circuit: &Circuit,
     request: &Request,
     budget: &Budget,

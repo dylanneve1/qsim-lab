@@ -22,6 +22,7 @@
 pub mod analysis;
 pub mod peephole;
 pub mod plan;
+pub mod repeat;
 pub mod stabsv;
 pub mod stateprop;
 
