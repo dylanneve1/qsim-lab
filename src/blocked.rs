@@ -118,6 +118,13 @@ pub fn lower_gate(g: &Gate, out: &mut Vec<KOp>) {
             })
         }
         Gate::Swap(a, b) => out.push(KOp::Swap { a, b }),
+        // Other multi-qubit gates (ISwap, ISwapdg) have no dedicated kernel:
+        // lower their exact decomposition instead.
+        ref g2 if g2.qubits().len() > 1 => {
+            for d in g2.decompose_to_clifford_rz() {
+                lower_gate(&d, out);
+            }
+        }
         ref g1 => {
             let q = g1.qubits()[0];
             if let Some((d0, d1)) = g1.diagonal_1q() {

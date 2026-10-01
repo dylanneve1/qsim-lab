@@ -289,3 +289,26 @@ fn qasm_angles_round_trip_exactly() {
     let back = Circuit::from_qasm(&c.to_qasm().unwrap()).unwrap();
     assert_eq!(back.ops, c.ops);
 }
+
+#[test]
+fn blocked_executor_handles_new_gates() {
+    use qsim_lab::blocked::BlockConfig;
+    let mut rng = StdRng::seed_from_u64(5);
+    for _ in 0..50 {
+        let n = 6;
+        let mut c = Circuit::new(n);
+        for _ in 0..60 {
+            c.ops
+                .push(qsim_lab::circuit::Op::Gate(new_gate(&mut rng, n)));
+        }
+        let want = sv_of(&c);
+        let mut got = StateVectorF64::new(n);
+        got.apply_circuit_blocked(&c, &BlockConfig::default())
+            .unwrap();
+        let o = overlap(&want, &got);
+        assert!((o - 1.0).abs() < 1e-10, "blocked overlap {o}");
+        for i in 0..(1usize << n) {
+            assert!((want.amplitude(i) - got.amplitude(i)).norm() < 1e-10);
+        }
+    }
+}
