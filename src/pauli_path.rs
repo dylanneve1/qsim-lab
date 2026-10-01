@@ -276,7 +276,7 @@ pub fn expectation(
                 check_gate(g, circuit.num_qubits)?;
                 gates.extend(g.decompose_to_clifford_rz());
             }
-            Op::Measure(_) => panic!("pauli_path::expectation: circuit must be unitary"),
+            _ => panic!("pauli_path::expectation: circuit must be unitary"),
         }
     }
     let mut o = observable.clone();

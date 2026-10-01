@@ -348,7 +348,29 @@ fn measurements_are_rejected() {
         }
     );
     assert!(auto_partition(&c, &HsfOptions::default()).is_err());
-    assert!(err.to_string().contains("measurement"));
+    assert!(err.to_string().contains("non-unitary"));
+}
+
+#[test]
+fn other_non_unitary_ops_are_rejected() {
+    let mut a = Circuit::new(3);
+    a.h(0).reset(1).cnot(0, 2);
+    let mut b = Circuit::new(3);
+    b.h(0).x_flip(1, 0.1).cnot(0, 2);
+    let mut c = Circuit::new(3);
+    c.h(0).measure(0).c_if(0, Gate::X(2));
+    for circ in [a, b, c] {
+        let err =
+            HybridSchrodingerFeynman::new(&circ, &[true, false, false], HsfOptions::default())
+                .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                SimError::MeasurementNotSupported { backend: "hsf", .. }
+            ),
+            "{err:?}"
+        );
+    }
 }
 
 #[test]

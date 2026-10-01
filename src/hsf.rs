@@ -272,7 +272,9 @@ fn for_each_wire_gate(
     for (i, op) in c.ops.iter().enumerate() {
         let g = match op {
             Op::Gate(g) => *g,
-            Op::Measure(_) => {
+            // Measurement, reset, noise channels and classically conditioned
+            // gates are not unitary; HSF sums amplitudes of a unitary circuit.
+            _ => {
                 return Err(SimError::MeasurementNotSupported {
                     backend: "hsf",
                     op_index: i,

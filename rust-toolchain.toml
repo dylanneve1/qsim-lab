@@ -1,0 +1,6 @@
+# Pin the toolchain so local clippy and CI clippy agree (CI's floating
+# `stable` picked up new lints that the dev machine's 1.93 didn't have).
+[toolchain]
+channel = "1.93.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

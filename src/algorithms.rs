@@ -22,6 +22,23 @@ pub fn ghz(n: usize) -> Circuit {
     c
 }
 
+/// A random brickwork circuit: each of the `depth` layers applies
+/// `Ry(a) Rz(b)` with random angles to every qubit, then CNOTs on
+/// neighbouring pairs `(q, q+1)` starting at `q = layer % 2`.
+pub fn random_brickwork<R: Rng + ?Sized>(n: usize, depth: usize, rng: &mut R) -> Circuit {
+    let mut c = Circuit::new(n);
+    for layer in 0..depth {
+        for q in 0..n {
+            c.ry(q, rng.random::<f64>() * PI);
+            c.rz(q, rng.random::<f64>() * PI);
+        }
+        for q in (layer % 2..n.saturating_sub(1)).step_by(2) {
+            c.cnot(q, q + 1);
+        }
+    }
+    c
+}
+
 /// Bernstein–Vazirani for an `n`-bit secret `s`, on `n + 1` qubits (the last
 /// one is the phase-kickback ancilla). Measuring qubits `0..n` yields `s`
 /// with certainty after a single oracle query.
