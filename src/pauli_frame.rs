@@ -342,7 +342,7 @@ fn compile(circuit: &Circuit, observable: &PauliSum) -> Result<Compiled, SimErro
     for op in &circuit.ops {
         let g = match op {
             Op::Gate(g) => g,
-            Op::Measure(_) => panic!("pauli_path::expectation: circuit must be unitary"),
+            _ => panic!("pauli_path::expectation: circuit must be unitary"),
         };
         check_gate(g, n)?;
         for g in g.decompose_to_clifford_rz() {

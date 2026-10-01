@@ -427,9 +427,16 @@ mod tests {
     fn clifford_circuit_stays_one_term() {
         let mut c = Circuit::new(3);
         c.h(0).cnot(0, 1).s(1).cz(1, 2).h(2);
-        let (_, st) = expectation(&c, &PauliSum::z_product(3, &[2]), 10).unwrap();
+        let obs = PauliSum::z_product(3, &[2]);
+        let (_, st) = expectation_legacy(&c, &obs, 10).unwrap();
         assert_eq!(st.peak_terms, 1);
         assert_eq!(st.non_clifford_gates, 0);
+        // The frame engine may drop the single term outright: with no
+        // rotations, any string with an X or Y has value 0.
+        let (v, st) = expectation(&c, &obs, 10).unwrap();
+        assert!(st.peak_terms <= 1);
+        assert_eq!(st.non_clifford_gates, 0);
+        assert_eq!(v, expectation_legacy(&c, &obs, 10).unwrap().0);
     }
 
     #[test]
@@ -452,7 +459,16 @@ mod tests {
         }
         let obs = PauliSum::from_str_single("XXXXXXXX");
         assert!(matches!(
-            expectation(&c, &obs, 4),
+            expectation_legacy(&c, &obs, 4),
+            Err(SimError::TooManyTerms { .. })
+        ));
+        let noprune = FrameOptions {
+            max_terms: 4,
+            prune: false,
+            ..FrameOptions::default()
+        };
+        assert!(matches!(
+            expectation_with(&c, &obs, &noprune),
             Err(SimError::TooManyTerms { .. })
         ));
     }

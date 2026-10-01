@@ -255,7 +255,6 @@ pub fn path_engine(
         } else {
             1e-14
         },
-        ..Default::default()
     };
     move |c: &Circuit, o: &PauliSum| {
         if legacy {
