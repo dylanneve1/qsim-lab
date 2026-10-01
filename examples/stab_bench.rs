@@ -252,6 +252,117 @@ fn syndrome<T: Tab>(ds: &[usize], rounds: usize) {
     }
 }
 
+/// One timed run of a workload; returns seconds and an outcome hash.
+fn ghz_once<T: Tab>(n: usize, phase: &str) -> (f64, u64) {
+    let mut rng = StdRng::seed_from_u64(2);
+    let t0 = Instant::now();
+    let mut t = T::new_tab(n);
+    t.h_(0);
+    for q in 1..n {
+        t.cnot_(q - 1, q);
+    }
+    let tp = t0.elapsed().as_secs_f64();
+    let t1 = Instant::now();
+    let bits = t.measure_all_(&mut rng);
+    let tm = t1.elapsed().as_secs_f64();
+    assert!(bits.iter().all(|&b| b == bits[0]));
+    let secs = match phase {
+        "prep" => tp,
+        "meas" => tm,
+        _ => tp + tm,
+    };
+    (secs, bits[0] as u64)
+}
+
+fn mixed_once<T: Tab>(c: &Circuit) -> (f64, u64) {
+    let t0 = Instant::now();
+    let (out, _) = run_circuit::<T>(c, 11);
+    (t0.elapsed().as_secs_f64(), hash(&out))
+}
+
+fn syndrome_once<T: Tab>(s: &Surface, rounds: usize) -> (f64, u64) {
+    let t0 = Instant::now();
+    let mut rng = StdRng::seed_from_u64(5);
+    let mut t = T::new_tab(s.n);
+    let mut out = vec![];
+    for _ in 0..rounds {
+        syndrome_round(&mut t, s, &mut rng, &mut out);
+    }
+    (t0.elapsed().as_secs_f64(), hash(&out))
+}
+
+/// Interleaved A/B: `reps` rounds of (ref, new), so both see the same load.
+/// Prints min times, ratio of mins and median of per-round ratios.
+fn ab_row(label: &str, mut a: impl FnMut() -> (f64, u64), mut b: impl FnMut() -> (f64, u64)) {
+    let (mut ta, mut tb, mut ratios) = (vec![], vec![], vec![]);
+    let (mut ha, mut hb) = (0, 0);
+    for _ in 0..reps() {
+        let (x, h1) = a();
+        let (y, h2) = b();
+        ta.push(x);
+        tb.push(y);
+        ratios.push(x / y);
+        ha = h1;
+        hb = h2;
+    }
+    ratios.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    let min = |v: &[f64]| v.iter().cloned().fold(f64::INFINITY, f64::min);
+    let (ma, mb) = (min(&ta), min(&tb));
+    println!(
+        "| {label} | {ma:.5} | {mb:.5} | {:.2} | {:.2} | {} |",
+        ma / mb,
+        ratios[ratios.len() / 2],
+        if ha == hb { "same" } else { "DIFFER" }
+    );
+}
+
+fn ab(w: &str, args: &[String]) {
+    let arg = |i: usize, d: &str| args.get(i).cloned().unwrap_or_else(|| d.to_string());
+    println!("| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |");
+    println!("|---|---|---|---|---|---|");
+    match w {
+        "ghz" | "ghzprep" | "ghzmeas" => {
+            let phase = match w {
+                "ghzprep" => "prep",
+                "ghzmeas" => "meas",
+                _ => "total",
+            };
+            for n in parse_list(&arg(3, "1000,5000,10000,20000")) {
+                ab_row(
+                    &format!("{w} n={n}"),
+                    || ghz_once::<RefTableau>(n, phase),
+                    || ghz_once::<Tableau>(n, phase),
+                );
+            }
+        }
+        "mixed" => {
+            let depth: usize = arg(4, "50").parse().unwrap();
+            let frac: f64 = arg(5, "0.05").parse().unwrap();
+            for n in parse_list(&arg(3, "100,500,1000")) {
+                let m = ((n as f64 * frac).ceil() as usize).max(1);
+                let c = mixed_circuit(n, depth, m, 7);
+                ab_row(
+                    &format!("mixed n={n} depth={depth} m/layer={m}"),
+                    || mixed_once::<RefTableau>(&c),
+                    || mixed_once::<Tableau>(&c),
+                );
+            }
+        }
+        "syndrome" => {
+            let rounds: usize = arg(4, "10").parse().unwrap();
+            for d in parse_list(&arg(3, "5,11,21")) {
+                let s = surface(d);
+                ab_row(
+                    &format!("syndrome d={d} ({} q, {rounds} rounds)", s.n),
+                    || syndrome_once::<RefTableau>(&s, rounds),
+                    || syndrome_once::<Tableau>(&s, rounds),
+                );
+            }
+        }
+        _ => panic!("unknown workload {w}"),
+    }
+}
+
 fn parse_list(s: &str) -> Vec<usize> {
     s.split(',').map(|x| x.parse().unwrap()).collect()
 }
@@ -270,6 +381,10 @@ fn main() {
         };
     }
     println!("## {w} ({imp})\n");
+    if imp == "ab" {
+        ab(w, &args);
+        return;
+    }
     match w {
         "ghz" => dispatch!(ghz(&parse_list(&arg(3, "1000,5000,10000,20000,46336")))),
         "mixed" => dispatch!(mixed(

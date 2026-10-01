@@ -195,6 +195,28 @@ impl Phase {
     }
 }
 
+/// Phase exponent (mod 4) of the product of the Pauli strings `(ax, az)`
+/// and `(bx, bz)`. Read-only, with four independent lane accumulators over
+/// `chunks_exact(4)` so the compiler can keep them in vector registers.
+#[inline]
+fn product_phase(ax: &[u64], az: &[u64], bx: &[u64], bz: &[u64]) -> u32 {
+    let mut acc = [Phase::default(); 4];
+    let chunks = ax
+        .chunks_exact(4)
+        .zip(az.chunks_exact(4))
+        .zip(bx.chunks_exact(4).zip(bz.chunks_exact(4)));
+    for ((ax, az), (bx, bz)) in chunks {
+        for l in 0..4 {
+            acc[l].mul(ax[l], az[l], bx[l], bz[l]);
+        }
+    }
+    let r = ax.len() - ax.len() % 4;
+    for k in r..ax.len() {
+        acc[0].mul(ax[k], az[k], bx[k], bz[k]);
+    }
+    acc[0].merge(acc[1]).merge(acc[2].merge(acc[3])).total()
+}
+
 /// Replaces Pauli row `h` with the product `i * h` (CHP's `rowsum(h, i)`)
 /// and returns the new sign bit of `h`. Generator-major helper.
 #[inline]
@@ -395,11 +417,10 @@ impl Tableau {
         let (xdc, xdt, zdc, zdt) = (&mut xdc[..w], &mut xdt[..w], &mut zdc[..w], &mut zdt[..w]);
         let (xsc, xst, zsc, zst) = (&mut xsc[..w], &mut xst[..w], &mut zsc[..w], &mut zst[..w]);
         let (rd, rs) = (&mut self.rd[..w], &mut self.rs[..w]);
-        let (mut px, mut pz) = (Phase::default(), Phase::default());
+        // T(X_c) T(X_t) and T(Z_c) T(Z_t), before the update
+        let ex = product_phase(zsc, zdc, zst, zdt);
+        let ez = product_phase(xsc, xdc, xst, xdt);
         for k in 0..w {
-            // T(X_c) T(X_t) and T(Z_c) T(Z_t), before the update
-            px.mul(zsc[k], zdc[k], zst[k], zdt[k]);
-            pz.mul(xsc[k], xdc[k], xst[k], xdt[k]);
             rd[k] ^= xdc[k] & zdt[k] & !(xdt[k] ^ zdc[k]);
             xdt[k] ^= xdc[k];
             zdc[k] ^= zdt[k];
@@ -408,7 +429,6 @@ impl Tableau {
             zsc[k] ^= zst[k];
         }
         // T'(X_c) = T(X_c) T(X_t), T'(Z_t) = T(Z_c) T(Z_t)
-        let (ex, ez) = (px.total(), pz.total());
         debug_assert!(ex % 2 == 0 && ez % 2 == 0);
         let st = get_bit(&self.sx, t);
         flip_bit(&mut self.sx, c, st ^ (ex == 2));
@@ -426,11 +446,10 @@ impl Tableau {
         let (xda, xdb, zda, zdb) = (&mut xda[..w], &mut xdb[..w], &mut zda[..w], &mut zdb[..w]);
         let (xsa, xsb, zsa, zsb) = (&mut xsa[..w], &mut xsb[..w], &mut zsa[..w], &mut zsb[..w]);
         let (rd, rs) = (&mut self.rd[..w], &mut self.rs[..w]);
-        let (mut pa, mut pb) = (Phase::default(), Phase::default());
+        // T(X_a) T(Z_b) and T(Z_a) T(X_b), before the update
+        let ea = product_phase(zsa, zda, xsb, xdb);
+        let eb = product_phase(xsa, xda, zsb, zdb);
         for k in 0..w {
-            // T(X_a) T(Z_b) and T(Z_a) T(X_b), before the update
-            pa.mul(zsa[k], zda[k], xsb[k], xdb[k]);
-            pb.mul(xsa[k], xda[k], zsb[k], zdb[k]);
             rd[k] ^= xda[k] & xdb[k] & (zda[k] ^ zdb[k]);
             zda[k] ^= xdb[k];
             zdb[k] ^= xda[k];
@@ -438,7 +457,6 @@ impl Tableau {
             zsa[k] ^= xsb[k];
             zsb[k] ^= xsa[k];
         }
-        let (ea, eb) = (pa.total(), pb.total());
         debug_assert!(ea % 2 == 0 && eb % 2 == 0);
         let (sza, szb) = (get_bit(&self.sz, a), get_bit(&self.sz, b));
         flip_bit(&mut self.sx, a, szb ^ (ea == 2));
