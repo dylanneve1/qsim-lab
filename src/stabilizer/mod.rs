@@ -41,6 +41,7 @@ pub mod bitmatrix;
 mod ref_bitmatrix;
 #[doc(hidden)]
 pub mod reference;
+pub mod symphase;
 
 use crate::circuit::{check_gate, SimError, Simulator};
 use crate::gate::{is_multiple_of_half_pi, Gate};

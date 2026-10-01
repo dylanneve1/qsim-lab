@@ -218,3 +218,86 @@ See SymPhase below for the many-shot sampling direction.
   value on a contended 4-vCPU box.
 * No online on/off policy for sign tracking can beat "on" for GHZ-like circuits
   (argument above).
+
+## Change 4: SymPhase-style symbolic-phase sampler (`stabilizer::symphase`)
+
+*Hypothesis* (arXiv:2311.03906; Stim's frame trick, arXiv:2103.02202 §2.3).
+With Pauli noise, a stabilizer simulation's X/Z structure is identical in
+every shot; only the signs depend on the random choices. So the outcome
+vector is affine over GF(2):
+
+```
+m = m_ref xor A v
+```
+
+The variables `v` are:
+* fault variables (X/Y/Z flips; 2 bits per 1q depolarizing error; 4 bits per
+  2q depolarizing error; measurement and reset flips), with their joint
+  distributions;
+* uniform *coins*, one per point where a qubit is in a known Z eigenstate
+  (start, after each measure, after each reset). Applying Z there with
+  probability ½ doesn't change the state, and it re-randomises what the
+  reference sample fixed arbitrarily.
+
+`A` comes from one pass of a **symbolic Pauli frame**. Per qubit, the frame's X
+and Z components are bit sets over all variables. Clifford gates XOR/permute
+them, faults and coins set bits, and a measurement row is the X bit set of the
+measured qubit. Classically controlled Pauli gates XOR the controlling row into
+the frame. Gate noise on a controlled gate is rejected, because a conditioned
+fault is not affine. Then each batch of 64 shots costs:
+* one random word per coin;
+* geometric skipping over the (fault, shot) grid, so the cost is proportional to
+  the faults that actually happen;
+* one sparse GF(2) mat-vec, `nnz(A)` word XORs.
+
+*Accuracy* (`tests/symphase.rs`). Full outcome distributions are computed
+**exactly** on both sides and compared to a relative 1e-9 (the tableau side
+sums up to ~10^5 branch probabilities, so float rounding is ~1e-12). The
+tableau side branches over every noise outcome and every random measurement
+of `run_noisy`; the sampler side enumerates every variable assignment. The
+comparison covers:
+* 300 random small circuits (1–3 qubits, up to 15 ops: H/S/S†/Phase/CNOT/CZ/SWAP,
+  measurements, resets, all flip/depolarizing channels, `c_if` Paulis), under
+  gate, measurement and reset noise models;
+* a 3-qubit parity-check circuit with 2-qubit depolarizing gate noise;
+* targeted cases: H M H M re-randomisation, reset of an entangled qubit, both
+  directions of the CZ frame rule;
+* the detector/parity compilation.
+
+On a d=3, 3-round surface code at p=0.01, the per-measurement marginals and
+round-to-round parities of 20,000 bit-packed sampler shots agree with 5,000
+`run_noisy` tableau shots within 5σ. Hand mutations (dropping the
+post-measurement coin, dropping one direction of the CZ rule, not clearing the
+frame on reset) are each caught. The first version of the random test used only
+60 cases and missed two of these mutations. Raising it to 300 cases and adding
+targeted circuits fixed that.
+
+*Numbers* (`symphase_v2.txt`, load 12.2; `SurfaceCode::build_circuit`, rounds =
+d, `NoiseModel::circuit_level(p, p)`, interleaved per repetition, min of 3).
+"tableau" is shot-by-shot `run_noisy` on the **new** (already sped-up) tableau.
+
+| d | qubits | meas | vars | nnz(A) | compile | tableau / shot | sampler / shot | speedup | detector nnz | detector sampler / shot |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 17 | 33 | 406 | 739 | <0.1 ms | 25 µs | 0.027 µs | 934x | 645 | 0.025 µs |
+| 5 | 49 | 145 | 2166 | 6331 | 0.2 ms | 97 µs | 0.154 µs | 630x | 4027 | 0.125 µs |
+| 7 | 97 | 385 | 6266 | 25103 | 0.6 ms | 342 µs | 0.495 µs | 691x | 12401 | 0.354 µs |
+| 11 | 241 | 1441 | 25422 | 156619 | 4.7 ms | 1.63 ms | 2.66 µs | 613x | 53149 | 1.41 µs |
+| 15 | 449 | 3585 | 65746 | 546391 | 23 ms | 5.67 ms | 8.17 µs | 695x | 140937 | 3.58 µs |
+| 5 (p=0.01) | | | | | 0.2 ms | 96 µs | 0.385 µs | 249x | | 0.352 µs |
+| 11 (p=0.01) | | | | | 4.7 ms | 1.65 ms | 5.22 µs | 315x | | 4.07 µs |
+
+The compile cost is paid back after a handful of shots. Sampled ones per shot
+agree between tableau and sampler (e.g. d=11: 413.6 vs 419.2 over 30 tableau
+shots). `with_parities` (detector basis: each ancilla XORed with its previous
+round) cuts `nnz` 3–4x and the per-shot time 1.1–2.3x. At p=0.01 the fault
+sampling dominates instead of the mat-vec.
+
+*Verdict:* **keep.** This is the right engine for the threshold sweeps on
+`exp/qec`: exact circuit-level sampling with no hand-written DEM. The qec agent
+had finished before this landed, so wiring it into `SurfaceCode` (and the
+decoder's detector order) is a follow-up.
+
+Possible follow-ups (not done):
+* sort/blocked `A` for cache locality in `eval`;
+* parallel batches with rayon;
+* a dense 64x64 bit-transpose to hand per-shot detector lists to the decoder.
