@@ -10,13 +10,28 @@ All numbers were measured on the development VM (4 vCPUs AMD EPYC-Rome with AVX2
 | QFT, 22 qubits | **0.022 s** | 0.77 s | 0.32 s |
 | QFT, 24 qubits | **0.096 s** | 2.24 s | 1.74 s |
 | QFT, 26 qubits | **0.42 s** | 8.4 s | 8.0 s |
-| random brickwork, 22 qubits, 1,090 gates | **0.30 s** | 0.77 s | 1.48 s |
-| random brickwork, 24 qubits, 1,190 gates | **1.28 s** | 1.80 s | 6.26 s |
+| random brickwork, 22 qubits, 1,090 gates | 0.30 s | ~~0.77 s~~ 0.173 s (clean re-run) | 1.48 s |
+| random brickwork, 24 qubits, 1,190 gates | 1.28 s | 1.80 s (contaminated; see correction) | 6.26 s |
 
-Caveats:
-- qsim and Aer times include their Python front ends and returning the state; their best Aer/qsim settings are shown (fusion on or off, fused-gate size 2–4).
-- Both are built for large servers and GPUs; this comparison is a 4-vCPU VM only.
-- The QFT advantage comes from aggregating diagonal (controlled-phase) gates into single passes. On generic dense circuits the margin over qsim is ~1.4×.
+**Correction (same day).** The qsim column above was measured while an Aer benchmark was still running on the same 4 cores, so it's contaminated. A clean re-run by the sv-monomial agent (load ~3, `research/sv-monomial.md` on branch exp/sv-monomial) has **qsim ahead on generic circuits on this x86 box**:
+- random brickwork, 22 qubits: qsim (2-qubit fusion) **0.173 s** vs qsim-lab 0.330 s, so **qsim is 1.9× faster**;
+- Aer is still 5× slower than qsim-lab.
+
+qsim's edge comes from dense 2-qubit gate fusion with AVX2 kernels, which qsim-lab doesn't have yet. That work is in progress on exp/sv-monomial. The QFT advantage (diagonal aggregation) is unaffected.
+
+**On Apple M1 Pro (8 cores, sequential runs, nothing else running)** qsim-lab is ahead of both:
+
+| circuit | qsim-lab | qsim | Aer |
+|---|---|---|---|
+| QFT-28 | **0.94 s** | 27.5 s | 15.5 s |
+| brickwork-26 | **3.14 s** | 5.17 s | 13.2 s |
+| brickwork-28 | **12.5 s** | 19.9 s | 53.2 s |
+
+qsim's SIMD kernels target x86 (SSE/AVX), so on ARM this comparison favours qsim-lab and shouldn't be generalised.
+
+Other caveats:
+- qsim and Aer times include their Python front end and returning the state.
+- Both are built for large servers and GPUs.
 
 ### Surface-code sampling: qsim-lab SymPhase detector sampler vs Stim (1.16.0), single thread
 Rotated surface-code memory, rounds = d, circuit-level noise p = 0.3%.
