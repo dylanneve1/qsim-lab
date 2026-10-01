@@ -585,6 +585,7 @@ fn main() {
                     let oracle_kind = match oracle {
                         OracleArg::Permutation => shor::Oracle::Permutation,
                         OracleArg::Beauregard => shor::Oracle::Beauregard,
+                        OracleArg::Ripple => shor::Oracle::Ripple,
                     };
                     let path = qsim_lab::pipeline::choose_shor_path(
                         n,
@@ -617,11 +618,7 @@ fn main() {
                             None => println!("no factor found"),
                         }
                     } else {
-                        let oracle = match oracle {
-                            OracleArg::Permutation => shor::Oracle::Permutation,
-                            OracleArg::Beauregard => shor::Oracle::Beauregard,
-                            OracleArg::Ripple => shor::Oracle::Ripple,
-                        };
+                        let oracle = oracle_kind;
                         let backend = match (fused, sparse, f32) {
                             (false, true, _) => shor::Backend::Sparse,
                             (false, false, true) => shor::Backend::DenseF32,
