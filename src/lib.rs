@@ -44,7 +44,7 @@ pub mod statevector;
 
 pub use circuit::{Circuit, Op, SimError, Simulator};
 pub use gate::Gate;
-pub use hsf::HybridSchrodingerFeynman;
+pub use hsf::{HsfOptions, HybridSchrodingerFeynman};
 pub use mps::Mps;
 pub use stabilizer::Tableau;
 pub use statevector::{StateVector, StateVectorF32, StateVectorF64};

@@ -22,6 +22,12 @@ pub enum SimError {
     },
     /// The Pauli-path simulator exceeded its term budget.
     TooManyTerms { terms: usize, limit: usize },
+    /// The backend computes amplitudes of a unitary circuit and cannot apply
+    /// the mid-circuit measurement at position `op_index` of `Circuit::ops`.
+    MeasurementNotSupported {
+        backend: &'static str,
+        op_index: usize,
+    },
 }
 
 impl fmt::Display for SimError {
@@ -41,6 +47,10 @@ impl fmt::Display for SimError {
             SimError::TooManyTerms { terms, limit } => {
                 write!(f, "{terms} Pauli terms exceeds the limit of {limit}")
             }
+            SimError::MeasurementNotSupported { backend, op_index } => write!(
+                f,
+                "the {backend} backend cannot simulate the measurement at op {op_index}"
+            ),
         }
     }
 }
