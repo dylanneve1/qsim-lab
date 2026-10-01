@@ -72,6 +72,27 @@ fn diag_rows(re: &mut [f32], im: &mut [f32], lr: &[f32], li: &[f32], hi: &[C]) {
     }
 }
 
+/// Small target t < 3: process aligned groups of 8 with fixed index maps.
+#[inline(never)]
+fn soa_small<const T: usize>(re: &mut [f32], im: &mut [f32], m: &[C; 4]) {
+    let s = 1 << T;
+    // lo indices within a group of 8
+    let lo: [usize; 4] = std::array::from_fn(|k| ((k >> T) << (T + 1)) | (k & (s - 1)));
+    let [m0, m1, m2, m3] = *m;
+    for (gr, gi) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
+        let xr: [f32; 4] = std::array::from_fn(|k| gr[lo[k]]);
+        let xi: [f32; 4] = std::array::from_fn(|k| gi[lo[k]]);
+        let yr: [f32; 4] = std::array::from_fn(|k| gr[lo[k] + s]);
+        let yi: [f32; 4] = std::array::from_fn(|k| gi[lo[k] + s]);
+        for k in 0..4 {
+            gr[lo[k]] = m0.re * xr[k] - m0.im * xi[k] + m1.re * yr[k] - m1.im * yi[k];
+            gi[lo[k]] = m0.re * xi[k] + m0.im * xr[k] + m1.re * yi[k] + m1.im * yr[k];
+            gr[lo[k] + s] = m2.re * xr[k] - m2.im * xi[k] + m3.re * yr[k] - m3.im * yi[k];
+            gi[lo[k] + s] = m2.re * xi[k] + m2.im * xr[k] + m3.re * yi[k] + m3.im * yr[k];
+        }
+    }
+}
+
 fn main() {
     let n = 1usize << 15;
     let reps = 400;
@@ -125,6 +146,24 @@ fn main() {
             diag_rows(black_box(&mut re), black_box(&mut im), &lr, &li, &hi);
         }
         best = best.min(t0.elapsed().as_secs_f64());
+    }
+    for t in 0..3 {
+        let mut best = f64::INFINITY;
+        for _ in 0..3 {
+            let t0 = Instant::now();
+            for _ in 0..reps {
+                match t {
+                    0 => soa_small::<0>(black_box(&mut re), black_box(&mut im), &m),
+                    1 => soa_small::<1>(black_box(&mut re), black_box(&mut im), &m),
+                    _ => soa_small::<2>(black_box(&mut re), black_box(&mut im), &m),
+                }
+            }
+            best = best.min(t0.elapsed().as_secs_f64());
+        }
+        println!(
+            "soa small t={t}: {:.3} ns/amp",
+            best * 1e9 / (reps * n) as f64
+        );
     }
     println!("diag rows: {:.3} ns/amp", best * 1e9 / (reps * n) as f64);
     black_box((&a, &re, &im));

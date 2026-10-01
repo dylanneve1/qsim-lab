@@ -767,15 +767,18 @@ fn two<T>(v: &mut [T], lo: usize, hi: usize, run: usize) -> (&mut [T], &mut [T])
     (&mut a[lo..lo + run], &mut b[..run])
 }
 
+/// Index bits below which runs are too short for slice kernels.
+const SMALL: usize = 3;
+
 /// Calls `f(i, i + s)` for every index `i < 2^l` with `(i & fixed) == cin`
 /// (`fixed` contains the target bit `s` and the control bits `cin`), for
-/// masks with bits below 3: runs are taken over the bits >= 3 so that they
-/// are at least 8 long, and the low bits are tested per element.
+/// masks with bits in `SMALL`: runs are taken over the other bits so that
+/// they are at least 4 long, and the low bits are tested per element.
 #[inline(always)]
 fn small_pairs(l: usize, fixed: usize, cin: usize, s: usize, mut f: impl FnMut(usize, usize)) {
-    let (fs, cs) = (fixed & 7, cin & 7);
-    let cbig = cin & !7;
-    for_each_run(l, fixed & !7, |base, run| {
+    let (fs, cs) = (fixed & SMALL, cin & SMALL);
+    let cbig = cin & !SMALL;
+    for_each_run(l, fixed & !SMALL, |base, run| {
         let base = base | cbig;
         for k in 0..run {
             if k & fs == cs {
@@ -819,11 +822,60 @@ fn u1_slices<T: Real>(
     }
 }
 
+/// Uncontrolled 2x2 gate on target bit `TB < 2`: the pairs lie inside
+/// aligned groups of 8, handled with fixed index maps so the four pairs of a
+/// group are computed as one short vector (about 2x faster than walking
+/// runs of length 1 or 2).
+#[inline(always)]
+fn u1_group8<T: Real, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], m: &[T; 8]) {
+    let s = 1usize << TB;
+    let lo: [usize; 4] = std::array::from_fn(|k| ((k >> TB) << (TB + 1)) | (k & (s - 1)));
+    let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
+    for (gr, gi) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
+        let xr: [T; 4] = std::array::from_fn(|k| gr[lo[k]]);
+        let xi: [T; 4] = std::array::from_fn(|k| gi[lo[k]]);
+        let yr: [T; 4] = std::array::from_fn(|k| gr[lo[k] + s]);
+        let yi: [T; 4] = std::array::from_fn(|k| gi[lo[k] + s]);
+        for k in 0..4 {
+            let (ar, ai, br, bi) = match K {
+                0 => (yr[k], yi[k], xr[k], xi[k]),
+                1 => (
+                    m0r * xr[k] + m1r * yr[k],
+                    m0r * xi[k] + m1r * yi[k],
+                    m2r * xr[k] + m3r * yr[k],
+                    m2r * xi[k] + m3r * yi[k],
+                ),
+                _ => (
+                    m0r * xr[k] - m0i * xi[k] + m1r * yr[k] - m1i * yi[k],
+                    m0r * xi[k] + m0i * xr[k] + m1r * yi[k] + m1i * yr[k],
+                    m2r * xr[k] - m2i * xi[k] + m3r * yr[k] - m3i * yi[k],
+                    m2r * xi[k] + m2i * xr[k] + m3r * yi[k] + m3i * yr[k],
+                ),
+            };
+            gr[lo[k]] = ar;
+            gi[lo[k]] = ai;
+            gr[lo[k] + s] = br;
+            gi[lo[k] + s] = bi;
+        }
+    }
+}
+
 fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKind, cin: usize) {
     let s = 1usize << t;
     let Buf { re, im } = buf;
     let fixed = cin | s;
-    if fixed & 7 != 0 {
+    if cin == 0 && t < 2 && l >= 3 {
+        match (t, kind) {
+            (0, UKind::X) => u1_group8::<T, 0, 0>(re, im, m),
+            (0, UKind::Real) => u1_group8::<T, 0, 1>(re, im, m),
+            (0, UKind::Complex) => u1_group8::<T, 0, 2>(re, im, m),
+            (_, UKind::X) => u1_group8::<T, 1, 0>(re, im, m),
+            (_, UKind::Real) => u1_group8::<T, 1, 1>(re, im, m),
+            (_, UKind::Complex) => u1_group8::<T, 1, 2>(re, im, m),
+        }
+        return;
+    }
+    if fixed & SMALL != 0 {
         let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
         match kind {
             UKind::X => small_pairs(l, fixed, cin, s, |i, j| {
@@ -866,7 +918,7 @@ fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKi
 fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
     let (sa, sb) = (1usize << a, 1usize << b);
     let Buf { re, im } = buf;
-    if (sa | sb) & 7 != 0 {
+    if (sa | sb) & SMALL != 0 {
         // pairs (i | sa, i | sb) with both bits clear in i
         small_pairs(l, sa | sb, 0, sb - sa, |i, j| {
             re.swap(i + sa, j + sa);
@@ -968,7 +1020,7 @@ fn apply_diag_group<T: Real>(
         let ri = &mut im[h << lb..(h + 1) << lb];
         if cm_lo == 0 {
             diag_kernel(rr, ri, &sc.lor, &sc.loi, hv);
-        } else if cm_lo & 7 != 0 {
+        } else if cm_lo & SMALL != 0 {
             for x in 0..rr.len() {
                 if x & cm_lo == cp_lo {
                     let fr = sc.lor[x] * hv.re - sc.loi[x] * hv.im;
@@ -1069,7 +1121,7 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
                 if base & cout == *cout {
                     apply_u1(buf, l, *t, m, *kind, *cin);
                 }
-                let k = if (cin | (1 << t)) & 7 != 0 {
+                let k = if (cin | (1 << t)) & SMALL != 0 {
                     3
                 } else {
                     *kind as usize
