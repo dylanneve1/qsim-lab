@@ -202,6 +202,7 @@ pub fn choose_shor_path(
     let semi_qubits = match oracle {
         Oracle::Permutation => m + 1,
         Oracle::Beauregard => 2 * m + 3,
+        Oracle::Ripple => 3 * m + 4,
     };
     let (mut sc, mut sp) = (semiclassical, sparse);
     if !sc && !fits(3 * m) {
