@@ -281,3 +281,124 @@ pub fn mps_random(n: usize, max_bond: usize, depths: &[usize]) {
         ]);
     }
 }
+
+use crate::zx;
+
+/// Measure ZX teleportation T-count reduction and simulation speedup.
+pub fn zx_teleport(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
+    let max_t = ts.iter().copied().max().unwrap_or(0);
+    let mut rng = StdRng::seed_from_u64(42);
+    let final_block = Circuit::random_clifford(n, depth, &mut rng);
+    let rounds: Vec<(Circuit, usize)> = (0..max_t)
+        .map(|_| (Circuit::random_clifford(n, depth, &mut rng), rng.random_range(0..n)))
+        .collect();
+    let build = |t: usize| {
+        let mut c = Circuit::new(n);
+        for (block, q) in rounds[..t].iter() {
+            c.append(block);
+            c.t(*q);
+        }
+        c.append(&final_block);
+        c
+    };
+
+    println!("ZX Teleportation benchmark: {n} qubits, random Clifford depth {depth} + T blocks");
+    header(&["Original T", "ZX T", "Fusions", "Orig time (s)", "ZX time (s)", "Speedup"]);
+    
+    for &t in ts {
+        let c = build(t);
+        let obs = PauliSum::z_product(n, &[0]);
+        
+        let zx_res = zx::simplify(&c);
+        let opt_c = zx_res.circuit;
+        
+        let t0 = Instant::now();
+        let orig_run = pauli_path::expectation(&c, &obs, max_terms).map(|(_, st)| st.peak_terms);
+        let orig_time = secs(t0);
+        
+        let t1 = Instant::now();
+        let opt_run = pauli_path::expectation(&opt_c, &obs, max_terms).map(|(_, st)| st.peak_terms);
+        let opt_time = secs(t1);
+
+        let orig_time_str = if orig_run.is_ok() { format!("{:.4}", orig_time) } else { "aborted".to_string() };
+        let opt_time_str = if opt_run.is_ok() { format!("{:.4}", opt_time) } else { "aborted".to_string() };
+        let speedup = if orig_run.is_ok() && opt_run.is_ok() && opt_time > 0.0 {
+            format!("{:.2}x", orig_time / opt_time)
+        } else {
+            "-".to_string()
+        };
+
+        row(&[
+            c.t_count().to_string(),
+            opt_c.t_count().to_string(),
+            zx_res.stats.phase_fusions.to_string(),
+            orig_time_str,
+            opt_time_str,
+            speedup,
+        ]);
+    }
+}
+
+/// Measure ZX teleportation T-count reduction on Toffoli-heavy circuits.
+pub fn zx_toffoli(n: usize, toffolis: &[usize], max_terms: usize) {
+    let max_toffoli = toffolis.iter().copied().max().unwrap_or(0);
+    let mut rng = StdRng::seed_from_u64(42);
+    let rounds: Vec<(usize, usize, usize)> = (0..max_toffoli)
+        .map(|_| {
+            let mut q = [0; 3];
+            for i in 0..3 {
+                loop {
+                    let cand = rng.random_range(0..n);
+                    if !q[..i].contains(&cand) {
+                        q[i] = cand;
+                        break;
+                    }
+                }
+            }
+            (q[0], q[1], q[2])
+        })
+        .collect();
+    let build = |t: usize| {
+        let mut c = Circuit::new(n);
+        for &(a, b, c_q) in rounds[..t].iter() {
+            c.ccx(a, b, c_q);
+        }
+        c
+    };
+
+    println!("ZX Teleportation benchmark: {n} qubits, random CCX blocks (1 CCX = 7 T gates)");
+    header(&["Original T", "ZX T", "Fusions", "Orig time (s)", "ZX time (s)", "Speedup"]);
+    
+    for &t in toffolis {
+        let c = build(t);
+        let obs = PauliSum::z_product(n, &[0]);
+        
+        let zx_res = zx::simplify(&c);
+        let opt_c = zx_res.circuit;
+        
+        let t0 = Instant::now();
+        let orig_run = pauli_path::expectation(&c, &obs, max_terms).map(|(_, st)| st.peak_terms);
+        let orig_time = secs(t0);
+        
+        let t1 = Instant::now();
+        let opt_run = pauli_path::expectation(&opt_c, &obs, max_terms).map(|(_, st)| st.peak_terms);
+        let opt_time = secs(t1);
+
+        let orig_time_str = if orig_run.is_ok() { format!("{:.4}", orig_time) } else { "aborted".to_string() };
+        let opt_time_str = if opt_run.is_ok() { format!("{:.4}", opt_time) } else { "aborted".to_string() };
+        let speedup = if orig_run.is_ok() && opt_run.is_ok() && opt_time > 0.0 {
+            format!("{:.2}x", orig_time / opt_time)
+        } else {
+            "-".to_string()
+        };
+
+        row(&[
+            c.t_count().to_string(),
+            opt_c.t_count().to_string(),
+            zx_res.stats.phase_fusions.to_string(),
+            orig_time_str,
+            opt_time_str,
+            speedup,
+        ]);
+    }
+}

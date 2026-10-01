@@ -40,9 +40,11 @@ pub mod mps;
 pub mod pauli_path;
 pub mod stabilizer;
 pub mod statevector;
+pub mod zx;
 
 pub use circuit::{Circuit, Op, SimError, Simulator};
 pub use gate::Gate;
 pub use mps::Mps;
 pub use stabilizer::Tableau;
 pub use statevector::{StateVector, StateVectorF32, StateVectorF64};
+pub use zx::{simplify as zx_simplify, ZxResult, ZxSimplify, ZxStats};

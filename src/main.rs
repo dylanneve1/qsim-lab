@@ -50,6 +50,26 @@ enum Cmd {
 
 #[derive(Subcommand)]
 enum BenchCmd {
+    /// ZX phase teleportation pre-pass benchmark.
+    Zx {
+        #[arg(long, default_value_t = 50)]
+        n: usize,
+        #[arg(long, default_value_t = 100)]
+        depth: usize,
+        #[arg(long, value_delimiter = ',', default_value = "5,10,15,20,30,40")]
+        t: Vec<usize>,
+        #[arg(long, default_value_t = 1_000_000)]
+        max_terms: usize,
+    },
+    /// ZX Toffoli-heavy benchmark.
+    ZxToffoli {
+        #[arg(long, default_value_t = 20)]
+        n: usize,
+        #[arg(long, value_delimiter = ',', default_value = "5,10,15")]
+        toffolis: Vec<usize>,
+        #[arg(long, default_value_t = 1_000_000)]
+        max_terms: usize,
+    },
     /// GHZ on the state vector, f32 and f64.
     Sv {
         #[arg(long, default_value_t = 16)]
@@ -136,6 +156,12 @@ fn main() {
     let cli = Cli::parse();
     match cli.cmd {
         Cmd::Bench { which } => match which {
+            BenchCmd::Zx { n, depth, t, max_terms } => {
+                bench::zx_teleport(n, depth, &t, max_terms);
+            }
+            BenchCmd::ZxToffoli { n, toffolis, max_terms } => {
+                bench::zx_toffoli(n, &toffolis, max_terms);
+            }
             BenchCmd::Sv { min, max } => {
                 println!("## GHZ, state vector, single precision\n");
                 bench::sv_ghz::<f32>(&(min..=max.min(26)).collect::<Vec<_>>(), "f32");
