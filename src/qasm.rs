@@ -319,6 +319,19 @@ fn parse_param_list(s: &str) -> Result<Vec<f64>, String> {
     split_top_level(s).into_iter().map(parse_param).collect()
 }
 
+/// `(qubits, parameters)` for every gate name the parser understands.
+fn gate_arity(name: &str) -> Option<(usize, usize)> {
+    Some(match name {
+        "id" | "h" | "x" | "y" | "z" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" => (1, 0),
+        "rx" | "ry" | "rz" | "u1" | "p" | "phase" => (1, 1),
+        "u3" | "u" => (1, 3),
+        "cx" | "cnot" | "cz" | "swap" | "iswap" => (2, 0),
+        "cp" | "cu1" | "cphase" => (2, 1),
+        "ccx" => (3, 0),
+        _ => return None,
+    })
+}
+
 /// Parses an OpenQASM 2.0 program string into a [`Circuit`].
 pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
     // 1. Strip comments
@@ -333,7 +346,8 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
     let full_code = clean_lines.join(" ");
 
     // 2. Split statements by semicolon
-    let mut qreg_offsets: HashMap<String, usize> = HashMap::new();
+    // register name -> (offset, size)
+    let mut qreg_offsets: HashMap<String, (usize, usize)> = HashMap::new();
     let mut total_qubits = 0usize;
 
     // First pass: find all qregs and their offsets
@@ -351,7 +365,7 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
                     let size: usize = size_str.trim().parse().map_err(|e| {
                         SimError::QasmError(format!("invalid qreg size '{size_str}': {e}"))
                     })?;
-                    qreg_offsets.insert(name.trim().to_string(), total_qubits);
+                    qreg_offsets.insert(name.trim().to_string(), (total_qubits, size));
                     total_qubits += size;
                 }
             }
@@ -370,7 +384,7 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
         }
         if found {
             total_qubits = max_q;
-            qreg_offsets.insert("q".to_string(), 0);
+            qreg_offsets.insert("q".to_string(), (0, total_qubits));
         }
     }
 
@@ -383,7 +397,15 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
                 let idx: usize = idx_str.trim().parse().map_err(|e| {
                     SimError::QasmError(format!("bad qubit index '{idx_str}': {e}"))
                 })?;
-                let offset = qreg_offsets.get(reg.trim()).copied().unwrap_or(0);
+                let (offset, size) = qreg_offsets.get(reg.trim()).copied().ok_or_else(|| {
+                    SimError::QasmError(format!("unknown register '{}'", reg.trim()))
+                })?;
+                if idx >= size {
+                    return Err(SimError::QasmError(format!(
+                        "index {idx} out of range for register '{}' of size {size}",
+                        reg.trim()
+                    )));
+                }
                 let q = offset + idx;
                 if q >= total_qubits {
                     return Err(SimError::QubitOutOfRange {
@@ -475,7 +497,17 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
             .map(&resolve_qubit)
             .collect::<Result<Vec<_>, _>>()?;
 
-        match gate_name.to_lowercase().as_str() {
+        let lname = gate_name.to_lowercase();
+        if let Some((nq, np)) = gate_arity(&lname) {
+            if args.len() != nq || params.len() != np {
+                return Err(SimError::QasmError(format!(
+                    "'{gate_name}' takes {nq} qubit(s) and {np} parameter(s), got {} and {}",
+                    args.len(),
+                    params.len()
+                )));
+            }
+        }
+        match lname.as_str() {
             "id" => {
                 if args.len() == 1 {
                     circuit.i(args[0]);

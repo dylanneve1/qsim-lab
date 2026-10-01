@@ -312,3 +312,31 @@ fn blocked_executor_handles_new_gates() {
         }
     }
 }
+
+#[test]
+fn qasm_rejects_wrong_arity_and_bad_registers() {
+    let header = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\nqreg r[1];\n";
+    for bad in [
+        "rz() q[0];",
+        "cx q[0];",
+        "u3(1) q[0];",
+        "h q[0],q[1];",
+        "rx(0.1,0.2) q[0];",
+        "h q[2];",
+        "h r[1];",
+        "h s[0];",
+    ] {
+        let src = format!("{header}{bad}\n");
+        assert!(Circuit::from_qasm(&src).is_err(), "accepted '{bad}'");
+    }
+    // Registers are laid out in declaration order: r[0] is qubit 2.
+    let c = Circuit::from_qasm(&format!("{header}x r[0];\ncx q[1],r[0];\n")).unwrap();
+    assert_eq!(c.num_qubits, 3);
+    assert_eq!(
+        c.ops,
+        vec![
+            qsim_lab::circuit::Op::Gate(Gate::X(2)),
+            qsim_lab::circuit::Op::Gate(Gate::Cnot(1, 2)),
+        ]
+    );
+}
