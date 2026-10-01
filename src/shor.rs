@@ -22,7 +22,10 @@
 //! register `x` is qubits `1..=n`; the gate-level oracle adds `n + 1` qubits
 //! for the Fourier-space accumulator `b` and one ancilla.
 
+pub mod fused;
+
 use crate::algorithms::{gcd, pow_mod, shor_postprocess};
+use crate::blocked::BlockConfig;
 use crate::circuit::Circuit;
 use crate::gate::Gate;
 use crate::shor_arith::{self, BeauregardLayout};
@@ -46,6 +49,14 @@ pub enum Oracle {
 /// A simulator state that can run semiclassical order finding.
 pub trait OrderFindingState: Clone {
     fn gate(&mut self, g: &Gate);
+    /// Applies a gate sequence; `blocked` lets a dense state use the
+    /// cache-blocked fused executor ([`crate::blocked`]).
+    fn gates(&mut self, gs: &[Gate], blocked: bool) {
+        let _ = blocked;
+        for g in gs {
+            self.gate(g);
+        }
+    }
     /// `|c=1>|y> -> |c=1>|mult * y mod N>` for `y < N` (control = qubit 0,
     /// work register = qubits `1..=m`); identity elsewhere. `inv` is
     /// `mult^-1 mod N`.
@@ -56,11 +67,35 @@ pub trait OrderFindingState: Clone {
     fn bytes(&self) -> usize;
     /// Stored amplitudes (dense: `2^n`).
     fn stored(&self) -> usize;
+    /// One round before the measurement of bit `i` (see
+    /// [`Instance::round`]); fused states override it.
+    fn round(&mut self, inst: &Instance, i: usize, y_low: u64)
+    where
+        Self: Sized,
+    {
+        inst.round(self, i, y_low);
+    }
+    /// Recycles the control after it was measured as `bit`.
+    fn reset_control(&mut self, bit: bool) {
+        if bit {
+            self.gate(&Gate::X(0));
+        }
+    }
 }
 
 impl<T: Real> OrderFindingState for StateVector<T> {
     fn gate(&mut self, g: &Gate) {
         self.apply_gate(g).expect("valid gate");
+    }
+    fn gates(&mut self, gs: &[Gate], blocked: bool) {
+        if blocked {
+            self.apply_gates_blocked(gs, &BlockConfig::default())
+                .expect("valid gates");
+        } else {
+            for g in gs {
+                self.gate(g);
+            }
+        }
     }
     fn ctrl_mul(&mut self, m: usize, _mult: u64, inv: u64, n_mod: u64) {
         assert!(n_mod < 1 << 32);
@@ -119,7 +154,7 @@ impl OrderFindingState for SparseState {
         SparseState::bytes(self)
     }
     fn stored(&self) -> usize {
-        self.nnz()
+        self.peak_nnz()
     }
 }
 
@@ -151,8 +186,11 @@ pub struct Instance {
     /// Number of measured bits `t = 2n`.
     pub t: usize,
     pub oracle: Oracle,
+    /// Dense states run gate-level rounds with the cache-blocked executor
+    /// (default `true`; `false` = one `apply_gate` pass per gate).
+    pub blocked: bool,
     /// `a^(2^k) mod N` for `k = 0..t`.
-    mults: Vec<u64>,
+    pub mults: Vec<u64>,
 }
 
 impl Instance {
@@ -168,6 +206,7 @@ impl Instance {
             m,
             t,
             oracle,
+            blocked: true,
             mults,
         }
     }
@@ -200,23 +239,27 @@ impl Instance {
     /// `U^(2^(t-1-i))`, phase correction, `H` on the control qubit.
     pub fn round<S: OrderFindingState>(&self, s: &mut S, i: usize, y_low: u64) {
         let k = self.t - 1 - i;
-        s.gate(&Gate::H(0));
         let mult = self.mults[k];
+        let corr = (y_low != 0).then(|| Gate::Phase(0, Self::correction(i, y_low)));
         match self.oracle {
             Oracle::Permutation => {
-                s.ctrl_mul(self.m, mult, mod_inverse(mult, self.n_mod), self.n_mod)
+                s.gate(&Gate::H(0));
+                s.ctrl_mul(self.m, mult, mod_inverse(mult, self.n_mod), self.n_mod);
+                if let Some(g) = corr {
+                    s.gate(&g);
+                }
+                s.gate(&Gate::H(0));
             }
             Oracle::Beauregard => {
                 let c = shor_arith::controlled_ua(&self.layout(), 0, mult, self.n_mod);
-                for g in c.gates() {
-                    s.gate(g);
-                }
+                let mut gs = Vec::with_capacity(c.ops.len() + 3);
+                gs.push(Gate::H(0));
+                gs.extend(c.gates().copied());
+                gs.extend(corr);
+                gs.push(Gate::H(0));
+                s.gates(&gs, self.blocked);
             }
         }
-        if y_low != 0 {
-            s.gate(&Gate::Phase(0, Self::correction(i, y_low)));
-        }
-        s.gate(&Gate::H(0));
     }
 }
 
@@ -244,16 +287,16 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
     let mut y = 0u64;
     let (mut peak_stored, mut peak_bytes) = (s.stored(), s.bytes());
     for i in 0..inst.t {
-        inst.round(&mut s, i, y);
+        s.round(inst, i, y);
         peak_stored = peak_stored.max(s.stored());
         peak_bytes = peak_bytes.max(s.bytes());
         // same random draw as StateVector::measure_qubit
         let p1 = s.prob_one(0);
         let bit = rng.random::<f64>() < p1;
         s.collapse(0, bit);
+        s.reset_control(bit); // recycle the control qubit
         if bit {
             y |= 1 << i;
-            s.gate(&Gate::X(0)); // recycle: reset the control to |0>
         }
     }
     let (order, factor) = shor_postprocess(inst.n_mod, inst.a, y, inst.t as u32);
@@ -301,7 +344,7 @@ pub fn semiclassical_distribution<S: OrderFindingState>(
             out[y as usize] = p;
             return;
         }
-        inst.round(&mut s, i, y);
+        s.round(inst, i, y);
         let p1 = s.prob_one(0);
         for bit in [false, true] {
             let pb = if bit { p1 } else { 1.0 - p1 };
@@ -310,9 +353,7 @@ pub fn semiclassical_distribution<S: OrderFindingState>(
             }
             let mut c = s.clone();
             c.collapse(0, bit);
-            if bit {
-                c.gate(&Gate::X(0));
-            }
+            c.reset_control(bit);
             walk(
                 inst,
                 c,
@@ -378,6 +419,11 @@ pub enum Backend {
     DenseF64,
     DenseF32,
     Sparse,
+    /// [`fused::FusedDense`] (permutation oracle only).
+    FusedF64,
+    FusedF32,
+    /// [`fused::FusedSparse`] (permutation oracle only).
+    FusedSparse,
 }
 
 /// Runs one semiclassical order finding with the given backend.
@@ -386,6 +432,9 @@ pub fn order_finding<R: Rng + ?Sized>(inst: &Instance, backend: Backend, rng: &m
         Backend::DenseF64 => run_semiclassical(inst, dense_initial::<f64>(inst), rng),
         Backend::DenseF32 => run_semiclassical(inst, dense_initial::<f32>(inst), rng),
         Backend::Sparse => run_semiclassical(inst, sparse_initial(inst), rng),
+        Backend::FusedF64 => run_semiclassical(inst, fused::FusedDense::<f64>::new(inst), rng),
+        Backend::FusedF32 => run_semiclassical(inst, fused::FusedDense::<f32>::new(inst), rng),
+        Backend::FusedSparse => run_semiclassical(inst, fused::FusedSparse::new(inst), rng),
     }
 }
 

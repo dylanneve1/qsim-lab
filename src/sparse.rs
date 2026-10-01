@@ -49,6 +49,8 @@ const ZERO: Complex64 = Complex64::new(0.0, 0.0);
 pub struct SparseState {
     n: usize,
     amps: AmpMap,
+    /// Largest number of stored amplitudes seen so far.
+    peak: usize,
 }
 
 fn map_with_capacity(c: usize) -> AmpMap {
@@ -67,7 +69,7 @@ impl SparseState {
         assert!(n == 64 || index >> n == 0, "basis index out of range");
         let mut amps = map_with_capacity(1);
         amps.insert(index, Complex64::new(1.0, 0.0));
-        Self { n, amps }
+        Self { n, amps, peak: 1 }
     }
 
     pub fn num_qubits(&self) -> usize {
@@ -77,6 +79,15 @@ impl SparseState {
     /// Number of stored (non-zero) amplitudes.
     pub fn nnz(&self) -> usize {
         self.amps.len()
+    }
+
+    /// Largest [`SparseState::nnz`] seen since construction.
+    pub fn peak_nnz(&self) -> usize {
+        self.peak.max(self.amps.len())
+    }
+
+    fn note_peak(&mut self) {
+        self.peak = self.peak.max(self.amps.len());
     }
 
     /// Rough heap footprint: `capacity * (key + value + 1 control byte)`.
@@ -153,6 +164,7 @@ impl SparseState {
             }
         }
         self.amps = out;
+        self.note_peak();
     }
 
     /// Applies a general two-qubit matrix to `(a, b)` (`a` is the more
@@ -186,6 +198,7 @@ impl SparseState {
             }
         }
         self.amps = out;
+        self.note_peak();
     }
 
     /// Applies a classical reversible map on basis indices. `f` must be a

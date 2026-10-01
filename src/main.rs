@@ -53,6 +53,10 @@ enum Cmd {
         /// shor (semiclassical): exact sparse state instead of dense.
         #[arg(long)]
         sparse: bool,
+        /// shor (semiclassical, permutation oracle): fused rounds that keep
+        /// only the work register (control qubit handled analytically).
+        #[arg(long)]
+        fused: bool,
         /// shor (semiclassical, dense): f32 amplitudes.
         #[arg(long)]
         f32: bool,
@@ -62,6 +66,10 @@ enum Cmd {
         /// shor: base `a` (default: random bases until a factor is found).
         #[arg(long)]
         base: Option<u64>,
+        /// shor (gate-level oracle, dense): one apply_gate pass per gate
+        /// instead of the cache-blocked executor.
+        #[arg(long)]
+        no_blocked: bool,
         /// shor: maximum number of order-finding runs.
         #[arg(long, default_value_t = 20)]
         tries: usize,
@@ -369,9 +377,11 @@ fn main() {
             semiclassical,
             sparse,
             f32,
+            fused,
             oracle,
             base,
             tries,
+            no_blocked,
         } => {
             let mut rng = StdRng::seed_from_u64(seed);
             match example {
@@ -439,14 +449,18 @@ fn main() {
                             OracleArg::Permutation => shor::Oracle::Permutation,
                             OracleArg::Beauregard => shor::Oracle::Beauregard,
                         };
-                        let backend = match (sparse, f32) {
-                            (true, _) => shor::Backend::Sparse,
-                            (false, true) => shor::Backend::DenseF32,
-                            (false, false) => shor::Backend::DenseF64,
+                        let backend = match (fused, sparse, f32) {
+                            (false, true, _) => shor::Backend::Sparse,
+                            (false, false, true) => shor::Backend::DenseF32,
+                            (false, false, false) => shor::Backend::DenseF64,
+                            (true, true, _) => shor::Backend::FusedSparse,
+                            (true, false, true) => shor::Backend::FusedF32,
+                            (true, false, false) => shor::Backend::FusedF64,
                         };
                         let (f, runs) = match base {
                             Some(a) => {
-                                let inst = shor::Instance::new(n, a, oracle);
+                                let mut inst = shor::Instance::new(n, a, oracle);
+                                inst.blocked = !no_blocked;
                                 let r = shor::order_finding(&inst, backend, &mut rng);
                                 let f = r.factor.map(|f| (f.min(n / f), f.max(n / f)));
                                 (f, vec![r])

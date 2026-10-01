@@ -231,3 +231,55 @@ fn semiclassical_factors_small_numbers() {
         }
     }
 }
+
+/// The cache-blocked executor and the per-gate path give the same
+/// gate-level distribution.
+#[test]
+fn beauregard_blocked_matches_unblocked() {
+    for (n, a) in [(15u64, 7u64), (21, 5)] {
+        let blocked = Instance::new(n, a, Oracle::Beauregard);
+        let mut plain = blocked.clone();
+        plain.blocked = false;
+        let p = shor::semiclassical_distribution(&plain, shor::dense_initial::<f64>(&plain), 1e-15);
+        let b =
+            shor::semiclassical_distribution(&blocked, shor::dense_initial::<f64>(&blocked), 1e-15);
+        let d = max_diff(&p, &b);
+        assert!(d < 1e-12, "N={n} a={a}: {d:e}");
+    }
+}
+
+/// The fused rounds (control qubit handled analytically) give the same
+/// distribution as the gate-by-gate n+1-qubit simulation, dense and sparse.
+#[test]
+fn fused_rounds_match_gate_path() {
+    use qsim_lab::shor::fused::{FusedDense, FusedSparse};
+    for (n, count) in [(15u64, 7), (21, 4), (35, 2), (39, 2)] {
+        for a in bases(n, count) {
+            let inst = Instance::new(n, a, Oracle::Permutation);
+            let gate =
+                shor::semiclassical_distribution(&inst, shor::dense_initial::<f64>(&inst), 0.0);
+            let fd = shor::semiclassical_distribution(&inst, FusedDense::<f64>::new(&inst), 0.0);
+            let fs = shor::semiclassical_distribution(&inst, FusedSparse::new(&inst), 0.0);
+            assert!(max_diff(&gate, &fd) < 1e-12, "dense N={n} a={a}");
+            assert!(max_diff(&gate, &fs) < 1e-12, "sparse N={n} a={a}");
+            let f32d = shor::semiclassical_distribution(&inst, FusedDense::<f32>::new(&inst), 0.0);
+            assert!(max_diff(&gate, &f32d) < 1e-5, "f32 N={n} a={a}");
+        }
+    }
+}
+
+#[test]
+fn fused_runs_measure_the_same_bits() {
+    for n in [15u64, 21, 55, 77, 91, 143, 1022117] {
+        for a in bases(n, 3) {
+            let inst = Instance::new(n, a, Oracle::Permutation);
+            for seed in 0..2 {
+                let r =
+                    |b| shor::order_finding(&inst, b, &mut StdRng::seed_from_u64(seed)).measured;
+                let base = r(Backend::DenseF64);
+                assert_eq!(base, r(Backend::FusedF64), "N={n} a={a}");
+                assert_eq!(base, r(Backend::FusedSparse), "N={n} a={a}");
+            }
+        }
+    }
+}
