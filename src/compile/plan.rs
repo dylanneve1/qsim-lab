@@ -1,0 +1,834 @@
+//! Compiled execution plans: optimise once, then run every independent
+//! piece of the circuit on the cheapest exact backend.
+
+use super::analysis::{
+    apply_classical, clifford_prefix, components, light_cone, restrict, split_monomial_suffix,
+    suffix_inputs, terminal_measurements,
+};
+use super::peephole::optimize;
+use super::stabsv::clifford_statevector;
+use crate::circuit::{Circuit, Op, SimError};
+use crate::gate::{is_multiple_of_half_pi, Gate};
+use crate::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use crate::stabilizer::Tableau;
+use crate::statevector::{state_bytes, Real, StateVector, MAX_STATE_BYTES};
+use num_complex::{Complex, Complex64};
+use rand::Rng;
+use rayon::prelude::*;
+use std::collections::BTreeMap;
+
+/// Which passes to run (all on by default; switch off for ablations).
+#[derive(Clone, Copy, Debug)]
+pub struct PlanOptions {
+    pub peephole: bool,
+    pub light_cone: bool,
+    pub suffix: bool,
+    pub split: bool,
+    pub clifford_prefix: bool,
+    /// Pick tableau / Pauli paths where they are cheaper; otherwise every
+    /// component runs on the state vector.
+    pub dispatch: bool,
+}
+
+impl Default for PlanOptions {
+    fn default() -> Self {
+        PlanOptions {
+            peephole: true,
+            light_cone: true,
+            suffix: true,
+            split: true,
+            clifford_prefix: true,
+            dispatch: true,
+        }
+    }
+}
+
+impl PlanOptions {
+    /// Every pass off: the plan is the original circuit on one state vector.
+    pub fn none() -> Self {
+        PlanOptions {
+            peephole: false,
+            light_cone: false,
+            suffix: false,
+            split: false,
+            clifford_prefix: false,
+            dispatch: false,
+        }
+    }
+}
+
+/// The backend chosen for one component.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Backend {
+    /// No gates: the component stays in `|0...0>`.
+    Idle,
+    Tableau,
+    StateVector,
+    /// Exact marginal over the needed qubits from Pauli-path expectation
+    /// values (terminal measurements only).
+    PauliPath,
+}
+
+/// One independent part of the circuit.
+#[derive(Clone, Debug)]
+pub struct Component {
+    /// Global qubit of each local qubit.
+    pub qubits: Vec<usize>,
+    /// The ops on these qubits, relabelled to `0..qubits.len()`.
+    pub circuit: Circuit,
+    pub backend: Backend,
+    /// Local qubits whose final bit is needed (terminal plans).
+    pub needed: Vec<usize>,
+}
+
+/// What the compiler did, for reporting.
+#[derive(Clone, Debug, Default)]
+pub struct CompileStats {
+    pub gates_in: usize,
+    pub gates_after_peephole: usize,
+    pub gates_after_light_cone: usize,
+    /// Permutation gates moved into classical post-processing.
+    pub suffix_gates: usize,
+    /// Gates simulated in total (over all components).
+    pub gates_simulated: usize,
+    /// `(qubits, gates, backend)` per component with gates.
+    pub components: Vec<(usize, usize, Backend)>,
+}
+
+impl CompileStats {
+    /// Largest number of qubits any one state-vector component needs.
+    pub fn max_sv_qubits(&self) -> usize {
+        self.components
+            .iter()
+            .filter(|c| c.2 == Backend::StateVector)
+            .map(|c| c.0)
+            .max()
+            .unwrap_or(0)
+    }
+}
+
+#[derive(Clone, Debug)]
+enum Kind {
+    /// All measurements at the end: sample final bit strings.
+    Terminal { meas: Vec<usize>, suffix: Vec<Gate> },
+    /// Mid-circuit measurements: run shot by shot; `src[i] = (component,
+    /// index of the measurement within that component)` for outcome `i`.
+    MidCircuit { src: Vec<(usize, usize)> },
+}
+
+/// A circuit compiled for drawing measurement samples.
+#[derive(Clone, Debug)]
+pub struct SamplingPlan {
+    n: usize,
+    kind: Kind,
+    comps: Vec<Component>,
+    opts: PlanOptions,
+    pub stats: CompileStats,
+}
+
+/// Cost model used by the dispatcher (rough operation counts).
+fn non_clifford_count(c: &Circuit) -> usize {
+    c.gates()
+        .flat_map(|g| g.decompose_to_clifford_rz())
+        .filter(|g| match *g {
+            Gate::T(_) | Gate::Tdg(_) => true,
+            Gate::Phase(_, t) | Gate::Rz(_, t) => !is_multiple_of_half_pi(t),
+            _ => false,
+        })
+        .count()
+}
+
+fn choose_backend(c: &Circuit, needed: usize, terminal: bool, opts: &PlanOptions) -> Backend {
+    let n = c.num_qubits;
+    if c.num_gates() == 0 {
+        return Backend::Idle;
+    }
+    if !opts.dispatch {
+        return Backend::StateVector;
+    }
+    if c.is_clifford() {
+        return Backend::Tableau;
+    }
+    if terminal && needed <= 12 {
+        // Pauli paths: 2^needed observables, each up to 2^t terms, each term
+        // costing ~n/64 words per gate. State vector: 2^n per gate.
+        let t = non_clifford_count(c).min(60) as u32;
+        let words = n.div_ceil(64).max(1) as f64;
+        let pauli = (needed as f64).exp2() * (t as f64).exp2() * words;
+        let sv = (n.min(60) as f64).exp2();
+        if pauli < sv / 4.0 && t <= 22 {
+            return Backend::PauliPath;
+        }
+    }
+    Backend::StateVector
+}
+
+/// Prepares the final state of a unitary component on the state vector,
+/// absorbing its causal Clifford prefix with one stabilizer-to-vector pass.
+pub fn prepare_statevector<T: Real>(
+    c: &Circuit,
+    use_prefix: bool,
+) -> Result<StateVector<T>, SimError> {
+    let n = c.num_qubits;
+    let bytes = state_bytes::<T>(n);
+    if n >= 63 || bytes > MAX_STATE_BYTES {
+        return Err(SimError::TooLarge {
+            what: "state vector",
+            bytes,
+            limit: MAX_STATE_BYTES,
+        });
+    }
+    if use_prefix && n <= 64 {
+        let (prefix, rest) = clifford_prefix(c);
+        if prefix.num_gates() > 0 {
+            let mut s = clifford_statevector::<T>(&prefix);
+            apply_ops(&mut s, &rest)?;
+            return Ok(s);
+        }
+    }
+    let mut s = StateVector::<T>::try_new(n)?;
+    apply_ops(&mut s, c)?;
+    Ok(s)
+}
+
+fn apply_ops<T: Real>(s: &mut StateVector<T>, c: &Circuit) -> Result<(), SimError> {
+    for op in &c.ops {
+        match op {
+            Op::Gate(g) => s.apply_gate(g)?,
+            Op::Measure(_) => panic!("apply_ops: unitary circuit expected"),
+        }
+    }
+    Ok(())
+}
+
+/// Compiles a circuit for sampling its measurement outcomes.
+pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
+    let n = c.num_qubits;
+    let mut stats = CompileStats {
+        gates_in: c.num_gates(),
+        ..Default::default()
+    };
+    let c = if opts.peephole {
+        optimize(c).circuit // global phase is irrelevant for sampling
+    } else {
+        c.clone()
+    };
+    stats.gates_after_peephole = c.num_gates();
+    let group = |body: &Circuit| -> Vec<Vec<usize>> {
+        if opts.split {
+            components(body)
+        } else {
+            vec![(0..n).collect()]
+        }
+    };
+    if let Some((body, meas)) = terminal_measurements(&c) {
+        let (body, suffix) = if opts.suffix {
+            split_monomial_suffix(&body)
+        } else {
+            (body, Vec::new())
+        };
+        stats.suffix_gates = suffix.len();
+        let need = suffix_inputs(n, &meas, &suffix);
+        let body = if opts.light_cone {
+            let outs: Vec<usize> = (0..n).filter(|&q| need[q]).collect();
+            light_cone(&body, &outs)
+        } else {
+            body
+        };
+        stats.gates_after_light_cone = body.num_gates();
+        let mut comps = Vec::new();
+        for qs in group(&body) {
+            let needed: Vec<usize> = (0..qs.len()).filter(|&i| need[qs[i]]).collect();
+            if needed.is_empty() && opts.light_cone {
+                continue;
+            }
+            let circuit = restrict(&body, &qs);
+            let backend = choose_backend(&circuit, needed.len(), true, &opts);
+            comps.push(Component {
+                qubits: qs,
+                circuit,
+                backend,
+                needed,
+            });
+        }
+        fill_stats(&mut stats, &comps);
+        return SamplingPlan {
+            n,
+            kind: Kind::Terminal { meas, suffix },
+            comps,
+            opts,
+            stats,
+        };
+    }
+    let c = if opts.light_cone {
+        light_cone(&c, &[])
+    } else {
+        c
+    };
+    stats.gates_after_light_cone = c.num_gates();
+    let groups = group(&c);
+    let mut comp_of = vec![0; n];
+    for (i, qs) in groups.iter().enumerate() {
+        for &q in qs {
+            comp_of[q] = i;
+        }
+    }
+    let mut count = vec![0; groups.len()];
+    let mut src = Vec::new();
+    for op in &c.ops {
+        if let Op::Measure(q) = op {
+            let ci = comp_of[*q];
+            src.push((ci, count[ci]));
+            count[ci] += 1;
+        }
+    }
+    let comps: Vec<Component> = groups
+        .into_iter()
+        .map(|qs| {
+            let circuit = restrict(&c, &qs);
+            let backend = if circuit.num_gates() == 0 {
+                Backend::Idle
+            } else if opts.dispatch && circuit.is_clifford() {
+                Backend::Tableau
+            } else {
+                Backend::StateVector
+            };
+            Component {
+                qubits: qs,
+                circuit,
+                backend,
+                needed: Vec::new(),
+            }
+        })
+        .collect();
+    fill_stats(&mut stats, &comps);
+    SamplingPlan {
+        n,
+        kind: Kind::MidCircuit { src },
+        comps,
+        opts,
+        stats,
+    }
+}
+
+fn fill_stats(stats: &mut CompileStats, comps: &[Component]) {
+    stats.gates_simulated = comps.iter().map(|c| c.circuit.num_gates()).sum();
+    stats.components = comps
+        .iter()
+        .filter(|c| c.circuit.num_gates() > 0)
+        .map(|c| (c.qubits.len(), c.circuit.num_gates(), c.backend))
+        .collect();
+}
+
+/// Draws `shots` samples of a component's needed final bits (terminal
+/// plans); each sample lists the bits in `comp.needed` order.
+fn sample_component<T: Real, R: Rng>(
+    comp: &Component,
+    shots: usize,
+    use_prefix: bool,
+    rng: &mut R,
+) -> Result<Vec<Vec<bool>>, SimError> {
+    let k = comp.needed.len();
+    Ok(match comp.backend {
+        Backend::Idle => vec![vec![false; k]; shots],
+        Backend::Tableau => {
+            let mut t = Tableau::try_new(comp.qubits.len())?;
+            for g in comp.circuit.gates() {
+                t.apply_gate(g)?;
+            }
+            t.sample(shots, rng)
+                .into_iter()
+                .map(|b| comp.needed.iter().map(|&q| b[q]).collect())
+                .collect()
+        }
+        Backend::StateVector => {
+            let s = prepare_statevector::<T>(&comp.circuit, use_prefix)?;
+            s.sample(shots, rng)
+                .into_iter()
+                .map(|x| comp.needed.iter().map(|&q| (x >> q) & 1 == 1).collect())
+                .collect()
+        }
+        Backend::PauliPath => {
+            let p = pauli_path::marginal_distribution(&comp.circuit, &comp.needed)?;
+            let cdf: Vec<f64> = p
+                .iter()
+                .scan(0.0, |acc, &x| {
+                    *acc += x.max(0.0);
+                    Some(*acc)
+                })
+                .collect();
+            let total = *cdf.last().expect("nonempty");
+            (0..shots)
+                .map(|_| {
+                    let r = rng.random::<f64>() * total;
+                    let b = cdf.partition_point(|&c| c <= r).min(cdf.len() - 1);
+                    (0..k).map(|i| (b >> i) & 1 == 1).collect()
+                })
+                .collect()
+        }
+    })
+}
+
+impl SamplingPlan {
+    pub fn components(&self) -> &[Component] {
+        &self.comps
+    }
+
+    /// Draws `shots` outcome records (one bool per measurement, in program
+    /// order), with the same distribution as running the original circuit.
+    pub fn sample<T: Real, R: Rng>(
+        &self,
+        shots: usize,
+        rng: &mut R,
+    ) -> Result<Vec<Vec<bool>>, SimError> {
+        match &self.kind {
+            Kind::Terminal { meas, suffix } => {
+                let mut bits = vec![vec![false; self.n]; shots];
+                for comp in &self.comps {
+                    let s = sample_component::<T, R>(comp, shots, self.opts.clifford_prefix, rng)?;
+                    for (row, sb) in bits.iter_mut().zip(s) {
+                        for (&lq, b) in comp.needed.iter().zip(sb) {
+                            row[comp.qubits[lq]] = b;
+                        }
+                    }
+                }
+                Ok(bits
+                    .into_iter()
+                    .map(|mut row| {
+                        apply_classical(&mut row, suffix);
+                        meas.iter().map(|&q| row[q]).collect()
+                    })
+                    .collect())
+            }
+            Kind::MidCircuit { src } => {
+                // Prepare each component's measurement-free Clifford prefix
+                // once; every shot starts from a copy.
+                let mut per_comp: Vec<Vec<Vec<bool>>> = Vec::new();
+                for comp in &self.comps {
+                    per_comp.push(run_component_shots::<T, R>(
+                        comp,
+                        shots,
+                        self.opts.clifford_prefix,
+                        rng,
+                    )?);
+                }
+                Ok((0..shots)
+                    .map(|s| src.iter().map(|&(c, i)| per_comp[c][s][i]).collect())
+                    .collect())
+            }
+        }
+    }
+
+    /// The exact distribution of outcome records (for testing; exponential
+    /// in the component sizes, and every component is simulated on a
+    /// state vector here).
+    pub fn exact_distribution(&self) -> BTreeMap<Vec<bool>, f64> {
+        match &self.kind {
+            Kind::Terminal { meas, suffix } => {
+                let mut dist: BTreeMap<Vec<bool>, f64> = BTreeMap::new();
+                dist.insert(vec![false; self.n], 1.0);
+                for comp in &self.comps {
+                    let s = prepare_statevector::<f64>(&comp.circuit, self.opts.clifford_prefix)
+                        .expect("small");
+                    let p = s.probabilities();
+                    let mut next = BTreeMap::new();
+                    for (bits, w) in &dist {
+                        for (x, &px) in p.iter().enumerate() {
+                            if px < 1e-15 {
+                                continue;
+                            }
+                            let mut b = bits.clone();
+                            for &lq in &comp.needed {
+                                b[comp.qubits[lq]] = (x >> lq) & 1 == 1;
+                            }
+                            *next.entry(b).or_insert(0.0) += w * px;
+                        }
+                    }
+                    dist = next;
+                }
+                let mut out = BTreeMap::new();
+                for (mut b, w) in dist {
+                    apply_classical(&mut b, suffix);
+                    let key: Vec<bool> = meas.iter().map(|&q| b[q]).collect();
+                    *out.entry(key).or_insert(0.0) += w;
+                }
+                out
+            }
+            Kind::MidCircuit { src } => {
+                let per: Vec<BTreeMap<Vec<bool>, f64>> = self
+                    .comps
+                    .iter()
+                    .map(|c| exact_outcome_distribution(&c.circuit))
+                    .collect();
+                let mut joint: Vec<(Vec<Vec<bool>>, f64)> = vec![(Vec::new(), 1.0)];
+                for d in &per {
+                    let mut next = Vec::new();
+                    for (rec, w) in &joint {
+                        for (o, p) in d {
+                            let mut r = rec.clone();
+                            r.push(o.clone());
+                            next.push((r, w * p));
+                        }
+                    }
+                    joint = next;
+                }
+                let mut out = BTreeMap::new();
+                for (rec, w) in joint {
+                    let key: Vec<bool> = src.iter().map(|&(c, i)| rec[c][i]).collect();
+                    *out.entry(key).or_insert(0.0) += w;
+                }
+                out
+            }
+        }
+    }
+}
+
+fn run_component_shots<T: Real, R: Rng>(
+    comp: &Component,
+    shots: usize,
+    use_prefix: bool,
+    rng: &mut R,
+) -> Result<Vec<Vec<bool>>, SimError> {
+    let has_meas = comp.circuit.ops.iter().any(|o| matches!(o, Op::Measure(_)));
+    if !has_meas {
+        return Ok(vec![Vec::new(); shots]);
+    }
+    let nq = comp.circuit.num_qubits;
+    match comp.backend {
+        Backend::Idle => {
+            let k = comp.circuit.ops.len();
+            Ok(vec![vec![false; k]; shots])
+        }
+        Backend::Tableau => {
+            let mut out = Vec::with_capacity(shots);
+            for _ in 0..shots {
+                let mut t = Tableau::try_new(nq)?;
+                out.push(comp.circuit.run(&mut t, rng)?);
+            }
+            Ok(out)
+        }
+        _ => {
+            let (prefix, rest) = if use_prefix {
+                clifford_prefix(&comp.circuit)
+            } else {
+                (Circuit::new(nq), comp.circuit.clone())
+            };
+            let start = prepare_statevector::<T>(&prefix, true)?;
+            let mut out = Vec::with_capacity(shots);
+            for _ in 0..shots {
+                let mut s = start.clone();
+                out.push(rest.run(&mut s, rng)?);
+            }
+            Ok(out)
+        }
+    }
+}
+
+/// Exact distribution of the outcome records of a circuit, by branching
+/// on every measurement of a state vector (tests and small circuits only).
+pub fn exact_outcome_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
+    fn go(
+        c: &Circuit,
+        i: usize,
+        s: StateVector<f64>,
+        p: f64,
+        rec: &mut Vec<bool>,
+        out: &mut BTreeMap<Vec<bool>, f64>,
+    ) {
+        let mut s = s;
+        let mut i = i;
+        while i < c.ops.len() {
+            match c.ops[i] {
+                Op::Gate(g) => s.apply_gate(&g).expect("valid"),
+                Op::Measure(q) => {
+                    let p1 = s.prob_one(q);
+                    for (outcome, po) in [(false, 1.0 - p1), (true, p1)] {
+                        if po < 1e-14 {
+                            continue;
+                        }
+                        let mut t = s.clone();
+                        t.collapse(q, outcome);
+                        rec.push(outcome);
+                        go(c, i + 1, t, p * po, rec, out);
+                        rec.pop();
+                    }
+                    return;
+                }
+            }
+            i += 1;
+        }
+        *out.entry(rec.clone()).or_insert(0.0) += p;
+    }
+    let mut out = BTreeMap::new();
+    go(
+        c,
+        0,
+        StateVector::new(c.num_qubits),
+        1.0,
+        &mut Vec::new(),
+        &mut out,
+    );
+    out
+}
+
+/// A unitary circuit compiled for producing its final state.
+#[derive(Clone, Debug)]
+pub struct UnitaryPlan {
+    n: usize,
+    /// `U = e^{i global_phase} (U_1 ⊗ U_2 ⊗ ...)`.
+    pub global_phase: f64,
+    comps: Vec<Component>,
+    use_prefix: bool,
+    pub stats: CompileStats,
+}
+
+/// Compiles a measurement-free circuit for computing its state vector or
+/// individual amplitudes.
+pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> UnitaryPlan {
+    assert!(
+        c.ops.iter().all(|o| matches!(o, Op::Gate(_))),
+        "compile_unitary: circuit must not contain measurements"
+    );
+    let mut stats = CompileStats {
+        gates_in: c.num_gates(),
+        ..Default::default()
+    };
+    let (c, global_phase) = if opts.peephole {
+        let o = optimize(c);
+        (o.circuit, o.global_phase)
+    } else {
+        (c.clone(), 0.0)
+    };
+    stats.gates_after_peephole = c.num_gates();
+    stats.gates_after_light_cone = c.num_gates();
+    let groups = if opts.split {
+        components(&c)
+    } else {
+        vec![(0..c.num_qubits).collect()]
+    };
+    let comps: Vec<Component> = groups
+        .into_iter()
+        .map(|qs| {
+            let circuit = restrict(&c, &qs);
+            let backend = if circuit.num_gates() == 0 {
+                Backend::Idle
+            } else {
+                Backend::StateVector
+            };
+            Component {
+                needed: (0..qs.len()).collect(),
+                qubits: qs,
+                circuit,
+                backend,
+            }
+        })
+        .collect();
+    fill_stats(&mut stats, &comps);
+    UnitaryPlan {
+        n: c.num_qubits,
+        global_phase,
+        comps,
+        use_prefix: opts.clifford_prefix,
+        stats,
+    }
+}
+
+/// Component states of a [`UnitaryPlan`]; enough to evaluate any
+/// amplitude without ever building the full vector.
+pub struct FactoredState<T: Real> {
+    n: usize,
+    phase: Complex64,
+    parts: Vec<(Vec<usize>, Option<StateVector<T>>)>,
+}
+
+impl UnitaryPlan {
+    pub fn components(&self) -> &[Component] {
+        &self.comps
+    }
+
+    /// Simulates every component (idle ones cost nothing).
+    pub fn factored<T: Real>(&self) -> Result<FactoredState<T>, SimError> {
+        let parts = self
+            .comps
+            .iter()
+            .map(|c| {
+                Ok((
+                    c.qubits.clone(),
+                    match c.backend {
+                        Backend::Idle => None,
+                        _ => Some(prepare_statevector::<T>(&c.circuit, self.use_prefix)?),
+                    },
+                ))
+            })
+            .collect::<Result<_, SimError>>()?;
+        Ok(FactoredState {
+            n: self.n,
+            phase: Complex64::from_polar(1.0, self.global_phase),
+            parts,
+        })
+    }
+
+    /// The full state vector.
+    pub fn statevector<T: Real>(&self) -> Result<StateVector<T>, SimError> {
+        self.factored::<T>()?.to_statevector()
+    }
+}
+
+impl<T: Real> FactoredState<T> {
+    /// `<x|ψ>` for a basis state `x` (bit `q` = qubit `q`).
+    pub fn amplitude(&self, x: u128) -> Complex64 {
+        let mut a = self.phase;
+        for (qs, s) in &self.parts {
+            let local = qs.iter().enumerate().fold(0usize, |acc, (i, &q)| {
+                acc | ((((x >> q) & 1) as usize) << i)
+            });
+            match s {
+                None => {
+                    if local != 0 {
+                        return Complex64::new(0.0, 0.0);
+                    }
+                }
+                Some(s) => a *= s.amplitude(local),
+            }
+        }
+        a
+    }
+
+    /// Expands the tensor product into one vector.
+    pub fn to_statevector(&self) -> Result<StateVector<T>, SimError> {
+        let n = self.n;
+        let bytes = state_bytes::<T>(n);
+        if n >= 63 || bytes > MAX_STATE_BYTES {
+            return Err(SimError::TooLarge {
+                what: "state vector",
+                bytes,
+                limit: MAX_STATE_BYTES,
+            });
+        }
+        // Idle qubits must be 0: mask of those, then for the rest gather
+        // local indices with a low/high split of the global index.
+        let mut idle_mask = 0usize;
+        let mut live: Vec<(&[usize], &StateVector<T>)> = Vec::new();
+        for (qs, s) in &self.parts {
+            match s {
+                None => idle_mask |= qs.iter().fold(0, |m, &q| m | (1 << q)),
+                Some(s) => live.push((qs, s)),
+            }
+        }
+        let low = n.min(12);
+        let len = 1usize << n;
+        let chunk = 1usize << low;
+        // Per component: local index contributed by the low bits.
+        let low_tab: Vec<Vec<usize>> = live
+            .iter()
+            .map(|(qs, _)| {
+                (0..chunk)
+                    .map(|v| {
+                        qs.iter().enumerate().fold(0, |acc, (i, &q)| {
+                            if q < low {
+                                acc | (((v >> q) & 1) << i)
+                            } else {
+                                acc
+                            }
+                        })
+                    })
+                    .collect()
+            })
+            .collect();
+        let ph = Complex::new(T::from_f64(self.phase.re), T::from_f64(self.phase.im));
+        let zero = Complex::new(T::zero(), T::zero());
+        let mut amps: Vec<Complex<T>> = (0..len).into_par_iter().map(|_| zero).collect();
+        amps.par_chunks_mut(chunk).enumerate().for_each(|(h, out)| {
+            let base = h << low;
+            if base & idle_mask & !(chunk - 1) != 0 {
+                return;
+            }
+            let hi: Vec<usize> = live
+                .iter()
+                .map(|(qs, _)| {
+                    qs.iter().enumerate().fold(0, |acc, (i, &q)| {
+                        if q >= low {
+                            acc | (((base >> q) & 1) << i)
+                        } else {
+                            acc
+                        }
+                    })
+                })
+                .collect();
+            for (v, o) in out.iter_mut().enumerate() {
+                if v & idle_mask != 0 {
+                    continue;
+                }
+                let mut a = ph;
+                for (ci, (_, s)) in live.iter().enumerate() {
+                    a = a * s.amplitudes()[hi[ci] | low_tab[ci][v]];
+                }
+                *o = a;
+            }
+        });
+        Ok(StateVector::from_amplitudes(amps))
+    }
+}
+
+/// Exact `<Z_{q1} Z_{q2} ...>` after a unitary circuit, using the light
+/// cone of the observable, the component factorisation (the expectation of
+/// a product over independent components is the product of expectations)
+/// and the cheaper of Pauli paths and the state vector per component.
+pub fn expectation_z_product(
+    c: &Circuit,
+    qubits: &[usize],
+    opts: PlanOptions,
+) -> Result<f64, SimError> {
+    let c = if opts.peephole {
+        optimize(c).circuit
+    } else {
+        c.clone()
+    };
+    let c = if opts.light_cone {
+        light_cone(&c, qubits)
+    } else {
+        c
+    };
+    let groups = if opts.split {
+        components(&c)
+    } else {
+        vec![(0..c.num_qubits).collect()]
+    };
+    let mut value = 1.0;
+    for qs in groups {
+        let local: Vec<usize> = (0..qs.len()).filter(|&i| qubits.contains(&qs[i])).collect();
+        if local.is_empty() {
+            continue;
+        }
+        let sub = restrict(&c, &qs);
+        if sub.num_gates() == 0 {
+            continue; // <0|Z..Z|0> = 1
+        }
+        let n = sub.num_qubits;
+        let t = non_clifford_count(&sub) as u32;
+        let use_pauli = opts.dispatch
+            && t <= 24
+            && (t as f64).exp2() * (n.div_ceil(64) as f64) < (n.min(60) as f64).exp2() / 4.0;
+        let v = if use_pauli || (opts.dispatch && sub.is_clifford()) {
+            let obs = PauliSum::z_product(n, &local);
+            pauli_path::expectation(&sub, &obs, DEFAULT_MAX_TERMS)?.0
+        } else {
+            let s = prepare_statevector::<f64>(&sub, opts.clifford_prefix)?;
+            let mask = local.iter().fold(0usize, |m, &q| m | (1 << q));
+            s.amplitudes()
+                .par_iter()
+                .enumerate()
+                .map(|(i, a)| {
+                    let p = a.norm_sqr();
+                    if (i & mask).count_ones() % 2 == 1 {
+                        -p
+                    } else {
+                        p
+                    }
+                })
+                .sum()
+        };
+        value *= v;
+    }
+    Ok(value)
+}
