@@ -1,0 +1,8 @@
+[bench.sh] load at start: 12.92
+## ghzseq (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| ghzseq n=1000 | 0.03487 | 0.00003 | 1054.42 | 1044.98 | same |
+| ghzseq n=2000 | 0.18347 | 0.00018 | 1019.21 | 1096.27 | same |
+| ghzseq n=5000 | 2.44015 | 0.00051 | 4763.33 | 4011.89 | same |

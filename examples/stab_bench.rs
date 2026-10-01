@@ -37,6 +37,7 @@ trait Tab: Simulator {
     fn h_(&mut self, q: usize);
     fn cnot_(&mut self, a: usize, b: usize);
     fn measure_all_(&mut self, rng: &mut StdRng) -> Vec<bool>;
+    fn measure_seq_(&mut self, rng: &mut StdRng) -> Vec<bool>;
     fn reset_(&mut self, q: usize, rng: &mut StdRng) -> bool {
         let m = self.measure(q, rng).unwrap();
         if m {
@@ -64,6 +65,9 @@ impl Tab for RefTableau {
     fn measure_all_(&mut self, rng: &mut StdRng) -> Vec<bool> {
         self.measure_all(rng)
     }
+    fn measure_seq_(&mut self, rng: &mut StdRng) -> Vec<bool> {
+        self.measure_all_sequential(rng)
+    }
 }
 
 impl Tab for Tableau {
@@ -78,6 +82,9 @@ impl Tab for Tableau {
     }
     fn measure_all_(&mut self, rng: &mut StdRng) -> Vec<bool> {
         self.measure_all(rng)
+    }
+    fn measure_seq_(&mut self, rng: &mut StdRng) -> Vec<bool> {
+        self.measure_all_sequential(rng)
     }
     fn reset_(&mut self, q: usize, rng: &mut StdRng) -> bool {
         self.reset_qubit(q, rng)
@@ -271,12 +278,16 @@ fn ghz_once<T: Tab>(n: usize, phase: &str) -> (f64, u64) {
     }
     let tp = t0.elapsed().as_secs_f64();
     let t1 = Instant::now();
-    let bits = t.measure_all_(&mut rng);
+    let bits = if phase == "seq" {
+        t.measure_seq_(&mut rng)
+    } else {
+        t.measure_all_(&mut rng)
+    };
     let tm = t1.elapsed().as_secs_f64();
     assert!(bits.iter().all(|&b| b == bits[0]));
     let secs = match phase {
         "prep" => tp,
-        "meas" => tm,
+        "meas" | "seq" => tm,
         _ => tp + tm,
     };
     (secs, bits[0] as u64)
@@ -329,10 +340,11 @@ fn ab(w: &str, args: &[String]) {
     println!("| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |");
     println!("|---|---|---|---|---|---|");
     match w {
-        "ghz" | "ghzprep" | "ghzmeas" => {
+        "ghz" | "ghzprep" | "ghzmeas" | "ghzseq" => {
             let phase = match w {
                 "ghzprep" => "prep",
                 "ghzmeas" => "meas",
+                "ghzseq" => "seq",
                 _ => "total",
             };
             for n in parse_list(&arg(3, "1000,5000,10000,20000")) {
