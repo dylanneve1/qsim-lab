@@ -53,3 +53,51 @@ test allocated 512 MiB registers on a shared box. Its ideas (n=1, extreme
 angles, (0,n−1) pairs, repeated measurement, stabilizer sign check, memory
 caps) are all subsumed by the new harness; the files were dropped.
 
+## 2. QEC on main (86e5d67) — surface-code fast detector sampler
+
+`tests/qec_dem_audit.rs` (`#[ignore]`d because it fails on main; run with
+`cargo test --release --test qec_dem_audit -- --ignored --nocapture`)
+samples the d=3, rounds=3 memory experiment both ways — full noisy tableau
+(`build_circuit` + `run_noisy`) and the `error_mechanisms` list that
+`run_experiment_fast` samples — at `NoiseModel::circuit_level(0.005, 0.005)`,
+20 000 shots each, and compares per-detector firing rates and logical rates
+with two-proportion z-tests (Bonferroni, |z| > 4.9 ⇒ disagree).
+
+Result (raw output `research/data/audit/qec_dem_main_86e5d67.txt`):
+
+| quantity | tableau (circuit) | fast sampler | z |
+|---|---|---|---|
+| bulk detector firing rate (dets 5,6,9,10,13,14) | 0.058–0.061 | 0.023–0.032 | +14 … +17.7 |
+| boundary detector rate (dets 4,7,8,11,12,15) | 0.030–0.038 | 0.015–0.020 | +8.5 … +11.6 |
+| round-0 detectors (0–3) | 0.011–0.020 | 0.014–0.025 | −0.8 … −4.2 |
+| raw logical flip | 0.0767 | 0.0573 | +7.8 |
+| **decoded logical error rate** | **0.0250** | **0.0043** | **+17.3** |
+
+**Verdict: BUG.** The fast sampler under-reports the decoded logical error
+rate by **~5.9×** at p = 0.5% (12/16 detectors disagree beyond 4.9σ). Causes,
+from reading `src/qec/surface.rs`:
+
+1. `build_error_mechanisms` is a hand-written phenomenological model (one
+   X flip per data qubit per round at rate `p_1q`, one measurement flip per
+   check at rate `p_1q`). It ignores `p_2q` (the dominant source: 4 CNOTs per
+   check, each depolarising), CNOT propagation of ancilla errors to data
+   (hook errors → weight-2 data errors / diagonal edges), Y errors, reset
+   errors and `p_meas`; every mechanism uses `p_1q` regardless of type.
+2. `run_experiment` silently switches from tableau to the fast sampler when
+   `shots > 300` or `d > 5`, so the *same* experiment returns a ~6× lower
+   logical error rate just by asking for more shots. Any threshold plot made
+   with `run_experiment` mixes the two models.
+3. `tests/surface.rs::fast_sampling_matches_tableau_sampling` only asserts
+   both rates are < 0.15, so it cannot detect either problem (0.0043 and
+   0.025 both pass).
+4. The decoding graph has the same phenomenological structure (no diagonal
+   hook edges, uniform weights), so even the tableau path decodes with a
+   mismatched model; this inflates tableau logical error rates but is not a
+   correctness bug of the simulator.
+
+What a fix must pass: the same test with mechanisms *derived from the
+circuit* (propagate every single fault of `run_noisy`'s noise channels
+through the Clifford circuit to detectors/observable, merge identical
+symptoms with p ← p₁(1−p₂)+p₂(1−p₁)), and agreement at d=3 within the
+Bonferroni bound for every detector and both logical rates.
+
