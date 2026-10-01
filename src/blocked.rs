@@ -1537,6 +1537,8 @@ impl<T: Real> StateVector<T> {
 pub struct BlockedChunkExecutor<T: Real> {
     c: usize,
     stages: Vec<Prepared<T>>,
+    /// Use the AVX2+FMA kernels (`cfg.simd` and the CPU supports them).
+    simd: bool,
 }
 
 impl<T: Real> BlockedChunkExecutor<T> {
@@ -1579,6 +1581,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
         BlockedChunkExecutor {
             c,
             stages: prepared,
+            simd: cfg.simd && simd_available(),
         }
     }
 
@@ -1586,7 +1589,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
     pub fn apply_to_chunk(&self, chunk: &mut [Complex<T>]) {
         assert_eq!(chunk.len(), 1 << self.c);
         for p in &self.stages {
-            run_stage(chunk, self.c, p);
+            run_stage(chunk, self.c, p, self.simd);
         }
     }
 }
