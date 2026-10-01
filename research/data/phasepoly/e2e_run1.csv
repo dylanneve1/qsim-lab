@@ -1,0 +1,10 @@
+[bench.sh] load at start: 3.30
+circuit,n,gates_in,t_in,engines_off,engines_on,off_s,on_s,speedup
+adder_n12_sup4,26,417,168,"[(26, 291, Adaptive)]","[(26, 247, Adaptive)]",0.0272,0.0275,0.99
+adder_n12_sup6,26,421,168,"[(26, 319, Adaptive)]","[(26, 275, Adaptive)]",0.1087,0.0938,1.16
+adder_n14_sup5,30,487,196,"[(30, 345, Adaptive)]","[(30, 293, Adaptive)]",0.2740,0.2360,1.16
+rct_n20_d8_p03,20,240,3,"[(1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau), (12, 58, Adaptive), (1, 1, Tableau), (1, 1, Tableau)]","[(1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau), (12, 59, Adaptive), (1, 1, Tableau), (1, 1, Tableau)]",0.0005,0.0005,0.95
+rct_n24_d10_p02,24,360,7,"[(17, 97, Adaptive), (1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau)]","[(17, 91, Adaptive), (1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau)]",0.0004,0.0004,0.86
+rct_n16_d6_p10,16,144,11,"[(1, 1, Tableau), (1, 1, Tableau), (2, 4, Tableau), (3, 10, StateVector), (1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau), (1, 1, Tableau)]","[(1, 1, Tableau), (1, 1, Tableau), (2, 4, Tableau), (3, 10, StateVector), (1, 1, Tableau), (1, 1, Tableau), (1, 2, Tableau), (1, 1, Tableau)]",0.0004,0.0004,1.04
+glued_n20_r10,20,430,200,"[(20, 300, StateVector)]","[(20, 297, StateVector)]",0.0391,0.0413,0.95
+glued_n26_r12,26,662,312,"[(26, 461, StateVector)]","[(26, 456, StateVector)]",3.8496,3.8541,1.00
