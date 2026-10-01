@@ -148,6 +148,36 @@ impl PauliSum {
 
     /// Conjugates every term by a Clifford gate: `P -> G P G†`.
     fn conjugate_clifford(&mut self, g: &Gate) {
+        match *g {
+            Gate::I(_) => return,
+            Gate::Sx(a) => {
+                self.conjugate_clifford(&Gate::H(a));
+                self.conjugate_clifford(&Gate::S(a));
+                self.conjugate_clifford(&Gate::H(a));
+                return;
+            }
+            Gate::Sxdg(a) => {
+                self.conjugate_clifford(&Gate::H(a));
+                self.conjugate_clifford(&Gate::Sdg(a));
+                self.conjugate_clifford(&Gate::H(a));
+                return;
+            }
+            Gate::ISwap(a, b) => {
+                self.conjugate_clifford(&Gate::S(b));
+                self.conjugate_clifford(&Gate::S(a));
+                self.conjugate_clifford(&Gate::Cz(a, b));
+                self.conjugate_clifford(&Gate::Swap(a, b));
+                return;
+            }
+            Gate::ISwapdg(a, b) => {
+                self.conjugate_clifford(&Gate::Sdg(b));
+                self.conjugate_clifford(&Gate::Sdg(a));
+                self.conjugate_clifford(&Gate::Cz(a, b));
+                self.conjugate_clifford(&Gate::Swap(a, b));
+                return;
+            }
+            _ => {}
+        }
         let w = self.w;
         let g = *g;
         self.keys
