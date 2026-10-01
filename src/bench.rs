@@ -172,7 +172,39 @@ pub fn stab_ghz(ns: &[usize]) {
 /// circuits the value itself is 0; correctness is covered by the tests,
 /// which compare against the state vector).
 pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
-    clifford_t_with(n, depth, ts, max_terms, "frame", f64::INFINITY, 1);
+    clifford_t_with(n, depth, ts, max_terms, "frame", f64::INFINITY, 1, "z0");
+}
+
+/// The Clifford skeleton of a circuit: every non-Clifford Z rotation
+/// (T, T†, Rz, Phase) removed. Panics on other non-Clifford gates.
+pub fn clifford_skeleton(c: &Circuit) -> Circuit {
+    let mut k = Circuit::new(c.num_qubits);
+    for g in c.gates() {
+        if g.is_clifford() {
+            k.gate(*g);
+        } else {
+            assert!(
+                matches!(
+                    g,
+                    Gate::T(_) | Gate::Tdg(_) | Gate::Rz(..) | Gate::Phase(..)
+                ),
+                "clifford_skeleton: unsupported gate {g:?}"
+            );
+        }
+    }
+    k
+}
+
+/// `K Z_S K†` for the Clifford skeleton `K` of `c`: a stabilizer of
+/// `K|0>`. In the rotation frame it becomes `Z_S` itself, so its
+/// expectation under `c` is generically non-zero (unlike a fixed
+/// low-weight Pauli on a scrambling circuit, whose value is exactly 0
+/// whenever fewer T gates than qubits are present).
+pub fn skeleton_stabilizer(c: &Circuit, zs: &[usize]) -> PauliSum {
+    let mut o = PauliSum::z_product(c.num_qubits, zs);
+    o.conjugate_by_clifford(&clifford_skeleton(c))
+        .expect("skeleton is Clifford");
+    o
 }
 
 /// Pauli-path engine selected by name in [`clifford_t_with`].
@@ -201,7 +233,10 @@ pub fn path_engine(
 /// [`clifford_t`] with a choice of engine (`legacy`, `frame`, and `frame`
 /// variants containing `noprune` / `nomerge` / `serial`), stopping after the
 /// first circuit that takes longer than `time_limit` seconds. Times are the
-/// minimum over `repeat` runs.
+/// minimum over `repeat` runs. `observable` is `z0` (`<Z_0>`, the README's
+/// original benchmark, whose value is exactly 0 here) or `stab`
+/// ([`skeleton_stabilizer`] with `S = {0}`, generically non-zero).
+#[allow(clippy::too_many_arguments)]
 pub fn clifford_t_with(
     n: usize,
     depth: usize,
@@ -210,6 +245,7 @@ pub fn clifford_t_with(
     engine: &str,
     time_limit: f64,
     repeat: usize,
+    observable: &str,
 ) {
     let eval = path_engine(engine, max_terms);
     let max_t = ts.iter().copied().max().unwrap_or(0);
@@ -241,12 +277,17 @@ pub fn clifford_t_with(
         "T gates",
         "gates total",
         "Pauli terms (peak)",
-        "<Z_0>",
+        "rotations",
+        observable,
         "time (s)",
     ]);
     for &t in ts {
         let c = build(t);
-        let obs = PauliSum::z_product(n, &[0]);
+        let obs = match observable {
+            "z0" => PauliSum::z_product(n, &[0]),
+            "stab" => skeleton_stabilizer(&c, &[0]),
+            _ => panic!("unknown observable {observable:?} (z0 | stab)"),
+        };
         let mut best = f64::INFINITY;
         let mut res = None;
         for _ in 0..repeat.max(1) {
@@ -266,6 +307,7 @@ pub fn clifford_t_with(
                     t.to_string(),
                     c.num_gates().to_string(),
                     st.peak_terms.to_string(),
+                    st.rotations.to_string(),
                     format!("{v:+.12e}"),
                     format!("{dt:.4}"),
                 ]);
@@ -278,6 +320,7 @@ pub fn clifford_t_with(
                     t.to_string(),
                     c.num_gates().to_string(),
                     format!("aborted: {e}"),
+                    "-".to_string(),
                     "-".to_string(),
                     format!("{best:.4}"),
                 ]);

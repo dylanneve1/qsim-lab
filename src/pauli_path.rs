@@ -54,6 +54,13 @@ pub struct PathStats {
     pub final_terms: usize,
     /// Non-Clifford gates encountered.
     pub non_clifford_gates: usize,
+    /// Rotations actually propagated (after any exact rotation merging).
+    pub rotations: usize,
+    /// Sum over propagated rotations of the number of terms alive when the
+    /// rotation was applied: the per-term work of the run.
+    pub term_visits: u64,
+    /// Terms discarded by the frame engine's x-span pruning (0 otherwise).
+    pub pruned_terms: u64,
 }
 
 impl PauliSum {
@@ -346,6 +353,8 @@ pub fn expectation_legacy(
             continue;
         }
         stats.non_clifford_gates += 1;
+        stats.rotations += 1;
+        stats.term_visits += o.num_terms() as u64;
         o.conjugate_phase(a, theta, max_terms)?;
         stats.peak_terms = stats.peak_terms.max(o.num_terms());
     }

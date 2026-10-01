@@ -94,6 +94,10 @@ enum BenchCmd {
         /// Report the minimum time over this many runs.
         #[arg(long, default_value_t = 1)]
         repeat: usize,
+        /// z0 (<Z_0>, exactly 0 on these circuits) | stab (a stabilizer of
+        /// the Clifford skeleton, generically non-zero)
+        #[arg(long, default_value = "z0")]
+        observable: String,
     },
     /// Pauli paths on a Cuccaro ripple-carry adder (structured Toffoli
     /// circuit) of growing width.
@@ -185,10 +189,20 @@ fn main() {
                 engine,
                 time_limit,
                 repeat,
+                observable,
             } => {
-                println!("## Clifford+T, Pauli-path summation ({engine})\n");
+                println!("## Clifford+T, Pauli-path summation ({engine}, {observable})\n");
                 let ts: Vec<usize> = (min_t..=max_t).step_by(step.max(1)).collect();
-                bench::clifford_t_with(qubits, depth, &ts, max_terms, &engine, time_limit, repeat);
+                bench::clifford_t_with(
+                    qubits,
+                    depth,
+                    &ts,
+                    max_terms,
+                    &engine,
+                    time_limit,
+                    repeat,
+                    &observable,
+                );
             }
             BenchCmd::Adder {
                 bits,

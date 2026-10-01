@@ -55,6 +55,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 use std::hash::{BuildHasherDefault, Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Options for the frame engine.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -519,6 +520,8 @@ struct Store<const W: usize> {
     shards: Vec<Map<W>>,
     bits: u32,
     parallel: bool,
+    /// Terms discarded by x-span pruning so far.
+    pruned: u64,
     bufs: Vec<Vec<Vec<(Key<W>, f64)>>>,
 }
 
@@ -530,6 +533,7 @@ impl<const W: usize> Store<W> {
             shards: (0..s).map(|_| Map::default()).collect(),
             bits,
             parallel,
+            pruned: 0,
             bufs: (0..s)
                 .map(|_| (0..s).map(|_| Vec::new()).collect())
                 .collect(),
@@ -648,9 +652,13 @@ impl<const W: usize> Store<W> {
     fn project(&mut self, d: usize, drop: f64) {
         let mask = mask_below::<W>(d);
         let bits = self.bits;
+        let pruned = AtomicU64::new(0);
+        let pruned = &pruned;
         self.for_each_shard(|_, sh, out| {
+            let mut np = 0;
             for (mut k, c) in sh.drain() {
                 if !k.x_below(&mask) {
+                    np += 1;
                     continue;
                 }
                 k.project_z(&mask);
@@ -661,7 +669,9 @@ impl<const W: usize> Store<W> {
                 };
                 out[dd].push((k, c));
             }
+            pruned.fetch_add(np, Ordering::Relaxed);
         });
+        self.pruned += pruned.load(Ordering::Relaxed);
         self.gather(drop, true);
     }
 
@@ -672,9 +682,16 @@ impl<const W: usize> Store<W> {
         let mask = mask_below::<W>(d);
         let bits = self.bits;
         let q = *q;
+        let pruned = AtomicU64::new(0);
+        let pruned = &pruned;
         self.for_each_shard(|_, sh, out| {
+            let mut np = 0;
             let mut emit = |mut k: Key<W>, c: f64| {
-                if c == 0.0 || !k.x_below(&mask) {
+                if c == 0.0 {
+                    return;
+                }
+                if !k.x_below(&mask) {
+                    np += 1;
                     return;
                 }
                 k.project_z(&mask);
@@ -694,7 +711,9 @@ impl<const W: usize> Store<W> {
                     emit(k, c);
                 }
             }
+            pruned.fetch_add(np, Ordering::Relaxed);
         });
+        self.pruned += pruned.load(Ordering::Relaxed);
         self.gather(drop, true);
     }
 
@@ -762,9 +781,11 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
     }
     let mut store = Store::<W>::new(opt.parallel);
     let mask = mask_below::<W>(d[m]);
+    let mut pruned0 = 0;
     for (mut k, c) in obs {
         if opt.prune {
             if !k.x_below(&mask) {
+                pruned0 += 1;
                 continue;
             }
             k.project_z(&mask);
@@ -777,9 +798,11 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
         .for_each(|s| s.retain(|_, c| *c != 0.0));
     let mut stats = PathStats {
         peak_terms: store.len(),
+        rotations: m,
         ..Default::default()
     };
     for j in (0..m).rev() {
+        stats.term_visits += store.len() as u64;
         // rotation j+1 in 1-based stage numbering; stage j+1 -> j.
         let mut q = axes[j];
         if opt.prune {
@@ -810,6 +833,7 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
         }
     }
     stats.final_terms = store.len();
+    stats.pruned_terms = pruned0 + store.pruned;
     Ok((store.zero_state_value(), stats))
 }
 

@@ -304,3 +304,131 @@ fn adder_benchmark_circuit_is_correct() {
         }
     }
 }
+
+/// `<ψ| K Z_S K† |ψ>` with `ψ = c|0>` and `K` the Clifford skeleton of `c`,
+/// computed on the state vector as `<φ|Z_S|φ>`, `φ = K† ψ`.
+fn sv_skeleton_stabilizer(c: &Circuit, zs: &[usize]) -> f64 {
+    let mut s = sv_of(c);
+    s.apply_circuit(&qsim_lab::bench::clifford_skeleton(c).inverse())
+        .unwrap();
+    let mut p = vec!['I'; c.num_qubits];
+    for &q in zs {
+        p[q] = 'Z';
+    }
+    sv_pauli(&s, &p.into_iter().collect::<String>())
+}
+
+fn random_subset<R: Rng>(n: usize, rng: &mut R) -> Vec<usize> {
+    loop {
+        let s: Vec<usize> = (0..n).filter(|_| rng.random_bool(0.3)).collect();
+        if !s.is_empty() {
+            break s;
+        }
+    }
+}
+
+#[test]
+fn frame_matches_statevector_on_skeleton_stabilizers() {
+    // Observables `K Z_S K†` (stabilizers of the Clifford skeleton) have
+    // generically non-zero expectation values, so a pruning rule that threw
+    // away a contributing term would show up as a wrong, non-zero number.
+    // T counts run from well below n (pruning removes almost everything)
+    // to several times n (the x span saturates and the projection merges).
+    let mut rng = StdRng::seed_from_u64(107);
+    let (mut nonzero, mut total, mut pruned, mut shrunk) = (0, 0, 0u64, 0);
+    for trial in 0..36 {
+        let n = 4 + trial % 11; // 4..=14
+        let t = [n / 2, n, 2 * n, 3 * n][trial % 4].min(30);
+        let c = clifford_t_rounds(n, 2, t, &mut rng);
+        for _ in 0..3 {
+            let zs = random_subset(n, &mut rng);
+            let want = sv_skeleton_stabilizer(&c, &zs);
+            let obs = qsim_lab::bench::skeleton_stabilizer(&c, &zs);
+            total += 1;
+            if want.abs() > 1e-6 {
+                nonzero += 1;
+            }
+            let (legacy, lst) =
+                pauli_path::expectation_legacy(&c, &obs, DEFAULT_MAX_TERMS).unwrap();
+            assert!((legacy - want).abs() < 1e-9, "legacy {legacy} vs sv {want}");
+            let mut peak_noprune = 0;
+            for opt in all_options() {
+                let (v, st) = pauli_path::expectation_with(&c, &obs, &opt).unwrap();
+                assert!(
+                    (v - want).abs() < 1e-9 && (v - legacy).abs() < 1e-12,
+                    "trial {trial} n={n} t={t} S={zs:?} {opt:?}: frame {v}, legacy {legacy}, sv {want}"
+                );
+                if opt.prune {
+                    pruned += st.pruned_terms;
+                    if st.peak_terms < lst.peak_terms {
+                        shrunk += 1;
+                    }
+                } else {
+                    peak_noprune = peak_noprune.max(st.peak_terms);
+                }
+            }
+            assert!(peak_noprune > 0);
+        }
+    }
+    eprintln!("skeleton stabilizers: {nonzero}/{total} non-zero, {pruned} terms pruned");
+    assert!(
+        nonzero * 10 >= total * 8,
+        "expected mostly non-zero values: {nonzero}/{total}"
+    );
+    assert!(pruned > 1000, "pruning must actually fire: {pruned}");
+    assert!(shrunk > 0);
+}
+
+#[test]
+fn frame_matches_legacy_at_64_qubits_with_nonzero_values() {
+    // Beyond the state vector: the benchmark's circuit family at n = 64 with
+    // skeleton-stabilizer observables, against the legacy engine.
+    let mut rng = StdRng::seed_from_u64(108);
+    let mut nonzero = 0;
+    for (trial, t) in [8, 16, 20, 24].into_iter().enumerate() {
+        let c = clifford_t_rounds(64, 3, t, &mut rng);
+        for _ in 0..2 {
+            let zs = random_subset(64, &mut rng);
+            let obs = qsim_lab::bench::skeleton_stabilizer(&c, &zs);
+            let (want, _) = pauli_path::expectation_legacy(&c, &obs, DEFAULT_MAX_TERMS).unwrap();
+            if want.abs() > 1e-6 {
+                nonzero += 1;
+            }
+            for opt in all_options() {
+                let (v, _) = pauli_path::expectation_with(&c, &obs, &opt).unwrap();
+                assert!(
+                    (v - want).abs() < 1e-12,
+                    "trial {trial} t={t}: {v} vs {want} ({opt:?})"
+                );
+            }
+        }
+    }
+    assert!(
+        nonzero >= 6,
+        "values should be mostly non-zero: {nonzero}/8"
+    );
+}
+
+#[test]
+fn pruned_observable_has_exactly_zero_value() {
+    // The x-span rule's strongest consequence: with fewer T gates than
+    // qubits, a random Pauli observable is usually discarded before any
+    // propagation, and its value must then be exactly 0 on the state vector.
+    let mut rng = StdRng::seed_from_u64(109);
+    let mut dropped = 0;
+    for trial in 0..30 {
+        let n = 8 + trial % 7;
+        let c = clifford_t_rounds(n, 2, 3, &mut rng);
+        let sv = sv_of(&c);
+        let p = random_pauli(n, &mut rng);
+        let (v, st) =
+            pauli_path::expectation(&c, &PauliSum::from_str_single(&p), DEFAULT_MAX_TERMS).unwrap();
+        let want = sv_pauli(&sv, &p);
+        assert!((v - want).abs() < 1e-9, "{p}: {v} vs {want}");
+        if st.peak_terms == 0 {
+            dropped += 1;
+            assert!(want.abs() < 1e-12, "pruned {p} but sv says {want}");
+        }
+    }
+    assert!(dropped > 10, "rule should fire often here: {dropped}");
+}
