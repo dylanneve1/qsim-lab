@@ -1141,6 +1141,13 @@ fn run_ops<T: Real>(
         // true, i.e. the running CPU supports AVX2 and FMA.
         unsafe { return run_ops_avx2(p, buf, base, sc) };
     }
+    #[cfg(target_arch = "aarch64")]
+    if simd {
+        // NEON with fused multiply-add is part of the aarch64 baseline, so
+        // no target feature or run-time check is needed: `mul_add` lowers to
+        // one `fmla`/`fmadd` and `simd_available()` is simply true.
+        return run_ops_impl::<T, true>(p, buf, base, sc);
+    }
     let _ = simd;
     run_ops_impl::<T, false>(p, buf, base, sc);
 }
@@ -1168,7 +1175,11 @@ pub fn simd_available() -> bool {
     {
         std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
     }
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(target_arch = "aarch64")]
+    {
+        true
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         false
     }
