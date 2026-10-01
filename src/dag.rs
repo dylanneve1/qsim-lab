@@ -1744,6 +1744,43 @@ fn gate_cost_eq(a: &Gate, b: &Gate) -> bool {
     ) || a == b
 }
 
+/// Family of a gate for [`combinable`]: rotation families and the
+/// self-inverse kinds.
+#[inline]
+fn merge_class(g: &Gate) -> u8 {
+    use Gate::*;
+    match g {
+        I(_) | Z(_) | S(_) | Sdg(_) | T(_) | Tdg(_) | Phase(..) | Rz(..) => 1,
+        X(_) | Sx(_) | Sxdg(_) | Rx(..) => 2,
+        Y(_) | Ry(..) => 3,
+        Cz(..) | CPhase(..) => 4,
+        H(_) => 5,
+        Swap(..) => 6,
+        Cnot(..) => 7,
+        Ccx(..) => 8,
+        ISwap(..) | ISwapdg(..) => 9,
+        U(..) => 10,
+    }
+}
+
+/// Cheap test: `combine(first, second).is_some()`.
+#[inline]
+fn combinable(first: &Gate, second: &Gate) -> bool {
+    use Gate::*;
+    let c = merge_class(first);
+    if c != merge_class(second) || !same_qubit_set(first, second) {
+        return false;
+    }
+    match (*first, *second) {
+        (Cnot(c1, t1), Cnot(c2, t2)) => c1 == c2 && t1 == t2,
+        (Ccx(_, _, t1), Ccx(_, _, t2)) => t1 == t2,
+        (ISwap(..), ISwapdg(..)) | (ISwapdg(..), ISwap(..)) => true,
+        (ISwap(..), ISwap(..)) | (ISwapdg(..), ISwapdg(..)) => false,
+        (U(..), U(..)) => *second == first.inverse(),
+        _ => true,
+    }
+}
+
 /// If `second · first` (first applied first) is a single gate or the
 /// identity, returns it with the global phase introduced.
 fn combine(first: &Gate, second: &Gate) -> Option<(Option<Gate>, f64)> {
@@ -1914,7 +1951,7 @@ fn find_partner(
             }
             let c = d.n(cur);
             if let Op::Gate(cg) = c.op {
-                if combine(g, &cg).is_some() {
+                if combinable(g, &cg) {
                     break cur;
                 }
             }
@@ -2072,6 +2109,38 @@ mod tests {
                 let kahn = d.topo_order_with(|id| d.n(id).key);
                 assert_eq!(d.topo_order(), kahn, "trial {trial}");
                 d.check_invariants().unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn combinable_agrees_with_combine() {
+        use Gate::*;
+        let mut gates = Vec::new();
+        for q in 0..2 {
+            gates.extend([
+                I(q),
+                H(q),
+                X(q),
+                Y(q),
+                Z(q),
+                S(q),
+                Sdg(q),
+                T(q),
+                Tdg(q),
+                Sx(q),
+            ]);
+            gates.extend([Sxdg(q), Rx(q, 0.3), Ry(q, -0.2), Rz(q, 1.1), Phase(q, 0.4)]);
+            gates.extend([U(q, 0.1, 0.2, 0.3), U(q, -0.1, -0.3, -0.2)]);
+        }
+        for (a, b) in [(0, 1), (1, 0)] {
+            gates.extend([Cnot(a, b), Cz(a, b), Swap(a, b), ISwap(a, b), ISwapdg(a, b)]);
+            gates.push(CPhase(a, b, 0.7));
+        }
+        gates.extend([Ccx(0, 1, 2), Ccx(1, 0, 2), Ccx(0, 2, 1)]);
+        for a in &gates {
+            for b in &gates {
+                assert_eq!(combinable(a, b), combine(a, b).is_some(), "{a:?} {b:?}");
             }
         }
     }

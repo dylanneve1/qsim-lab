@@ -1,0 +1,8 @@
+[bench.sh] load at start: 8.32
+# timings, min of 5 (shared VM; run under bench.sh)
+  look-back sweep: lb0: 404 ns/op (19204 gates) lb1: 400 ns/op (19204 gates) lb4: 323 ns/op (19204 gates) lb16: 588 ns/op (19204 gates)
+n= 32 ops=   24000 | from_circuit   24.2 ns/op | to_circuit    9.5 ns/op | optimize()   16.9 ns/op | compile::optimize  135.3 ns/op | dag peephole   373.0 ns/op | dag light cone   52.0 ns/op | dag adjacent-only  131.4 ns/op | topo after rewrite    2.7 ns/op
+  look-back sweep: lb0: 612 ns/op (153529 gates) lb1: 506 ns/op (153529 gates) lb4: 585 ns/op (153529 gates) lb16: 692 ns/op (153529 gates)
+n= 64 ops=  192000 | from_circuit   25.5 ns/op | to_circuit   17.4 ns/op | optimize()   17.5 ns/op | compile::optimize  158.4 ns/op | dag peephole   596.1 ns/op | dag light cone  123.2 ns/op | dag adjacent-only  228.5 ns/op | topo after rewrite    8.5 ns/op
+  look-back sweep: lb0: 698 ns/op (480390 gates) lb1: 570 ns/op (480390 gates) lb4: 655 ns/op (480390 gates) lb16: 757 ns/op (480390 gates)
+n=100 ops=  600000 | from_circuit   79.1 ns/op | to_circuit   37.7 ns/op | optimize()   38.4 ns/op | compile::optimize  204.0 ns/op | dag peephole   649.8 ns/op | dag light cone  233.4 ns/op | dag adjacent-only  280.7 ns/op | topo after rewrite    7.2 ns/op
