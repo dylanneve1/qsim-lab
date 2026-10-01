@@ -395,3 +395,10 @@ re-timed** (budget); correctness of the outcome distributions is covered
 above and by the crate's frozen-reference hash tests.
 
 Verdict for main @ 8139a6a: **correct, all audit gates green.**
+
+Addendum: `stab_reset_audit::tableau_reset_all_after_history_is_fresh`
+(gates/measure/reset/measure_all history → `reset_all` → follow-up circuit;
+peeks and outcome sequences equal a fresh tableau under the same RNG; n up
+to 130; deterministic peeks vs RefSv) passes on 8139a6a. With 923addc's
+three sign-clearing lines removed it fails immediately (peek mismatch,
+n = 2), so the test covers the PR1×PR3 semantic conflict.

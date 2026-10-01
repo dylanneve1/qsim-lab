@@ -105,3 +105,50 @@ fn tableau_reset_of_entangled_qubit_matches_mixture() {
     }
     eprintln!("entangled reset: {nontrivial} circuits with non-deterministic outcome");
 }
+
+/// reset_all after arbitrary history (gates, measurements, resets, measure_all)
+/// must be indistinguishable from a fresh tableau: identical peeks and
+/// identical outcome sequences under the same RNG on a follow-up circuit,
+/// and the follow-up distribution matches the reference.
+#[test]
+fn tableau_reset_all_after_history_is_fresh() {
+    for it in 0..40 * iters() {
+        for n in [1usize, 2, 3, 5, 9, 64, 65, 130] {
+            let seed = base_seed() ^ 0x2E5A ^ ((it as u64) << 16) ^ n as u64;
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut t = Tableau::new(n);
+            for _ in 0..rng.random_range(0..6) {
+                for _ in 0..rng.random_range(0..3 * n.min(10)) { t.apply_gate(&random_gate(&mut rng, n, true, false)).unwrap(); }
+                let q = rng.random_range(0..n);
+                match rng.random_range(0..3) {
+                    0 => { t.measure_qubit(q, &mut rng); }
+                    1 => { t.reset_qubit(q, &mut rng); }
+                    _ => { t.measure_all(&mut rng); }
+                }
+            }
+            t.reset_all();
+            let mut f = Tableau::new(n);
+            let follow: Vec<Gate> = (0..rng.random_range(0..4 * n.min(10))).map(|_| random_gate(&mut rng, n, true, false)).collect();
+            for g in &follow { t.apply_gate(g).unwrap(); f.apply_gate(g).unwrap(); }
+            for q in 0..n { assert_eq!(t.peek(q), f.peek(q), "peek q={q} seed={seed} n={n}"); }
+            let (mut r1, mut r2) = (StdRng::seed_from_u64(seed ^ 7), StdRng::seed_from_u64(seed ^ 7));
+            for _ in 0..3 {
+                let q = r1.random_range(0..n); let _ = r2.random_range(0..n);
+                assert_eq!(t.measure_qubit(q, &mut r1), f.measure_qubit(q, &mut r2), "measure seed={seed}");
+            }
+            assert_eq!(t.measure_all(&mut r1), f.measure_all(&mut r2), "measure_all seed={seed} n={n}");
+            if n <= 9 {
+                // also the reference: fresh RefSv on the follow-up gates, peeks deterministic agree
+                let mut r = RefSv::new(n);
+                for g in &follow { r.apply(g); }
+                let mut t2 = Tableau::new(n);
+                t2.reset_all();
+                for g in &follow { t2.apply_gate(g).unwrap(); }
+                for q in 0..n {
+                    let p1 = r.prob_one(q);
+                    match t2.peek(q) { Some(b) => assert!((p1 - b as u8 as f64).abs() < 1e-9), None => assert!((p1 - 0.5).abs() < 1e-9) }
+                }
+            }
+        }
+    }
+}
