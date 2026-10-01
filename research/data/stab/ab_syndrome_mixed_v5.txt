@@ -1,0 +1,21 @@
+[bench.sh] load at start: 12.79
+## syndrome (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| syndrome d=5 (49 q, 10 rounds) | 0.00272 | 0.00006 | 43.05 | 71.10 | same |
+| syndrome d=11 (241 q, 10 rounds) | 0.04847 | 0.00074 | 65.40 | 68.14 | same |
+| syndrome d=21 (881 q, 10 rounds) | 1.26424 | 0.00871 | 145.10 | 101.73 | same |
+## mixed (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| mixed n=100 depth=50 m/layer=5 | 0.01841 | 0.00146 | 12.61 | 13.39 | same |
+| mixed n=500 depth=50 m/layer=25 | 0.20411 | 0.04370 | 4.67 | 2.62 | same |
+| mixed n=1000 depth=50 m/layer=50 | 0.53927 | 0.34458 | 1.57 | 2.34 | same |
+## mixed (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| mixed n=100 depth=50 m/layer=20 | 0.01645 | 0.00256 | 6.42 | 13.24 | same |
+| mixed n=500 depth=50 m/layer=100 | 0.13307 | 0.09634 | 1.38 | 1.60 | same |

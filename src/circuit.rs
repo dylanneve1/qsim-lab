@@ -31,6 +31,8 @@ pub enum SimError {
     },
     /// A classical bit index referenced by a conditional operation was out of range.
     ClassicalBitOutOfRange { bit: usize, available: usize },
+    /// Failed to parse OpenQASM source.
+    QasmError(String),
 }
 
 impl fmt::Display for SimError {
@@ -60,6 +62,7 @@ impl fmt::Display for SimError {
                     "classical bit {bit} is out of range ({available} available)"
                 )
             }
+            SimError::QasmError(msg) => write!(f, "OpenQASM error: {msg}"),
         }
     }
 }
@@ -106,6 +109,8 @@ pub trait Simulator {
         }
         Ok(())
     }
+    /// Resets the simulator state back to |0...0> without reallocating buffers.
+    fn reset_all(&mut self) -> Result<(), SimError>;
 }
 
 /// One instruction of a circuit.
@@ -160,7 +165,19 @@ impl Circuit {
         self
     }
 
-    builder_1q!(h => H, x => X, y => Y, z => Z, s => S, sdg => Sdg, t => T, tdg => Tdg);
+    builder_1q!(
+        i => I,
+        h => H,
+        x => X,
+        y => Y,
+        z => Z,
+        s => S,
+        sdg => Sdg,
+        t => T,
+        tdg => Tdg,
+        sx => Sx,
+        sxdg => Sxdg
+    );
 
     pub fn rx(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Rx(q, theta))
@@ -174,6 +191,9 @@ impl Circuit {
     pub fn phase(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Phase(q, theta))
     }
+    pub fn u(&mut self, q: usize, theta: f64, phi: f64, lambda: f64) -> &mut Self {
+        self.gate(Gate::U(q, theta, phi, lambda))
+    }
     pub fn cnot(&mut self, c: usize, t: usize) -> &mut Self {
         self.gate(Gate::Cnot(c, t))
     }
@@ -182,6 +202,12 @@ impl Circuit {
     }
     pub fn swap(&mut self, a: usize, b: usize) -> &mut Self {
         self.gate(Gate::Swap(a, b))
+    }
+    pub fn iswap(&mut self, a: usize, b: usize) -> &mut Self {
+        self.gate(Gate::ISwap(a, b))
+    }
+    pub fn iswapdg(&mut self, a: usize, b: usize) -> &mut Self {
+        self.gate(Gate::ISwapdg(a, b))
     }
     pub fn cphase(&mut self, a: usize, b: usize, theta: f64) -> &mut Self {
         self.gate(Gate::CPhase(a, b, theta))
@@ -376,6 +402,248 @@ impl Circuit {
         Ok(out)
     }
 
+    /// Calculates the circuit depth (the length of the critical path).
+    pub fn depth(&self) -> usize {
+        let mut wire_depth = vec![0usize; self.num_qubits];
+        for op in &self.ops {
+            let qs = match op {
+                Op::Gate(g) => g.qubits(),
+                Op::Measure(q)
+                | Op::Reset(q)
+                | Op::XFlip(q, _)
+                | Op::YFlip(q, _)
+                | Op::ZFlip(q, _)
+                | Op::Depolarize1q(q, _) => vec![*q],
+                Op::ClassicControlled { gate, .. } => gate.qubits(),
+                Op::Depolarize2q(a, b, _) => vec![*a, *b],
+            };
+            let max_d = qs
+                .iter()
+                .map(|&q| wire_depth.get(q).copied().unwrap_or(0))
+                .max()
+                .unwrap_or(0);
+            let next_d = max_d + 1;
+            for &q in &qs {
+                if q < wire_depth.len() {
+                    wire_depth[q] = next_d;
+                }
+            }
+        }
+        wire_depth.into_iter().max().unwrap_or(0)
+    }
+
+    /// Computes summary statistics of the circuit.
+    pub fn stats(&self) -> CircuitStats {
+        let mut g1 = 0;
+        let mut g2 = 0;
+        let mut g3 = 0;
+        let mut cliff = 0;
+        let mut t_count = 0;
+        let mut meas = 0;
+        for op in &self.ops {
+            match op {
+                Op::Gate(g) => {
+                    match g.arity() {
+                        1 => g1 += 1,
+                        2 => g2 += 1,
+                        3 => g3 += 1,
+                        _ => {}
+                    }
+                    if g.is_clifford() {
+                        cliff += 1;
+                    }
+                    if g.is_t() {
+                        t_count += 1;
+                    }
+                }
+                Op::Measure(_) => meas += 1,
+                _ => {}
+            }
+        }
+        CircuitStats {
+            num_qubits: self.num_qubits,
+            total_ops: self.ops.len(),
+            total_gates: g1 + g2 + g3,
+            depth: self.depth(),
+            gates_1q: g1,
+            gates_2q: g2,
+            gates_3q: g3,
+            clifford_gates: cliff,
+            t_gates: t_count,
+            measurements: meas,
+        }
+    }
+
+    /// Peephole optimization pass: cancels adjacent self-inverses, merges
+    /// rotations on identical axes, and eliminates identity/zero-angle gates.
+    ///
+    /// The result equals the original **up to a global phase**: `Rx`, `Ry`
+    /// and `Rz` by a multiple of 2π are `-I`, not `I`, and are removed. That
+    /// is unobservable for a whole circuit but matters if the output is used
+    /// as a controlled sub-circuit. Only directly adjacent operations are
+    /// merged; measurements, resets and conditional ops act as barriers.
+    pub fn optimize(&self) -> Circuit {
+        let mut ops: Vec<Op> = Vec::new();
+        for op in &self.ops {
+            match op {
+                Op::Gate(g) => {
+                    // Skip identity gates
+                    if matches!(g, Gate::I(_)) {
+                        continue;
+                    }
+                    // Skip near-zero rotation gates
+                    match *g {
+                        Gate::Rx(_, t) | Gate::Ry(_, t) | Gate::Rz(_, t) | Gate::Phase(_, t)
+                            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 =>
+                        {
+                            continue;
+                        }
+                        Gate::CPhase(_, _, t)
+                            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 =>
+                        {
+                            continue;
+                        }
+                        _ => {}
+                    }
+                    // Try to simplify against previous gates
+                    let mut merged = false;
+                    if let Some(Op::Gate(prev)) = ops.last().copied() {
+                        if let Some(combined) = try_combine_gates(&prev, g) {
+                            ops.pop();
+                            if let Some(c) = combined {
+                                ops.push(Op::Gate(c));
+                            }
+                            merged = true;
+                        }
+                    }
+                    if !merged {
+                        ops.push(Op::Gate(*g));
+                    }
+                }
+                Op::Measure(q) => {
+                    ops.push(Op::Measure(*q));
+                }
+                other => {
+                    ops.push(*other);
+                }
+            }
+        }
+        Circuit {
+            num_qubits: self.num_qubits,
+            ops,
+        }
+    }
+
+    /// Renders an ASCII text diagram of the circuit.
+    pub fn draw(&self) -> String {
+        if self.num_qubits == 0 {
+            return String::new();
+        }
+        let mut wires: Vec<String> = (0..self.num_qubits)
+            .map(|q| format!("q{q:<2}: ──"))
+            .collect();
+
+        for op in &self.ops {
+            match op {
+                Op::Gate(g) => match *g {
+                    Gate::I(q) => {
+                        append_1q(&mut wires, q, "[I]");
+                    }
+                    Gate::H(q) => {
+                        append_1q(&mut wires, q, "[H]");
+                    }
+                    Gate::X(q) => {
+                        append_1q(&mut wires, q, "[X]");
+                    }
+                    Gate::Y(q) => {
+                        append_1q(&mut wires, q, "[Y]");
+                    }
+                    Gate::Z(q) => {
+                        append_1q(&mut wires, q, "[Z]");
+                    }
+                    Gate::S(q) => {
+                        append_1q(&mut wires, q, "[S]");
+                    }
+                    Gate::Sdg(q) => {
+                        append_1q(&mut wires, q, "[S†]");
+                    }
+                    Gate::T(q) => {
+                        append_1q(&mut wires, q, "[T]");
+                    }
+                    Gate::Tdg(q) => {
+                        append_1q(&mut wires, q, "[T†]");
+                    }
+                    Gate::Sx(q) => {
+                        append_1q(&mut wires, q, "[√X]");
+                    }
+                    Gate::Sxdg(q) => {
+                        append_1q(&mut wires, q, "[√X†]");
+                    }
+                    Gate::Rx(q, _) => {
+                        append_1q(&mut wires, q, "[Rx]");
+                    }
+                    Gate::Ry(q, _) => {
+                        append_1q(&mut wires, q, "[Ry]");
+                    }
+                    Gate::Rz(q, _) => {
+                        append_1q(&mut wires, q, "[Rz]");
+                    }
+                    Gate::Phase(q, _) => {
+                        append_1q(&mut wires, q, "[P]");
+                    }
+                    Gate::U(q, _, _, _) => {
+                        append_1q(&mut wires, q, "[U]");
+                    }
+                    Gate::Cnot(c, t) => {
+                        append_2q(&mut wires, c, t, "■", "X");
+                    }
+                    Gate::Cz(a, b) => {
+                        append_2q(&mut wires, a, b, "■", "■");
+                    }
+                    Gate::Swap(a, b) => {
+                        append_2q(&mut wires, a, b, "X", "X");
+                    }
+                    Gate::ISwap(a, b) => {
+                        append_2q(&mut wires, a, b, "iX", "iX");
+                    }
+                    Gate::ISwapdg(a, b) => {
+                        append_2q(&mut wires, a, b, "iX†", "iX†");
+                    }
+                    Gate::CPhase(a, b, _) => {
+                        append_2q(&mut wires, a, b, "■", "P");
+                    }
+                    Gate::Ccx(a, b, t) => {
+                        append_3q(&mut wires, a, b, t, "■", "■", "X");
+                    }
+                },
+                Op::Measure(q) => {
+                    append_1q(&mut wires, *q, "[M]");
+                }
+                Op::Reset(q) => {
+                    append_1q(&mut wires, *q, "[R]");
+                }
+                _ => {}
+            }
+        }
+
+        // Add trailing wire end
+        for w in &mut wires {
+            w.push_str("──");
+        }
+        wires.join("\n")
+    }
+
+    /// Serializes this circuit into OpenQASM 2.0 format. Fails for operations
+    /// OpenQASM 2.0 cannot express (classically conditioned gates, noise).
+    pub fn to_qasm(&self) -> Result<String, SimError> {
+        crate::qasm::to_qasm(self)
+    }
+
+    /// Parses an OpenQASM 2.0 program into a [`Circuit`].
+    pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
+        crate::qasm::from_qasm(source)
+    }
+
     /// Runs the circuit on a simulator and returns the measurement outcomes
     /// in program order.
     pub fn run<S: Simulator + ?Sized>(
@@ -446,6 +714,147 @@ impl Circuit {
     }
 }
 
+/// Summary statistics of a quantum circuit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CircuitStats {
+    pub num_qubits: usize,
+    pub total_ops: usize,
+    pub total_gates: usize,
+    pub depth: usize,
+    pub gates_1q: usize,
+    pub gates_2q: usize,
+    pub gates_3q: usize,
+    pub clifford_gates: usize,
+    pub t_gates: usize,
+    pub measurements: usize,
+}
+
+impl fmt::Display for Circuit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.draw())
+    }
+}
+
+fn try_combine_gates(a: &Gate, b: &Gate) -> Option<Option<Gate>> {
+    use Gate::*;
+    match (*a, *b) {
+        // Self-inverses
+        (H(q1), H(q2)) | (X(q1), X(q2)) | (Y(q1), Y(q2)) | (Z(q1), Z(q2)) if q1 == q2 => Some(None),
+        (S(q1), Sdg(q2)) | (Sdg(q1), S(q2)) if q1 == q2 => Some(None),
+        (T(q1), Tdg(q2)) | (Tdg(q1), T(q2)) if q1 == q2 => Some(None),
+        (Sx(q1), Sxdg(q2)) | (Sxdg(q1), Sx(q2)) if q1 == q2 => Some(None),
+        (Cnot(c1, t1), Cnot(c2, t2)) if c1 == c2 && t1 == t2 => Some(None),
+        (Cz(a1, b1), Cz(a2, b2)) if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) => Some(None),
+        (Swap(a1, b1), Swap(a2, b2)) if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) => {
+            Some(None)
+        }
+        (ISwap(a1, b1), ISwapdg(a2, b2)) | (ISwapdg(a1, b1), ISwap(a2, b2))
+            if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) =>
+        {
+            Some(None)
+        }
+        // Combinations
+        (S(q1), S(q2)) if q1 == q2 => Some(Some(Z(q1))),
+        (Sdg(q1), Sdg(q2)) if q1 == q2 => Some(Some(Z(q1))),
+        (T(q1), T(q2)) if q1 == q2 => Some(Some(S(q1))),
+        (Tdg(q1), Tdg(q2)) if q1 == q2 => Some(Some(Sdg(q1))),
+        // Continuous rotations
+        (Rx(q1, t1), Rx(q2, t2)) if q1 == q2 => {
+            let t = t1 + t2;
+            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 {
+                Some(None)
+            } else {
+                Some(Some(Rx(q1, t)))
+            }
+        }
+        (Ry(q1, t1), Ry(q2, t2)) if q1 == q2 => {
+            let t = t1 + t2;
+            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 {
+                Some(None)
+            } else {
+                Some(Some(Ry(q1, t)))
+            }
+        }
+        (Rz(q1, t1), Rz(q2, t2)) if q1 == q2 => {
+            let t = t1 + t2;
+            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 {
+                Some(None)
+            } else {
+                Some(Some(Rz(q1, t)))
+            }
+        }
+        (Phase(q1, t1), Phase(q2, t2)) if q1 == q2 => {
+            let t = t1 + t2;
+            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 {
+                Some(None)
+            } else {
+                Some(Some(Phase(q1, t)))
+            }
+        }
+        (CPhase(a1, b1, t1), CPhase(a2, b2, t2))
+            if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) =>
+        {
+            let t = t1 + t2;
+            if (t % (2.0 * std::f64::consts::PI)).abs() < 1e-12 {
+                Some(None)
+            } else {
+                Some(Some(CPhase(a1, b1, t)))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn append_1q(wires: &mut [String], target: usize, label: &str) {
+    let tag = format!("{label:^5}");
+    for (q, w) in wires.iter_mut().enumerate() {
+        if q == target {
+            w.push_str(&tag);
+            w.push_str("──");
+        } else {
+            w.push_str("───────");
+        }
+    }
+}
+
+fn append_2q(wires: &mut [String], a: usize, b: usize, label_a: &str, label_b: &str) {
+    let lo = a.min(b);
+    let hi = a.max(b);
+    let tag_a = format!("{label_a:^5}");
+    let tag_b = format!("{label_b:^5}");
+    for (q, w) in wires.iter_mut().enumerate() {
+        if q == a {
+            w.push_str(&tag_a);
+            w.push_str("──");
+        } else if q == b {
+            w.push_str(&tag_b);
+            w.push_str("──");
+        } else if q > lo && q < hi {
+            w.push_str("  │  ──");
+        } else {
+            w.push_str("───────");
+        }
+    }
+}
+
+fn append_3q(wires: &mut [String], a: usize, b: usize, c: usize, la: &str, lb: &str, lc: &str) {
+    let lo = a.min(b).min(c);
+    let hi = a.max(b).max(c);
+    for (q, w) in wires.iter_mut().enumerate() {
+        if q == a {
+            w.push_str(&format!("{la:^5}──"));
+        } else if q == b {
+            w.push_str(&format!("{lb:^5}──"));
+        } else if q == c {
+            w.push_str(&format!("{lc:^5}──"));
+        } else if q > lo && q < hi {
+            w.push_str("  │  ──");
+        } else {
+            w.push_str("───────");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -460,6 +869,48 @@ mod tests {
         assert_eq!(c.t_count(), 2);
         assert!(!c.is_clifford());
         assert_eq!(c.ops.len(), 7);
+    }
+
+    #[test]
+    fn circuit_depth_and_stats() {
+        let mut c = Circuit::new(3);
+        c.h(0).cnot(0, 1).h(2).cnot(1, 2);
+        assert_eq!(c.depth(), 3);
+        let st = c.stats();
+        assert_eq!(st.depth, 3);
+        assert_eq!(st.gates_1q, 2);
+        assert_eq!(st.gates_2q, 2);
+        assert_eq!(st.total_gates, 4);
+    }
+
+    #[test]
+    fn circuit_optimization_cancels_inverses() {
+        let mut c = Circuit::new(2);
+        c.h(0)
+            .h(0)
+            .x(1)
+            .x(1)
+            .t(0)
+            .tdg(0)
+            .s(1)
+            .s(1)
+            .cnot(0, 1)
+            .cnot(0, 1);
+        let opt = c.optimize();
+        assert_eq!(opt.num_gates(), 1);
+        assert_eq!(opt.ops[0], Op::Gate(Gate::Z(1)));
+    }
+
+    #[test]
+    fn circuit_draw() {
+        let mut c = Circuit::new(2);
+        c.h(0).x(1).cnot(0, 1).measure_all();
+        let s = c.draw();
+        assert!(s.contains("q0 :"));
+        assert!(s.contains("[H]"));
+        assert!(s.contains("[X]"));
+        assert!(s.contains("■"));
+        assert!(s.contains("[M]"));
     }
 
     #[test]

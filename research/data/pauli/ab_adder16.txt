@@ -1,0 +1,15 @@
+rep=1 engine=legacy load=11.54 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.2687 |
+rep=1 engine=frame-noprune load=11.54 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.1011 |
+rep=1 engine=frame load=11.18 | 16 | 34 | 224 | Z_cout | 4 | +1.525878906250e-5 | 0.0191 |
+rep=2 engine=legacy load=11.18 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.2557 |
+rep=2 engine=frame-noprune load=11.18 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.0939 |
+rep=2 engine=frame load=11.18 | 16 | 34 | 224 | Z_cout | 4 | +1.525878906250e-5 | 0.0844 |
+rep=3 engine=legacy load=11.18 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.5355 |
+rep=3 engine=frame-noprune load=11.40 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.2350 |
+rep=3 engine=frame load=11.40 | 16 | 34 | 224 | Z_cout | 4 | +1.525878906250e-5 | 0.0186 |
+rep=4 engine=legacy load=11.40 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.4261 |
+rep=4 engine=frame-noprune load=11.53 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.1061 |
+rep=4 engine=frame load=11.53 | 16 | 34 | 224 | Z_cout | 4 | +1.525878906250e-5 | 0.0148 |
+rep=5 engine=legacy load=11.53 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.6236 |
+rep=5 engine=frame-noprune load=11.73 | 16 | 34 | 224 | Z_cout | 327678 | +1.525878906250e-5 | 0.1649 |
+rep=5 engine=frame load=11.73 | 16 | 34 | 224 | Z_cout | 4 | +1.525878906250e-5 | 0.0797 |

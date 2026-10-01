@@ -222,6 +222,19 @@ impl<T: Real> StateVector<T> {
         s
     }
 
+    /// Resets the state back to `|0...0>` without reallocating amplitude storage.
+    pub fn reset_all(&mut self) {
+        if self.amps.is_empty() {
+            return;
+        }
+        if self.amps.len() >= PAR_MIN_LEN {
+            self.amps.par_iter_mut().for_each(|a| *a = Complex::zero());
+        } else {
+            self.amps.fill(Complex::zero());
+        }
+        self.amps[0] = Complex::one();
+    }
+
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -261,14 +274,25 @@ impl<T: Real> StateVector<T> {
     /// `<self|other>`.
     pub fn inner(&self, other: &Self) -> Complex64 {
         assert_eq!(self.n, other.n);
-        self.amps
-            .par_iter()
-            .zip(other.amps.par_iter())
-            .map(|(a, b)| {
-                let p = a.conj() * *b;
-                Complex64::new(p.re.to_f64(), p.im.to_f64())
-            })
-            .sum()
+        if self.amps.len() < PAR_MIN_LEN {
+            self.amps
+                .iter()
+                .zip(other.amps.iter())
+                .map(|(a, b)| {
+                    let p = a.conj() * *b;
+                    Complex64::new(p.re.to_f64(), p.im.to_f64())
+                })
+                .sum()
+        } else {
+            self.amps
+                .par_iter()
+                .zip(other.amps.par_iter())
+                .map(|(a, b)| {
+                    let p = a.conj() * *b;
+                    Complex64::new(p.re.to_f64(), p.im.to_f64())
+                })
+                .sum()
+        }
     }
 
     /// `|<self|other>|^2`.
@@ -278,7 +302,14 @@ impl<T: Real> StateVector<T> {
 
     /// All `2^n` outcome probabilities (intended for small `n`).
     pub fn probabilities(&self) -> Vec<f64> {
-        self.amps.iter().map(|a| a.norm_sqr().to_f64()).collect()
+        if self.amps.len() < PAR_MIN_LEN {
+            self.amps.iter().map(|a| a.norm_sqr().to_f64()).collect()
+        } else {
+            self.amps
+                .par_iter()
+                .map(|a| a.norm_sqr().to_f64())
+                .collect()
+        }
     }
 
     // ----- gates ---------------------------------------------------------
@@ -287,15 +318,40 @@ impl<T: Real> StateVector<T> {
     pub fn apply_gate(&mut self, g: &Gate) -> Result<(), SimError> {
         check_gate(g, self.n)?;
         match *g {
+            Gate::I(_) => {}
             Gate::H(q) => self.apply_h(q),
             Gate::X(q) => for_each_pair(&mut self.amps, q, |lo, hi| lo.swap_with_slice(hi)),
             Gate::Y(q) => self.apply_y(q),
+            Gate::Z(q) => for_each_pair(&mut self.amps, q, |_, hi| {
+                for x in hi {
+                    x.re = -x.re;
+                    x.im = -x.im;
+                }
+            }),
+            Gate::S(q) => for_each_pair(&mut self.amps, q, |_, hi| {
+                for x in hi {
+                    *x = Complex::new(-x.im, x.re);
+                }
+            }),
+            Gate::Sdg(q) => for_each_pair(&mut self.amps, q, |_, hi| {
+                for x in hi {
+                    *x = Complex::new(x.im, -x.re);
+                }
+            }),
             Gate::Cnot(c, t) => self.apply_cnot(c, t),
             Gate::Cz(a, b) => self.apply_cphase_raw(a, b, Complex::new(-T::one(), T::zero())),
             Gate::CPhase(a, b, th) => {
                 self.apply_cphase_raw(a, b, cvt(Complex64::from_polar(1.0, th)))
             }
             Gate::Swap(a, b) => self.apply_swap(a, b),
+            Gate::ISwap(a, b) => {
+                let m = Gate::ISwap(0, 1).matrix_2q().expect("2q");
+                self.apply_2q_matrix(a, b, &m);
+            }
+            Gate::ISwapdg(a, b) => {
+                let m = Gate::ISwapdg(0, 1).matrix_2q().expect("2q");
+                self.apply_2q_matrix(a, b, &m);
+            }
             Gate::Ccx(a, b, t) => {
                 let x = Gate::X(0).matrix_1q().expect("1q");
                 self.apply_multi_controlled_1q(&[a, b], t, &x)
@@ -329,6 +385,7 @@ impl<T: Real> StateVector<T> {
 
     /// Applies an arbitrary 2x2 unitary to qubit `q`.
     pub fn apply_1q_matrix(&mut self, q: usize, m: &Mat2) {
+        assert!(q < self.n, "qubit {q} out of range for {} qubits", self.n);
         let (m00, m01, m10, m11) = (
             cvt::<T>(m[0][0]),
             cvt::<T>(m[0][1]),
@@ -407,6 +464,11 @@ impl<T: Real> StateVector<T> {
     /// Applies an arbitrary 4x4 unitary to qubits `(a, b)` (matrix indexed
     /// by `2*bit(a) + bit(b)`).
     pub fn apply_2q_matrix(&mut self, a: usize, b: usize, m: &Mat4) {
+        assert!(
+            a < self.n && b < self.n,
+            "qubits ({a}, {b}) out of range for {} qubits",
+            self.n
+        );
         assert_ne!(a, b);
         let (l, h) = (a.min(b), a.max(b));
         // for_each_quad orders slices as 2*bit(h) + bit(l)
@@ -428,6 +490,14 @@ impl<T: Real> StateVector<T> {
 
     /// Applies `m` to `target` on the subspace where all `controls` are 1.
     pub fn apply_multi_controlled_1q(&mut self, controls: &[usize], target: usize, m: &Mat2) {
+        assert!(
+            target < self.n,
+            "target {target} out of range for {} qubits",
+            self.n
+        );
+        for &c in controls {
+            assert!(c < self.n, "control {c} out of range for {} qubits", self.n);
+        }
         let mask: usize = controls.iter().map(|&c| 1usize << c).sum();
         assert_eq!(mask & (1 << target), 0, "target cannot be a control");
         let (m00, m01, m10, m11) = (
@@ -632,6 +702,10 @@ impl<T: Real> Simulator for StateVector<T> {
             });
         }
         self.reset_qubit(q, rng);
+        Ok(())
+    }
+    fn reset_all(&mut self) -> Result<(), SimError> {
+        self.reset_all();
         Ok(())
     }
 }

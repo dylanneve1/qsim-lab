@@ -198,6 +198,12 @@ pub fn map_gate(g: Gate, f: impl Fn(usize) -> usize) -> Gate {
         Swap(a, b) => Swap(f(a), f(b)),
         CPhase(a, b, t) => CPhase(f(a), f(b), t),
         Ccx(a, b, t) => Ccx(f(a), f(b), f(t)),
+        I(q) => I(f(q)),
+        Sx(q) => Sx(f(q)),
+        Sxdg(q) => Sxdg(f(q)),
+        U(q, th, ph, la) => U(f(q), th, ph, la),
+        ISwap(a, b) => ISwap(f(a), f(b)),
+        ISwapdg(a, b) => ISwapdg(f(a), f(b)),
     }
 }
 

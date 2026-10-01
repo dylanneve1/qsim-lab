@@ -117,12 +117,16 @@ Implementation details:
 
 * The four `n×n` blocks are bit packed in `u64` words, with `n` rounded up to
   a multiple of 64.
-* Gates need columns to be contiguous, row multiplication needs rows to be
-  contiguous. The tableau keeps a qubit-major layout while gates are being
-  applied (an H or CNOT is then a few word operations over `2n/64` words) and
-  switches to a generator-major layout for measurement. The switch is an
-  in-place bit transpose done 64×64 blocks at a time, and it only happens
-  when the kind of operation changes.
+* The blocks are stored qubit-major (a line per qubit), so an H or CNOT is a
+  few word operations over `2n/64` words. Read the other way round, the same
+  lines are the rows of the inverse tableau `C†`. As in Stim, the tableau also
+  keeps the inverse rows' signs. A deterministic Z measurement is then a sign
+  lookup (`O(n/64)` instead of `O(n^2/64)`), and a random one is done by
+  applying gates to generator indices in one pass over the lines. Gates and
+  measurements never transpose the tableau: syndrome-extraction rounds run
+  about 100x faster than with the textbook layout switching (see
+  `research/stab.md`). `set_sign_tracking(false)` skips the per-gate sign work
+  when no single-qubit measurements follow.
 * The sign of a product of two Pauli rows is computed 64 qubits at a time
   with masks and `popcount`.
 * Measuring every qubit with the textbook CHP procedure costs `O(n^2)` per
@@ -272,6 +276,19 @@ observable covers most of the qubits, each T gate multiplies the number of
 terms by about 1.5 (an X or Y lands on the T qubit about half the time), and
 the run time follows. The run aborts at 44 T gates when the term budget
 (`DEFAULT_MAX_TERMS`, about 260 MB here) is exceeded.
+
+The table above was measured with the original engine, which is now
+`pauli_path::expectation_legacy`. `<Z_0>` is exactly 0 in every row, so it is a
+cost benchmark only. `pauli_path::expectation` now uses the rotation-frame
+engine (`pauli_frame`). That engine compiles the Cliffords away with a tableau,
+leaving only `t` Pauli rotations. It then drops terms that provably cannot
+contribute: their X part lies outside the span of the remaining rotation axes.
+On this family, with fewer T gates than qubits, that removes `Z_0` before any
+propagation. For a non-degenerate version (a stabilizer of the circuit's
+Clifford skeleton, whose value is non-zero) the frontier at the same term budget
+moves from 40 T gates (legacy) to 100. See `research/pauli.md` for the exactness
+argument, the tests, and interleaved A/B timings
+(`qsim bench clifford-t --observable stab --engine legacy|frame`).
 
 ### MPS: GHZ and random circuits
 

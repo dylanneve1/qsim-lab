@@ -501,7 +501,7 @@ fn forty_qubit_two_block_amplitudes_are_consistent() {
 }
 
 fn arb_gate(n: usize) -> impl Strategy<Value = Gate> {
-    (0..17usize, 0..n, 0..n, 0..n, -3.2f64..3.2).prop_filter_map(
+    (0..23usize, 0..n, 0..n, 0..n, -3.2f64..3.2).prop_filter_map(
         "distinct",
         move |(k, a, b, t, th)| {
             let g = match k {
@@ -521,6 +521,12 @@ fn arb_gate(n: usize) -> impl Strategy<Value = Gate> {
                 13 => Gate::Cz(a, b),
                 14 => Gate::Swap(a, b),
                 15 => Gate::CPhase(a, b, th),
+                16 => Gate::Sx(a),
+                17 => Gate::Sxdg(a),
+                18 => Gate::U(a, th, -0.7 * th, 1.3),
+                19 => Gate::ISwap(a, b),
+                20 => Gate::ISwapdg(a, b),
+                21 => Gate::I(a),
                 _ => Gate::Ccx(a, b, t),
             };
             let qs = g.qubits();
