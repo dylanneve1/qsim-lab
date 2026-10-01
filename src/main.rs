@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use qsim_lab::algorithms;
 use qsim_lab::bench;
 use qsim_lab::circuit::{Circuit, Simulator};
+use qsim_lab::shor;
 use qsim_lab::{Mps, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -45,7 +46,40 @@ enum Cmd {
         /// RNG seed.
         #[arg(long, default_value_t = 1)]
         seed: u64,
+        /// shor: one recycled control qubit (semiclassical QFT) instead of
+        /// 2n counting qubits.
+        #[arg(long)]
+        semiclassical: bool,
+        /// shor (semiclassical): exact sparse state instead of dense.
+        #[arg(long)]
+        sparse: bool,
+        /// shor (semiclassical, dense): f32 amplitudes.
+        #[arg(long)]
+        f32: bool,
+        /// shor (semiclassical): modular-multiplication oracle.
+        #[arg(long, value_enum, default_value_t = OracleArg::Permutation)]
+        oracle: OracleArg,
+        /// shor: base `a` (default: random bases until a factor is found).
+        #[arg(long)]
+        base: Option<u64>,
+        /// shor: maximum number of order-finding runs.
+        #[arg(long, default_value_t = 20)]
+        tries: usize,
     },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum OracleArg {
+    Permutation,
+    Beauregard,
+}
+
+/// Peak resident set size of this process in MiB (Linux `VmHWM`).
+fn peak_rss_mib() -> Option<f64> {
+    let s = std::fs::read_to_string("/proc/self/status").ok()?;
+    let line = s.lines().find(|l| l.starts_with("VmHWM:"))?;
+    let kb: f64 = line.split_whitespace().nth(1)?.parse().ok()?;
+    Some(kb / 1024.0)
 }
 
 #[derive(Subcommand)]
@@ -332,6 +366,12 @@ fn main() {
             backend,
             modulus,
             seed,
+            semiclassical,
+            sparse,
+            f32,
+            oracle,
+            base,
+            tries,
         } => {
             let mut rng = StdRng::seed_from_u64(seed);
             match example {
@@ -381,17 +421,54 @@ fn main() {
                 }
                 Example::Shor => {
                     let n = modulus;
-                    let (f, runs) = algorithms::shor_factor(n, &mut rng);
-                    for r in &runs {
-                        println!(
-                            "a={:2}  qubits={}  measured={:4}  order={:?}  factor={:?}",
-                            r.a, r.qubits, r.measured, r.order, r.factor
-                        );
+                    let t0 = std::time::Instant::now();
+                    if !semiclassical {
+                        let (f, runs) = algorithms::shor_factor(n, &mut rng);
+                        for r in &runs {
+                            println!(
+                                "a={:2}  qubits={}  measured={:4}  order={:?}  factor={:?}",
+                                r.a, r.qubits, r.measured, r.order, r.factor
+                            );
+                        }
+                        match f {
+                            Some((p, q)) => println!("{n} = {p} x {q}"),
+                            None => println!("no factor found"),
+                        }
+                    } else {
+                        let oracle = match oracle {
+                            OracleArg::Permutation => shor::Oracle::Permutation,
+                            OracleArg::Beauregard => shor::Oracle::Beauregard,
+                        };
+                        let backend = match (sparse, f32) {
+                            (true, _) => shor::Backend::Sparse,
+                            (false, true) => shor::Backend::DenseF32,
+                            (false, false) => shor::Backend::DenseF64,
+                        };
+                        let (f, runs) = match base {
+                            Some(a) => {
+                                let inst = shor::Instance::new(n, a, oracle);
+                                let r = shor::order_finding(&inst, backend, &mut rng);
+                                let f = r.factor.map(|f| (f.min(n / f), f.max(n / f)));
+                                (f, vec![r])
+                            }
+                            None => shor::factor_semiclassical(n, oracle, backend, tries, &mut rng),
+                        };
+                        for r in &runs {
+                            println!(
+                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}",
+                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes
+                            );
+                        }
+                        match f {
+                            Some((p, q)) => println!("{n} = {p} x {q}"),
+                            None => println!("no factor found"),
+                        }
                     }
-                    match f {
-                        Some((p, q)) => println!("{n} = {p} x {q}"),
-                        None => println!("no factor found"),
-                    }
+                    println!(
+                        "time {:.3} s  peak RSS {:.1} MiB",
+                        t0.elapsed().as_secs_f64(),
+                        peak_rss_mib().unwrap_or(f64::NAN)
+                    );
                 }
             }
         }

@@ -131,7 +131,8 @@ pub fn grover<T: Real, R: Rng + ?Sized>(n: usize, marked: usize, rng: &mut R) ->
     (found, p)
 }
 
-fn gcd(a: u64, b: u64) -> u64 {
+/// Greatest common divisor.
+pub fn gcd(a: u64, b: u64) -> u64 {
     if b == 0 {
         a
     } else {
@@ -139,21 +140,23 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
-fn pow_mod(mut b: u64, mut e: u64, m: u64) -> u64 {
+/// `b^e mod m` (products in `u128`, so any `u64` modulus works).
+pub fn pow_mod(mut b: u64, mut e: u64, m: u64) -> u64 {
+    let mul = |x: u64, y: u64| (u128::from(x) * u128::from(y) % u128::from(m)) as u64;
     let mut r = 1 % m;
     b %= m;
     while e > 0 {
         if e & 1 == 1 {
-            r = r * b % m;
+            r = mul(r, b);
         }
-        b = b * b % m;
+        b = mul(b, b);
         e >>= 1;
     }
     r
 }
 
 /// Denominators of the continued-fraction convergents of `x / 2^t`.
-fn convergent_denominators(x: u64, t: u32) -> Vec<u64> {
+pub fn convergent_denominators(x: u64, t: u32) -> Vec<u64> {
     let (mut num, mut den) = (x, 1u64 << t);
     let (mut q_prev, mut q) = (1u64, 0u64);
     let mut out = Vec::new();
@@ -183,11 +186,12 @@ pub struct ShorRun {
     pub qubits: usize,
 }
 
-/// One run of Shor's algorithm for `N` with base `a` on a state vector:
-/// `t = 2⌈log2 N⌉` counting qubits, `⌈log2 N⌉` work qubits, controlled
-/// modular multiplications implemented as permutation oracles, an inverse
-/// QFT built from H/controlled-phase/SWAP gates, and continued fractions.
-pub fn shor_order_finding<R: Rng + ?Sized>(n_mod: u64, a: u64, rng: &mut R) -> ShorRun {
+/// The textbook order-finding state just before measurement, for `N` with
+/// base `a`: `t = 2⌈log2 N⌉` counting qubits (qubits `0..t`, qubit `j`
+/// controls `U^(2^j)`), `⌈log2 N⌉` work qubits, controlled modular
+/// multiplications as permutation oracles, and an inverse QFT built from
+/// H/controlled-phase/SWAP gates. Returns the state and `t`.
+pub fn shor_full_state(n_mod: u64, a: u64) -> (StateVector<f64>, usize) {
     assert!(n_mod >= 3 && gcd(a, n_mod) == 1);
     let m = 64 - (n_mod - 1).leading_zeros() as usize; // work qubits
     let t = 2 * m; // counting qubits
@@ -217,9 +221,14 @@ pub fn shor_order_finding<R: Rng + ?Sized>(n_mod: u64, a: u64, rng: &mut R) -> S
     let mut c = Circuit::new(total);
     qft_into(&mut c, &(0..t).collect::<Vec<_>>(), true);
     s.apply_circuit(&c).expect("valid");
-    let shot = s.sample(1, rng)[0];
-    let measured = (shot & ((1 << t) - 1)) as u64;
-    let order = convergent_denominators(measured, t as u32)
+    (s, t)
+}
+
+/// Classical post-processing of a measured `t`-bit value: the order from
+/// the continued-fraction convergents of `measured / 2^t`, then a factor
+/// from `gcd(a^(r/2) ± 1, N)`.
+pub fn shor_postprocess(n_mod: u64, a: u64, measured: u64, t: u32) -> (Option<u64>, Option<u64>) {
+    let order = convergent_denominators(measured, t)
         .into_iter()
         .find(|&r| r > 0 && r < n_mod && pow_mod(a, r, n_mod) == 1);
     let factor = order.and_then(|r| {
@@ -231,6 +240,18 @@ pub fn shor_order_finding<R: Rng + ?Sized>(n_mod: u64, a: u64, rng: &mut R) -> S
             .into_iter()
             .find(|&f| f > 1 && f < n_mod)
     });
+    (order, factor)
+}
+
+/// One run of Shor's algorithm for `N` with base `a` on a state vector
+/// ([`shor_full_state`], `3⌈log2 N⌉` qubits), sampled once and
+/// post-processed with continued fractions.
+pub fn shor_order_finding<R: Rng + ?Sized>(n_mod: u64, a: u64, rng: &mut R) -> ShorRun {
+    let (s, t) = shor_full_state(n_mod, a);
+    let total = s.num_qubits();
+    let shot = s.sample(1, rng)[0];
+    let measured = (shot & ((1 << t) - 1)) as u64;
+    let (order, factor) = shor_postprocess(n_mod, a, measured, t as u32);
     ShorRun {
         a,
         measured,

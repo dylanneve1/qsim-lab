@@ -45,6 +45,9 @@ pub mod pauli_frame;
 pub mod pauli_path;
 pub mod qasm;
 pub mod qec;
+pub mod shor;
+pub mod shor_arith;
+pub mod sparse;
 pub mod stabilizer;
 pub mod statevector;
 
@@ -54,5 +57,6 @@ pub use hsf::{HsfOptions, HybridSchrodingerFeynman};
 pub use mps::Mps;
 pub use noise::NoiseModel;
 pub use qec::{DecodingGraph, RepetitionCode, SurfaceCode, UnionFindDecoder};
+pub use sparse::SparseState;
 pub use stabilizer::Tableau;
 pub use statevector::{StateVector, StateVectorF32, StateVectorF64};
