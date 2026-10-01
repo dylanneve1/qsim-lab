@@ -224,3 +224,25 @@ fn larger_distance_suppresses_errors_below_threshold() {
         r3.logical_errors
     );
 }
+
+/// The weighted decoder (log-likelihood edge lengths) also corrects every
+/// single circuit fault.
+#[test]
+fn weighted_decoder_corrects_every_single_fault() {
+    for d in [3, 5] {
+        for p in [0.001, 0.01] {
+            let noise = NoiseModel::circuit_level(p, p);
+            let sc = SurfaceCode::new_weighted(d, d, &noise, 10);
+            assert!(sc.decoder.graph.edges.iter().any(|e| e.weight > 10));
+            for loc in &sc.faults.locations {
+                for sig in &loc.outcomes {
+                    assert_eq!(
+                        sc.decoder.decode(&sig.detectors),
+                        sig.flips_logical,
+                        "d={d} p={p}: {sig:?}"
+                    );
+                }
+            }
+        }
+    }
+}

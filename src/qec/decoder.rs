@@ -165,6 +165,10 @@ impl UnionFindDecoder {
         // Edge growth: an edge is fully grown when total growth >= 2
         let mut edge_growth = vec![0usize; num_edges];
         let mut edge_merged = vec![false; num_edges];
+        let mut sides = vec![0usize; num_edges];
+        let mut first_pos = vec![0usize; num_edges];
+        let mut second_pos = vec![0usize; num_edges];
+        let mut frontier: Vec<usize> = Vec::new();
 
         // Spanning forest of merged tree edges: (neighbor, flips_logical)
         let mut spanning_forest_adj: Vec<Vec<(usize, bool)>> = vec![Vec::new(); n];
@@ -182,8 +186,11 @@ impl UnionFindDecoder {
                 break;
             }
 
-            let mut edges_to_merge = Vec::new();
-
+            // Frontier: every unmerged edge leaving an active cluster, with the
+            // number of active sides growing into it (1, or 2 when it joins two
+            // different active clusters).
+            frontier.clear();
+            let mut scan_pos = 0usize;
             for &root in &active_roots {
                 for &u in &cluster_members[root] {
                     for &e_idx in &self.graph.adj[u] {
@@ -192,17 +199,58 @@ impl UnionFindDecoder {
                         }
                         let edge = self.edges(e_idx);
                         let v = if edge.u == u { edge.v } else { edge.u };
-                        let root_v = dsu.find(v);
-
-                        if root != root_v {
-                            edge_growth[e_idx] += 1;
-                            if edge_growth[e_idx] >= 2 && !edge_merged[e_idx] {
-                                edge_merged[e_idx] = true;
-                                edges_to_merge.push((edge.u, edge.v, edge.flips_logical));
+                        if dsu.find(v) != root {
+                            if sides[e_idx] == 0 {
+                                frontier.push(e_idx);
+                                first_pos[e_idx] = scan_pos;
+                            } else {
+                                second_pos[e_idx] = scan_pos;
                             }
+                            sides[e_idx] += 1;
                         }
+                        scan_pos += 1;
                     }
                 }
+            }
+
+            // Every active side grows each frontier edge by one half-unit per
+            // step; an edge of weight w is fully grown at 2w. No cluster changes
+            // until the first edge completes, so jump straight to that step
+            // (identical to unit stepping; for weight-1 graphs this is the
+            // classic half-edge growth).
+            let mut delta = usize::MAX;
+            for &e in &frontier {
+                let need = 2 * self.graph.edges[e].weight.max(1) - edge_growth[e];
+                delta = delta.min(need.div_ceil(sides[e]));
+            }
+            // Edges completing in the final step are merged in the order a
+            // unit-step scan would complete them (the position of the
+            // increment that crosses 2w), which keeps the spanning forest, and
+            // hence the correction, identical to unit stepping.
+            let mut completed: Vec<(usize, usize)> = Vec::new();
+            for &e in &frontier {
+                let full = 2 * self.graph.edges[e].weight.max(1);
+                let before_last = edge_growth[e] + (delta - 1) * sides[e];
+                edge_growth[e] += delta * sides[e];
+                if edge_growth[e] >= full {
+                    let pos = if before_last + 1 >= full {
+                        first_pos[e]
+                    } else {
+                        second_pos[e]
+                    };
+                    completed.push((pos, e));
+                }
+                sides[e] = 0;
+            }
+            completed.sort_unstable();
+            let mut edges_to_merge = Vec::with_capacity(completed.len());
+            for &(_, e) in &completed {
+                edge_merged[e] = true;
+                let edge = self.edges(e);
+                edges_to_merge.push((edge.u, edge.v, edge.flips_logical));
+            }
+            if frontier.is_empty() {
+                break; // odd cluster with no way out (cannot happen with a boundary)
             }
 
             for (u, v, flips_logical) in edges_to_merge {

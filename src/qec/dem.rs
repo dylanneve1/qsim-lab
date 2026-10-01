@@ -785,3 +785,50 @@ fn decomposes(
     }
     false
 }
+
+/// Like [`decoding_graph_from_faults`], with integer edge weights for a
+/// weighted Union-Find decoder.
+///
+/// Each edge's probability `p_e` is the XOR-combination (`p ⊕ q`) of every
+/// fault outcome producing it under `noise`. Its log-likelihood weight
+/// `ln((1 - p_e) / p_e)` is quantised as
+/// `max(1, round(resolution * w_e / w_min))`, where `w_min` is the smallest
+/// weight in the graph, so the most likely edge has length `resolution`.
+pub fn weighted_decoding_graph_from_faults(
+    faults: &CircuitFaults,
+    noise: &NoiseModel,
+    resolution: usize,
+) -> (crate::qec::decoder::DecodingGraph, GraphReport) {
+    let (mut graph, report) = decoding_graph_from_faults(faults, noise);
+    let b = faults.num_detectors;
+    let mut prob: HashMap<(usize, usize), f64> = HashMap::new();
+    for loc in &faults.locations {
+        let p = loc.kind.probability(noise) / loc.outcomes.len() as f64;
+        if p <= 0.0 {
+            continue;
+        }
+        for s in &loc.outcomes {
+            let key = match s.detectors.as_slice() {
+                [u] => (*u, b),
+                [u, v] => (*u, *v),
+                _ => continue,
+            };
+            let e = prob.entry(key).or_insert(0.0);
+            *e = *e * (1.0 - p) + p * (1.0 - *e);
+        }
+    }
+    let llr = |p: f64| {
+        let p = p.clamp(1e-12, 0.5 - 1e-12);
+        ((1.0 - p) / p).ln()
+    };
+    let w: Vec<f64> = graph
+        .edges
+        .iter()
+        .map(|e| llr(*prob.get(&(e.u, e.v)).unwrap_or(&1e-12)))
+        .collect();
+    let w_min = w.iter().cloned().fold(f64::INFINITY, f64::min);
+    for (edge, &we) in graph.edges.iter_mut().zip(&w) {
+        edge.weight = ((resolution as f64) * we / w_min).round().max(1.0) as usize;
+    }
+    (graph, report)
+}
