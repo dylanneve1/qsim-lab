@@ -109,3 +109,50 @@ fn hsf_auto_partition_matches_reference() {
         }
     }
 }
+
+/// After merging main: every non-unitary op must be rejected with Err,
+/// at any position, for any partition, never panic or be silently skipped.
+#[test]
+fn hsf_rejects_non_unitary_ops() {
+    use qsim_lab::Gate;
+    type Add = fn(&mut Circuit, usize, usize);
+    let adds: [(&str, Add); 8] = [
+        ("x_flip", |c, q, _| { c.x_flip(q, 0.2); }),
+        ("depolarize_2q", |c, q, o| { c.depolarize_2q(q, o, 0.1); }),
+        ("reset", |c, q, _| { c.reset(q); }),
+        ("measure", |c, q, _| { c.measure(q); }),
+        ("c_if", |c, q, o| { c.measure(q).c_if(0, Gate::X(o)); }),
+        ("depolarize_1q", |c, q, _| { c.depolarize_1q(q, 0.1); }),
+        ("depolarize_1q p=0", |c, q, _| { c.depolarize_1q(q, 0.0); }),
+        ("reset_then_gate", |c, q, o| { c.reset(q).cnot(q, o); }),
+    ];
+    let mut checked = 0;
+    for (name, add) in adds {
+        for n in [2usize, 4, 7] {
+            for pos in 0..3 {
+                let mut rng = StdRng::seed_from_u64(n as u64 * 31 + pos);
+                let mut c = random_circuit(&mut rng, n, 6, false, false);
+                let q = rng.random_range(0..n);
+                let o = (q + 1) % n;
+                if pos == 0 {
+                    let mut c2 = Circuit::new(n);
+                    add(&mut c2, q, o);
+                    c2.ops.extend(c.ops.clone());
+                    c = c2;
+                } else {
+                    add(&mut c, q, o);
+                    if pos == 1 { c.ops.extend(random_circuit(&mut rng, n, 6, false, false).ops); }
+                }
+                for part in [vec![true; n], (0..n).map(|i| i % 2 == 0).collect::<Vec<_>>(), (0..n).map(|i| i == q).collect()] {
+                    let r = std::panic::catch_unwind(|| HybridSchrodingerFeynman::new(&c, &part, HsfOptions::default()).map(|_| ()));
+                    match r {
+                        Ok(Err(_)) => checked += 1,
+                        Ok(Ok(())) => panic!("{name} accepted: n={n} pos={pos} part={part:?} {:?}", c.ops),
+                        Err(_) => panic!("{name} panicked: n={n} pos={pos}"),
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("non-unitary rejection: {checked} cases rejected with Err");
+}

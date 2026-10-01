@@ -311,3 +311,23 @@ Verdict: **REPRODUCED / correct for valid input — all three earlier BUGs
 fixed. Minor BUG: arity/index validation on malformed input** (recommend a
 strict per-gate arity + per-register bounds check before merge, or merge and
 fix in a follow-up; it cannot corrupt results for well-formed QASM).
+
+## 9. HSF merged with main — hsf-main @ 553fa13 (9285bab + notes)
+
+Only `src/hsf.rs` change vs the audited 44fdd83 is the catch-all `_ =>`
+arm rejecting every non-`Gate` op, so the 44fdd83 speed numbers carry over
+unchanged (no re-timing). `QSIM_FUZZ_ITERS=3`:
+
+| check | result |
+|---|---|
+| full crate suite (lib 37 incl. hsf unit tests, hsf 15, noise, surface, repetition, blocked, …) | pass |
+| `differential_fuzz` | pass |
+| `hsf_amplitudes` adapter: 520 circuits, random/degenerate partitions, all options | pass, worst Δ 1.1e-15 |
+| new `hsf_rejects_non_unitary_ops`: reset, measure, c_if, x_flip, depolarize_1q (incl. p=0), depolarize_2q, reset-then-gate; at start/middle/end; 3 partitions; n ∈ {2,4,7} | 216/216 return `Err`, no panic, none accepted |
+| `sv_blocked` adapter | fails, but only because hsf-main's main base (4d151f4) still has `split_phases: true` as the blocked-executor default (the known ea41235 bug). HSF does not touch `blocked.rs`; hsf-main merges cleanly with 5b51571 (current main, flag off). |
+
+Cosmetic: the error variant for noise/reset/c_if is still
+`SimError::MeasurementNotSupported`.
+
+Verdict: **REPRODUCED / correct — safe to merge** (merge onto current main so
+5b51571's `split_phases=false` default is picked up).
