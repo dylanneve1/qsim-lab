@@ -606,6 +606,15 @@ impl<T: Real> Simulator for StateVector<T> {
     fn apply(&mut self, gate: &Gate) -> Result<(), SimError> {
         self.apply_gate(gate)
     }
+    /// Batches of two or more gates go through the cache-blocked executor
+    /// ([`crate::blocked`]).
+    fn apply_gates(&mut self, gates: &[Gate]) -> Result<(), SimError> {
+        match gates {
+            [] => Ok(()),
+            [g] => self.apply_gate(g),
+            _ => self.apply_gates_blocked(gates, &crate::blocked::BlockConfig::default()),
+        }
+    }
     fn measure(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<bool, SimError> {
         if q >= self.n {
             return Err(SimError::QubitOutOfRange {

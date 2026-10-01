@@ -21,12 +21,8 @@ fn workload(name: &str, n: usize) -> (Circuit, usize) {
             let mut rng = StdRng::seed_from_u64(42);
             (algorithms::random_brickwork(n, 20, &mut rng), 0)
         }
-        "grover" => {
-            // one Grover iteration written as plain gates (MCZ via CCX-free
-            // phase: built from H/X and a multi-controlled X is not a Gate,
-            // so use the textbook layer structure with CZ on qubit pairs)
-            panic!("grover is timed separately")
-        }
+        // 10 Grover iterations (see `run`); the circuit only carries n
+        "grover" => (Circuit::new(n), GROVER),
         w if w.starts_with("rep:") => {
             // rep:<gate>:<q>[:<q2>] -> 200 copies of one gate (microbenchmark)
             let f: Vec<&str> = w.split(':').collect();
@@ -70,6 +66,21 @@ fn run<T: Real>(
     mode: &str,
     cfg: &BlockConfig,
 ) -> (f64, f64, StateVector<T>) {
+    if init == GROVER {
+        // Grover: 10 iterations, MCZ as a diagonal term
+        let n = c.num_qubits;
+        let marked = 0x2A5A5 & ((1 << n) - 1);
+        let c0 = cpu_time();
+        let t = Instant::now();
+        let s = if mode == "base" {
+            algorithms::grover_state::<T>(n, marked, 10)
+        } else {
+            let mut s = StateVector::<T>::new(n);
+            s.apply_kops_blocked(&algorithms::grover_kops(n, marked, 10), cfg);
+            s
+        };
+        return (t.elapsed().as_secs_f64(), cpu_time() - c0, s);
+    }
     let mut s = StateVector::<T>::basis_state(c.num_qubits, init);
     let c0 = cpu_time();
     let t = Instant::now();
@@ -79,6 +90,8 @@ fn run<T: Real>(
     }
     (t.elapsed().as_secs_f64(), cpu_time() - c0, s)
 }
+
+const GROVER: usize = usize::MAX;
 
 fn maxdiff<T: Real>(a: &[Complex<T>], b: &[Complex<T>]) -> f64 {
     a.iter()

@@ -1,6 +1,8 @@
 //! Textbook circuits and algorithms used by the examples, CLI and tests.
 
+use crate::blocked::KOp;
 use crate::circuit::Circuit;
+use crate::gate::Gate;
 use crate::statevector::{Real, StateVector};
 use rand::Rng;
 use std::f64::consts::PI;
@@ -96,6 +98,78 @@ pub fn qft_into(c: &mut Circuit, qs: &[usize], inverse: bool) {
 /// Grover search for a single marked item among `2^n`, run on a state
 /// vector. Returns the measured index and the success probability just
 /// before measurement.
+/// The gate sequence of `iterations` Grover iterations (oracle marking
+/// `marked`, then the diffuser) after the initial Hadamards, in executor IR:
+/// the multi-controlled Z is a single diagonal term. Matches [`grover`]
+/// gate for gate.
+pub fn grover_kops(n: usize, marked: usize, iterations: usize) -> Vec<KOp> {
+    let all = (1usize << n) - 1;
+    let mut gates: Vec<KOp> = Vec::new();
+    let push = |gates: &mut Vec<KOp>, g: Gate| crate::blocked::lower_gate(&g, gates);
+    let mcz = KOp::Phase {
+        mask: all,
+        pat: all,
+        f: num_complex::Complex64::new(-1.0, 0.0),
+    };
+    for q in 0..n {
+        push(&mut gates, Gate::H(q));
+    }
+    for _ in 0..iterations {
+        for pattern in [marked, 0] {
+            let flips: Vec<usize> = (0..n).filter(|q| (pattern >> q) & 1 == 0).collect();
+            if pattern == 0 {
+                for q in 0..n {
+                    push(&mut gates, Gate::H(q));
+                }
+            }
+            for &q in &flips {
+                push(&mut gates, Gate::X(q));
+            }
+            gates.push(mcz);
+            for &q in &flips {
+                push(&mut gates, Gate::X(q));
+            }
+            if pattern == 0 {
+                for q in 0..n {
+                    push(&mut gates, Gate::H(q));
+                }
+            }
+        }
+    }
+    gates
+}
+
+/// [`grover`]'s state after `iterations` iterations, gate by gate (the
+/// reference for the blocked executor).
+pub fn grover_state<T: Real>(n: usize, marked: usize, iterations: usize) -> StateVector<T> {
+    let all: Vec<usize> = (0..n).collect();
+    let mut s = StateVector::<T>::new(n);
+    let had = |s: &mut StateVector<T>| {
+        for q in 0..n {
+            s.apply_gate(&Gate::H(q)).expect("valid");
+        }
+    };
+    let flip_zeros = |s: &mut StateVector<T>, pattern: usize| {
+        for q in 0..n {
+            if (pattern >> q) & 1 == 0 {
+                s.apply_gate(&Gate::X(q)).expect("valid");
+            }
+        }
+    };
+    had(&mut s);
+    for _ in 0..iterations {
+        flip_zeros(&mut s, marked);
+        s.apply_mcz(&all);
+        flip_zeros(&mut s, marked);
+        had(&mut s);
+        flip_zeros(&mut s, 0);
+        s.apply_mcz(&all);
+        flip_zeros(&mut s, 0);
+        had(&mut s);
+    }
+    s
+}
+
 pub fn grover<T: Real, R: Rng + ?Sized>(n: usize, marked: usize, rng: &mut R) -> (usize, f64) {
     assert!(n >= 2 && marked < (1 << n));
     let all: Vec<usize> = (0..n).collect();

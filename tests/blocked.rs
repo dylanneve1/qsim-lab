@@ -108,3 +108,17 @@ proptest! {
         check::<f32>(&c, cfg, seed, 1e-5);
     }
 }
+
+#[test]
+fn grover_matches_gate_by_gate() {
+    for n in [3, 6, 13] {
+        let marked = 0b101 & ((1 << n) - 1);
+        let a = algorithms::grover_state::<f64>(n, marked, 3);
+        for cfg in configs() {
+            let mut b = StateVector::<f64>::new(n);
+            b.apply_kops_blocked(&algorithms::grover_kops(n, marked, 3), &cfg);
+            let d = max_diff(&a, &b);
+            assert!(d <= 1e-12, "n={n} max |Δamp| = {d:e}");
+        }
+    }
+}

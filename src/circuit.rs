@@ -73,6 +73,15 @@ pub trait Simulator {
     fn apply(&mut self, gate: &Gate) -> Result<(), SimError>;
     /// Measures qubit `q` in the computational basis, collapsing the state.
     fn measure(&mut self, q: usize, rng: &mut dyn RngCore) -> Result<bool, SimError>;
+    /// Applies a sequence of gates. Backends that can fuse or reorder gates
+    /// (the state vector's cache-blocked executor) override this; the
+    /// default applies them one by one.
+    fn apply_gates(&mut self, gates: &[Gate]) -> Result<(), SimError> {
+        for g in gates {
+            self.apply(g)?;
+        }
+        Ok(())
+    }
 }
 
 /// One instruction of a circuit.
@@ -197,19 +206,26 @@ impl Circuit {
     }
 
     /// Runs the circuit on a simulator and returns the measurement outcomes
-    /// in program order.
+    /// in program order. Runs of gates between measurements are handed to
+    /// [`Simulator::apply_gates`] as one batch.
     pub fn run<S: Simulator + ?Sized>(
         &self,
         sim: &mut S,
         rng: &mut dyn RngCore,
     ) -> Result<Vec<bool>, SimError> {
         let mut out = Vec::new();
+        let mut batch: Vec<Gate> = Vec::new();
         for op in &self.ops {
             match op {
-                Op::Gate(g) => sim.apply(g)?,
-                Op::Measure(q) => out.push(sim.measure(*q, rng)?),
+                Op::Gate(g) => batch.push(*g),
+                Op::Measure(q) => {
+                    sim.apply_gates(&batch)?;
+                    batch.clear();
+                    out.push(sim.measure(*q, rng)?);
+                }
             }
         }
+        sim.apply_gates(&batch)?;
         Ok(out)
     }
 
