@@ -1404,6 +1404,64 @@ impl<T: Real> StateVector<T> {
     }
 }
 
+/// Prepares and executes blocked stages repeatedly on chunks of `2^c` amplitudes.
+pub struct BlockedChunkExecutor<T: Real> {
+    c: usize,
+    stages: Vec<Prepared<T>>,
+}
+
+impl<T: Real> BlockedChunkExecutor<T> {
+    /// Builds an executor for gates acting on local qubits `0..c`.
+    pub fn new(gates: &[Gate], c: usize, cfg: &BlockConfig) -> Result<Self, SimError> {
+        for g in gates {
+            check_gate(g, c)?;
+        }
+        let ops = lower_gates(gates);
+        Ok(Self::from_kops(&ops, c, cfg))
+    }
+
+    /// Builds an executor from lowered ops on qubits `0..c`.
+    pub fn from_kops(ops: &[KOp], c: usize, cfg: &BlockConfig) -> Self {
+        let fused;
+        let ops = if cfg.fuse_1q {
+            fused = fuse_1q(ops, c, cfg.split_phases);
+            &fused[..]
+        } else {
+            ops
+        };
+        let l = cfg.block_bits(c, std::mem::size_of::<Complex<T>>());
+        let stages = plan_stages(ops, c, l, cfg.slots);
+        let prepared = stages
+            .into_iter()
+            .map(|st| {
+                if cfg.schedule_diag {
+                    prepare::<T>(
+                        &Stage {
+                            inner: st.inner.clone(),
+                            ops: schedule_diag(&st.ops),
+                        },
+                        c,
+                    )
+                } else {
+                    prepare::<T>(&st, c)
+                }
+            })
+            .collect();
+        BlockedChunkExecutor {
+            c,
+            stages: prepared,
+        }
+    }
+
+    /// Applies the pre-compiled stages to an in-RAM chunk of `2^c` amplitudes.
+    pub fn apply_to_chunk(&self, chunk: &mut [Complex<T>]) {
+        assert_eq!(chunk.len(), 1 << self.c);
+        for p in &self.stages {
+            run_stage(chunk, self.c, p);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
