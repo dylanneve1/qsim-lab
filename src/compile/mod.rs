@@ -23,6 +23,7 @@ pub mod analysis;
 pub mod peephole;
 pub mod plan;
 pub mod stabsv;
+pub mod stateprop;
 
 pub use peephole::{optimize, Optimized, PeepholeOptions};
 pub use plan::{

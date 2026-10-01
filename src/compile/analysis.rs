@@ -231,6 +231,29 @@ pub fn relabel(g: &Gate, f: impl Fn(usize) -> usize) -> Gate {
     }
 }
 
+/// Removes every SWAP by relabelling the wires of all later operations.
+///
+/// Returns the new circuit and `wire_of`, where `wire_of[q]` is the wire
+/// that holds logical qubit `q` at the end. Measurements are relabelled
+/// too, so outcome records are unchanged; the final state of the original
+/// circuit on qubit `q` is the final state of the new one on `wire_of[q]`.
+pub fn eliminate_swaps(c: &Circuit) -> (Circuit, Vec<usize>) {
+    let mut wire_of: Vec<usize> = (0..c.num_qubits).collect();
+    let mut out = Circuit::new(c.num_qubits);
+    for op in &c.ops {
+        match *op {
+            Op::Measure(q) => {
+                out.measure(wire_of[q]);
+            }
+            Op::Gate(Gate::Swap(a, b)) => wire_of.swap(a, b),
+            Op::Gate(g) => {
+                out.gate(relabel(&g, |q| wire_of[q]));
+            }
+        }
+    }
+    (out, wire_of)
+}
+
 /// Splits a circuit into its causal Clifford prefix and the rest.
 ///
 /// A gate is in the prefix if it is Clifford and every earlier op on any of

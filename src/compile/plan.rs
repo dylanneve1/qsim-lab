@@ -2,11 +2,12 @@
 //! piece of the circuit on the cheapest exact backend.
 
 use super::analysis::{
-    apply_classical, clifford_prefix, components, light_cone, restrict, split_monomial_suffix,
-    suffix_inputs, terminal_measurements,
+    apply_classical, clifford_prefix, components, eliminate_swaps, light_cone, restrict,
+    split_monomial_suffix, suffix_inputs, terminal_measurements,
 };
 use super::peephole::optimize;
 use super::stabsv::clifford_statevector;
+use super::stateprop::propagate;
 use crate::circuit::{Circuit, Op, SimError};
 use crate::gate::{is_multiple_of_half_pi, Gate};
 use crate::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
@@ -25,6 +26,10 @@ pub struct PlanOptions {
     pub suffix: bool,
     pub split: bool,
     pub clifford_prefix: bool,
+    /// Turn SWAPs into wire relabelling.
+    pub swap_elim: bool,
+    /// Simplify gates acting on known single-qubit stabilizer states.
+    pub state_prop: bool,
     /// Pick tableau / Pauli paths where they are cheaper; otherwise every
     /// component runs on the state vector.
     pub dispatch: bool,
@@ -38,6 +43,8 @@ impl Default for PlanOptions {
             suffix: true,
             split: true,
             clifford_prefix: true,
+            swap_elim: true,
+            state_prop: true,
             dispatch: true,
         }
     }
@@ -52,6 +59,8 @@ impl PlanOptions {
             suffix: false,
             split: false,
             clifford_prefix: false,
+            swap_elim: false,
+            state_prop: false,
             dispatch: false,
         }
     }
@@ -86,6 +95,8 @@ pub struct Component {
 pub struct CompileStats {
     pub gates_in: usize,
     pub gates_after_peephole: usize,
+    /// After SWAP elimination, state propagation and a second peephole.
+    pub gates_after_state_prop: usize,
     pub gates_after_light_cone: usize,
     /// Permutation gates moved into classical post-processing.
     pub suffix_gates: usize,
@@ -201,19 +212,55 @@ fn apply_ops<T: Real>(s: &mut StateVector<T>, c: &Circuit) -> Result<(), SimErro
     Ok(())
 }
 
-/// Compiles a circuit for sampling its measurement outcomes.
-pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
+/// The state-independent and state-aware rewrites shared by every plan:
+/// peephole, SWAP elimination, state propagation (keeping the final state
+/// of the logical qubits `keep`), peephole again. Returns the circuit on
+/// wires, the global phase it dropped and `wire_of` (logical -> wire).
+fn front_end(
+    c: &Circuit,
+    keep: &[usize],
+    opts: &PlanOptions,
+    stats: &mut CompileStats,
+) -> (Circuit, f64, Vec<usize>) {
     let n = c.num_qubits;
-    let mut stats = CompileStats {
-        gates_in: c.num_gates(),
-        ..Default::default()
-    };
-    let c = if opts.peephole {
-        optimize(c).circuit // global phase is irrelevant for sampling
+    stats.gates_in = c.num_gates();
+    let mut phase = 0.0;
+    let mut c = if opts.peephole {
+        let o = optimize(c);
+        phase += o.global_phase;
+        o.circuit
     } else {
         c.clone()
     };
     stats.gates_after_peephole = c.num_gates();
+    let mut wire_of: Vec<usize> = (0..n).collect();
+    if opts.swap_elim {
+        let (d, w) = eliminate_swaps(&c);
+        c = d;
+        wire_of = w;
+    }
+    if opts.state_prop {
+        let keep_w: Vec<usize> = keep.iter().map(|&q| wire_of[q]).collect();
+        let (d, ph) = propagate(&c, &keep_w);
+        phase += ph;
+        c = d;
+        if opts.peephole {
+            let o = optimize(&c);
+            phase += o.global_phase;
+            c = o.circuit;
+        }
+    }
+    stats.gates_after_state_prop = c.num_gates();
+    (c, phase, wire_of)
+}
+
+/// Compiles a circuit for sampling its measurement outcomes.
+pub fn compile_sampling(c: &Circuit, opts: PlanOptions) -> SamplingPlan {
+    let n = c.num_qubits;
+    let mut stats = CompileStats::default();
+    // Global phase and final wire positions are irrelevant for sampling:
+    // measurements were relabelled along with the gates.
+    let (c, _, _) = front_end(c, &[], &opts, &mut stats);
     let group = |body: &Circuit| -> Vec<Vec<usize>> {
         if opts.split {
             components(body)
@@ -589,17 +636,13 @@ pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> UnitaryPlan {
         c.ops.iter().all(|o| matches!(o, Op::Gate(_))),
         "compile_unitary: circuit must not contain measurements"
     );
-    let mut stats = CompileStats {
-        gates_in: c.num_gates(),
-        ..Default::default()
-    };
-    let (c, global_phase) = if opts.peephole {
-        let o = optimize(c);
-        (o.circuit, o.global_phase)
-    } else {
-        (c.clone(), 0.0)
-    };
-    stats.gates_after_peephole = c.num_gates();
+    let mut stats = CompileStats::default();
+    let all: Vec<usize> = (0..c.num_qubits).collect();
+    let (c, global_phase, wire_of) = front_end(c, &all, &opts, &mut stats);
+    let mut logical_of = vec![0; c.num_qubits];
+    for (q, &w) in wire_of.iter().enumerate() {
+        logical_of[w] = q;
+    }
     stats.gates_after_light_cone = c.num_gates();
     let groups = if opts.split {
         components(&c)
@@ -617,7 +660,7 @@ pub fn compile_unitary(c: &Circuit, opts: PlanOptions) -> UnitaryPlan {
             };
             Component {
                 needed: (0..qs.len()).collect(),
-                qubits: qs,
+                qubits: qs.iter().map(|&w| logical_of[w]).collect(),
                 circuit,
                 backend,
             }
@@ -779,11 +822,10 @@ pub fn expectation_z_product(
     qubits: &[usize],
     opts: PlanOptions,
 ) -> Result<f64, SimError> {
-    let c = if opts.peephole {
-        optimize(c).circuit
-    } else {
-        c.clone()
-    };
+    let mut stats = CompileStats::default();
+    let (c, _, wire_of) = front_end(c, qubits, &opts, &mut stats);
+    let qubits: Vec<usize> = qubits.iter().map(|&q| wire_of[q]).collect();
+    let qubits = &qubits[..];
     let c = if opts.light_cone {
         light_cone(&c, qubits)
     } else {
