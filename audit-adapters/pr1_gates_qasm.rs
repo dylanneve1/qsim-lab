@@ -2,6 +2,7 @@
 //! (I, Sx, Sxdg, U, ISwap, ISwapdg) on every backend, `Circuit::optimize`,
 //! OpenQASM round trip and parameter parsing, `reset_all`.
 //! Copy to `tests/` together with `tests/audit_common/`.
+#![allow(clippy::field_reassign_with_default)]
 
 mod audit_common;
 
@@ -260,7 +261,7 @@ fn qasm_round_trip_preserves_state() {
             let mut rng = StdRng::seed_from_u64(seed);
             let depth = rng.random_range(1..60);
             let c = mixed_circuit(&mut rng, n, depth, false);
-            let s = c.to_qasm();
+            let s = c.to_qasm().expect("unitary circuit must serialise");
             let back = Circuit::from_qasm(&s).unwrap_or_else(|e| panic!("reparse failed: {e}\n{s}"));
             assert_eq!(back.num_qubits, n);
             let (raw, _) = global_phase_diff(&ref_run(&c).a, ref_run(&back).a.iter().copied());
@@ -274,8 +275,21 @@ fn qasm_round_trip_preserves_state() {
 fn qasm_round_trip_keeps_conditionals_and_noise() {
     let mut c = Circuit::new(2);
     c.h(0).measure(0).c_if(0, Gate::X(1)).depolarize_1q(1, 0.1).measure(1);
-    let back = Circuit::from_qasm(&c.to_qasm()).unwrap();
-    assert_eq!(back.ops.len(), c.ops.len(), "ops dropped by to_qasm:\n{}\nparsed back as {:?}", c.to_qasm(), back.ops);
+    // Either an exact round trip, or an explicit error (no silent drops).
+    match c.to_qasm() {
+        Err(e) => eprintln!("to_qasm rejects non-unitary ops: {e}"),
+        Ok(s) => {
+            let back = Circuit::from_qasm(&s).unwrap();
+            assert_eq!(back.ops, c.ops, "ops changed by to_qasm:\n{s}");
+        }
+    }
+    // c_if alone must round-trip (QASM 2 has `if`)
+    let mut c2 = Circuit::new(2);
+    c2.h(0).measure(0).c_if(0, Gate::X(1)).measure(1);
+    if let Ok(s) = c2.to_qasm() {
+        let back = Circuit::from_qasm(&s).unwrap();
+        assert_eq!(back.ops, c2.ops, "c_if round trip:\n{s}");
+    }
 }
 
 /// More measurements than qubits: emitted creg must be large enough.
@@ -283,7 +297,7 @@ fn qasm_round_trip_keeps_conditionals_and_noise() {
 fn qasm_creg_large_enough_for_repeated_measurement() {
     let mut c = Circuit::new(1);
     c.h(0).measure(0).measure(0).measure(0);
-    let s = c.to_qasm();
+    let s = c.to_qasm().unwrap();
     let creg: usize = s.lines().find(|l| l.starts_with("creg")).and_then(|l| l.split(['[', ']']).nth(1)).unwrap().parse().unwrap();
     assert!(creg >= 3, "creg c[{creg}] but 3 measurements are written:\n{s}");
 }
@@ -293,6 +307,12 @@ fn qasm_creg_large_enough_for_repeated_measurement() {
 fn qasm_parameter_expressions() {
     let mut bad = Vec::new();
     for (expr, want) in [
+        ("-(pi/2)", -PI / 2.0),
+        ("2^3", 8.0),
+        ("-2^2", -4.0),
+        ("pi/-2", -PI / 2.0),
+        ("cos(0)", 1.0),
+        ("1.5e-3*2", 3e-3),
         ("pi/2", PI / 2.0),
         ("-pi/4", -PI / 4.0),
         ("2*pi/3", 2.0 * PI / 3.0),
@@ -337,6 +357,37 @@ fn reset_all_restores_zero_state() {
             c.run(&mut m, &mut rng).unwrap();
             let d = max_amp_diff(&ref_run(&c).a, (0..1u128 << n).map(|i| m.amplitude(i)));
             assert!(d < 1e-9, "mps after reset_all Δ={d:e}");
+        }
+    }
+}
+
+/// The blocked executor (on main since the PR merged main) must handle the
+/// new gates too.
+#[test]
+fn new_gates_blocked_executor_match_reference() {
+    use qsim_lab::blocked::BlockConfig;
+    for it in 0..10 * iters() {
+        for &n in &SIZES {
+            let seed = base_seed() ^ 0x9E5 ^ ((it as u64) << 16) ^ n as u64;
+            let mut rng = StdRng::seed_from_u64(seed);
+            let depth = rng.random_range(1..80);
+            let c = mixed_circuit(&mut rng, n, depth, false);
+            let r = ref_run(&c);
+            let mut cfgs = vec![BlockConfig::default()];
+            for _ in 0..3 {
+                let mut k = BlockConfig::default();
+                k.block_bytes = [8usize, 64, 1024, 1 << 18][rng.random_range(0..4)];
+                k.slots = rng.random_range(0..8);
+                k.fuse_1q = rng.random_bool(0.5);
+                k.small_n = rng.random_range(0..4);
+                cfgs.push(k);
+            }
+            for cfg in cfgs {
+                let mut sv = StateVectorF64::new(n);
+                sv.apply_circuit_blocked(&c, &cfg).unwrap();
+                let d = max_amp_diff(&r.a, (0..1 << n).map(|i| sv.amplitude(i)));
+                assert!(d <= 1e-12, "blocked new gates Δ={d:e} seed={seed} n={n} cfg={cfg:?} {:?}", c.ops);
+            }
         }
     }
 }

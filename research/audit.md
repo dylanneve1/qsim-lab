@@ -282,3 +282,32 @@ classical monomial suffix. The branch's own suite also passes (41 lib tests
 Verdict: **REPRODUCED** (Clifford+T ratio ~27% below the claim, same order;
 base runs were noisy 3.6–4.8 s). Correct; not mergeable until ported to main.
 
+
+## 8. PR #1 re-audit @ dd5528d (after fixes)
+
+Worktree `wt/pr1` at dd5528d (merge of main incl. 5b51571 "split_phases off
+by default"); shared `CARGO_TARGET_DIR`. `QSIM_FUZZ_ITERS=3`.
+
+| check | result |
+|---|---|
+| crate suite (lib 41 + algorithms, blocked, cross_check, identities, new_gates_and_qasm, noise, properties, repetition, surface) | pass |
+| `clippy --all-targets -D warnings`, `fmt --check` (PR files only) | pass |
+| `differential_fuzz` (11 tests) | pass |
+| `pr1_gates_qasm` (updated for `to_qasm -> Result`; +blocked-executor new-gate test incl. ISwap/ISwapdg) | 11/11 pass |
+| parser precedence (`pi/2*3`, `1/2/4`, `pi-1`, `pi/2+pi/4`, `-(pi/2)`, `2^3`, `-2^2`, `pi/-2`, `cos(0)`, `1.5e-3*2`) | **fixed** |
+| `to_qasm` with c_if / noise | **fixed**: explicit `Err` ("no OpenQASM 2.0 equivalent"), no silent drop |
+| creg with repeated measurement | **fixed** (creg ≥ #measurements) |
+| `sv_blocked` adapter | pass with `split_phases=false`; with `split_phases=true` the known ea41235 bug still reproduces (Δ=0.18, seed 2698035465) — the flag is now off by default and documented as broken, so not a PR regression |
+
+New, minor (malformed input, `audit-adapters/pr1_qasm_malformed.rs`): the
+parser silently accepts invalid programs instead of erroring —
+`rz() q[0]`, `cx q[0]`, `u3(1) q[0]`, `h q[0],q[1]` parse to **no op**
+(gate dropped); `rx(1,2) q[0]` ignores the extra param; with `qreg q[2];
+qreg r[2];`, `h q[2]` silently becomes H on r[0]; `cx q[0],q[0]` accepted.
+Register broadcast (`h q;`) is unsupported but errors explicitly. Valid
+QASM is handled correctly.
+
+Verdict: **REPRODUCED / correct for valid input — all three earlier BUGs
+fixed. Minor BUG: arity/index validation on malformed input** (recommend a
+strict per-gate arity + per-register bounds check before merge, or merge and
+fix in a follow-up; it cannot corrupt results for well-formed QASM).
