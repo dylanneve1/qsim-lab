@@ -36,6 +36,7 @@ pub mod algorithms;
 pub mod bench;
 pub mod blocked;
 pub mod circuit;
+pub mod compile;
 pub mod gate;
 pub mod mps;
 pub mod noise;
