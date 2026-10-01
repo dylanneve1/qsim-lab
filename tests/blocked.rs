@@ -108,3 +108,32 @@ proptest! {
         check::<f32>(&c, cfg, seed, 1e-5);
     }
 }
+
+/// Regression for the audit's minimal repro (exp/audit,
+/// audit-adapters/sv_blocked_repro_ea41235.rs): with `split_phases` on, this
+/// circuit came out wrong by 0.26 in amplitude. The default config must
+/// match the gate-by-gate path.
+#[test]
+fn split_phases_regression() {
+    use qsim_lab::Gate::*;
+    let gs = [
+        Y(0),
+        Cnot(0, 4),
+        Rx(0, std::f64::consts::FRAC_PI_4),
+        Z(0),
+        H(0),
+        X(0),
+        S(0),
+        Z(0),
+        T(0),
+        H(0),
+    ];
+    let mut c = Circuit::new(5);
+    for g in gs {
+        c.ops.push(qsim_lab::circuit::Op::Gate(g));
+    }
+    let cfg = BlockConfig::default();
+    assert!(!cfg.split_phases, "split_phases must stay off until fixed");
+    check::<f64>(&c, &cfg, 7, 1e-12);
+    check::<f32>(&c, &cfg, 7, 1e-5);
+}

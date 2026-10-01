@@ -250,6 +250,12 @@ pub struct BlockConfig {
     /// calling thread.
     pub small_n: usize,
     /// Split fused 1q gates into phase / real rotation / phase.
+    ///
+    /// **Off by default: known to give wrong amplitudes.** The audit found a
+    /// 10-gate, 5-qubit circuit (`Y(0) CX(0,4) Rx(0,π/4) Z H X S Z T H` on
+    /// qubit 0) where enabling it changes amplitudes by 0.26; see
+    /// `tests/blocked.rs::split_phases_regression` and `research/sv.md`.
+    /// Do not enable until that is fixed.
     pub split_phases: bool,
     /// Reorder diagonal terms within a stage (they commute with every op
     /// not targeting their qubits) so they form as few passes as possible.
@@ -263,7 +269,7 @@ impl Default for BlockConfig {
             slots: 6,
             fuse_1q: true,
             small_n: 12,
-            split_phases: true,
+            split_phases: false,
             schedule_diag: true,
         }
     }
