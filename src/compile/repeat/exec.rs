@@ -28,6 +28,9 @@ pub struct ExecOptions {
     /// Largest block support (qubits) for the `2^k` unitary power.
     pub max_small_k: usize,
     pub reuse_plan: bool,
+    /// Use the `2^k` unitary power whenever the support allows, ignoring
+    /// the cost model (for benchmarks).
+    pub force_small: bool,
 }
 
 impl Default for ExecOptions {
@@ -37,6 +40,7 @@ impl Default for ExecOptions {
             small_unitary: true,
             max_small_k: 8,
             reuse_plan: true,
+            force_small: false,
         }
     }
 }
@@ -398,12 +402,14 @@ impl<T: Real> Exec<'_, T> {
         let k = qs.len();
         if self.opts.small_unitary && k <= self.opts.max_small_k && reps >= 2 {
             let kk = k as f64;
+            // units: one amplitude update of one gate = 1, one complex
+            // multiply-add of the naive matrix product = 1.5
             let plain = reps as f64 * g.len() as f64 * (n as f64).exp2();
-            let squarings = 2.0 * (reps as f64).log2().ceil().max(1.0);
+            let squarings = 1.5 * (reps as f64).log2().ceil().max(1.0);
             let small = g.len() as f64 * (2.0 * kk).exp2()
-                + squarings * 4.0 * (3.0 * kk).exp2()
+                + squarings * 1.5 * (3.0 * kk).exp2()
                 + 2.0 * (n as f64 + kk).exp2();
-            if small < plain {
+            if small < plain || self.opts.force_small {
                 let u = block_unitary(k, &local);
                 let up = mat_pow(&u, 1 << k, reps as u64);
                 apply_matrix(self.sv, &qs, &up);

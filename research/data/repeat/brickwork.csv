@@ -1,0 +1,26 @@
+# load: 3.43 4.44 4.97 2/643 972457
+[bench.sh] load at start: 3.43
+# brickwork n=20 depth=4 r=20 ExecStats { diag_blocks: 0, small_blocks: 0, reuse_blocks: 1, plain_repeats: 0 } max|Δamp| = 1.9408430248760513e-17
+brickwork,compile-vs-run,20,4,compile_s,0.000037
+brickwork,compile-vs-run,20,4,run_s,0.035435
+brickwork,depth4,20,20,gatewise,2.174466
+brickwork,depth4,20,20,plain-batch,0.733258
+brickwork,depth4,20,20,plain-per-copy,0.721065
+brickwork,depth4,20,20,repeat,0.705338
+brickwork,depth4,20,20,repeat-force-small,0.720554
+# brickwork n=22 depth=4 r=10 ExecStats { diag_blocks: 0, small_blocks: 0, reuse_blocks: 1, plain_repeats: 0 } max|Δamp| = 8.81943655762151e-18
+brickwork,compile-vs-run,22,4,compile_s,0.000046
+brickwork,compile-vs-run,22,4,run_s,0.176712
+brickwork,depth4,22,10,gatewise,5.544823
+brickwork,depth4,22,10,plain-batch,1.530750
+brickwork,depth4,22,10,plain-per-copy,1.587736
+brickwork,depth4,22,10,repeat,1.537782
+brickwork,depth4,22,10,repeat-force-small,1.553301
+# brickwork n=22 depth=8 r=6 ExecStats { diag_blocks: 0, small_blocks: 0, reuse_blocks: 1, plain_repeats: 0 } max|Δamp| = 8.184514662799336e-18
+brickwork,compile-vs-run,22,8,compile_s,0.000073
+brickwork,compile-vs-run,22,8,run_s,0.312901
+brickwork,depth8,22,6,gatewise,6.886690
+brickwork,depth8,22,6,plain-batch,1.835247
+brickwork,depth8,22,6,plain-per-copy,1.859125
+brickwork,depth8,22,6,repeat,1.796094
+brickwork,depth8,22,6,repeat-force-small,1.824862

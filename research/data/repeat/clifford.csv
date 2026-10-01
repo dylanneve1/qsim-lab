@@ -1,0 +1,15 @@
+# load: 4.32 5.56 5.33 2/628 967195
+[bench.sh] load at start: 4.32
+clifford,random-clifford-block,50,1000,plain,0.014481
+clifford,random-clifford-block,50,1000,power,0.004704
+clifford,random-clifford-block,50,10000,plain,0.140583
+clifford,random-clifford-block,50,10000,power,0.004620
+clifford,random-clifford-block,50,100000,plain,1.457283
+clifford,random-clifford-block,50,100000,power,0.005056
+clifford,random-clifford-block,50,1000000,power,0.005162
+clifford,random-clifford-block,200,1000,plain,0.073902
+clifford,random-clifford-block,200,1000,power,0.190526
+clifford,random-clifford-block,200,10000,plain,0.795313
+clifford,random-clifford-block,200,10000,power,0.195573
+clifford,random-clifford-block,200,100000,power,0.218997
+clifford,random-clifford-block,200,1000000,power,0.238994

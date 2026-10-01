@@ -1,0 +1,32 @@
+# load: 3.43 4.89 5.16 2/646 971492
+[bench.sh] load at start: 3.43
+# trotter n=6 r=1000 max|Δamp| = 2.3740373683488975e-15
+trotter,tfim-chain,6,1000,gatewise,0.002618
+trotter,tfim-chain,6,1000,plain-batch,0.010251
+trotter,tfim-chain,6,1000,plain-per-copy,0.007876
+trotter,tfim-chain,6,1000,repeat,0.002754
+trotter,tfim-chain,6,1000,repeat-force-small,0.003291
+# trotter n=6 r=10000 max|Δamp| = 6.669798023922712e-13
+trotter,tfim-chain,6,10000,gatewise,0.025226
+trotter,tfim-chain,6,10000,plain-batch,0.111031
+trotter,tfim-chain,6,10000,plain-per-copy,0.079857
+trotter,tfim-chain,6,10000,repeat,0.003883
+trotter,tfim-chain,6,10000,repeat-force-small,0.003858
+# trotter n=10 r=1000 max|Δamp| = 1.5513510907447415e-15
+trotter,tfim-chain,10,1000,gatewise,0.034348
+trotter,tfim-chain,10,1000,plain-batch,0.030321
+trotter,tfim-chain,10,1000,plain-per-copy,0.039527
+trotter,tfim-chain,10,1000,repeat,0.030157
+trotter,tfim-chain,10,1000,repeat-force-small,0.030027
+# trotter n=10 r=10000 max|Δamp| = 4.74489872113637e-15
+trotter,tfim-chain,10,10000,gatewise,0.355048
+trotter,tfim-chain,10,10000,plain-batch,0.391846
+trotter,tfim-chain,10,10000,plain-per-copy,0.393915
+trotter,tfim-chain,10,10000,repeat,0.323261
+trotter,tfim-chain,10,10000,repeat-force-small,0.323522
+# trotter n=14 r=1000 max|Δamp| = 7.623394242599558e-16
+trotter,tfim-chain,14,1000,gatewise,0.839617
+trotter,tfim-chain,14,1000,plain-batch,0.343161
+trotter,tfim-chain,14,1000,plain-per-copy,0.440710
+trotter,tfim-chain,14,1000,repeat,0.414103
+trotter,tfim-chain,14,1000,repeat-force-small,0.394479
