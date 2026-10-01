@@ -284,34 +284,23 @@ pub fn mps_random(n: usize, max_bond: usize, depths: &[usize]) {
 
 // ----- hybrid Schrödinger–Feynman ------------------------------------------
 
-/// Resets the kernel's peak-RSS counter for this process (Linux; no-op
-/// elsewhere), so `VmHWM` measures the next phase only.
-fn reset_peak_rss() {
-    let _ = std::fs::write("/proc/self/clear_refs", "5");
-}
-
-fn status_kb(field: &str) -> u128 {
+/// Peak resident set size of this process so far (`VmHWM`, Linux), bytes.
+pub fn peak_rss_bytes() -> u128 {
     std::fs::read_to_string("/proc/self/status")
         .ok()
         .and_then(|s| {
             s.lines()
-                .find(|l| l.starts_with(field))
+                .find(|l| l.starts_with("VmHWM:"))
                 .and_then(|l| l.split_whitespace().nth(1))
                 .and_then(|v| v.parse::<u128>().ok())
         })
-        .unwrap_or(0)
+        .map_or(0, |kb| kb * 1024)
 }
 
-/// Runs `f`, returning its result, wall time and the peak RSS growth above
-/// the RSS at the start (bytes).
-fn measured<R>(f: impl FnOnce() -> R) -> (R, f64, u128) {
-    reset_peak_rss();
-    let base = status_kb("VmRSS:");
+fn timed<R>(f: impl FnOnce() -> R) -> (R, f64) {
     let t = Instant::now();
     let r = f();
-    let dt = secs(t);
-    let peak = status_kb("VmHWM:");
-    (r, dt, peak.saturating_sub(base) * 1024)
+    (r, secs(t))
 }
 
 fn max_diff(a: &[num_complex::Complex64], b: &[num_complex::Complex64]) -> f64 {
@@ -335,9 +324,6 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
         "HSF amps (s)",
         "SV/HSF full",
         "SV/HSF amps",
-        "SV peak",
-        "HSF full peak",
-        "HSF amps peak",
         "max |Δ|",
     ]);
     for &k in ks {
@@ -348,25 +334,21 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
             .collect();
         let h = HybridSchrodingerFeynman::auto(&c, HsfOptions::default()).expect("plan");
         let (mut t_sv, mut t_full, mut t_amp) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
-        let (mut m_sv, mut m_full, mut m_amp) = (0, 0, 0);
         let mut err = 0.0f64;
         for _ in 0..reps {
-            let (sv, dt, m) = measured(|| {
+            let (sv, dt) = timed(|| {
                 let mut s = StateVector::<f64>::new(n);
                 s.apply_circuit(&c).expect("valid");
                 s
             });
             t_sv = t_sv.min(dt);
-            m_sv = m_sv.max(m);
             if full {
-                let (psi, dt, m) = measured(|| h.state_vector().expect("full output"));
+                let (psi, dt) = timed(|| h.state_vector().expect("full output"));
                 t_full = t_full.min(dt);
-                m_full = m_full.max(m);
                 err = err.max(max_diff(&psi, sv.amplitudes()));
             }
-            let (a, dt, m) = measured(|| h.amplitudes(&xs).expect("amplitudes"));
+            let (a, dt) = timed(|| h.amplitudes(&xs).expect("amplitudes"));
             t_amp = t_amp.min(dt);
-            m_amp = m_amp.max(m);
             let want: Vec<_> = xs.iter().map(|&x| sv.amplitude(x)).collect();
             err = err.max(max_diff(&a, &want));
         }
@@ -387,9 +369,6 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
                 "-".into()
             },
             format!("{:.1}", t_sv / t_amp),
-            fmt_bytes(m_sv),
-            if full { fmt_bytes(m_full) } else { "-".into() },
-            fmt_bytes(m_amp),
             format!("{err:.1e}"),
         ]);
     }
@@ -406,7 +385,7 @@ pub fn hsf_big(ns: &[usize], ks: &[usize], depth: usize, amps: usize, middle: bo
         "paths",
         "amps",
         "time (s)",
-        "peak RSS growth",
+        "process peak RSS",
         "state vector would need",
     ]);
     for &n in ns {
@@ -417,11 +396,12 @@ pub fn hsf_big(ns: &[usize], ks: &[usize], depth: usize, amps: usize, middle: bo
                 .map(|_| rng.random_range(0..1usize << n))
                 .collect();
             let o = HsfOptions::default();
-            let (h, t_plan, _) = measured(|| HybridSchrodingerFeynman::auto(&c, o.clone()));
+            let (h, t_plan) = timed(|| HybridSchrodingerFeynman::auto(&c, o.clone()));
             let h = h.expect("plan");
             let planted: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
             let pk = cut_bits(&c, &planted, &o).expect("valid");
-            let (r, dt, m) = measured(|| h.amplitudes(&xs));
+            let (r, dt) = timed(|| h.amplitudes(&xs));
+            let m = peak_rss_bytes();
             let (na, nb) = h.block_sizes();
             row(&[
                 n.to_string(),
@@ -499,14 +479,14 @@ pub fn hsf_ablation(n: usize, k: usize, depth: usize, amps: usize, reps: usize, 
     let mut reference: Option<Vec<num_complex::Complex64>> = None;
     for _ in 0..reps {
         for (i, h) in plans.iter().enumerate() {
-            let (a, dt, _) = measured(|| h.amplitudes(&xs).expect("amps"));
+            let (a, dt) = timed(|| h.amplitudes(&xs).expect("amps"));
             ta[i] = ta[i].min(dt);
             match &reference {
                 None => reference = Some(a),
                 Some(r) => assert!(max_diff(r, &a) < 1e-12, "variant {i} disagrees"),
             }
             if full_ok {
-                let (_, dt, _) = measured(|| h.state_vector().expect("full"));
+                let (_, dt) = timed(|| h.state_vector().expect("full"));
                 tf[i] = tf[i].min(dt);
             }
         }
@@ -529,4 +509,47 @@ pub fn hsf_ablation(n: usize, k: usize, depth: usize, amps: usize, reps: usize, 
             },
         ]);
     }
+}
+
+/// One measurement in a fresh process, for a clean peak-RSS number:
+/// `mode` is `sv`, `full` or `amps`. Prints one table row.
+pub fn hsf_point(n: usize, k: usize, depth: usize, amps: usize, mode: &str) {
+    use crate::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    let mut rng = StdRng::seed_from_u64(1000 + k as u64);
+    let c = two_block_circuit(n, n / 2, depth, k, false, &mut rng);
+    let xs: Vec<usize> = (0..amps)
+        .map(|_| rng.random_range(0..1usize << n))
+        .collect();
+    let base = peak_rss_bytes();
+    let (paths, dt) = match mode {
+        "sv" => {
+            let (_, dt) = timed(|| {
+                let mut s = StateVector::<f64>::new(n);
+                s.apply_circuit(&c).expect("valid");
+                s
+            });
+            (1, dt)
+        }
+        _ => {
+            let h = HybridSchrodingerFeynman::auto(&c, HsfOptions::default()).expect("plan");
+            let (_, dt) = timed(|| {
+                if mode == "full" {
+                    h.state_vector().map(|_| ())
+                } else {
+                    h.amplitudes(&xs).map(|_| ())
+                }
+                .expect("hsf")
+            });
+            (h.num_paths(), dt)
+        }
+    };
+    row(&[
+        mode.to_string(),
+        n.to_string(),
+        k.to_string(),
+        paths.to_string(),
+        format!("{dt:.3}"),
+        fmt_bytes(peak_rss_bytes()),
+        fmt_bytes(base),
+    ]);
 }

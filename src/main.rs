@@ -115,6 +115,20 @@ enum BenchCmd {
         #[arg(long)]
         middle: bool,
     },
+    /// One HSF or state-vector run per process (for peak RSS).
+    HsfPoint {
+        #[arg(long)]
+        n: usize,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        /// sv, full or amps
+        #[arg(long)]
+        mode: String,
+    },
     /// A/B of HSF design choices on one circuit.
     HsfAblation {
         #[arg(long, default_value_t = 22)]
@@ -228,6 +242,13 @@ fn main() {
                 println!("## HSF beyond the state vector, depth {depth}, middle = {middle}\n");
                 bench::hsf_big(&ns, &ks, depth, amps, middle);
             }
+            BenchCmd::HsfPoint {
+                n,
+                k,
+                depth,
+                amps,
+                mode,
+            } => bench::hsf_point(n, k, depth, amps, &mode),
             BenchCmd::HsfAblation {
                 n,
                 k,
