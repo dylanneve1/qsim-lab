@@ -48,7 +48,12 @@ fn gate_strategy(qs: Vec<usize>) -> impl Strategy<Value = Gate> {
         (q1.clone(), angle.clone()).prop_map(|(q, t)| Gate::Rx(q, t)),
         (q1.clone(), angle.clone()).prop_map(|(q, t)| Gate::Ry(q, t)),
         (q1.clone(), angle.clone()).prop_map(|(q, t)| Gate::Rz(q, t)),
-        (q1, angle.clone()).prop_map(|(q, t)| Gate::Phase(q, t)),
+        (q1.clone(), angle.clone()).prop_map(|(q, t)| Gate::Phase(q, t)),
+        q1.clone().prop_map(Gate::I),
+        q1.clone().prop_map(Gate::Sx),
+        q1.clone().prop_map(Gate::Sxdg),
+        (q1, angle.clone(), angle.clone(), angle.clone())
+            .prop_map(|(q, a, b, c)| Gate::U(q, a, b, c)),
     ];
     if k < 2 {
         return ones.boxed();
@@ -57,6 +62,8 @@ fn gate_strategy(qs: Vec<usize>) -> impl Strategy<Value = Gate> {
         pair.clone().prop_map(|(a, b)| Gate::Cnot(a, b)),
         pair.clone().prop_map(|(a, b)| Gate::Cz(a, b)),
         pair.clone().prop_map(|(a, b)| Gate::Swap(a, b)),
+        pair.clone().prop_map(|(a, b)| Gate::ISwap(a, b)),
+        pair.clone().prop_map(|(a, b)| Gate::ISwapdg(a, b)),
         (pair, angle).prop_map(|((a, b), t)| Gate::CPhase(a, b, t)),
     ];
     if k < 3 {
@@ -960,4 +967,74 @@ fn reset_makes_qubit_known_again() {
     assert!(dist_close(&want, &reference_distribution(&o)) < 1e-12);
     let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
     assert!(dist_close(&want, &plan.exact_distribution()) < 1e-12);
+}
+
+/// The gates added with the OpenQASM work (I, Sx, Sx†, U, iSWAP, iSWAP†)
+/// through every sampling backend the dispatcher can pick.
+#[test]
+fn new_gates_on_every_backend() {
+    let mut rng = StdRng::seed_from_u64(11);
+    let mut clifford = Circuit::new(5);
+    clifford.h(0).sx(1).iswap(0, 1).i(2).sxdg(2).iswapdg(2, 3);
+    clifford.cnot(1, 2).sx(3).iswap(3, 4).h(4).measure_all();
+    // 12 entangled qubits (|+i> inputs defeat state propagation), four
+    // non-Clifford rotations, two measured qubits: Pauli paths are cheaper.
+    let mut pauli = Circuit::new(12);
+    for q in 0..12 {
+        pauli.h(q).s(q);
+    }
+    for q in 0..11 {
+        pauli.cnot(q, q + 1);
+    }
+    pauli
+        .u(0, 0.3, 1.1, -0.4)
+        .iswap(0, 1)
+        .sx(1)
+        .t(5)
+        .iswapdg(5, 6);
+    for q in 0..11 {
+        pauli.cnot(q, q + 1);
+    }
+    for q in 0..12 {
+        pauli.sx(q);
+    }
+    pauli.measure(3).measure(7);
+    let mut sv = Circuit::new(4);
+    sv.u(0, 0.7, 0.2, 1.3)
+        .sx(1)
+        .iswap(0, 1)
+        .u(2, 1.9, -0.6, 0.4);
+    sv.iswapdg(1, 2).sxdg(3).cnot(2, 3).t(3).measure_all();
+    let cases = [
+        (clifford, "Tableau"),
+        (pauli, "PauliPath"),
+        (sv, "StateVector"),
+    ];
+    for (c, backend) in cases {
+        let plan = compile_sampling(&c, PlanOptions::default()).unwrap();
+        assert!(
+            plan.components()
+                .iter()
+                .any(|k| format!("{:?}", k.backend) == backend),
+            "{backend}: {:?}",
+            plan.stats
+        );
+        let want = reference_distribution(&c);
+        let shots = 40_000;
+        let mut counts: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
+        for r in plan.sample::<f64, _>(shots, &mut rng).unwrap() {
+            *counts.entry(r).or_insert(0) += 1;
+        }
+        for (k, p) in &want {
+            let f = *counts.get(k).unwrap_or(&0) as f64 / shots as f64;
+            let sigma = (p * (1.0 - p)).max(0.0).sqrt() / (shots as f64).sqrt();
+            assert!(
+                (f - p).abs() < 6.0 * sigma + 1e-3,
+                "{backend}: {k:?} {f} vs {p}"
+            );
+        }
+        for k in counts.keys() {
+            assert!(want.contains_key(k), "{backend}: impossible {k:?}");
+        }
+    }
 }

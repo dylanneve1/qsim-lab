@@ -157,6 +157,21 @@ impl PhaseStabilizer {
                 }
             }
             H(j) => self.hadamard(j),
+            I(_) => {}
+            // Exact operator identities (no global phase): Sx = H S H,
+            // Sx† = H S† H, iSWAP = (S ⊗ S) CZ SWAP, iSWAP† = (S† ⊗ S†) CZ SWAP.
+            Sx(j) | Sxdg(j) => {
+                self.hadamard(j);
+                self.apply(&if matches!(g, Sx(_)) { S(j) } else { Sdg(j) });
+                self.hadamard(j);
+            }
+            ISwap(a, b) | ISwapdg(a, b) => {
+                self.apply(&Swap(a, b));
+                self.apply(&Cz(a, b));
+                for q in [a, b] {
+                    self.apply(&if matches!(g, ISwap(..)) { S(q) } else { Sdg(q) });
+                }
+            }
             Cnot(c, t) => {
                 if bit(self.r, c) == 1 {
                     self.r ^= 1 << t;

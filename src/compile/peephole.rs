@@ -7,11 +7,13 @@
 //! on the same qubits, the two are merged:
 //!
 //! * self-inverse pairs cancel: `H H`, `X X`, `Y Y`, `CNOT CNOT`,
-//!   `SWAP SWAP`, `CCX CCX`, `CZ CZ`;
+//!   `SWAP SWAP`, `CCX CCX`, `CZ CZ`, and so do `iSWAP iSWAP†` and a
+//!   `U` followed by its exact inverse;
 //! * Z rotations merge: `Z, S, S†, T, T†, Phase(θ), Rz(θ)` are all
 //!   `Phase(φ)` up to a global phase, so e.g. `T T -> S`, `S S† -> I`,
 //!   `Rz(a) Rz(b) -> Rz(a+b)`;
-//! * X and Y rotations merge the same way (`X Rx(θ) -> Rx(θ+π)` up to phase);
+//! * X and Y rotations merge the same way (`X Rx(θ) -> Rx(θ+π)`,
+//!   `Sx Sx -> X` up to phase); `Rx(±π/2)` is named `Sx`/`Sx†`;
 //! * controlled phases on the same pair merge (`CZ CPhase(θ) -> CPhase(θ+π)`).
 //!
 //! A merged gate is re-inserted at the earlier position and may cascade
@@ -254,9 +256,11 @@ fn zfamily(g: &Gate) -> Option<(usize, f64, f64, bool)> {
 /// `X`/`Y`-family gates as `e^{iγ} R(θ)`: returns `(q, θ, γ, is_y)`.
 fn xyfamily(g: &Gate) -> Option<(usize, f64, f64, bool)> {
     use Gate::*;
-    // X = e^{iπ/2} Rx(π), Y = e^{iπ/2} Ry(π)
+    // X = e^{iπ/2} Rx(π), Y = e^{iπ/2} Ry(π), Sx = e^{iπ/4} Rx(π/2)
     Some(match *g {
         X(q) => (q, PI, FRAC_PI_2, false),
+        Sx(q) => (q, FRAC_PI_2, FRAC_PI_4, false),
+        Sxdg(q) => (q, -FRAC_PI_2, -FRAC_PI_4, false),
         Rx(q, t) => (q, t, 0.0, false),
         Y(q) => (q, PI, FRAC_PI_2, true),
         Ry(q, t) => (q, t, 0.0, true),
@@ -311,6 +315,16 @@ fn emit_xy(q: usize, theta: f64, gamma: f64, is_y: bool, phase: &mut f64) -> Opt
         *phase += FRAC_PI_2; // R(-π) = i P
         return Some(named(q));
     }
+    if !is_y && near(t.abs(), FRAC_PI_2) {
+        // Rx(±π/2) = e^{∓iπ/4} Sx^{±1}: named, so it counts as Clifford.
+        return Some(if t > 0.0 {
+            *phase -= FRAC_PI_4;
+            Gate::Sx(q)
+        } else {
+            *phase += FRAC_PI_4;
+            Gate::Sxdg(q)
+        });
+    }
     Some(if is_y { Gate::Ry(q, t) } else { Gate::Rx(q, t) })
 }
 
@@ -330,6 +344,7 @@ fn emit_cphase(a: usize, b: usize, t: f64) -> Option<Gate> {
 fn canonical(g: Gate, phase: &mut f64) -> Option<Gate> {
     use Gate::*;
     match g {
+        I(_) => None,
         Rz(q, t) => emit_z(q, t, -t / 2.0, true, phase),
         Phase(q, t) => emit_z(q, t, 0.0, false, phase),
         Rx(q, t) => emit_xy(q, t, 0.0, false, phase),
@@ -364,6 +379,9 @@ fn merge(h: &Gate, g: &Gate, phase: &mut f64) -> Option<Option<Gate>> {
     }
     match (*h, *g) {
         (H(a), H(b)) if a == b => Some(None),
+        (ISwap(..), ISwapdg(..)) | (ISwapdg(..), ISwap(..)) if same_set(h, g) => Some(None),
+        // U(θ, φ, λ)† = U(-θ, -λ, -φ) exactly; other U pairs are kept.
+        (U(a, ..), U(b, ..)) if a == b && *g == h.inverse() => Some(None),
         (Cnot(a, b), Cnot(c, d)) if a == c && b == d => Some(None),
         (Swap(..), Swap(..)) if same_set(h, g) => Some(None),
         (Ccx(a, b, t), Ccx(c, d, u)) if t == u && ((a == c && b == d) || (a == d && b == c)) => {

@@ -184,6 +184,8 @@ impl Prop {
                 (_, _, Xm) => self.gate(Cz(a, b)),
                 _ => self.emit(g, &[a, b, t]),
             },
+            // Not simplified (yet): materialise both qubits.
+            ISwap(a, b) | ISwapdg(a, b) => self.emit(g, &[a, b]),
             Swap(a, b) => {
                 if k(a) == Unknown || k(b) == Unknown {
                     // The known side's wire still holds |0>; swap it over.
@@ -191,7 +193,8 @@ impl Prop {
                 }
                 self.k.swap(a, b);
             }
-            g => {
+            I(_) | H(_) | X(_) | Y(_) | Z(_) | S(_) | Sdg(_) | T(_) | Tdg(_) | Sx(_) | Sxdg(_)
+            | Rx(..) | Ry(..) | Rz(..) | Phase(..) | U(..) => {
                 let q = g.qubits()[0];
                 let kq = k(q);
                 if kq == Unknown {

@@ -110,7 +110,8 @@ pub fn terminal_measurements(c: &Circuit) -> Option<(Circuit, Vec<usize>)> {
 /// suffix then maps `|x>` to `phase(x) |π(x)>`, so measuring after it is
 /// the same as measuring after `body` and applying `π` to the bit string.
 /// The returned suffix holds only the permutation gates (`X`, `CNOT`,
-/// `SWAP`, `CCX`; `Y` becomes `X`); its diagonal gates are dropped.
+/// `SWAP`, `CCX`; `Y` becomes `X` and `iSWAP`/`iSWAP†` become `SWAP`);
+/// its diagonal gates are dropped.
 pub fn split_monomial_suffix(body: &Circuit) -> (Circuit, Vec<Gate>) {
     let n = body.num_qubits;
     let mut blocked = vec![false; n];
@@ -137,6 +138,7 @@ pub fn split_monomial_suffix(body: &Circuit) -> (Circuit, Vec<Gate>) {
         } else if !is_diagonal(g) {
             suffix.push(match *g {
                 Gate::Y(q) => Gate::X(q),
+                Gate::ISwap(a, b) | Gate::ISwapdg(a, b) => Gate::Swap(a, b),
                 g => g,
             });
         }
@@ -278,6 +280,7 @@ pub fn restrict(c: &Circuit, qubits: &[usize]) -> Circuit {
 pub fn relabel(g: &Gate, f: impl Fn(usize) -> usize) -> Gate {
     use Gate::*;
     match *g {
+        I(q) => I(f(q)),
         H(q) => H(f(q)),
         X(q) => X(f(q)),
         Y(q) => Y(f(q)),
@@ -286,13 +289,18 @@ pub fn relabel(g: &Gate, f: impl Fn(usize) -> usize) -> Gate {
         Sdg(q) => Sdg(f(q)),
         T(q) => T(f(q)),
         Tdg(q) => Tdg(f(q)),
+        Sx(q) => Sx(f(q)),
+        Sxdg(q) => Sxdg(f(q)),
         Rx(q, t) => Rx(f(q), t),
         Ry(q, t) => Ry(f(q), t),
         Rz(q, t) => Rz(f(q), t),
         Phase(q, t) => Phase(f(q), t),
+        U(q, a, b, c) => U(f(q), a, b, c),
         Cnot(a, b) => Cnot(f(a), f(b)),
         Cz(a, b) => Cz(f(a), f(b)),
         Swap(a, b) => Swap(f(a), f(b)),
+        ISwap(a, b) => ISwap(f(a), f(b)),
+        ISwapdg(a, b) => ISwapdg(f(a), f(b)),
         CPhase(a, b, t) => CPhase(f(a), f(b), t),
         Ccx(a, b, t) => Ccx(f(a), f(b), f(t)),
     }
