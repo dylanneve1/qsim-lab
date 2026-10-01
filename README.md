@@ -1,5 +1,7 @@
 # qsim-lab
 
+> **Results (1 Oct 2026):** head-to-heads against Google qsim, Qiskit Aer and Stim, engine speedups, Shor at N ≈ 10⁶ and below-threshold surface codes are in [RESULTS.md](RESULTS.md). The architecture for the next phase is in [research/ARCHITECTURE.md](research/ARCHITECTURE.md).
+
 A quantum circuit simulator written from scratch in Rust, for learning how
 different simulation methods scale. It has four backends that share one
 circuit representation:
