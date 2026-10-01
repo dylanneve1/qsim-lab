@@ -20,6 +20,8 @@ enum Step {
     G(Gate),
     Measure(usize),
     Reset(usize),
+    /// Switch inverse-sign tracking (no-op for the reference).
+    Track(bool),
 }
 
 fn random_gate<R: Rng>(n: usize, rng: &mut R) -> Gate {
@@ -75,6 +77,7 @@ fn run_new(n: usize, prog: &[Step], seed: u64) -> (Vec<bool>, Tableau) {
             Step::G(g) => t.apply_gate(&g).unwrap(),
             Step::Measure(q) => out.push(t.measure_qubit(q, &mut rng)),
             Step::Reset(q) => out.push(t.reset_qubit(q, &mut rng)),
+            Step::Track(on) => t.set_sign_tracking(on),
         }
     }
     (out, t)
@@ -89,9 +92,23 @@ fn run_ref(n: usize, prog: &[Step], seed: u64) -> (Vec<bool>, RefTableau) {
             Step::G(g) => t.apply_gate(&g).unwrap(),
             Step::Measure(q) => out.push(t.measure_qubit(q, &mut rng)),
             Step::Reset(q) => out.push(t.reset_qubit(q, &mut rng)),
+            Step::Track(_) => {}
         }
     }
     (out, t)
+}
+
+/// Inserts tracking switches at random points (first one at the start).
+fn with_toggles(prog: &[Step], p: f64, seed: u64) -> Vec<Step> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut out = vec![Step::Track(false)];
+    for s in prog {
+        if rng.random_bool(p) {
+            out.push(Step::Track(rng.random_bool(0.5)));
+        }
+        out.push(*s);
+    }
+    out
 }
 
 /// A Pauli string with a sign: `(-1)^neg * prod_q X^x_q Z^z_q`-style, with
@@ -263,6 +280,39 @@ fn reset_of_entangled_qubit_leaves_partner_random() {
     assert!((150..250).contains(&ones), "partner ones = {ones}/400");
 }
 
+/// Untracked mode (gates skip the inverse signs, measurements recompute
+/// the one they need) and switching back on (recompute all) are exact too.
+#[test]
+fn identical_outcomes_with_sign_tracking_toggled() {
+    let mut seed = 5000;
+    for n in [1, 2, 7, 63, 64, 65, 130, 257] {
+        for (pm, pr, pt) in [(0.3, 0.1, 0.02), (0.05, 0.02, 0.01), (0.1, 0.3, 0.0)] {
+            let len = (8 * n).clamp(40, 1500);
+            let prog = with_toggles(&program(n, len, pm, pr, seed), pt, seed + 1);
+            assert_same(n, &prog, seed + 2);
+            seed += 3;
+        }
+    }
+}
+
+/// Long untracked measurement runs trigger the automatic switch back on.
+#[test]
+fn untracked_measurements_switch_tracking_back_on() {
+    let n = 70;
+    let mut prog = vec![Step::Track(false)];
+    for q in 0..n {
+        prog.push(Step::G(Gate::H(q)));
+        prog.push(Step::G(Gate::Cnot(q, (q + 1) % n)));
+    }
+    for k in 0..6 * n {
+        prog.push(Step::Measure(k % n));
+        prog.push(Step::G(Gate::S(k % n)));
+    }
+    assert_same(n, &prog, 9);
+    let (_, t) = run_new(n, &prog, 9);
+    assert!(t.sign_tracking());
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
@@ -275,7 +325,10 @@ proptest! {
         pseed in any::<u64>(),
         rseed in any::<u64>(),
     ) {
-        let prog = program(n, len, pm, pr, pseed);
+        let mut prog = program(n, len, pm, pr, pseed);
+        if pseed % 2 == 0 {
+            prog = with_toggles(&prog, 0.02, pseed);
+        }
         let (a, mut ta) = run_new(n, &prog, rseed);
         let (b, mut tb) = run_ref(n, &prog, rseed);
         prop_assert_eq!(a, b);

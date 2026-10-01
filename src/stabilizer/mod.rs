@@ -84,6 +84,12 @@ pub struct Tableau {
     layout: Layout,
     /// Number of layout switches (transposes) so far, for profiling.
     switches: usize,
+    /// Whether gates keep `sx`/`sz` up to date. When off, they are stale
+    /// and the signs a measurement needs are recomputed on demand.
+    track: bool,
+    /// Deterministic measurements done without tracking since it was
+    /// switched off (for the automatic switch back on).
+    untracked_meas: usize,
 }
 
 #[inline]
@@ -288,6 +294,8 @@ impl Tableau {
             sz: vec![0; w],
             layout: Layout::QubitMajor,
             switches: 0,
+            track: true,
+            untracked_meas: 0,
         })
     }
 
@@ -342,14 +350,16 @@ impl Tableau {
     /// S (`dagger = false`) or S† on qubit `a`.
     fn s_gate(&mut self, a: usize, dagger: bool) {
         self.set_layout(Layout::QubitMajor);
-        let w = self.w;
+        let (w, track) = (self.w, self.track);
         let (xd, zd) = (&mut self.xd.line_mut(a)[..w], &mut self.zd.line_mut(a)[..w]);
         let (xs, zs) = (&mut self.xs.line_mut(a)[..w], &mut self.zs.line_mut(a)[..w]);
         let (rd, rs) = (&mut self.rd[..w], &mut self.rs[..w]);
         let mut ph = Phase::default();
         for k in 0..w {
             // T(X_a) · T(Z_a), before the update
-            ph.mul(zs[k], zd[k], xs[k], xd[k]);
+            if track {
+                ph.mul(zs[k], zd[k], xs[k], xd[k]);
+            }
             if dagger {
                 rd[k] ^= xd[k] & !zd[k];
                 rs[k] ^= xs[k] & !zs[k];
@@ -365,7 +375,7 @@ impl Tableau {
             + 2 * get_bit(&self.sz, a) as u32
             + ph.total()
             + if dagger { 1 } else { 3 };
-        debug_assert_eq!(e % 2, 0);
+        debug_assert!(!track || e % 2 == 0);
         set_bit(&mut self.sx, a, e & 3 == 2);
     }
 
@@ -418,8 +428,14 @@ impl Tableau {
         let (xsc, xst, zsc, zst) = (&mut xsc[..w], &mut xst[..w], &mut zsc[..w], &mut zst[..w]);
         let (rd, rs) = (&mut self.rd[..w], &mut self.rs[..w]);
         // T(X_c) T(X_t) and T(Z_c) T(Z_t), before the update
-        let ex = product_phase(zsc, zdc, zst, zdt);
-        let ez = product_phase(xsc, xdc, xst, xdt);
+        let (ex, ez) = if self.track {
+            (
+                product_phase(zsc, zdc, zst, zdt),
+                product_phase(xsc, xdc, xst, xdt),
+            )
+        } else {
+            (0, 0)
+        };
         for k in 0..w {
             rd[k] ^= xdc[k] & zdt[k] & !(xdt[k] ^ zdc[k]);
             xdt[k] ^= xdc[k];
@@ -447,8 +463,14 @@ impl Tableau {
         let (xsa, xsb, zsa, zsb) = (&mut xsa[..w], &mut xsb[..w], &mut zsa[..w], &mut zsb[..w]);
         let (rd, rs) = (&mut self.rd[..w], &mut self.rs[..w]);
         // T(X_a) T(Z_b) and T(Z_a) T(X_b), before the update
-        let ea = product_phase(zsa, zda, xsb, xdb);
-        let eb = product_phase(xsa, xda, zsb, zdb);
+        let (ea, eb) = if self.track {
+            (
+                product_phase(zsa, zda, xsb, xdb),
+                product_phase(xsa, xda, zsb, zdb),
+            )
+        } else {
+            (0, 0)
+        };
         for k in 0..w {
             rd[k] ^= xda[k] & xdb[k] & (zda[k] ^ zdb[k]);
             zda[k] ^= xdb[k];
@@ -519,7 +541,7 @@ impl Tableau {
         if self.xs.line(a).iter().any(|&x| x != 0) {
             None
         } else {
-            Some(get_bit(&self.sz, a))
+            Some(self.z_sign(a))
         }
     }
 
@@ -538,7 +560,16 @@ impl Tableau {
         let w = self.w;
         // T(Z_a) = C† Z_a C has x bits xs[a]: generators anticommuting with Z_a
         let Some(p) = next_set_bit(self.xs.line(a), 0) else {
-            return (get_bit(&self.sz, a), false);
+            let m = self.z_sign(a);
+            if !self.track {
+                // ski rental: once the on-demand signs have cost as much as
+                // recomputing all of them, recompute and track again
+                self.untracked_meas += 1;
+                if self.untracked_meas > 2 * self.np {
+                    self.set_sign_tracking(true);
+                }
+            }
+            return (m, false);
         };
         let mut kmask = self.xs.line(a).to_vec();
         kmask[p / 64] &= !(1u64 << (p % 64));
@@ -578,8 +609,15 @@ impl Tableau {
             rsp = e & 3 == 2;
             rdp = !rdp;
         }
+        scatter_column(&mut self.xd, p, &xdp);
+        scatter_column(&mut self.zd, p, &zdp);
+        scatter_column(&mut self.xs, p, &xsp);
+        scatter_column(&mut self.zs, p, &zsp);
+        set_bit(&mut self.rd, p, rdp);
         let outcome = forced.unwrap_or_else(|| rng.random_bool(0.5));
-        if outcome != get_bit(&self.sz, a) {
+        // T(Z_a) is now Z-only; its sign is the outcome without a flip
+        set_bit(&mut self.rs, p, rsp);
+        if outcome != self.z_sign(a) {
             // X on generator p: S_p <- -S_p; inverse rows with Z/Y on p flip
             rsp = !rsp;
             for j in 0..w {
@@ -587,15 +625,108 @@ impl Tableau {
                 self.sz[j] ^= xdp[j];
             }
         }
-        scatter_column(&mut self.xd, p, &xdp);
-        scatter_column(&mut self.zd, p, &zdp);
-        scatter_column(&mut self.xs, p, &xsp);
-        scatter_column(&mut self.zs, p, &zsp);
-        set_bit(&mut self.rd, p, rdp);
         set_bit(&mut self.rs, p, rsp);
         debug_assert!(self.xs.line(a).iter().all(|&x| x == 0));
-        debug_assert_eq!(get_bit(&self.sz, a), outcome);
+        debug_assert_eq!(self.z_sign(a), outcome);
         (outcome, true)
+    }
+
+    /// Sign of `T(Z_a)`: the outcome of measuring qubit `a` when that is
+    /// deterministic. `O(n/64)` with tracking, else an `O(n^2/64)` pass.
+    fn z_sign(&self, a: usize) -> bool {
+        if self.track {
+            get_bit(&self.sz, a)
+        } else {
+            self.inverse_sign(self.xs.line(a), self.xd.line(a))
+        }
+    }
+
+    /// Whether gates maintain the inverse-row signs (default on).
+    pub fn sign_tracking(&self) -> bool {
+        self.track
+    }
+
+    /// Switches inverse-sign tracking on or off.
+    ///
+    /// With tracking (the default), every S/CNOT/CZ pays one extra Pauli
+    /// product phase over `n/64` words, and a deterministic measurement is
+    /// `O(n/64)`. Without it, gates cost the same as plain CHP, and a
+    /// deterministic measurement computes the one sign it needs in a single
+    /// `O(n^2/64)` pass (still no layout switch). Gate-heavy circuits with
+    /// few single-qubit measurements (e.g. GHZ, then [`Tableau::measure_all`])
+    /// run faster without it.
+    ///
+    /// Switching it back on recomputes all `2n` inverse signs (`O(n^3/64)`).
+    /// This also happens automatically once `2n` deterministic
+    /// measurements have been done untracked, so a wrong choice costs at
+    /// most about a factor two.
+    pub fn set_sign_tracking(&mut self, on: bool) {
+        if on && !self.track {
+            self.set_layout(Layout::QubitMajor);
+            let mut sx = vec![0u64; self.w];
+            let mut sz = vec![0u64; self.w];
+            for q in 0..self.np {
+                // T(X_q): x = zs[q], z = zd[q]; T(Z_q): x = xs[q], z = xd[q]
+                set_bit(
+                    &mut sx,
+                    q,
+                    self.inverse_sign(self.zs.line(q), self.zd.line(q)),
+                );
+                set_bit(
+                    &mut sz,
+                    q,
+                    self.inverse_sign(self.xs.line(q), self.xd.line(q)),
+                );
+            }
+            self.sx = sx;
+            self.sz = sz;
+        }
+        self.track = on;
+        self.untracked_meas = 0;
+    }
+
+    /// Sign bit of the inverse row with generator coefficients `u` (X part)
+    /// and `v` (Z part), recomputed from the forward tableau.
+    ///
+    /// If `C† P C = ± prod_i X_i^u_i Z_i^v_i` (tableau convention, `(1, 1)`
+    /// meaning `Y_i`), conjugating back by `C` gives
+    /// `P = ± i^{|u & v|} (-1)^{u·rd + v·rs} prod_{i in u} D_i prod_{i in v} S_i`
+    /// (all destabilizers first; only `D_i`, `S_i` with equal `i`
+    /// anticommute, and they stay in that order). The phase of that ordered
+    /// product is summed qubit by qubit: for single-qubit factors
+    /// `(x_j, z_j)`, `prod_j = i^e (X, Z)` with
+    /// `e = sum_j x_j z_j - X Z + 2 sum_{j<k} z_j x_k`. `P` is a single
+    /// `X_q` or `Z_q`, so the result has no Y and `X Z = 0`. Qubit-major,
+    /// one pass over the lines.
+    fn inverse_sign(&self, u: &[u64], v: &[u64]) -> bool {
+        let w = self.w;
+        let (xd, zd) = (self.xd.raw(), self.zd.raw());
+        let (xs, zs) = (self.xs.raw(), self.zs.raw());
+        let nzu: Vec<usize> = (0..w).filter(|&j| u[j] != 0).collect();
+        let nzv: Vec<usize> = (0..w).filter(|&j| v[j] != 0).collect();
+        let mut e: u32 = 0;
+        let mut pair: u64 = 0;
+        for q in 0..self.np {
+            let r = q * w;
+            let mut carry = 0u64;
+            for (x, z, mask, nz) in [(xd, zd, u, &nzu), (xs, zs, v, &nzv)] {
+                for &j in nz {
+                    let (xk, zk) = (x[r + j] & mask[j], z[r + j] & mask[j]);
+                    e = e.wrapping_add((xk & zk).count_ones());
+                    let iz = prefix_xor(zk);
+                    pair ^= xk & (iz ^ zk ^ carry);
+                    carry ^= bcast(iz >> 63);
+                }
+            }
+        }
+        let uv: u32 = u.iter().zip(v).map(|(a, b)| (a & b).count_ones()).sum();
+        let ru = u.iter().zip(&self.rd).fold(0, |acc, (a, b)| acc ^ (a & b));
+        let rv = v.iter().zip(&self.rs).fold(0, |acc, (a, b)| acc ^ (a & b));
+        let e = e
+            .wrapping_add(uv)
+            .wrapping_add(2 * (parity(pair) ^ parity(ru) ^ parity(rv)) as u32);
+        debug_assert_eq!(e % 2, 0, "inverse row must be Hermitian");
+        e & 3 == 2
     }
 
     /// CNOTs from generator `p` to every generator in `kmask`, applied at the
