@@ -88,6 +88,26 @@ is somewhere past that. For a handful of amplitudes, HSF stays 20–800× faster
 across this range and needs only O(2^(n/2)) memory. That's what lets it handle
 32–40-qubit circuits the state vector can't hold (the 40-qubit test above).
 
+## Independent audit (qsim-audit2)
+
+The audit fuzzed 1,739 random circuits across random and degenerate
+partitions and every option combination. Worst |Δ| was 1.2e-15: **PASS**. The
+crossover reproduced at somewhat lower ratios (load 13–15):
+
+| k | claimed | audit |
+|---|---|---|
+| 0 | 119× | 73× |
+| 4 | 21× | 20× |
+| 7 | 12× | 9× |
+| 10 | 2–7× | 1.2× |
+
+**Important caveat:** these ratios are against the *old* per-gate
+state-vector path. Main now has the cache-blocked executor
+(`apply_circuit_blocked`, 5–15× faster on these workloads), and against that
+HSF's full-output advantage holds only at small k. Single amplitudes and
+memory (2^(n/2)) are where HSF stays clearly ahead. A fair comparison against
+the blocked executor is the next measurement to make.
+
 ## Not done (agent hit its time limit)
 
 - The 32–40-qubit timing and memory sweep. Only the 40-qubit correctness test
