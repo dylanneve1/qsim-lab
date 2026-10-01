@@ -56,6 +56,22 @@ fn soa(re: &mut [f32], im: &mut [f32], t: usize, m: &[C; 4]) {
     }
 }
 
+#[inline(never)]
+fn diag_rows(re: &mut [f32], im: &mut [f32], lr: &[f32], li: &[f32], hi: &[C]) {
+    let w = lr.len();
+    for (h, hv) in hi.iter().enumerate() {
+        let ar = &mut re[h * w..(h + 1) * w];
+        let ai = &mut im[h * w..(h + 1) * w];
+        for k in 0..w {
+            let fr = lr[k] * hv.re - li[k] * hv.im;
+            let fi = lr[k] * hv.im + li[k] * hv.re;
+            let (xr, xi) = (ar[k], ai[k]);
+            ar[k] = xr * fr - xi * fi;
+            ai[k] = xr * fi + xi * fr;
+        }
+    }
+}
+
 fn main() {
     let n = 1usize << 15;
     let reps = 400;
@@ -97,5 +113,19 @@ fn main() {
             best[2] * k
         );
     }
+    let lr: Vec<f32> = (0..256).map(|i| (i as f32 * 0.01).cos()).collect();
+    let li: Vec<f32> = (0..256).map(|i| (i as f32 * 0.01).sin()).collect();
+    let hi: Vec<C> = (0..n / 256)
+        .map(|i| C::from_polar(1.0, i as f32 * 0.1))
+        .collect();
+    let mut best = f64::INFINITY;
+    for _ in 0..3 {
+        let t0 = Instant::now();
+        for _ in 0..reps {
+            diag_rows(black_box(&mut re), black_box(&mut im), &lr, &li, &hi);
+        }
+        best = best.min(t0.elapsed().as_secs_f64());
+    }
+    println!("diag rows: {:.3} ns/amp", best * 1e9 / (reps * n) as f64);
     black_box((&a, &re, &im));
 }

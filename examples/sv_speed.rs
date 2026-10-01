@@ -53,14 +53,31 @@ fn workload(name: &str, n: usize) -> (Circuit, usize) {
     }
 }
 
-fn run<T: Real>(c: &Circuit, init: usize, mode: &str, cfg: &BlockConfig) -> (f64, StateVector<T>) {
+/// Process CPU time (user + system, all threads) in seconds, from
+/// /proc/self/stat (10 ms resolution). Less sensitive to time slicing by
+/// other processes than wall-clock time on the shared machine.
+fn cpu_time() -> f64 {
+    let s = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+    let rest = s.rsplit_once(')').map(|x| x.1).unwrap_or("");
+    let f: Vec<&str> = rest.split_whitespace().collect();
+    let tick = |i: usize| f.get(i).and_then(|x| x.parse::<f64>().ok()).unwrap_or(0.0);
+    (tick(11) + tick(12)) / 100.0
+}
+
+fn run<T: Real>(
+    c: &Circuit,
+    init: usize,
+    mode: &str,
+    cfg: &BlockConfig,
+) -> (f64, f64, StateVector<T>) {
     let mut s = StateVector::<T>::basis_state(c.num_qubits, init);
+    let c0 = cpu_time();
     let t = Instant::now();
     match mode {
         "base" => s.apply_circuit(c).unwrap(),
         _ => s.apply_circuit_blocked(c, cfg).unwrap(),
     }
-    (t.elapsed().as_secs_f64(), s)
+    (t.elapsed().as_secs_f64(), cpu_time() - c0, s)
 }
 
 fn maxdiff<T: Real>(a: &[Complex<T>], b: &[Complex<T>]) -> f64 {
@@ -81,22 +98,25 @@ fn bench<T: Real>(
     cfg: &BlockConfig,
     prec: &str,
 ) {
-    println!("| workload | n | prec | gates | mode | min s | all |");
-    println!("|---|---|---|---|---|---|---|");
+    println!("| workload | n | prec | gates | mode | min wall s | min cpu s | all wall |");
+    println!("|---|---|---|---|---|---|---|---|");
     for &n in ns {
         let (c, init) = workload(wl, n);
         let mut last: Vec<StateVector<T>> = Vec::new();
         for &mode in modes {
             let mut times = Vec::new();
+            let mut cpus = Vec::new();
             let mut st = None;
             for _ in 0..reps {
-                let (dt, s) = run::<T>(&c, init, mode, cfg);
+                let (dt, cpu, s) = run::<T>(&c, init, mode, cfg);
                 times.push(dt);
+                cpus.push(cpu);
                 st = Some(s);
             }
             let min = times.iter().cloned().fold(f64::INFINITY, f64::min);
+            let cmin = cpus.iter().cloned().fold(f64::INFINITY, f64::min);
             println!(
-                "| {wl} | {n} | {prec} | {} | {mode} | {min:.4} | {} |",
+                "| {wl} | {n} | {prec} | {} | {mode} | {min:.4} | {cmin:.2} | {} |",
                 c.num_gates(),
                 times
                     .iter()
@@ -132,6 +152,8 @@ fn main() {
             "slots" => cfg.slots = v.parse().unwrap(),
             "fuse" => cfg.fuse_1q = v == "1",
             "small_n" => cfg.small_n = v.parse().unwrap(),
+            "split" => cfg.split_phases = v == "1",
+            "sched" => cfg.schedule_diag = v == "1",
             _ => panic!("unknown key {k}"),
         }
     }
