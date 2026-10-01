@@ -129,9 +129,17 @@ fn main() {
             e_on = e;
         }
         let mut u = Circuit::new(c.num_qubits);
-        u.ops = c.ops.iter().filter(|o| matches!(o, Op::Gate(_))).copied().collect();
-        let d0 = qsim_lab::adaptive::active_dimension(&qsim_lab::compile::optimize(&u).circuit).unwrap();
-        let f = qsim_lab::compile::optimize(&qsim_lab::compile::phase_fold(&qsim_lab::compile::optimize(&u).circuit).circuit);
+        u.ops = c
+            .ops
+            .iter()
+            .filter(|o| matches!(o, Op::Gate(_)))
+            .copied()
+            .collect();
+        let d0 =
+            qsim_lab::adaptive::active_dimension(&qsim_lab::compile::optimize(&u).circuit).unwrap();
+        let f = qsim_lab::compile::optimize(
+            &qsim_lab::compile::phase_fold(&qsim_lab::compile::optimize(&u).circuit).circuit,
+        );
         let d1 = qsim_lab::adaptive::active_dimension(&f.circuit).unwrap();
         println!(
             "{name},{},{},{},\"{e_off}\",\"{e_on}\",{off:.4},{on:.4},{:.2},d_off={d0},d_on={d1},nc_off={},nc_on={}",

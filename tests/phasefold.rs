@@ -40,7 +40,15 @@ fn random_ct<R: Rng>(n: usize, len: usize, rz: bool, extras: bool, rng: &mut R) 
                 break x;
             }
         };
-        let k = rng.random_range(0..if n >= 3 && extras { 20 } else if n >= 2 { 16 } else { 10 });
+        let k = rng.random_range(
+            0..if n >= 3 && extras {
+                20
+            } else if n >= 2 {
+                16
+            } else {
+                10
+            },
+        );
         let ang = if rng.random_bool(0.5) {
             rng.random_range(-8..8) as f64 * std::f64::consts::FRAC_PI_4
         } else {
@@ -127,7 +135,12 @@ fn check_unitary(c: &Circuit) {
         let a = run_on_random_state(&prep, c);
         let b = run_on_random_state(&prep, &o.circuit);
         let d = diff_with_phase(&a, &b, o.global_phase);
-        assert!(d < 1e-10, "col {col} diff {d}\n{:?}\n{:?}", c.ops, o.circuit.ops);
+        assert!(
+            d < 1e-10,
+            "col {col} diff {d}\n{:?}\n{:?}",
+            c.ops,
+            o.circuit.ops
+        );
     }
 }
 

@@ -128,7 +128,10 @@ fn main() {
         cases.push((format!("cuccaro_add_n{n}"), lower(&c)));
     }
     for (n, r) in [(6, 1), (10, 2), (16, 2)] {
-        cases.push((format!("toffoli_ladder_n{n}_r{r}"), lower(&toffoli_ladder(n, r))));
+        cases.push((
+            format!("toffoli_ladder_n{n}_r{r}"),
+            lower(&toffoli_ladder(n, r)),
+        ));
     }
     for (nm, a, nmod) in [(3usize, 5u64, 7u64), (4, 7, 15), (5, 11, 21), (6, 13, 55)] {
         let lay = RippleLayout::new(nm);
@@ -146,7 +149,10 @@ fn main() {
     println!("circuit,qubits,gates,nc_orig,nc_peephole,nc_fold,nc_peep_fold_peep,t_orig,t_peephole,t_fold,t_pfp,fold_ms");
     let mut csv = String::from("circuit,qubits,gates,nc_orig,nc_peephole,nc_fold,nc_peep_fold_peep,t_orig,t_peephole,t_fold,t_pfp,fold_ms\n");
     for (name, c) in &cases {
-        let _ = std::fs::write(format!("{outdir}/circuits/{name}.qasm"), to_qasm(c).unwrap());
+        let _ = std::fs::write(
+            format!("{outdir}/circuits/{name}.qasm"),
+            to_qasm(c).unwrap(),
+        );
         let p = optimize(c);
         let t0 = Instant::now();
         let f = phase_fold(c);
