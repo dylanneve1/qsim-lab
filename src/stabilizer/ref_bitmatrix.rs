@@ -1,4 +1,5 @@
-//! Square, bit-packed boolean matrices with an in-place transpose.
+#![allow(dead_code)]
+//! Frozen copy of `bitmatrix.rs` used by the reference tableau.
 
 /// An `np x np` bit matrix (`np` a multiple of 64) stored as `np` lines of
 /// `np / 64` words. Bit `j` of line `i` is `data[i * w + j / 64] >> (j % 64)`.
@@ -89,11 +90,6 @@ impl BitMatrix {
     }
 
     /// All lines as consecutive `w`-word chunks.
-    pub fn raw(&self) -> &[u64] {
-        &self.data
-    }
-
-    /// All lines as consecutive `w`-word chunks, mutable.
     pub fn raw_mut(&mut self) -> &mut [u64] {
         &mut self.data
     }
@@ -148,59 +144,5 @@ pub fn transpose64(a: &mut [u64; 64]) {
         }
         j >>= 1;
         m ^= m << j;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::rngs::StdRng;
-    use rand::{Rng, SeedableRng};
-
-    #[test]
-    fn transpose64_matches_naive() {
-        let mut rng = StdRng::seed_from_u64(5);
-        let mut a = [0u64; 64];
-        for x in a.iter_mut() {
-            *x = rng.random();
-        }
-        let orig = a;
-        transpose64(&mut a);
-        for (i, row) in orig.iter().enumerate() {
-            for (j, col) in a.iter().enumerate() {
-                assert_eq!((col >> i) & 1, (row >> j) & 1);
-            }
-        }
-    }
-
-    #[test]
-    fn transpose_in_place_matches_naive() {
-        let mut rng = StdRng::seed_from_u64(9);
-        let np = 192;
-        let mut m = BitMatrix::zeros(np);
-        for i in 0..np {
-            for j in 0..np {
-                m.set(i, j, rng.random_bool(0.3));
-            }
-        }
-        let orig = m.clone();
-        m.transpose_in_place();
-        for i in 0..np {
-            for j in 0..np {
-                assert_eq!(m.get(i, j), orig.get(j, i));
-            }
-        }
-        m.transpose_in_place();
-        assert_eq!(m, orig);
-    }
-
-    #[test]
-    fn two_lines_both_orders() {
-        let mut m = BitMatrix::identity(128);
-        let (a, b) = m.two_lines_mut(70, 3);
-        assert_eq!(a[1], 1 << 6);
-        assert_eq!(b[0], 1 << 3);
-        m.swap_lines(3, 70);
-        assert!(m.get(3, 70) && m.get(70, 3));
     }
 }
