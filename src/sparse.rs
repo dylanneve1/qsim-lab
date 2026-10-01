@@ -17,6 +17,7 @@ use crate::circuit::{check_gate, SimError, Simulator};
 use crate::gate::{Gate, Mat2, Mat4};
 use num_complex::Complex64;
 use rand::{Rng, RngCore};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hasher};
 
@@ -211,6 +212,26 @@ impl SparseState {
             assert!(
                 out.insert(j, a).is_none(),
                 "apply_permutation: f is not injective"
+            );
+        }
+        self.amps = out;
+    }
+
+    /// Parallel classical reversible map on basis indices using Rayon.
+    pub fn apply_permutation_par(&mut self, f: impl Fn(u64) -> u64 + Sync + Send) {
+        let old = std::mem::take(&mut self.amps);
+        let pairs: Vec<(u64, Complex64)> = old
+            .into_par_iter()
+            .map(|(k, a)| {
+                let j = f(k);
+                (j, a)
+            })
+            .collect();
+        let mut out = map_with_capacity(pairs.len());
+        for (j, a) in pairs {
+            assert!(
+                out.insert(j, a).is_none(),
+                "apply_permutation_par: f is not injective"
             );
         }
         self.amps = out;

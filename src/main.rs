@@ -77,6 +77,9 @@ enum Cmd {
         /// instead of the cache-blocked executor.
         #[arg(long)]
         no_blocked: bool,
+        /// shor (ripple oracle): evaluate gates one by one instead of reversible block evaluation.
+        #[arg(long)]
+        gate_by_gate: bool,
         /// shor: maximum number of order-finding runs.
         #[arg(long, default_value_t = 20)]
         tries: usize,
@@ -87,6 +90,7 @@ enum Cmd {
 enum OracleArg {
     Permutation,
     Beauregard,
+    Ripple,
 }
 
 /// Peak resident set size of this process in MiB (Linux `VmHWM`).
@@ -527,6 +531,7 @@ fn main() {
             base,
             tries,
             no_blocked,
+            gate_by_gate,
         } => {
             let mut rng = StdRng::seed_from_u64(seed);
             match example {
@@ -593,6 +598,7 @@ fn main() {
                         let oracle = match oracle {
                             OracleArg::Permutation => shor::Oracle::Permutation,
                             OracleArg::Beauregard => shor::Oracle::Beauregard,
+                            OracleArg::Ripple => shor::Oracle::Ripple,
                         };
                         let backend = match (fused, sparse, f32) {
                             (false, true, _) => shor::Backend::Sparse,
@@ -606,16 +612,25 @@ fn main() {
                             Some(a) => {
                                 let mut inst = shor::Instance::new(n, a, oracle);
                                 inst.blocked = !no_blocked;
+                                inst.gate_by_gate = gate_by_gate;
                                 let r = shor::order_finding(&inst, backend, &mut rng);
                                 let f = r.factor.map(|f| (f.min(n / f), f.max(n / f)));
                                 (f, vec![r])
                             }
-                            None => shor::factor_semiclassical(n, oracle, backend, tries, &mut rng),
+                            None => shor::factor_semiclassical_with_options(
+                                n,
+                                oracle,
+                                backend,
+                                tries,
+                                !no_blocked,
+                                gate_by_gate,
+                                &mut rng,
+                            ),
                         };
                         for r in &runs {
                             println!(
-                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}",
-                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes
+                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}",
+                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates
                             );
                         }
                         match f {

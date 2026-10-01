@@ -283,3 +283,97 @@ fn fused_runs_measure_the_same_bits() {
         }
     }
 }
+
+/// Ripple-carry oracle: gate-by-gate mode and reversible-block mode produce identical distributions.
+#[test]
+fn ripple_gate_by_gate_matches_reversible_block() {
+    for (n, count) in [(15u64, 4), (21, 3)] {
+        for a in bases(n, count) {
+            let block_inst = Instance::new(n, a, Oracle::Ripple);
+            let mut gate_inst = block_inst.clone();
+            gate_inst.gate_by_gate = true;
+
+            let block_dist = shor::semiclassical_distribution(
+                &block_inst,
+                shor::sparse_initial(&block_inst),
+                1e-15,
+            );
+            let gate_dist = shor::semiclassical_distribution(
+                &gate_inst,
+                shor::sparse_initial(&gate_inst),
+                1e-15,
+            );
+            let d = max_diff(&block_dist, &gate_dist);
+            assert!(d < 1e-12, "N={n} a={a}: gate-by-gate vs block diff {d:e}");
+        }
+    }
+}
+
+/// Ripple-carry oracle gives exactly the same measurement distribution as the permutation oracle.
+#[test]
+fn ripple_distribution_matches_permutation() {
+    for (n, count) in [(15u64, 7), (21, 4)] {
+        for a in bases(n, count) {
+            let perm_inst = Instance::new(n, a, Oracle::Permutation);
+            let rip_inst = Instance::new(n, a, Oracle::Ripple);
+
+            let perm_dist = shor::semiclassical_distribution(
+                &perm_inst,
+                shor::sparse_initial(&perm_inst),
+                1e-15,
+            );
+            let rip_dist =
+                shor::semiclassical_distribution(&rip_inst, shor::sparse_initial(&rip_inst), 1e-15);
+            let d = max_diff(&perm_dist, &rip_dist);
+            assert!(d < 1e-12, "N={n} a={a}: ripple vs perm diff {d:e}");
+        }
+    }
+}
+
+/// Same seed gives bit-identical measured integers for Ripple vs Permutation oracle
+/// across small, medium, and 1e6 moduli.
+#[test]
+fn ripple_runs_measure_the_same_bits_as_permutation() {
+    for (n, count) in [(15u64, 4), (21, 4), (143, 2), (1003, 1), (1005973, 1)] {
+        for a in bases(n, count) {
+            let perm_inst = Instance::new(n, a, Oracle::Permutation);
+            let rip_inst = Instance::new(n, a, Oracle::Ripple);
+            for seed in 0..2 {
+                let r_perm = shor::order_finding(
+                    &perm_inst,
+                    Backend::Sparse,
+                    &mut StdRng::seed_from_u64(seed),
+                );
+                let r_rip = shor::order_finding(
+                    &rip_inst,
+                    Backend::Sparse,
+                    &mut StdRng::seed_from_u64(seed),
+                );
+                assert_eq!(
+                    r_perm.measured, r_rip.measured,
+                    "N={n} a={a} seed={seed}: perm measured {} != ripple measured {}",
+                    r_perm.measured, r_rip.measured
+                );
+            }
+        }
+    }
+}
+
+/// Ripple circuit run via Circuit::run with classic control matches driver.
+#[test]
+fn ripple_circuit_runs_through_classic_control() {
+    for (n, a) in [(15u64, 7u64), (21, 2)] {
+        let c = shor::semiclassical_ripple_circuit(n, a);
+        let inst = Instance::new(n, a, Oracle::Ripple);
+        for seed in 0..3 {
+            let mut sp = SparseState::basis_state(inst.qubits(), 0);
+            let bits = c.run(&mut sp, &mut StdRng::seed_from_u64(seed)).unwrap();
+            let y = bits
+                .iter()
+                .enumerate()
+                .fold(0u128, |acc, (i, &b)| acc | (u128::from(b) << i));
+            let run = shor::order_finding(&inst, Backend::Sparse, &mut StdRng::seed_from_u64(seed));
+            assert_eq!(y, run.measured, "N={n} a={a} seed={seed}");
+        }
+    }
+}

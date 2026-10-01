@@ -44,6 +44,9 @@ pub enum Oracle {
     /// Beauregard's gate-level circuit (QFT adders, modular adder,
     /// controlled multiplier, controlled swap), `2n + 3` qubits.
     Beauregard,
+    /// Cuccaro ripple-carry gate-level circuit (X, CNOT, CCX only),
+    /// `3n + 4` qubits.
+    Ripple,
 }
 
 /// A simulator state that can run semiclassical order finding.
@@ -54,6 +57,13 @@ pub trait OrderFindingState: Clone {
     fn gates(&mut self, gs: &[Gate], blocked: bool) {
         let _ = blocked;
         for g in gs {
+            self.gate(g);
+        }
+    }
+    /// Applies a reversible circuit block to the state.
+    fn apply_block(&mut self, c: &Circuit, ancilla_mask: u64) {
+        let _ = ancilla_mask;
+        for g in c.gates() {
             self.gate(g);
         }
     }
@@ -129,6 +139,9 @@ impl<T: Real> OrderFindingState for StateVector<T> {
 impl OrderFindingState for SparseState {
     fn gate(&mut self, g: &Gate) {
         self.apply_gate(g).expect("valid gate");
+    }
+    fn apply_block(&mut self, c: &Circuit, ancilla_mask: u64) {
+        crate::shor_ripple::apply_reversible_block(self, c, ancilla_mask);
     }
     fn ctrl_mul(&mut self, m: usize, mult: u64, _inv: u64, n_mod: u64) {
         let mask = (1u64 << m) - 1;
@@ -262,6 +275,8 @@ pub struct Instance {
     /// Dense states run gate-level rounds with the cache-blocked executor
     /// (default `true`; `false` = one `apply_gate` pass per gate).
     pub blocked: bool,
+    /// Ripple oracle: apply gates one by one instead of reversible block evaluation.
+    pub gate_by_gate: bool,
     /// `a^(2^k) mod N` for `k = 0..t`.
     pub mults: Vec<u64>,
 }
@@ -283,6 +298,7 @@ impl Instance {
             t,
             oracle,
             blocked: true,
+            gate_by_gate: false,
             mults,
         }
     }
@@ -292,11 +308,16 @@ impl Instance {
         match self.oracle {
             Oracle::Permutation => self.m + 1,
             Oracle::Beauregard => 2 * self.m + 3,
+            Oracle::Ripple => 3 * self.m + 4,
         }
     }
 
-    fn layout(&self) -> BeauregardLayout {
+    pub fn layout(&self) -> BeauregardLayout {
         BeauregardLayout::new(self.m)
+    }
+
+    pub fn ripple_layout(&self) -> crate::shor_ripple::RippleLayout {
+        crate::shor_ripple::RippleLayout::new(self.m)
     }
 
     /// Basis index of the initial state: control 0, work register `|1>`.
@@ -335,6 +356,22 @@ impl Instance {
                 gs.push(Gate::H(0));
                 s.gates(&gs, self.blocked);
             }
+            Oracle::Ripple => {
+                let lay = self.ripple_layout();
+                let c = crate::shor_ripple::controlled_ua(&lay, 0, mult, self.n_mod);
+                s.gate(&Gate::H(0));
+                if self.gate_by_gate {
+                    for g in c.gates() {
+                        s.gate(g);
+                    }
+                } else {
+                    s.apply_block(&c, lay.ancilla_mask());
+                }
+                if let Some(g) = corr {
+                    s.gate(&g);
+                }
+                s.gate(&Gate::H(0));
+            }
         }
     }
 }
@@ -352,6 +389,8 @@ pub struct SemiRun {
     pub peak_stored: usize,
     /// Largest amplitude memory seen during the run (bytes).
     pub peak_bytes: usize,
+    pub total_gates: usize,
+    pub toffoli_gates: usize,
 }
 
 /// One semiclassical order-finding run on the state `s` (which must be the
@@ -363,7 +402,26 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
 ) -> SemiRun {
     let mut y = 0u128;
     let (mut peak_stored, mut peak_bytes) = (s.stored(), s.bytes());
+    let mut total_gates = 0usize;
+    let mut toffoli_gates = 0usize;
     for i in 0..inst.t {
+        let k = inst.t - 1 - i;
+        let mult = inst.mults[k];
+        match inst.oracle {
+            Oracle::Permutation => {}
+            Oracle::Beauregard => {
+                let lay = inst.layout();
+                let c = shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
+                total_gates += c.ops.len() + 2 + usize::from(y != 0);
+            }
+            Oracle::Ripple => {
+                let lay = inst.ripple_layout();
+                let c = crate::shor_ripple::controlled_ua(&lay, 0, mult, inst.n_mod);
+                let (g_tot, g_tof) = crate::shor_ripple::gate_counts(&c);
+                total_gates += g_tot + 2 + usize::from(y != 0);
+                toffoli_gates += g_tof;
+            }
+        }
         s.round(inst, i, y);
         peak_stored = peak_stored.max(s.stored());
         peak_bytes = peak_bytes.max(s.bytes());
@@ -374,6 +432,9 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         s.reset_control(bit); // recycle the control qubit
         if bit {
             y |= 1 << i;
+            if matches!(inst.oracle, Oracle::Beauregard | Oracle::Ripple) {
+                total_gates += 1;
+            }
         }
     }
     let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
@@ -385,6 +446,8 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         qubits: inst.qubits(),
         peak_stored,
         peak_bytes,
+        total_gates,
+        toffoli_gates,
     }
 }
 
@@ -490,6 +553,33 @@ pub fn semiclassical_circuit(n_mod: u64, a: u64) -> Circuit {
     c
 }
 
+/// The semiclassical circuit as a plain [`Circuit`] with the Cuccaro ripple-carry oracle.
+pub fn semiclassical_ripple_circuit(n_mod: u64, a: u64) -> Circuit {
+    let inst = Instance::new(n_mod, a, Oracle::Ripple);
+    let lay = inst.ripple_layout();
+    let mut c = Circuit::new(inst.qubits());
+    c.x(1); // work register |1>
+    for i in 0..inst.t {
+        let k = inst.t - 1 - i;
+        if i > 0 {
+            c.c_if(i - 1, Gate::X(0));
+        }
+        c.h(0);
+        c.append(&crate::shor_ripple::controlled_ua(
+            &lay,
+            0,
+            inst.mults[k],
+            n_mod,
+        ));
+        for l in 0..i {
+            c.c_if(l, Gate::Phase(0, -PI / ((1u64 << (i - l)) as f64)));
+        }
+        c.h(0);
+        c.measure(0);
+    }
+    c
+}
+
 /// Which simulator backs a semiclassical factoring attempt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Backend {
@@ -524,13 +614,28 @@ pub fn factor_semiclassical<R: Rng + ?Sized>(
     tries: usize,
     rng: &mut R,
 ) -> (Option<(u64, u64)>, Vec<SemiRun>) {
+    factor_semiclassical_with_options(n_mod, oracle, backend, tries, true, false, rng)
+}
+
+/// Same as [`factor_semiclassical`] with explicit execution options (`blocked`, `gate_by_gate`).
+pub fn factor_semiclassical_with_options<R: Rng + ?Sized>(
+    n_mod: u64,
+    oracle: Oracle,
+    backend: Backend,
+    tries: usize,
+    blocked: bool,
+    gate_by_gate: bool,
+    rng: &mut R,
+) -> (Option<(u64, u64)>, Vec<SemiRun>) {
     let mut runs = Vec::new();
     for _ in 0..tries {
         let a = rng.random_range(2..n_mod - 1);
         if gcd(a, n_mod) > 1 {
             continue; // lucky classical guess; skip so the quantum part runs
         }
-        let inst = Instance::new(n_mod, a, oracle);
+        let mut inst = Instance::new(n_mod, a, oracle);
+        inst.blocked = blocked;
+        inst.gate_by_gate = gate_by_gate;
         let run = order_finding(&inst, backend, rng);
         let f = run.factor;
         runs.push(run);
