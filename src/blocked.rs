@@ -779,7 +779,13 @@ fn fma<T: Real, const F: bool>(a: T, b: T, c: T) -> T {
 /// `(a, b) <- (m0 a + m1 b, m2 a + m3 b)` elementwise; `m` holds the real
 /// parts then the imaginary parts of the four entries.
 #[inline(always)]
-fn u1_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
+fn u1_kernel<T: Real, const F: bool>(
+    ar: &mut [T],
+    ai: &mut [T],
+    br: &mut [T],
+    bi: &mut [T],
+    m: &[T; 8],
+) {
     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
     let len = ar.len();
     let (ai, br, bi) = (&mut ai[..len], &mut br[..len], &mut bi[..len]);
@@ -799,8 +805,16 @@ fn u1_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], br: &mut [T], b
 #[inline(always)]
 fn cmul2<T: Real, const F: bool>(m: [T; 4], xr: T, xi: T, yr: T, yi: T) -> (T, T) {
     let [m0r, m0i, m1r, m1i] = m;
-    let re = fma::<T, F>(m0r, xr, fma::<T, F>(-m0i, xi, fma::<T, F>(m1r, yr, -(m1i * yi))));
-    let im = fma::<T, F>(m0r, xi, fma::<T, F>(m0i, xr, fma::<T, F>(m1r, yi, m1i * yr)));
+    let re = fma::<T, F>(
+        m0r,
+        xr,
+        fma::<T, F>(-m0i, xi, fma::<T, F>(m1r, yr, -(m1i * yi))),
+    );
+    let im = fma::<T, F>(
+        m0r,
+        xi,
+        fma::<T, F>(m0i, xr, fma::<T, F>(m1r, yi, m1i * yr)),
+    );
     (re, im)
 }
 
@@ -834,7 +848,13 @@ fn small_pairs(l: usize, fixed: usize, cin: usize, s: usize, mut f: impl FnMut(u
 
 /// `(a, b) <- (m0 a + m1 b, m2 a + m3 b)` for a real matrix.
 #[inline(always)]
-fn u1_real_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
+fn u1_real_kernel<T: Real, const F: bool>(
+    ar: &mut [T],
+    ai: &mut [T],
+    br: &mut [T],
+    bi: &mut [T],
+    m: &[T; 8],
+) {
     let [m0, m1, m2, m3, ..] = *m;
     let len = ar.len();
     let (ai, br, bi) = (&mut ai[..len], &mut br[..len], &mut bi[..len]);
@@ -871,7 +891,11 @@ fn u1_slices<T: Real, const F: bool>(
 /// group are computed as one short vector (about 2x faster than walking
 /// runs of length 1 or 2).
 #[inline(always)]
-fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], m: &[T; 8]) {
+fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(
+    re: &mut [T],
+    im: &mut [T],
+    m: &[T; 8],
+) {
     let s = 1usize << TB;
     let lo: [usize; 4] = std::array::from_fn(|k| ((k >> TB) << (TB + 1)) | (k & (s - 1)));
     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
@@ -890,10 +914,8 @@ fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(re: &mut [T],
                     fma::<T, F>(m2r, xi[k], m3r * yi[k]),
                 ),
                 _ => {
-                    let (a, b) =
-                        cmul2::<T, F>([m0r, m0i, m1r, m1i], xr[k], xi[k], yr[k], yi[k]);
-                    let (c, d) =
-                        cmul2::<T, F>([m2r, m2i, m3r, m3i], xr[k], xi[k], yr[k], yi[k]);
+                    let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr[k], xi[k], yr[k], yi[k]);
+                    let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr[k], xi[k], yr[k], yi[k]);
                     (a, b, c, d)
                 }
             };
@@ -906,7 +928,14 @@ fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(re: &mut [T],
 }
 
 #[inline(always)]
-fn apply_u1<T: Real, const F: bool>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKind, cin: usize) {
+fn apply_u1<T: Real, const F: bool>(
+    buf: &mut Buf<T>,
+    l: usize,
+    t: usize,
+    m: &[T; 8],
+    kind: UKind,
+    cin: usize,
+) {
     let s = 1usize << t;
     let Buf { re, im } = buf;
     let fixed = cin | s;
@@ -992,7 +1021,13 @@ struct DiagScratch<T> {
 
 /// `a[k] *= (lr[k] + i li[k]) * h` on a run.
 #[inline(always)]
-fn diag_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], lr: &[T], li: &[T], h: Complex<T>) {
+fn diag_kernel<T: Real, const F: bool>(
+    ar: &mut [T],
+    ai: &mut [T],
+    lr: &[T],
+    li: &[T],
+    h: Complex<T>,
+) {
     let len = ar.len();
     let (ai, lr, li) = (&mut ai[..len], &lr[..len], &li[..len]);
     for k in 0..len {
