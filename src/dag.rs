@@ -1710,10 +1710,23 @@ pub fn peephole(d: &mut Dag, opts: PeepholeOptions) -> (f64, PeepholeStats) {
             }
         }
     }
+    // Worklist: gates in topological order; after a rewrite, the nodes just
+    // before it on its wires are re-examined at once (their forward walk may
+    // have been blocked by the removed gates), so nested patterns such as
+    // `A B C C† B† A†` collapse in one sweep. Whole passes repeat until
+    // nothing changes (when `fixpoint` is set) to catch anything the bounded
+    // look-back missed.
+    let mut queued = vec![false; d.capacity()];
     loop {
         stats.passes += 1;
         let mut changed = false;
-        for id in d.topo_order() {
+        let mut work: Vec<NodeId> = d.topo_order();
+        work.reverse(); // pop() yields topological order
+        for &id in &work {
+            queued[id as usize] = true;
+        }
+        while let Some(id) = work.pop() {
+            queued[id as usize] = false;
             if !d.is_live(id) {
                 continue;
             }
@@ -1723,15 +1736,29 @@ pub fn peephole(d: &mut Dag, opts: PeepholeOptions) -> (f64, PeepholeStats) {
             };
             let (out, ph) = combine(&g, &mg).expect("partner is combinable");
             phase += ph;
+            let mut revisit = wire_predecessors(d, id, LOOK_BACK);
             d.remove(id).expect("live");
             match out {
                 None => {
+                    revisit.extend(wire_predecessors(d, m, LOOK_BACK));
                     d.remove(m).expect("live");
                     stats.cancellations += 1;
                 }
                 Some(o) => {
                     d.set_gate(m, o).expect("same qubits");
+                    revisit.push(m);
                     stats.merges += 1;
+                }
+            }
+            if queued.len() < d.capacity() {
+                queued.resize(d.capacity(), false);
+            }
+            // Re-examine later nodes after earlier ones: push in reverse
+            // key order so the earliest is popped first.
+            revisit.sort_by_key(|&x| Reverse(d.n(x).key));
+            for x in revisit {
+                if d.is_live(x) && !std::mem::replace(&mut queued[x as usize], true) {
+                    work.push(x);
                 }
             }
             changed = true;
@@ -1741,6 +1768,27 @@ pub fn peephole(d: &mut Dag, opts: PeepholeOptions) -> (f64, PeepholeStats) {
         }
     }
     (phase.rem_euclid(TAU), stats)
+}
+
+/// How far back along each wire a rewrite re-queues earlier gates.
+const LOOK_BACK: usize = 16;
+
+/// Up to `k` live nodes before `id` on each of its wires.
+fn wire_predecessors(d: &Dag, id: NodeId, k: usize) -> Vec<NodeId> {
+    let n = d.n(id);
+    let mut out = Vec::new();
+    for i in 0..n.nq as usize {
+        let q = n.qs[i] as usize;
+        let mut cur = n.prev[i];
+        let mut steps = 0;
+        while cur != NONE && steps < k {
+            out.push(cur);
+            let c = d.n(cur);
+            cur = c.prev[c.slot(q).expect("wire")];
+            steps += 1;
+        }
+    }
+    out
 }
 
 /// Walks forward from gate node `id` along each of its wires, past nodes
