@@ -33,6 +33,23 @@ pub struct MemoryExperimentResult {
     pub logical_error_rate: f64,
 }
 
+impl MemoryExperimentResult {
+    /// Wilson score 95% confidence interval for the logical error rate.
+    /// Returns `(lower, upper)` as fractions in `[0, 1]`.
+    pub fn wilson_ci_95(&self) -> (f64, f64) {
+        let n = self.shots as f64;
+        let p_hat = self.logical_error_rate;
+        let z = 1.96; // 95% CI z-score
+        let z2 = z * z;
+        let denom = 1.0 + z2 / n;
+        let center = (p_hat + z2 / (2.0 * n)) / denom;
+        let half_width = z * (p_hat * (1.0 - p_hat) / n + z2 / (4.0 * n * n)).sqrt() / denom;
+        let lo = (center - half_width).max(0.0);
+        let hi = (center + half_width).min(1.0);
+        (lo, hi)
+    }
+}
+
 impl RepetitionCode {
     /// Creates a new repetition code of distance `d` with `rounds` syndrome extraction rounds.
     pub fn new(d: usize, rounds: usize) -> Self {

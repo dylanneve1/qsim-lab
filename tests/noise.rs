@@ -219,55 +219,137 @@ impl DensityMatrix2x2 {
     }
 }
 
+/// Test single-qubit depolarizing noise starting from |0> (Z-basis).
+///
+/// This is discriminating: starting from |0>, the depolarizing channel
+/// produces P(|1>) = p/3 (from X and Y errors), and readout flip
+/// further perturbs it. The noiseless case must give exactly zero errors.
 #[test]
-fn single_qubit_depolarizing_and_readout_matches_density_matrix() {
+fn single_qubit_depolarizing_z_basis_matches_density_matrix() {
     let mut rng = StdRng::seed_from_u64(2026);
+
+    // --- Z-basis test: start from |0>, measure in Z ---
     let p_depol = 0.18;
     let p_meas = 0.04;
 
-    // Ideal circuit: H on |0> -> |+>, then depolarize, then measure
-    let mut c = Circuit::new(1);
-    c.h(0).measure(0);
+    let mut c_z = Circuit::new(1);
+    c_z.measure(0); // measure |0> directly (no H)
 
     let noise = NoiseModel::none().with_p1(p_depol).with_meas(p_meas);
 
-    // Exact density-matrix expectation:
+    // Exact density-matrix expectation for |0> with depolarizing + readout:
+    // After depolarizing: P(|1>) = p/3 (X and Y each flip |0> to |1>, Z doesn't)
+    // Wait: depolarizing on |0> before measurement — but there's no gate to
+    // attach the noise to. We need a gate.
+    // Let's use: apply an identity-like gate (Z) that doesn't change |0>, then noise after.
+    let mut c_z = Circuit::new(1);
+    c_z.gate(Gate::Z(0)); // Z|0> = |0>, but triggers 1q depolarizing noise
+    c_z.measure(0);
+
     let mut dm = DensityMatrix2x2::zero();
-    dm.apply_gate(&Gate::H(0));
+    dm.apply_gate(&Gate::Z(0));
     dm.depolarize(p_depol);
-    let expected_p1 = dm.prob_one_with_readout(p_meas);
+    let expected_p1_z = dm.prob_one_with_readout(p_meas);
 
-    let shots = 15000;
+    let shots = 20000;
 
-    // 1. Test on Tableau
+    // Test on Tableau
     let mut ones_tab = 0;
     for _ in 0..shots {
         let mut tab = Tableau::new(1);
-        let bits = c.run_noisy(&mut tab, &noise, &mut rng).unwrap();
+        let bits = c_z.run_noisy(&mut tab, &noise, &mut rng).unwrap();
         if bits[0] {
             ones_tab += 1;
         }
     }
-    let p_tab = ones_tab as f64 / shots as f64;
+    let p_tab_z = ones_tab as f64 / shots as f64;
     assert!(
-        (p_tab - expected_p1).abs() < 0.015,
-        "Tableau: observed {p_tab}, expected {expected_p1}"
+        (p_tab_z - expected_p1_z).abs() < 0.012,
+        "Tableau Z-basis: observed {p_tab_z}, expected {expected_p1_z}"
     );
 
-    // 2. Test on StateVector
+    // Test on StateVector
     let mut ones_sv = 0;
     for _ in 0..shots {
         let mut sv = StateVectorF64::new(1);
-        let bits = c.run_noisy(&mut sv, &noise, &mut rng).unwrap();
+        let bits = c_z.run_noisy(&mut sv, &noise, &mut rng).unwrap();
         if bits[0] {
             ones_sv += 1;
         }
     }
-    let p_sv = ones_sv as f64 / shots as f64;
+    let p_sv_z = ones_sv as f64 / shots as f64;
     assert!(
-        (p_sv - expected_p1).abs() < 0.015,
-        "StateVector: observed {p_sv}, expected {expected_p1}"
+        (p_sv_z - expected_p1_z).abs() < 0.012,
+        "StateVector Z-basis: observed {p_sv_z}, expected {expected_p1_z}"
     );
+
+    // --- Noiseless sanity check: p=0 must give exactly zero errors ---
+    let noise_none = NoiseModel::none();
+    for _ in 0..500 {
+        let mut tab = Tableau::new(1);
+        let bits = c_z.run_noisy(&mut tab, &noise_none, &mut rng).unwrap();
+        assert!(!bits[0], "noiseless |0> measured as 1");
+    }
+}
+
+/// Test single-qubit depolarizing noise in X-basis (H|0> = |+>, then H, measure).
+///
+/// This measures in the X basis: H followed by measurement effectively measures X.
+/// Depolarizing noise after the first H gives a known P(X=-1) = p/3 (from Z and Y).
+#[test]
+fn single_qubit_depolarizing_x_basis_matches_density_matrix() {
+    let mut rng = StdRng::seed_from_u64(3333);
+    let p_depol = 0.15;
+    let p_meas = 0.03;
+
+    // H|0> = |+>, then H again before measurement: measures X eigenvalue.
+    // Depolarizing after first H: Y and Z cause X flip, X doesn't.
+    let mut c_x = Circuit::new(1);
+    c_x.h(0).h(0).measure(0);
+    // After first H: |+>. Depolarize. Then H: maps X eigenstates to Z eigenstates.
+
+    let noise = NoiseModel::none().with_p1(p_depol).with_meas(p_meas);
+
+    let mut dm = DensityMatrix2x2::zero();
+    dm.apply_gate(&Gate::H(0));
+    dm.depolarize(p_depol);
+    dm.apply_gate(&Gate::H(0)); // noise only after first H (no noise after second H
+    // because noise model applies after the second H too)
+
+    // Actually, with noise model, depolarizing is applied after BOTH H gates.
+    // First H: |0> → |+>, then depolarize(p)
+    // Second H: transform, then depolarize(p) again
+    // So density matrix should have two rounds of depolarizing:
+    let mut dm2 = DensityMatrix2x2::zero();
+    dm2.apply_gate(&Gate::H(0));
+    dm2.depolarize(p_depol);
+    dm2.apply_gate(&Gate::H(0));
+    dm2.depolarize(p_depol);
+    let expected_p1_x = dm2.prob_one_with_readout(p_meas);
+
+    let shots = 20000;
+
+    let mut ones = 0;
+    for _ in 0..shots {
+        let mut tab = Tableau::new(1);
+        let bits = c_x.run_noisy(&mut tab, &noise, &mut rng).unwrap();
+        if bits[0] {
+            ones += 1;
+        }
+    }
+    let p_obs = ones as f64 / shots as f64;
+    assert!(
+        (p_obs - expected_p1_x).abs() < 0.012,
+        "Tableau X-basis: observed {p_obs}, expected {expected_p1_x}"
+    );
+
+    // Noiseless: H H = I, so |0> → |0>, must get exactly 0
+    let noise_none = NoiseModel::none();
+    for _ in 0..500 {
+        let mut tab = Tableau::new(1);
+        let bits = c_x.run_noisy(&mut tab, &noise_none, &mut rng).unwrap();
+        assert!(!bits[0], "noiseless H·H|0> measured as 1");
+    }
 }
 
 #[test]
@@ -290,18 +372,35 @@ fn two_qubit_depolarizing_noise_after_cnot() {
     let expected_diff_p = (8.0 / 15.0) * p_2q;
 
     let shots = 15000;
-    let mut diff_count = 0;
+
+    // Test on Tableau
+    let mut diff_count_tab = 0;
     for _ in 0..shots {
         let mut tab = Tableau::new(2);
         let bits = c.run_noisy(&mut tab, &noise, &mut rng).unwrap();
         if bits[0] != bits[1] {
-            diff_count += 1;
+            diff_count_tab += 1;
         }
     }
-    let p_obs = diff_count as f64 / shots as f64;
+    let p_obs_tab = diff_count_tab as f64 / shots as f64;
     assert!(
-        (p_obs - expected_diff_p).abs() < 0.015,
-        "observed difference prob {p_obs}, expected {expected_diff_p}"
+        (p_obs_tab - expected_diff_p).abs() < 0.015,
+        "Tableau: observed difference prob {p_obs_tab}, expected {expected_diff_p}"
+    );
+
+    // Test on StateVector
+    let mut diff_count_sv = 0;
+    for _ in 0..shots {
+        let mut sv = StateVectorF64::new(2);
+        let bits = c.run_noisy(&mut sv, &noise, &mut rng).unwrap();
+        if bits[0] != bits[1] {
+            diff_count_sv += 1;
+        }
+    }
+    let p_obs_sv = diff_count_sv as f64 / shots as f64;
+    assert!(
+        (p_obs_sv - expected_diff_p).abs() < 0.015,
+        "StateVector: observed difference prob {p_obs_sv}, expected {expected_diff_p}"
     );
 }
 
