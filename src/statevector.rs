@@ -230,6 +230,10 @@ impl<T: Real> StateVector<T> {
         &self.amps
     }
 
+    pub(crate) fn amplitudes_mut(&mut self) -> &mut [Complex<T>] {
+        &mut self.amps
+    }
+
     pub fn amplitude(&self, index: usize) -> Complex64 {
         let a = self.amps[index];
         Complex64::new(a.re.to_f64(), a.im.to_f64())
