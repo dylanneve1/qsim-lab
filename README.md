@@ -273,6 +273,19 @@ terms by about 1.5 (an X or Y lands on the T qubit about half the time), and
 the run time follows. The run aborts at 44 T gates when the term budget
 (`DEFAULT_MAX_TERMS`, about 260 MB here) is exceeded.
 
+The table above was measured with the original engine, which is now
+`pauli_path::expectation_legacy`. `<Z_0>` is exactly 0 in every row, so it is a
+cost benchmark only. `pauli_path::expectation` now uses the rotation-frame
+engine (`pauli_frame`). That engine compiles the Cliffords away with a tableau,
+leaving only `t` Pauli rotations. It then drops terms that provably cannot
+contribute: their X part lies outside the span of the remaining rotation axes.
+On this family, with fewer T gates than qubits, that removes `Z_0` before any
+propagation. For a non-degenerate version (a stabilizer of the circuit's
+Clifford skeleton, whose value is non-zero) the frontier at the same term budget
+moves from 40 T gates (legacy) to 100. See `research/pauli.md` for the exactness
+argument, the tests, and interleaved A/B timings
+(`qsim bench clifford-t --observable stab --engine legacy|frame`).
+
 ### MPS: GHZ and random circuits
 
 GHZ (bond cap 64, never reached):
