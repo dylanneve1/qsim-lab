@@ -266,6 +266,14 @@ pub struct BlockConfig {
     /// with `mul_add` (NEON `fmla`, part of the baseline, no `unsafe`).
     /// Results agree with the portable path to rounding error.
     pub simd: bool,
+    /// Nested L1 tiling: inside each block, runs of ops that only act on the
+    /// low buffer bits are applied tile by tile, with tiles of at most this
+    /// many bytes (rounded down to a power of two amplitudes), so a tile
+    /// stays in L1 across the whole run instead of the block being swept
+    /// once per op. `0` = off (the default). Ops are only reordered across
+    /// commuting neighbours, so the result agrees with the untiled
+    /// executor to rounding error.
+    pub l1_tile_bytes: usize,
 }
 
 /// Default block size. 256 KiB on x86_64 (half of a typical 512 KiB L2).
@@ -288,6 +296,7 @@ impl Default for BlockConfig {
             split_phases: false,
             schedule_diag: true,
             simd: true,
+            l1_tile_bytes: 0,
         }
     }
 }
@@ -302,6 +311,22 @@ impl BlockConfig {
         } else {
             // keep at least four chunks so every thread gets work
             l.min(n - 2)
+        }
+    }
+}
+
+impl BlockConfig {
+    /// L1 tile size `k` in qubits for a block of `l` qubits, or 0 when
+    /// tiling is off or pointless.
+    fn tile_bits(&self, l: usize, elem: usize) -> usize {
+        if self.l1_tile_bytes < 2 * elem {
+            return 0;
+        }
+        let k = (self.l1_tile_bytes / elem).ilog2() as usize;
+        if k >= l || k < 3 {
+            0
+        } else {
+            k
         }
     }
 }
@@ -532,6 +557,23 @@ struct Prepared<T: Real> {
     l: usize,
     inner_mask: usize,
     ops: Vec<LOp<T>>,
+    /// Nested L1 tiling of `ops` (see [`tile_segments`]); `None` = off.
+    tile: Option<TilePlan<T>>,
+}
+
+/// A stage's ops regrouped for nested L1 tiling: tiles of `2^k` contiguous
+/// buffer amplitudes.
+struct TilePlan<T: Real> {
+    k: usize,
+    segs: Vec<Seg<T>>,
+}
+
+enum Seg<T: Real> {
+    /// Ops that only act (as targets) on the low `k` buffer bits: applied
+    /// tile by tile, each tile staying in L1 across the whole run.
+    Tile(Vec<LOp<T>>),
+    /// An op that needs the whole block: one pass over the block.
+    Full(LOp<T>),
 }
 
 #[inline(always)]
@@ -742,7 +784,102 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
         l: st.inner.len(),
         inner_mask,
         ops,
+        tile: None,
     }
+}
+
+// ----- nested L1 tiling -----------------------------------------------------
+
+/// `(non-diagonal target bits, all buffer bits involved)` of an op.
+fn lop_masks<T: Real>(op: &LOp<T>) -> (usize, usize) {
+    match op {
+        LOp::U1 { t, cin, .. } => (1 << t, (1 << t) | cin),
+        LOp::Swap { a, b } => ((1 << a) | (1 << b), (1 << a) | (1 << b)),
+        LOp::Diag(d) => {
+            let mut sup = 0usize;
+            for g in &d.groups {
+                sup |= g.cmask;
+                for t in &g.terms {
+                    if let Some((j, _)) = t.bit {
+                        sup |= 1 << j;
+                    }
+                }
+            }
+            (0, sup)
+        }
+    }
+}
+
+/// Whether an op can run on one `2^k` tile at a time: unitaries need their
+/// target(s) inside the tile (controls above the tile just select tiles);
+/// diagonal blocks need every bit they read inside the tile.
+fn tile_local<T: Real>(op: &LOp<T>, k: usize) -> bool {
+    let lim = 1usize << k;
+    match op {
+        LOp::U1 { t, .. } => (1usize << t) < lim,
+        LOp::Swap { b, .. } => (1usize << b) < lim,
+        LOp::Diag(_) => lop_masks(op).1 < lim,
+    }
+}
+
+/// Regroups `ops` into runs of tile-local ops (executed tile by tile) and
+/// single full-block ops.
+///
+/// Ops are reordered only across pairs that commute: two ops conflict when
+/// one acts non-diagonally on a bit the other uses (controls and diagonal
+/// terms are diagonal in their bits), exactly the rule `schedule_diag` uses.
+/// List scheduling: take every ready tile-local op into one run, then the
+/// earliest ready non-local op, and repeat.
+fn tile_segments<T: Real>(ops: &[LOp<T>], k: usize) -> Vec<Seg<T>> {
+    let n = ops.len();
+    let masks: Vec<(usize, usize)> = ops.iter().map(lop_masks).collect();
+    let local: Vec<bool> = ops.iter().map(|o| tile_local(o, k)).collect();
+    let mut succ: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut deps = vec![0usize; n];
+    for j in 0..n {
+        for i in 0..j {
+            let (nd_i, sup_i) = masks[i];
+            let (nd_j, sup_j) = masks[j];
+            if nd_i & sup_j != 0 || nd_j & sup_i != 0 {
+                succ[i].push(j);
+                deps[j] += 1;
+            }
+        }
+    }
+    let mut done = vec![false; n];
+    let mut left = n;
+    let mut segs = Vec::new();
+    let take = |i: usize, deps: &mut Vec<usize>, done: &mut Vec<bool>, left: &mut usize| {
+        done[i] = true;
+        *left -= 1;
+        for &s in &succ[i] {
+            deps[s] -= 1;
+        }
+    };
+    while left > 0 {
+        let mut run: Vec<LOp<T>> = Vec::new();
+        loop {
+            let mut progressed = false;
+            for i in 0..n {
+                if !done[i] && deps[i] == 0 && local[i] {
+                    run.push(ops[i].clone());
+                    take(i, &mut deps, &mut done, &mut left);
+                    progressed = true;
+                }
+            }
+            if !progressed {
+                break;
+            }
+        }
+        if !run.is_empty() {
+            segs.push(Seg::Tile(run));
+        }
+        if let Some(i) = (0..n).find(|&i| !done[i] && deps[i] == 0) {
+            segs.push(Seg::Full(ops[i].clone()));
+            take(i, &mut deps, &mut done, &mut left);
+        }
+    }
+    segs
 }
 
 // ----- buffer kernels -----------------------------------------------------
@@ -756,6 +893,24 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
 struct Buf<T> {
     re: Vec<T>,
     im: Vec<T>,
+}
+
+/// A mutable window onto a [`Buf`] (or a tile of it) in split layout; the
+/// kernels work on views so that the same code can run on a whole block or
+/// on an L1-sized tile of it.
+struct View<'a, T> {
+    re: &'a mut [T],
+    im: &'a mut [T],
+}
+
+impl<T> Buf<T> {
+    #[inline(always)]
+    fn view(&mut self) -> View<'_, T> {
+        View {
+            re: &mut self.re[..],
+            im: &mut self.im[..],
+        }
+    }
 }
 
 /// Inserts a zero bit at each position of `fixed` (ascending) into `x`.
@@ -950,7 +1105,7 @@ fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(
 
 #[inline(always)]
 fn apply_u1<T: Real, const F: bool>(
-    buf: &mut Buf<T>,
+    buf: &mut View<T>,
     l: usize,
     t: usize,
     m: &[T; 8],
@@ -958,7 +1113,7 @@ fn apply_u1<T: Real, const F: bool>(
     cin: usize,
 ) {
     let s = 1usize << t;
-    let Buf { re, im } = buf;
+    let View { re, im } = buf;
     let fixed = cin | s;
     if cin == 0 && t < 2 && l >= 3 {
         match (t, kind) {
@@ -1010,9 +1165,9 @@ fn apply_u1<T: Real, const F: bool>(
 }
 
 #[inline(always)]
-fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
+fn apply_swap<T: Real>(buf: &mut View<T>, l: usize, a: usize, b: usize) {
     let (sa, sb) = (1usize << a, 1usize << b);
-    let Buf { re, im } = buf;
+    let View { re, im } = buf;
     if (sa | sb) & SMALL != 0 {
         // pairs (i | sa, i | sb) with both bits clear in i
         small_pairs(l, sa | sb, 0, sb - sa, |i, j| {
@@ -1076,7 +1231,7 @@ fn product_table(out: &mut Vec<Complex64>, e: &[[Complex64; 2]], init: Complex64
 
 #[inline(always)]
 fn apply_diag_group<T: Real, const F: bool>(
-    buf: &mut Buf<T>,
+    buf: &mut View<T>,
     l: usize,
     g: &DiagGroup,
     base: usize,
@@ -1112,7 +1267,7 @@ fn apply_diag_group<T: Real, const F: bool>(
     let lomask = (1usize << lb) - 1;
     let (cm_lo, cp_lo) = (g.cmask & lomask, g.cpat & lomask);
     let (cm_hi, cp_hi) = (g.cmask >> lb, g.cpat >> lb);
-    let Buf { re, im } = buf;
+    let View { re, im } = buf;
     for (h, &hv) in hi.iter().enumerate() {
         if h & cm_hi != cp_hi {
             continue;
@@ -1240,6 +1395,78 @@ mod prof {
     }
 }
 
+/// Applies one op to a whole block (or to any view with `l` index bits whose
+/// outer assignment is `base`).
+#[inline(always)]
+fn apply_lop<T: Real, const F: bool>(
+    v: &mut View<T>,
+    l: usize,
+    op: &LOp<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
+    match op {
+        LOp::U1 {
+            t,
+            m,
+            kind,
+            cin,
+            cout,
+        } => {
+            if base & cout == *cout {
+                apply_u1::<T, F>(v, l, *t, m, *kind, *cin);
+            }
+        }
+        LOp::Swap { a, b } => apply_swap(v, l, *a, *b),
+        LOp::Diag(d) => {
+            for g in &d.groups {
+                apply_diag_group::<T, F>(v, l, g, base, sc);
+            }
+        }
+    }
+}
+
+/// Applies a run of tile-local ops (see [`tile_segments`]) to the whole
+/// block, one `2^k` tile at a time: every op of the run is applied to a tile
+/// before the next tile is touched, so the tile stays in L1.
+#[inline(always)]
+fn apply_tile_run<T: Real, const F: bool>(
+    buf: &mut Buf<T>,
+    k: usize,
+    run: &[LOp<T>],
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
+    let tile = 1usize << k;
+    let lowmask = tile - 1;
+    for (ti, (re, im)) in buf
+        .re
+        .chunks_exact_mut(tile)
+        .zip(buf.im.chunks_exact_mut(tile))
+        .enumerate()
+    {
+        let mut v = View { re, im };
+        for op in run {
+            match op {
+                LOp::U1 {
+                    t,
+                    m,
+                    kind,
+                    cin,
+                    cout,
+                } => {
+                    // controls above the tile select tiles
+                    let chi = cin >> k;
+                    if base & cout == *cout && ti & chi == chi {
+                        apply_u1::<T, F>(&mut v, k, *t, m, *kind, cin & lowmask);
+                    }
+                }
+                other => apply_lop::<T, F>(&mut v, k, other, base, sc),
+            }
+        }
+    }
+}
+
 #[inline(always)]
 fn run_ops_impl<T: Real, const F: bool>(
     p: &Prepared<T>,
@@ -1247,30 +1474,21 @@ fn run_ops_impl<T: Real, const F: bool>(
     base: usize,
     sc: &mut DiagScratch<T>,
 ) {
+    if let Some(tp) = &p.tile {
+        for seg in &tp.segs {
+            match seg {
+                Seg::Tile(run) => apply_tile_run::<T, F>(buf, tp.k, run, base, sc),
+                Seg::Full(op) => apply_lop::<T, F>(&mut buf.view(), p.l, op, base, sc),
+            }
+        }
+        return;
+    }
     if prof::on() {
         return run_ops_prof::<T, F>(p, buf, base, sc);
     }
-    let l = p.l;
+    let mut v = buf.view();
     for op in &p.ops {
-        match op {
-            LOp::U1 {
-                t,
-                m,
-                kind,
-                cin,
-                cout,
-            } => {
-                if base & cout == *cout {
-                    apply_u1::<T, F>(buf, l, *t, m, *kind, *cin);
-                }
-            }
-            LOp::Swap { a, b } => apply_swap(buf, l, *a, *b),
-            LOp::Diag(d) => {
-                for g in &d.groups {
-                    apply_diag_group::<T, F>(buf, l, g, base, sc);
-                }
-            }
-        }
+        apply_lop::<T, F>(&mut v, p.l, op, base, sc);
     }
 }
 
@@ -1282,37 +1500,22 @@ fn run_ops_prof<T: Real, const F: bool>(
     sc: &mut DiagScratch<T>,
 ) {
     let l = p.l;
+    let mut v = buf.view();
     for op in &p.ops {
         let t0 = std::time::Instant::now();
-        match op {
-            LOp::U1 {
-                t,
-                m,
-                kind,
-                cin,
-                cout,
-            } => {
-                if base & cout == *cout {
-                    apply_u1::<T, F>(buf, l, *t, m, *kind, *cin);
-                }
-                let k = if (cin | (1 << t)) & SMALL != 0 {
+        apply_lop::<T, F>(&mut v, l, op, base, sc);
+        let k = match op {
+            LOp::U1 { t, kind, cin, .. } => {
+                if (cin | (1 << t)) & SMALL != 0 {
                     3
                 } else {
                     *kind as usize
-                };
-                prof::add(k, t0);
-            }
-            LOp::Swap { a, b } => {
-                apply_swap(buf, l, *a, *b);
-                prof::add(4, t0);
-            }
-            LOp::Diag(d) => {
-                for g in &d.groups {
-                    apply_diag_group::<T, F>(buf, l, g, base, sc);
                 }
-                prof::add(5, t0);
             }
-        }
+            LOp::Swap { .. } => 4,
+            LOp::Diag(_) => 5,
+        };
+        prof::add(k, t0);
     }
 }
 
@@ -1468,6 +1671,66 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: 
         });
 }
 
+/// What the nested L1 tiling does to a gate sequence (see [`tile_stats`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TileStats {
+    /// Number of L2 stages.
+    pub stages: usize,
+    /// Tile size in qubits (0 = tiling off or not applicable).
+    pub tile_bits: usize,
+    /// Ops executed inside tile runs (one L1-resident pass per run).
+    pub tiled_ops: usize,
+    /// Ops executed as a full pass over the block.
+    pub full_ops: usize,
+    /// Number of tile runs.
+    pub runs: usize,
+}
+
+/// Plans `ops` exactly as [`StateVector::apply_kops_blocked`] does and
+/// reports how many ops land in tile runs.
+pub fn tile_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> TileStats {
+    let fused;
+    let ops = if cfg.fuse_1q {
+        fused = fuse_1q(ops, n, cfg.split_phases);
+        &fused[..]
+    } else {
+        ops
+    };
+    let elem = std::mem::size_of::<Complex<T>>();
+    let l = cfg.block_bits(n, elem);
+    let mut out = TileStats::default();
+    for st in plan_stages(ops, n, l, cfg.slots) {
+        out.stages += 1;
+        let p = if cfg.schedule_diag {
+            prepare::<T>(
+                &Stage {
+                    inner: st.inner.clone(),
+                    ops: schedule_diag(&st.ops),
+                },
+                n,
+            )
+        } else {
+            prepare::<T>(&st, n)
+        };
+        let k = cfg.tile_bits(p.l, elem);
+        out.tile_bits = k;
+        if k == 0 {
+            out.full_ops += p.ops.len();
+            continue;
+        }
+        for sg in tile_segments(&p.ops, k) {
+            match sg {
+                Seg::Tile(r) => {
+                    out.runs += 1;
+                    out.tiled_ops += r.len();
+                }
+                Seg::Full(_) => out.full_ops += 1,
+            }
+        }
+    }
+    out
+}
+
 impl<T: Real> StateVector<T> {
     /// Applies executor ops with cache blocking (see the module docs).
     pub fn apply_kops_blocked(&mut self, ops: &[KOp], cfg: &BlockConfig) {
@@ -1490,7 +1753,7 @@ impl<T: Real> StateVector<T> {
         let amps = self.amplitudes_mut();
         for st in &stages {
             let t0 = std::time::Instant::now();
-            let p = if cfg.schedule_diag {
+            let mut p = if cfg.schedule_diag {
                 prepare::<T>(
                     &Stage {
                         inner: st.inner.clone(),
@@ -1501,6 +1764,13 @@ impl<T: Real> StateVector<T> {
             } else {
                 prepare::<T>(st, n)
             };
+            let k = cfg.tile_bits(p.l, std::mem::size_of::<Complex<T>>());
+            if k > 0 {
+                p.tile = Some(TilePlan {
+                    k,
+                    segs: tile_segments(&p.ops, k),
+                });
+            }
             let t1 = std::time::Instant::now();
             run_stage(amps, n, &p, simd);
             if trace {
@@ -1512,12 +1782,26 @@ impl<T: Real> StateVector<T> {
                         _ => None,
                     })
                     .collect();
+                let tiles = p.tile.as_ref().map(|tp| {
+                    let (mut run_ops, mut runs, mut full) = (0, 0, 0);
+                    for sg in &tp.segs {
+                        match sg {
+                            Seg::Tile(r) => {
+                                run_ops += r.len();
+                                runs += 1;
+                            }
+                            Seg::Full(_) => full += 1,
+                        }
+                    }
+                    (tp.k, runs, run_ops, full)
+                });
                 eprintln!(
-                    "stage inner={:?} ops={} lops={} diag groups={:?} prep={:.2}ms run={:.2}ms",
+                    "stage inner={:?} ops={} lops={} diag groups={:?} tiles(k,runs,ops,full)={:?} prep={:.2}ms run={:.2}ms",
                     st.inner,
                     st.ops.len(),
                     p.ops.len(),
                     groups,
+                    tiles,
                     (t1 - t0).as_secs_f64() * 1e3,
                     t1.elapsed().as_secs_f64() * 1e3
                 );
