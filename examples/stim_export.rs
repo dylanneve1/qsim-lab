@@ -51,8 +51,12 @@ fn main() {
 
                 // Reset ancillas (rounds > 0)
                 if r > 0 {
-                    let anc_z: Vec<String> = (0..num_z).map(|k| SurfaceCode::z_ancilla_idx(d, k).to_string()).collect();
-                    let anc_x: Vec<String> = (0..num_x).map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string()).collect();
+                    let anc_z: Vec<String> = (0..num_z)
+                        .map(|k| SurfaceCode::z_ancilla_idx(d, k).to_string())
+                        .collect();
+                    let anc_x: Vec<String> = (0..num_x)
+                        .map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string())
+                        .collect();
                     let all_anc: Vec<String> = anc_z.iter().chain(anc_x.iter()).cloned().collect();
                     writeln!(out, "R {}", all_anc.join(" ")).unwrap();
                     if noise.p_reset > 0.0 {
@@ -62,7 +66,9 @@ fn main() {
 
                 // H on X-ancillas
                 {
-                    let x_anc: Vec<String> = (0..num_x).map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string()).collect();
+                    let x_anc: Vec<String> = (0..num_x)
+                        .map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string())
+                        .collect();
                     writeln!(out, "H {}", x_anc.join(" ")).unwrap();
                     if noise.p_1q > 0.0 {
                         writeln!(out, "DEPOLARIZE1({}) {}", noise.p_1q, x_anc.join(" ")).unwrap();
@@ -99,7 +105,9 @@ fn main() {
 
                 // H on X-ancillas before measurement
                 {
-                    let x_anc: Vec<String> = (0..num_x).map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string()).collect();
+                    let x_anc: Vec<String> = (0..num_x)
+                        .map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string())
+                        .collect();
                     writeln!(out, "H {}", x_anc.join(" ")).unwrap();
                     if noise.p_1q > 0.0 {
                         writeln!(out, "DEPOLARIZE1({}) {}", noise.p_1q, x_anc.join(" ")).unwrap();
@@ -110,8 +118,12 @@ fn main() {
 
                 // Measure Z-ancillas then X-ancillas
                 {
-                    let z_anc: Vec<String> = (0..num_z).map(|k| SurfaceCode::z_ancilla_idx(d, k).to_string()).collect();
-                    let x_anc: Vec<String> = (0..num_x).map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string()).collect();
+                    let z_anc: Vec<String> = (0..num_z)
+                        .map(|k| SurfaceCode::z_ancilla_idx(d, k).to_string())
+                        .collect();
+                    let x_anc: Vec<String> = (0..num_x)
+                        .map(|k| SurfaceCode::x_ancilla_idx(d, k).to_string())
+                        .collect();
                     if noise.p_meas > 0.0 {
                         writeln!(out, "MZ({}) {}", noise.p_meas, z_anc.join(" ")).unwrap();
                         writeln!(out, "MZ({}) {}", noise.p_meas, x_anc.join(" ")).unwrap();
@@ -154,9 +166,7 @@ fn main() {
                 let mut rec_args: Vec<String> = stab
                     .data_qubits
                     .iter()
-                    .map(|&dq| {
-                        format!("rec[{}]", -((d * d) as isize) + dq as isize)
-                    })
+                    .map(|&dq| format!("rec[{}]", -((d * d) as isize) + dq as isize))
                     .collect();
                 rec_args.push(format!("rec[{}]", last_anc));
                 writeln!(out, "DETECTOR {}", rec_args.join(" ")).unwrap();
@@ -177,7 +187,11 @@ fn main() {
             let sampler = SymPhaseSampler::new(&circuit, &noise).unwrap();
             let det_records = sc.detector_records();
             let obs_records = sc.observable_records();
-            let all_parity_sets: Vec<Vec<usize>> = det_records.iter().chain(std::iter::once(&obs_records)).cloned().collect();
+            let all_parity_sets: Vec<Vec<usize>> = det_records
+                .iter()
+                .chain(std::iter::once(&obs_records))
+                .cloned()
+                .collect();
             let det_sampler = sampler.with_parities(&all_parity_sets);
             let num_dets = det_records.len();
 
@@ -195,18 +209,33 @@ fn main() {
             }
             let sym_time = t0.elapsed().as_secs_f64();
 
-            println!("=== SymPhase detector rates (d={}, p={}, shots={}) ===", d, p, actual_shots);
+            println!(
+                "=== SymPhase detector rates (d={}, p={}, shots={}) ===",
+                d, p, actual_shots
+            );
             for (i, count) in sym_counts.iter().enumerate().take(num_dets) {
                 println!("D{}: {:.6}", i, *count as f64 / actual_shots as f64);
             }
-            println!("OBS: {:.6}", sym_counts[num_dets] as f64 / actual_shots as f64);
-            eprintln!("SymPhase time: {:.4}s for {} shots = {:.0} shots/s", sym_time, actual_shots, actual_shots as f64 / sym_time);
+            println!(
+                "OBS: {:.6}",
+                sym_counts[num_dets] as f64 / actual_shots as f64
+            );
+            eprintln!(
+                "SymPhase time: {:.4}s for {} shots = {:.0} shots/s",
+                sym_time,
+                actual_shots,
+                actual_shots as f64 / sym_time
+            );
         }
         "bench" => {
             let sampler = SymPhaseSampler::new(&circuit, &noise).unwrap();
             let det_records = sc.detector_records();
             let obs_records = sc.observable_records();
-            let all_parity_sets: Vec<Vec<usize>> = det_records.iter().chain(std::iter::once(&obs_records)).cloned().collect();
+            let all_parity_sets: Vec<Vec<usize>> = det_records
+                .iter()
+                .chain(std::iter::once(&obs_records))
+                .cloned()
+                .collect();
             let det_sampler = sampler.with_parities(&all_parity_sets);
 
             let batches = shots / 64;
@@ -219,7 +248,13 @@ fn main() {
                 det_sampler.sample_batch(&mut rng, &mut vals, &mut out);
             }
             let elapsed = t0.elapsed().as_secs_f64();
-            println!("d={} shots={} time={:.6} rate={:.0}", d, actual_shots, elapsed, actual_shots as f64 / elapsed);
+            println!(
+                "d={} shots={} time={:.6} rate={:.0}",
+                d,
+                actual_shots,
+                elapsed,
+                actual_shots as f64 / elapsed
+            );
         }
         _ => eprintln!("Unknown mode: {}", mode),
     }

@@ -481,3 +481,27 @@ Harness `research/data/audit/audit_stim_symphase.py` timed Stim 1.16 (`compile_d
 
 Verdict: **REPRODUCED AND CONFIRMED.** On an exact apples-to-apples basis with identical circuits and bit-packed output, SymPhase outperforms Stim by **4.0×–6.5×**.
 
+## 14. exp/ooc @ 415b93d — out-of-core state vector correctness spot-check
+
+Spot-check audit of out-of-core disk-backed state vector (`OocStateVector`) against the in-RAM cache-blocked executor (`apply_circuit_blocked`).
+
+**Audit Scope & Setup:**
+- Adapter `audit-adapters/ooc_audit.rs` run against `wt/ooc` (commit 415b93d).
+- Tests 16, 17, 18, 19, and 20 qubits with a forced small chunk size of 64 chunks per file (`chunk_bits = n - 6`, i.e. 1,024 amplitudes per chunk at n=16 up to 16,384 at n=20).
+- Circuit families:
+  1. **QFT (16, 17, 18, 20 qubits)**: dense all-to-all controlled rotations testing global-to-local qubit swaps and streaming chunk passes.
+  2. **Boundary-biased adversarial circuits (16, 18, 20 qubits)**: alternating entangler chains between qubit 0 and n−1, multi-qubit Toffolis spanning across chunk boundaries, and random rotations.
+  3. **Universal random circuits (16, 17, 18, 19, 20 qubits)**: 35–40 arbitrary gates including 1-qubit rotations, CNOTs, CZs, SWAPs, CPhases, and Toffolis.
+- Both floating-point precisions checked:
+  - f64: strict tolerance `|Δamplitude| ≤ 1e-12`
+  - f32: strict tolerance `|Δamplitude| ≤ 1e-5`
+
+**Results:**
+All 5 test suites (`spot_check_16_qubits_forced_small_chunks` through `spot_check_20_qubits_forced_small_chunks`), plus the branch's own test binary (`tests/ooc.rs` with proptests), passed cleanly (0 failures).
+- Max observed amplitude difference vs in-RAM blocked executor:
+  - f64: `< 1.2e-13` across all circuits (well within 1e-12 tolerance)
+  - f32: `< 4.8e-6` across all circuits (well within 1e-5 tolerance)
+- Swap passes, file passes, and bit-permutation restoration (`restore_order: true`) correctly preserved canonical basis ordering without amplitude corruption.
+
+Verdict: **REPRODUCED AND CORRECT.** Out-of-core SV execution with DAG-driven lookahead swapping matches the in-RAM blocked executor bit-for-bit in permutation and to numerical precision across 16–20 qubits under forced small chunk constraints.
+
