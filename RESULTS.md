@@ -17,7 +17,7 @@ All numbers were measured on the development VM (4 vCPUs AMD EPYC-Rome with AVX2
 - random brickwork, 22 qubits: qsim (2-qubit fusion) **0.173 s** vs qsim-lab 0.330 s, so **qsim is 1.9× faster**;
 - Aer is still 5× slower than qsim-lab.
 
-qsim's edge comes from dense 2-qubit gate fusion with AVX2 kernels, which qsim-lab doesn't have yet. That work is in progress on exp/sv-monomial. The QFT advantage (diagonal aggregation) is unaffected.
+qsim's edge was first attributed to dense 2-qubit fusion; `research/sv-monomial.md` §2 (branch exp/simd) refutes that: dense fusion saves no flops on brickwork and the WIP fusion was slower. Runtime AVX2+FMA dispatch cuts our CPU time ~15-25%, which narrows but does not close the gap (~1.7x -> ~1.4x at n=24); the QFT advantage (diagonal aggregation) is unaffected.
 
 **On Apple M1 Pro (8 cores, sequential runs, nothing else running)** qsim-lab is ahead of both:
 

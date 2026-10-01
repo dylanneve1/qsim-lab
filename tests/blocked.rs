@@ -62,6 +62,7 @@ fn configs() -> Vec<BlockConfig> {
             small_n: 4,
             split_phases: split,
             schedule_diag: sched,
+            simd: true,
         });
     }
     v
