@@ -80,3 +80,11 @@ table.
 * Only c=20,k=4 was timed interleaved; other (c,k) are single runs in
   `scaling.csv`.
 * Shared-VM timings; page-cache effects on the 2 GiB file are not controlled.
+
+## Fixes made while reviewing the WIP branch
+* clippy `while_let_loop` in `ooc_window.rs`; rustfmt on examples.
+* A `debug_assert_eq!(self.v2p, plan.final_v2p)` in `run_window_plan` was wrong
+  (the executor only installs the plan's layout after the passes) and fired in
+  every dev-profile test; release builds hid it. Removed.
+* Unit test `ooc_swap_pass_correctness` assumed `swap_qubits` leaves the layout
+  untracked; it now tracks `v2p`, so the test checks layout + canonical state.

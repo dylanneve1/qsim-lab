@@ -925,10 +925,8 @@ impl<T: Real> OocStateVector<T> {
         for pass in &plan.passes {
             self.run_window_pass(pass)?;
         }
-        debug_assert_eq!(
-            self.v2p, plan.final_v2p,
-            "executor layout must match the planner's"
-        );
+        // `run_window_pass` does not touch the layout; the plan's final map is
+        // installed once all passes have run.
         self.v2p = plan.final_v2p.clone();
         self.p2v = {
             let mut p2v = vec![0; self.n];
@@ -1173,10 +1171,14 @@ mod tests {
         // Swap physical qubit 0 and physical qubit 2
         ooc.swap_qubits(0, 2).unwrap();
 
-        // Index 1 has bit 0=1, bit 2=0. After swap, bit 0=0, bit 2=1 -> index 4 (|0100>)
+        // The swap moves data between physical positions but is tracked in the
+        // logical->physical map, so the canonical (logical) state is unchanged
+        // while the layout records the relocation.
+        assert_eq!(ooc.layout()[0], 2);
+        assert_eq!(ooc.layout()[2], 0);
         let amps_after = ooc.read_amplitudes().unwrap();
-        assert_eq!(amps_after[4], Complex::new(1.0, 0.0));
-        assert_eq!(amps_after[1], Complex::zero());
+        assert_eq!(amps_after[1], Complex::new(1.0, 0.0));
+        assert_eq!(amps_after[4], Complex::zero());
     }
 
     #[test]
