@@ -202,3 +202,44 @@ on the wrong side of a non-diagonal op on the same qubit. The branch's own
 did not catch it. Verdict for ea41235: **BUG — do not merge**. (The sv agent
 had already exited, so the repro was handed to the parent.)
 
+## 6. exp/qec @ 100c2dc — circuit-derived detector error model (WIP)
+
+Adapter `audit-adapters/qec_dem_exp_qec.rs` (same statistics as §2, using
+`SurfaceCode::with_noise` and `ErrorMechanism::probability`; channel mix via
+`QSIM_DEM_NOISE`). d=3, rounds=3, p=0.005, 20 000 shots/side unless noted.
+
+| noise | detectors beyond 4.9σ | raw logical (tab / DEM) | decoded (tab / DEM) | verdict |
+|---|---|---|---|---|
+| circuit_level (all channels) | 1 (worst 5.5σ, 15/16 z>0) | 0.0767 / 0.0746 | 0.0250 / 0.0221 | FAIL |
+| no reset errors | 0 | 0.0783 / 0.0757 | 0.0218 / 0.0236 | pass |
+| reset only (p=0.02) | **12 (worst 28.6σ)** | 0 / 0 | 0 / 0 | **FAIL** |
+| readout only (0.02) | 0 | 0.0597 / 0.0607 | 0.0093 / 0.0083 | pass |
+| 2q depolarising only (0.01) | 0 | 0.1173 / 0.1119 | 0.0475 / 0.0446 | pass |
+| 1q depolarising only (0.02) | 0 | 0 / 0 | 0 / 0 | pass |
+| **all channels, with audit fix, 80k shots** | **0 (max |z| 2.4)** | 0.07306 / 0.07340 | 0.02371 / 0.02390 (z=−0.2) | **pass** |
+
+**BUG 1 (root cause of the mismatch).** `build_circuit_derived_dem`
+propagates an injected fault through `ops[op_idx..]`, i.e. starting *with*
+the op that produced it. A reset error (X after reset) is therefore cleared
+by the very Reset it follows, so reset noise is missing from the DEM
+entirely. Gate errors are also conjugated by their own gate; that happens to
+be harmless for uniform depolarising channels (Clifford-invariant) but is
+wrong for any biased channel. One-line fix verified
+(`research/data/audit/qec_100c2dc_reset_fix.patch`): start at `op_idx + 1`
+except for measurements (readout flip modelled as X just before). Raw 80k
+output: `research/data/audit/qec_100c2dc_fixed_80k.txt`.
+
+**BUG 2.** `SurfaceCode::new(d, r)` builds the DEM with
+`NoiseModel::uniform(1.0)` and `run_experiment_fast(&noise, …)` ignores its
+noise argument (`_noise`), so `SurfaceCode::new(3,3).run_experiment_fast(
+&NoiseModel::none(), 500, …)` reports 262/500 logical errors. Two tests in
+the branch's own `tests/surface.rs` fail because of it.
+
+**Other.** `run_experiment` still switches tableau→DEM at shots > 300 (now
+harmless once BUG 1 is fixed, since both agree, but surprising); three
+unused-variable warnings will fail `clippy -D warnings`.
+
+Verdict: **BUG — not mergeable as is; mergeable after the one-line
+propagation fix + making the fast path use the caller's noise model.**
+Findings and fix sent to the QEC agent.
+
