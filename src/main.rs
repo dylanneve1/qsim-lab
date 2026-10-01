@@ -577,6 +577,28 @@ fn main() {
                 Example::Shor => {
                     let n = modulus;
                     let t0 = std::time::Instant::now();
+                    let oracle_kind = match oracle {
+                        OracleArg::Permutation => shor::Oracle::Permutation,
+                        OracleArg::Beauregard => shor::Oracle::Beauregard,
+                    };
+                    let path = qsim_lab::pipeline::choose_shor_path(
+                        n,
+                        oracle_kind,
+                        semiclassical,
+                        sparse,
+                        f32,
+                        qsim_lab::statevector::MAX_STATE_BYTES,
+                    );
+                    if path.overridden {
+                        eprintln!(
+                            "note: the dense register for N={n} would exceed the {} MiB memory cap; \
+                             running {}{} (exact; pass --semiclassical/--sparse to silence this)",
+                            qsim_lab::statevector::MAX_STATE_BYTES >> 20,
+                            if path.semiclassical { "semiclassical" } else { "gate-level" },
+                            if path.sparse { " sparse" } else { "" },
+                        );
+                    }
+                    let (semiclassical, sparse) = (path.semiclassical, path.sparse);
                     if !semiclassical {
                         let (f, runs) = algorithms::shor_factor(n, &mut rng);
                         for r in &runs {

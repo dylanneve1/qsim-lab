@@ -46,6 +46,7 @@ pub mod mps;
 pub mod noise;
 pub mod pauli_frame;
 pub mod pauli_path;
+pub mod pipeline;
 pub mod qasm;
 pub mod qec;
 pub mod shor;

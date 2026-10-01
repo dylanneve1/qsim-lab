@@ -9,7 +9,8 @@ use super::peephole::optimize;
 use super::stabsv::clifford_statevector;
 use super::stateprop::propagate;
 use super::{require_unitary, validate};
-use crate::circuit::{Circuit, Op, SimError};
+use crate::adaptive::{expectation as adaptive_expectation, AdaptiveOptions, CompressedState};
+use crate::circuit::{Circuit, Op, SimError, Simulator};
 use crate::gate::{is_multiple_of_half_pi, Gate};
 use crate::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use crate::stabilizer::Tableau;
@@ -34,6 +35,44 @@ pub struct PlanOptions {
     /// Pick tableau / Pauli paths where they are cheaper; otherwise every
     /// component runs on the state vector.
     pub dispatch: bool,
+    /// Compressed-state (rotation frame) engine for Clifford+T components
+    /// that would otherwise need a dense state vector: `None` (the
+    /// default here) never picks it; [`crate::pipeline`] enables it.
+    pub adaptive: Option<AdaptiveRule>,
+}
+
+/// When a component that would run on a dense state vector runs on the
+/// compressed state of [`crate::adaptive`] instead: the component has at
+/// least `min_qubits` qubits and its active register `d`
+/// ([`crate::adaptive::active_dimension`]) satisfies
+/// `d <= max_active` and `d + margin <= n`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AdaptiveRule {
+    pub min_qubits: usize,
+    pub margin: usize,
+    pub max_active: usize,
+}
+
+impl Default for AdaptiveRule {
+    fn default() -> Self {
+        AdaptiveRule {
+            min_qubits: 14,
+            margin: 3,
+            max_active: 26,
+        }
+    }
+}
+
+impl AdaptiveRule {
+    /// Active register size if the rule accepts the unitary circuit `c`.
+    pub fn accepts(&self, c: &Circuit) -> Option<usize> {
+        let n = c.num_qubits;
+        if n < self.min_qubits || n > 512 {
+            return None;
+        }
+        let d = crate::adaptive::active_dimension(c).ok()?;
+        (d <= self.max_active && d + self.margin <= n).then_some(d)
+    }
 }
 
 impl Default for PlanOptions {
@@ -47,6 +86,7 @@ impl Default for PlanOptions {
             swap_elim: true,
             state_prop: true,
             dispatch: true,
+            adaptive: None,
         }
     }
 }
@@ -63,6 +103,7 @@ impl PlanOptions {
             swap_elim: false,
             state_prop: false,
             dispatch: false,
+            adaptive: None,
         }
     }
 }
@@ -74,6 +115,9 @@ pub enum Backend {
     Idle,
     Tableau,
     StateVector,
+    /// Compressed state of a Clifford+T component (see [`AdaptiveRule`]);
+    /// terminal sampling and expectation values only.
+    Adaptive,
     /// Exact marginal over the needed qubits from Pauli-path expectation
     /// values (terminal measurements only).
     PauliPath,
@@ -172,6 +216,13 @@ fn choose_backend(c: &Circuit, needed: usize, terminal: bool, opts: &PlanOptions
             return Backend::PauliPath;
         }
     }
+    if terminal {
+        if let Some(rule) = &opts.adaptive {
+            if rule.accepts(c).is_some() {
+                return Backend::Adaptive;
+            }
+        }
+    }
     Backend::StateVector
 }
 
@@ -205,10 +256,9 @@ pub fn prepare_statevector<T: Real>(
 
 fn apply_ops<T: Real>(s: &mut StateVector<T>, c: &Circuit) -> Result<(), SimError> {
     require_unitary(c, "preparing a state vector of a non-unitary circuit")?;
-    for g in c.gates() {
-        s.apply_gate(g)?;
-    }
-    Ok(())
+    // One batch: the cache-blocked executor fuses and reorders it.
+    let gates: Vec<Gate> = c.gates().copied().collect();
+    Simulator::apply_gates(s, &gates)
 }
 
 /// The state-independent and state-aware rewrites shared by every plan:
@@ -387,6 +437,7 @@ fn sample_component<T: Real, R: Rng>(
     comp: &Component,
     shots: usize,
     use_prefix: bool,
+    adaptive_max_active: usize,
     rng: &mut R,
 ) -> Result<Vec<Vec<bool>>, SimError> {
     let k = comp.needed.len();
@@ -407,6 +458,19 @@ fn sample_component<T: Real, R: Rng>(
             s.sample(shots, rng)
                 .into_iter()
                 .map(|x| comp.needed.iter().map(|&q| (x >> q) & 1 == 1).collect())
+                .collect()
+        }
+        Backend::Adaptive => {
+            let max_active = adaptive_max_active;
+            let sampler = CompressedState::new(&comp.circuit, max_active)?.sampler();
+            (0..shots)
+                .map(|_| {
+                    let b = sampler.sample_packed(rng);
+                    comp.needed
+                        .iter()
+                        .map(|&q| (b[q / 64] >> (q % 64)) & 1 == 1)
+                        .collect()
+                })
                 .collect()
         }
         Backend::PauliPath => {
@@ -446,7 +510,17 @@ impl SamplingPlan {
             Kind::Terminal { meas, suffix } => {
                 let mut bits = vec![vec![false; self.n]; shots];
                 for comp in &self.comps {
-                    let s = sample_component::<T, R>(comp, shots, self.opts.clifford_prefix, rng)?;
+                    let max_active = self
+                        .opts
+                        .adaptive
+                        .map_or(AdaptiveRule::default().max_active, |r| r.max_active);
+                    let s = sample_component::<T, R>(
+                        comp,
+                        shots,
+                        self.opts.clifford_prefix,
+                        max_active,
+                        rng,
+                    )?;
                     for (row, sb) in bits.iter_mut().zip(s) {
                         for (&lq, b) in comp.needed.iter().zip(sb) {
                             row[comp.qubits[lq]] = b;
@@ -968,9 +1042,21 @@ pub fn expectation_z_product(
         let use_pauli = opts.dispatch
             && t <= 24
             && (t as f64).exp2() * (n.div_ceil(64) as f64) < (n.min(60) as f64).exp2() / 4.0;
+        let adaptive = if opts.dispatch && !use_pauli && !sub.is_clifford() {
+            opts.adaptive.filter(|r| r.accepts(&sub).is_some())
+        } else {
+            None
+        };
         let v = if use_pauli || (opts.dispatch && sub.is_clifford()) {
             let obs = PauliSum::z_product(n, &local);
             pauli_path::expectation(&sub, &obs, DEFAULT_MAX_TERMS)?.0
+        } else if let Some(rule) = adaptive {
+            let obs = PauliSum::z_product(n, &local);
+            let ao = AdaptiveOptions {
+                max_dense_qubits: rule.max_active,
+                ..AdaptiveOptions::default()
+            };
+            adaptive_expectation(&sub, &obs, &ao)?.value
         } else {
             let s = prepare_statevector::<f64>(&sub, opts.clifford_prefix)?;
             let mask = local.iter().fold(0usize, |m, &q| m | (1 << q));

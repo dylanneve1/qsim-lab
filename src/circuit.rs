@@ -115,6 +115,16 @@ pub trait Simulator {
     }
     /// Resets the simulator state back to |0...0> without reallocating buffers.
     fn reset_all(&mut self) -> Result<(), SimError>;
+    /// Applies a sequence of gates in order. Backends that can fuse or
+    /// reorder a run of gates (the state vector's cache-blocked executor)
+    /// override this; the default applies them one by one. The result must
+    /// equal gate-by-gate application (up to floating-point rounding).
+    fn apply_gates(&mut self, gates: &[Gate]) -> Result<(), SimError> {
+        for g in gates {
+            self.apply(g)?;
+        }
+        Ok(())
+    }
 }
 
 /// One instruction of a circuit.
@@ -341,8 +351,19 @@ impl Circuit {
         rng: &mut dyn RngCore,
     ) -> Result<Vec<bool>, SimError> {
         let mut out = Vec::new();
+        // Maximal unitary gate segments (no measurement, reset, noise op or
+        // classically conditioned op in between) are handed to the backend
+        // as one batch so it can use its fastest executor. Gate noise draws
+        // from the RNG after every gate, so noisy gates are applied singly.
+        let batching = noise.p_1q <= 0.0 && noise.p_2q <= 0.0;
+        let mut batch: Vec<Gate> = Vec::new();
         for op in &self.ops {
+            if !batch.is_empty() && !matches!(op, Op::Gate(_)) {
+                sim.apply_gates(&batch)?;
+                batch.clear();
+            }
             match op {
+                Op::Gate(g) if batching => batch.push(*g),
                 Op::Gate(g) => {
                     sim.apply(g)?;
                     crate::noise::apply_gate_noise(sim, g, noise, rng)?;
@@ -403,6 +424,7 @@ impl Circuit {
                 }
             }
         }
+        sim.apply_gates(&batch)?;
         Ok(out)
     }
 
