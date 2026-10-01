@@ -45,6 +45,7 @@ pub mod hsf;
 pub mod mps;
 pub mod noise;
 pub mod ooc;
+pub mod ooc_window;
 pub mod pauli_frame;
 pub mod pauli_path;
 pub mod qasm;

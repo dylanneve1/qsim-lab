@@ -33,7 +33,7 @@ fn workload(name: &str, n: usize) -> Circuit {
 }
 
 fn scratch_path() -> PathBuf {
-    PathBuf::from("/mnt/HC_Volume_106989832/dylan/qsim-swarm/ooc/scratch")
+    PathBuf::from(std::env::var("OOC_SCRATCH").unwrap_or_else(|_| "/tmp/ooc-scratch".into()))
 }
 
 struct RunResult {
@@ -80,6 +80,7 @@ fn bench_ooc<T: Real>(
         scratch_dir: Some(scratch_path()),
         block_config: bcfg,
         restore_order: true,
+        ..OocConfig::default()
     };
 
     let mut ooc = OocStateVector::<T>::temp(n, c, ooc_cfg).unwrap();
@@ -165,7 +166,10 @@ fn main() {
     // 2. Scaling beyond physical RAM & in-RAM memory cap: n = 24..29 (f32)
     // 26 qubits = 512 MB, 27 qubits = 1.0 GB (cap!), 28 qubits = 2.0 GB, 29 qubits = 4.0 GB!
     println!("\n--- Part 2: Scaling to High Qubit Counts (f32, up to n=29, NVMe out-of-core) ---");
-    for &n in &[24, 26, 27, 28, 29] {
+    let sizes: Vec<usize> = std::env::var("OOC_SIZES")
+        .map(|v| v.split(',').map(|x| x.parse().unwrap()).collect())
+        .unwrap_or(vec![24, 26, 27, 28]);
+    for &n in &sizes {
         let c = 22.min(n - 1); // 2^22 chunk = 16 MiB per chunk in f32
         for wl in &["qft", "brick"] {
             let res = bench_ooc::<f32>(wl, n, c, "f32", false);

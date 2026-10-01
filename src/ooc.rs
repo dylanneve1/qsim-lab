@@ -47,6 +47,9 @@ use crate::blocked::{BlockConfig, BlockedChunkExecutor};
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::dag::{Dag, NodeId};
 use crate::gate::Gate;
+use crate::ooc_window::{
+    permute_bits, schedule_window_gates, WindowOptions, WindowPass, WindowPlan,
+};
 use crate::statevector::Real;
 use num_complex::Complex;
 use num_traits::Zero;
@@ -55,6 +58,8 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::sync_channel;
 use std::time::{Duration, Instant};
 
 /// Casts a slice of `Complex<T>` to a byte slice for zero-copy file I/O.
@@ -146,6 +151,9 @@ pub struct OocStats {
     pub io_time: Duration,
     /// Wall-clock time spent in CPU compute (cache-blocked kernels + RAM swaps).
     pub compute_time: Duration,
+    /// Time the compute thread spent blocked waiting for a read to finish or a
+    /// free buffer (windowed scheduler with I/O overlap): the *exposed* I/O.
+    pub stall_time: Duration,
     /// Total number of gates executed.
     pub num_gates: usize,
 }
@@ -161,6 +169,26 @@ pub struct OocConfig {
     pub block_config: BlockConfig,
     /// Whether to restore canonical qubit order `(v2p[i] == i)` upon completion.
     pub restore_order: bool,
+    /// Which scheduler plans the passes.
+    pub scheduler: OocScheduler,
+    /// Windowed scheduler: number of high qubits `k` gathered per pass (a pass
+    /// holds `2^(chunk_bits + k)` amplitudes per buffer). Ignored by
+    /// [`OocScheduler::Swap`].
+    pub group_bits: usize,
+    /// Windowed scheduler: overlap file reads/writes with compute using a
+    /// reader and a writer thread (3 group buffers instead of 1).
+    pub overlap_io: bool,
+}
+
+/// Pass scheduler selection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OocScheduler {
+    /// One pass per local run and one per global<->local swap
+    /// ([`schedule_ooc`], the original scheduler).
+    Swap,
+    /// Windowed passes with fused layout changes
+    /// ([`crate::ooc_window::schedule_window`]).
+    Window,
 }
 
 impl Default for OocConfig {
@@ -170,6 +198,9 @@ impl Default for OocConfig {
             scratch_dir: None,
             block_config: BlockConfig::default(),
             restore_order: true,
+            scheduler: OocScheduler::Window,
+            group_bits: 3,
+            overlap_io: true,
         }
     }
 }
@@ -348,7 +379,7 @@ pub fn schedule_ooc(
                 .collect();
 
             // Sort descending by next_use (furthest in future or never used)
-            eviction_pool.sort_unstable_by(|&a, &b| next_use[b].cmp(&next_use[a]));
+            eviction_pool.sort_unstable_by(|&a, &b| next_use[b].cmp(&next_use[a]).then(a.cmp(&b)));
 
             if eviction_pool.len() < k {
                 continue;
@@ -387,7 +418,11 @@ pub fn schedule_ooc(
             }
         }
 
-        let choice = best_candidate.expect("at least one candidate node must be viable");
+        let Some(choice) = best_candidate else {
+            return Err(SimError::NotSupported {
+                what: "out-of-core chunk too small for a gate (need chunk_bits >= gate arity)",
+            });
+        };
 
         // Schedule the chosen swaps
         for (&q_in, &q_out) in choice.needed.iter().zip(choice.evicted.iter()) {
@@ -418,70 +453,42 @@ pub fn schedule_ooc(
 
     // Phase 3: Canonical qubit restoration
     // Restore v2p[i] == i for all qubits so the state vector on disk is in canonical basis order.
+    //
+    // Global slots are fixed one at a time. For global slot `g` holding virtual qubit
+    // `v != g`, virtual qubit `g` sits at physical slot `q = v2p[g]`:
+    //  * `q` local: one swap(q, g) puts `g` home (and parks `v` in local slot `q`);
+    //  * `q` global: shuttle through local slot 0: swap(0, q) then swap(0, g).
+    // Earlier (already correct) global slots are never touched, since they hold their own
+    // virtual qubit. Afterwards every local slot holds a local virtual qubit, and the
+    // remaining permutation is done inside the chunk by in-RAM swap gates.
     let mut local_swaps = Vec::new();
-
-    // First restore any global qubits that ended up in local slots
-    loop {
-        let mut fixed_any = false;
-        for v in chunk_bits..num_qubits {
-            let p = v2p[v];
-            if p < chunk_bits {
-                // v is global, but sitting in local slot p. Swap p with home slot v.
-                let target_global = v;
-                steps.push(OocStep::Swap {
-                    local: p,
-                    global: target_global,
-                });
-                swap_passes += 1;
-
-                let displaced_v = p2v[target_global];
-                p2v[target_global] = v;
-                p2v[p] = displaced_v;
-                v2p[v] = target_global;
-                v2p[displaced_v] = p;
-
-                fixed_any = true;
-                break;
-            }
-        }
-        if !fixed_any {
-            break;
-        }
-    }
-
-    // Next, fix any displaced global slots that hold another global qubit
+    let mut do_swap = |steps: &mut Vec<OocStep>,
+                       v2p: &mut Vec<usize>,
+                       p2v: &mut Vec<usize>,
+                       l: usize,
+                       g: usize| {
+        steps.push(OocStep::Swap {
+            local: l,
+            global: g,
+        });
+        swap_passes += 1;
+        let vl = p2v[l];
+        let vg = p2v[g];
+        p2v[l] = vg;
+        p2v[g] = vl;
+        v2p[vg] = l;
+        v2p[vl] = g;
+    };
     for g in chunk_bits..num_qubits {
-        if p2v[g] != g {
-            // Pick local slot 0 as temporary shuttle
-            let l = 0;
-            steps.push(OocStep::Swap {
-                local: l,
-                global: g,
-            });
-            swap_passes += 1;
-
-            let displaced = p2v[g];
-            let loc_v = p2v[l];
-            p2v[g] = loc_v;
-            p2v[l] = displaced;
-            v2p[loc_v] = g;
-            v2p[displaced] = l;
-
-            // Now displaced is in local slot l; swap it to its home
-            let home = displaced;
-            if home >= chunk_bits && home != g {
-                steps.push(OocStep::Swap {
-                    local: l,
-                    global: home,
-                });
-                swap_passes += 1;
-
-                let other = p2v[home];
-                p2v[home] = displaced;
-                p2v[l] = other;
-                v2p[displaced] = home;
-                v2p[other] = l;
-            }
+        if p2v[g] == g {
+            continue;
+        }
+        let q = v2p[g];
+        if q < chunk_bits {
+            do_swap(&mut steps, &mut v2p, &mut p2v, q, g);
+        } else {
+            do_swap(&mut steps, &mut v2p, &mut p2v, 0, q);
+            do_swap(&mut steps, &mut v2p, &mut p2v, 0, g);
         }
     }
 
@@ -489,6 +496,7 @@ pub fn schedule_ooc(
     for i in 0..chunk_bits {
         while p2v[i] != i {
             let j = p2v[i];
+            debug_assert!(j < chunk_bits);
             local_swaps.push((i, j));
             let val_i = p2v[i];
             let val_j = p2v[j];
@@ -683,12 +691,31 @@ impl<T: Real> OocStateVector<T> {
         Ok(())
     }
 
-    /// Reads the entire state vector into memory (use only when state fits in RAM).
+    /// Reads the entire state vector into memory in canonical qubit order
+    /// (use only when the state fits in RAM).
     pub fn read_amplitudes(&self) -> io::Result<Vec<Complex<T>>> {
         let total_amps = 1usize << self.n;
-        let mut amps = vec![Complex::<T>::zero(); total_amps];
-        self.file.read_exact_at(as_u8_slice_mut(&mut amps), 0)?;
-        Ok(amps)
+        let mut raw = vec![Complex::<T>::zero(); total_amps];
+        self.file.read_exact_at(as_u8_slice_mut(&mut raw), 0)?;
+        if self.v2p.iter().enumerate().all(|(q, &p)| p == q) {
+            return Ok(raw);
+        }
+        // Canonical index i has bit q = logical qubit q, stored at file bit v2p[q].
+        let mut out = vec![Complex::<T>::zero(); total_amps];
+        for (i, o) in out.iter_mut().enumerate() {
+            let mut j = 0usize;
+            for (q, &p) in self.v2p.iter().enumerate() {
+                j |= ((i >> q) & 1) << p;
+            }
+            *o = raw[j];
+        }
+        Ok(out)
+    }
+
+    /// Logical -> physical qubit map of the file (identity unless
+    /// `restore_order` was disabled).
+    pub fn layout(&self) -> &[usize] {
+        &self.v2p
     }
 
     /// Computes the total Euclidean norm ($\sqrt{\sum |a_i|^2}$) streaming chunk by chunk.
@@ -836,27 +863,260 @@ impl<T: Real> OocStateVector<T> {
         self.simulate_circuit(&c)
     }
 
-    /// Simulates a quantum circuit using out-of-core streaming and DAG lookahead swap scheduling.
+    /// Simulates a quantum circuit out of core with the scheduler selected in
+    /// [`OocConfig::scheduler`].
     pub fn simulate_circuit(&mut self, circuit: &Circuit) -> io::Result<OocStats> {
         let t_total = Instant::now();
 
-        // Plan the execution steps using the DAG-driven lookahead scheduler
-        let plan = schedule_ooc(circuit, self.n, self.chunk_bits)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+        match self.cfg.scheduler {
+            OocScheduler::Swap => {
+                // Plan the execution steps using the DAG-driven lookahead scheduler
+                let plan = schedule_ooc(circuit, self.n, self.chunk_bits)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
 
-        for step in plan.steps {
-            match step {
-                OocStep::LocalRun(gates) => {
-                    self.apply_local_gates(&gates)?;
+                for step in plan.steps {
+                    match step {
+                        OocStep::LocalRun(gates) => {
+                            self.apply_local_gates(&gates)?;
+                        }
+                        OocStep::Swap { local, global } => {
+                            self.swap_qubits(local, global)?;
+                        }
+                    }
                 }
-                OocStep::Swap { local, global } => {
-                    self.swap_qubits(local, global)?;
+                // The plan ends in canonical order. (Its final in-chunk `Swap`
+                // gates permute bits without going through `swap_qubits`, so
+                // reset the bookkeeping explicitly.)
+                self.v2p = (0..self.n).collect();
+                self.p2v = (0..self.n).collect();
+            }
+            OocScheduler::Window => {
+                let mut gates = Vec::with_capacity(circuit.ops.len());
+                for op in &circuit.ops {
+                    match op {
+                        Op::Gate(g) => gates.push(*g),
+                        _ => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidInput,
+                                "out-of-core simulation currently supports unitary circuits",
+                            ))
+                        }
+                    }
                 }
+                let opts = WindowOptions {
+                    extra_bits: self.cfg.group_bits,
+                    restore_order: self.cfg.restore_order,
+                    ..WindowOptions::default()
+                };
+                let plan = schedule_window_gates(&gates, self.n, self.chunk_bits, &self.v2p, &opts)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+                self.run_window_plan(&plan)?;
             }
         }
 
-        self.stats.wall_time = t_total.elapsed();
+        self.stats.wall_time += t_total.elapsed();
         Ok(self.stats.clone())
+    }
+
+    /// Executes a precomputed [`WindowPlan`].
+    pub fn run_window_plan(&mut self, plan: &WindowPlan) -> io::Result<()> {
+        for pass in &plan.passes {
+            self.run_window_pass(pass)?;
+        }
+        debug_assert_eq!(
+            self.v2p, plan.final_v2p,
+            "executor layout must match the planner's"
+        );
+        self.v2p = plan.final_v2p.clone();
+        self.p2v = {
+            let mut p2v = vec![0; self.n];
+            for (v, &p) in self.v2p.iter().enumerate() {
+                p2v[p] = v;
+            }
+            p2v
+        };
+        Ok(())
+    }
+
+    /// One windowed pass: gather each group of `2^k` chunks that differ in the
+    /// pass's high bits into a `2^(c+k)` buffer, apply the pass's gates, apply
+    /// its bit permutation, and write the group back. Reads and writes the
+    /// whole file exactly once.
+    pub fn run_window_pass(&mut self, pass: &WindowPass) -> io::Result<()> {
+        let c = self.chunk_bits;
+        let n = self.n;
+        let k = pass.high.len();
+        let m = c + k;
+        let chunk_amps = 1usize << c;
+        let group_amps = 1usize << m;
+        let elem = std::mem::size_of::<Complex<T>>() as u64;
+        let chunk_bytes = (chunk_amps as u64) * elem;
+        for &p in &pass.high {
+            assert!(p >= c && p < n, "window qubit {p} out of range");
+        }
+
+        // Chunk-index bit positions: window bits and the rest.
+        let hbits: Vec<usize> = pass.high.iter().map(|&p| p - c).collect();
+        let obits: Vec<usize> = (0..n - c).filter(|b| !hbits.contains(b)).collect();
+        let outer = 1usize << obits.len();
+        let deposit = |x: usize, bits: &[usize]| {
+            let mut v = 0usize;
+            for (j, &b) in bits.iter().enumerate() {
+                v |= ((x >> j) & 1) << b;
+            }
+            v
+        };
+        let h_offsets: Vec<usize> = (0..1usize << k).map(|h| deposit(h, &hbits)).collect();
+
+        let executor = if pass.gates.is_empty() {
+            None
+        } else {
+            Some(
+                BlockedChunkExecutor::<T>::new(&pass.gates, m, &self.cfg.block_config)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?,
+            )
+        };
+
+        let file = &self.file;
+        let io_nanos = AtomicU64::new(0);
+        let read_group = |o: usize, buf: &mut [Complex<T>]| -> io::Result<()> {
+            let t0 = Instant::now();
+            let base = deposit(o, &obits);
+            for (h, &off) in h_offsets.iter().enumerate() {
+                let chunk = base | off;
+                file.read_exact_at(
+                    as_u8_slice_mut(&mut buf[h * chunk_amps..(h + 1) * chunk_amps]),
+                    (chunk as u64) * chunk_bytes,
+                )?;
+            }
+            io_nanos.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            Ok(())
+        };
+        let write_group = |o: usize, buf: &[Complex<T>]| -> io::Result<()> {
+            let t0 = Instant::now();
+            let base = deposit(o, &obits);
+            for (h, &off) in h_offsets.iter().enumerate() {
+                let chunk = base | off;
+                file.write_all_at(
+                    as_u8_slice(&buf[h * chunk_amps..(h + 1) * chunk_amps]),
+                    (chunk as u64) * chunk_bytes,
+                )?;
+            }
+            io_nanos.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            Ok(())
+        };
+
+        let mut compute = Duration::ZERO;
+        let mut stall = Duration::ZERO;
+        let mut scratch: Vec<Complex<T>> = if pass.perm.is_some() {
+            vec![Complex::<T>::zero(); group_amps]
+        } else {
+            Vec::new()
+        };
+        let mut process = |buf: &mut Vec<Complex<T>>, compute: &mut Duration| {
+            let t0 = Instant::now();
+            if let Some(ex) = &executor {
+                ex.apply_to_chunk(buf);
+            }
+            if let Some(perm) = &pass.perm {
+                permute_bits(buf, &mut scratch, perm);
+                std::mem::swap(buf, &mut scratch);
+            }
+            *compute += t0.elapsed();
+        };
+
+        let t_pass = Instant::now();
+        if !self.cfg.overlap_io || outer == 1 {
+            let mut buf = vec![Complex::<T>::zero(); group_amps];
+            for o in 0..outer {
+                read_group(o, &mut buf)?;
+                process(&mut buf, &mut compute);
+                write_group(o, &buf)?;
+            }
+        } else {
+            let nbuf = 3usize.min(outer + 1);
+            let (free_tx, free_rx) = sync_channel::<Vec<Complex<T>>>(nbuf);
+            let (full_tx, full_rx) = sync_channel::<(usize, Vec<Complex<T>>)>(nbuf);
+            let (done_tx, done_rx) = sync_channel::<(usize, Vec<Complex<T>>)>(nbuf);
+            for _ in 0..nbuf {
+                free_tx
+                    .send(vec![Complex::<T>::zero(); group_amps])
+                    .expect("channel has capacity");
+            }
+            let (rg, wg) = (&read_group, &write_group);
+            let res: io::Result<()> = std::thread::scope(|sc| {
+                let reader = sc.spawn(move || -> io::Result<()> {
+                    for o in 0..outer {
+                        let Ok(mut buf) = free_rx.recv() else {
+                            return Ok(());
+                        };
+                        rg(o, &mut buf)?;
+                        if full_tx.send((o, buf)).is_err() {
+                            return Ok(());
+                        }
+                    }
+                    Ok(())
+                });
+                let writer = sc.spawn(move || -> io::Result<()> {
+                    for _ in 0..outer {
+                        let Ok((o, buf)) = done_rx.recv() else {
+                            return Ok(());
+                        };
+                        wg(o, &buf)?;
+                        // The reader may already be done (and have dropped its
+                        // end of the pool): the buffer is then simply dropped.
+                        let _ = free_tx.send(buf);
+                    }
+                    Ok(())
+                });
+                for _ in 0..outer {
+                    let t0 = Instant::now();
+                    let Ok((o, mut buf)) = full_rx.recv() else {
+                        break;
+                    };
+                    stall += t0.elapsed();
+                    process(&mut buf, &mut compute);
+                    if done_tx.send((o, buf)).is_err() {
+                        break;
+                    }
+                }
+                drop(done_tx);
+                // Unblock the reader if the writer died early.
+                drop(full_rx);
+                let r = reader.join().expect("reader thread panicked");
+                let w = writer.join().expect("writer thread panicked");
+                r.and(w)
+            });
+            res?;
+        }
+        let _ = t_pass;
+
+        let total = (1u64 << n) * elem;
+        self.stats.bytes_read += total;
+        self.stats.bytes_written += total;
+        self.stats.file_passes += 1;
+        if !pass.gates.is_empty() {
+            self.stats.local_passes += 1;
+            self.stats.num_gates += pass.gates.len();
+        }
+        if pass.perm.is_some() {
+            self.stats.swap_passes += 1;
+        }
+        self.stats.io_time += Duration::from_nanos(io_nanos.load(Ordering::Relaxed));
+        self.stats.compute_time += compute;
+        self.stats.stall_time += stall;
+
+        // Update the layout from the pass's permutation.
+        if let Some(perm) = &pass.perm {
+            let bit_pos: Vec<usize> = (0..c).chain(pass.high.iter().copied()).collect();
+            let old: Vec<usize> = bit_pos.iter().map(|&p| self.p2v[p]).collect();
+            for (b, &ob) in perm.iter().enumerate() {
+                let l = old[ob];
+                self.v2p[l] = bit_pos[b];
+                self.p2v[bit_pos[b]] = l;
+            }
+        }
+        Ok(())
     }
 }
 
