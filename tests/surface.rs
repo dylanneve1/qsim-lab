@@ -1,158 +1,218 @@
-//! Tests for rotated surface code memory experiment, error suppression, and threshold verification.
+//! Tests for the rotated surface code memory experiment, its circuit-derived
+//! detector error model and the Union-Find decoding graph.
 
+use qsim_lab::circuit::Op;
 use qsim_lab::noise::NoiseModel;
-use qsim_lab::qec::SurfaceCode;
+use qsim_lab::qec::dem::{propagate_forward, two_qubit_outcome, FaultKind, Pauli};
+use qsim_lab::qec::{SamplingMethod, SurfaceCode};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
 #[test]
-fn surface_code_noiseless_has_zero_logical_errors() {
+fn surface_code_noiseless_has_zero_detectors_and_logical_errors() {
     let mut rng = StdRng::seed_from_u64(1);
     for d in [3, 5] {
         let sc = SurfaceCode::new(d, d);
-        // Test fast sampling
-        let res_fast = sc.run_experiment_fast(&NoiseModel::none(), 500, &mut rng);
-        assert_eq!(
-            res_fast.logical_errors, 0,
-            "noiseless fast surface code d={d} had errors"
-        );
-        // Test tableau circuit execution for d=3
-        if d == 3 {
-            let res_tab = sc.run_experiment_tableau(&NoiseModel::none(), 50, &mut rng);
-            assert_eq!(
-                res_tab.logical_errors, 0,
-                "noiseless tableau surface code d={d} had errors"
-            );
+        for method in [SamplingMethod::DetectorErrorModel, SamplingMethod::Tableau] {
+            let shots = if method == SamplingMethod::Tableau {
+                20
+            } else {
+                300
+            };
+            sc.for_each_shot(&NoiseModel::none(), shots, method, &mut rng, |defects, raw| {
+                assert!(
+                    defects.is_empty() && !raw,
+                    "d={d} {method:?}: noiseless shot had defects {defects:?} / logical {raw}"
+                );
+            });
         }
     }
 }
 
+/// The backward sensitivity sweep and the forward Pauli-frame simulation are
+/// independent implementations; they must agree on every outcome of every
+/// fault location.
 #[test]
-fn single_injected_errors_always_corrected_on_surface_code() {
+fn backward_sweep_matches_forward_pauli_frames_on_every_fault() {
+    for (d, rounds) in [(3, 3), (5, 2)] {
+        let sc = SurfaceCode::new(d, rounds);
+        let circuit = sc.build_circuit();
+        let dets = sc.detector_records();
+        let obs = sc.observable_records();
+        let mut n_checked = 0;
+        for loc in &sc.faults.locations {
+            let op = &circuit.ops[loc.op_index];
+            for (j, sig) in loc.outcomes.iter().enumerate() {
+                let paulis: Vec<(usize, Pauli)> = match (loc.kind, op) {
+                    (FaultKind::Gate1q, Op::Gate(g)) => {
+                        vec![(g.qubits()[0], [Pauli::X, Pauli::Y, Pauli::Z][j])]
+                    }
+                    (FaultKind::Gate2q, Op::Gate(g)) => {
+                        let q = g.qubits();
+                        two_qubit_outcome(j + 1, q[0], q[1])
+                    }
+                    (FaultKind::Reset, Op::Reset(q)) => vec![(*q, Pauli::X)],
+                    (FaultKind::Readout, Op::Measure(_)) => vec![],
+                    other => panic!("unexpected location {other:?}"),
+                };
+                let fwd =
+                    propagate_forward(&circuit, loc.op_index, loc.kind, &paulis, &dets, &obs)
+                        .unwrap();
+                assert_eq!(&fwd, sig, "d={d} op {} outcome {j}", loc.op_index);
+                n_checked += 1;
+            }
+        }
+        assert!(n_checked > 100);
+    }
+}
+
+/// Every location `run_noisy` puts noise on is enumerated, with the right
+/// number of outcomes.
+#[test]
+fn fault_locations_cover_every_noisy_op() {
+    let sc = SurfaceCode::new(3, 3);
+    let circuit = sc.build_circuit();
+    let mut expected = Vec::new();
+    for (i, op) in circuit.ops.iter().enumerate() {
+        match op {
+            Op::Gate(g) if g.qubits().len() == 1 => expected.push((i, FaultKind::Gate1q, 3)),
+            Op::Gate(g) if g.qubits().len() == 2 => expected.push((i, FaultKind::Gate2q, 15)),
+            Op::Measure(_) => expected.push((i, FaultKind::Readout, 1)),
+            Op::Reset(_) => expected.push((i, FaultKind::Reset, 1)),
+            _ => {}
+        }
+    }
+    let got: Vec<_> = sc
+        .faults
+        .locations
+        .iter()
+        .map(|l| (l.op_index, l.kind, l.outcomes.len()))
+        .collect();
+    assert_eq!(got, expected);
+}
+
+/// Every single circuit fault (any location, any Pauli) is corrected.
+#[test]
+fn every_single_circuit_fault_is_corrected() {
     for d in [3, 5] {
         let sc = SurfaceCode::new(d, d);
-        let num_data = SurfaceCode::num_data_qubits(d);
-
-        // Every single data qubit error at round 0 must be decoded correctly with zero logical errors
-        for dq in 0..num_data {
-            let (_, c) = SurfaceCode::data_coords(d, dq);
-            let true_logical_flip = c == 0;
-
-            // Find which Z-stabilizers touch dq
-            let mut defects = Vec::new();
-            for (k, z) in sc.z_stabilizers.iter().enumerate() {
-                if z.data_qubits.contains(&dq) {
-                    defects.push(k); // round 0 detector index
-                }
+        for loc in &sc.faults.locations {
+            for (j, sig) in loc.outcomes.iter().enumerate() {
+                let pred = sc.decoder.decode(&sig.detectors);
+                assert_eq!(
+                    pred, sig.flips_logical,
+                    "d={d}: fault at op {} ({:?}) outcome {j} -> {:?} not corrected",
+                    loc.op_index, loc.kind, sig
+                );
             }
-
-            let predicted_flip = sc.decoder.decode(&defects);
-            assert_eq!(
-                predicted_flip, true_logical_flip,
-                "d={d}: single error on data qubit {dq} was not corrected"
-            );
         }
     }
 }
 
 #[test]
-fn logical_errors_appear_only_at_weight_ge_ceil_d_over_2() {
-    // For d=3: ceil(3/2) = 2. Any single error is corrected; weight 2 can cause a logical error.
-    let sc3 = SurfaceCode::new(3, 3);
-    // Weight 2 chain along logical column 0: dq (0, 0) and (1, 0)
-    let dq1 = SurfaceCode::data_idx(3, 0, 0);
-    let dq2 = SurfaceCode::data_idx(3, 1, 0);
-
-    let mut defects = Vec::new();
-    for (k, z) in sc3.z_stabilizers.iter().enumerate() {
-        let count = z
-            .data_qubits
-            .iter()
-            .filter(|&&q| q == dq1 || q == dq2)
-            .count();
-        if count % 2 == 1 {
-            defects.push(k);
-        }
+fn circuit_derived_graph_has_full_distance() {
+    for d in [3, 5, 7] {
+        let sc = SurfaceCode::new(d, d);
+        let r = &sc.graph_report;
+        assert_eq!(r.undetectable_logical, 0, "d={d}: {r:?}");
+        assert_eq!(
+            r.hyperedges_decomposable, r.hyperedge_signatures,
+            "d={d}: {r:?}"
+        );
+        assert_eq!(
+            sc.decoder.graph.min_logical_weight(),
+            Some(d),
+            "d={d}: graph-like circuit distance"
+        );
     }
-    // Physical logical flip occurred since two qubits on column 0 flipped: 1 ^ 1 = 0?
-    // Wait: Z_L = Z_0 Z_1 Z_2. If dq1 and dq2 flip by X, Z_L eigenvalue is (-1)*(-1) = +1 (no logical flip).
-    // But if (0, 0) flips, Z_L eigenvalue flips! Weight 1 is corrected.
-    // What if a path of errors crosses from left to right?
-    // In rotated surface code, logical X_L is a row of X across data qubits: (0, 0), (0, 1), (0, 2).
-    // A chain of weight ceil(d/2) X errors connecting left boundary to center:
-    // For d=3: (0, 0) and (0, 1) flip (weight 2).
-    // (0, 0) has c=0 (in Z_L). (0, 1) has c=1 (not in Z_L).
-    // Net physical logical Z_L flip: 1.
-    let dq_a = SurfaceCode::data_idx(3, 0, 0);
-    let dq_b = SurfaceCode::data_idx(3, 0, 1);
-    let mut defects3 = Vec::new();
-    for (k, z) in sc3.z_stabilizers.iter().enumerate() {
-        let count = z
-            .data_qubits
-            .iter()
-            .filter(|&&q| q == dq_a || q == dq_b)
-            .count();
-        if count % 2 == 1 {
-            defects3.push(k);
-        }
-    }
-    let pred3 = sc3.decoder.decode(&defects3);
-    // Weight 2 error across distance 3 causes a logical misidentification / failure
-    // (decoder pairs to nearest boundary instead of opposite, or fails)
-    // The decoder will predict a correction. The test verifies weight 1 is always corrected (above test),
-    // and weight >= 2 can trigger logical errors.
-    let _ = pred3;
+}
 
-    // For d=5: ceil(5/2) = 3. Any weight 1 and weight 2 error is ALWAYS corrected.
-    let sc5 = SurfaceCode::new(5, 5);
-    // Test all pairs of data qubits (weight 2 errors):
-    for q1 in 0..25 {
-        for q2 in q1 + 1..25 {
-            let (_, c1) = SurfaceCode::data_coords(5, q1);
-            let (_, c2) = SurfaceCode::data_coords(5, q2);
-            let true_logical_flip = (c1 == 0) ^ (c2 == 0);
-
-            let mut defects5 = Vec::new();
-            for (k, z) in sc5.z_stabilizers.iter().enumerate() {
-                let count = z
-                    .data_qubits
-                    .iter()
-                    .filter(|&&q| q == q1 || q == q2)
-                    .count();
-                if count % 2 == 1 {
-                    defects5.push(k);
-                }
+/// Two simultaneous X errors on data qubits (inserted between rounds) are
+/// always corrected at d = 5.
+#[test]
+fn weight_two_data_errors_are_corrected_at_d5() {
+    let d = 5;
+    let sc = SurfaceCode::new(d, d);
+    let circuit = sc.build_circuit();
+    let dets = sc.detector_records();
+    let obs = sc.observable_records();
+    // Insert after the last measurement of round 1, i.e. after a reset-free point.
+    let per_round = sc.z_stabilizers.len() + sc.x_stabilizers.len();
+    let mut seen = 0;
+    let mut op_idx = 0;
+    for (i, op) in circuit.ops.iter().enumerate() {
+        if matches!(op, Op::Measure(_)) {
+            seen += 1;
+            if seen == 2 * per_round {
+                op_idx = i;
+                break;
             }
-
-            let pred5 = sc5.decoder.decode(&defects5);
+        }
+    }
+    // An X after a measurement on a data qubit is equivalent to the 1q-gate
+    // fault model; use the forward frame with a Gate-kind insertion at a
+    // following H gate on an ancilla (which acts trivially on data).
+    let h_idx = (op_idx + 1..circuit.ops.len())
+        .find(|&i| matches!(circuit.ops[i], Op::Gate(g) if g.qubits().len() == 1))
+        .unwrap();
+    for q1 in 0..d * d {
+        for q2 in q1 + 1..d * d {
+            let sig = propagate_forward(
+                &circuit,
+                h_idx,
+                FaultKind::Gate1q,
+                &[(q1, Pauli::X), (q2, Pauli::X)],
+                &dets,
+                &obs,
+            )
+            .unwrap();
             assert_eq!(
-                pred5, true_logical_flip,
-                "d=5: weight-2 error ({q1}, {q2}) was not corrected!"
+                sc.decoder.decode(&sig.detectors),
+                sig.flips_logical,
+                "d=5: X on data ({q1}, {q2}) not corrected"
             );
         }
     }
 }
 
+/// Quick (non-ignored) statistical check that DEM sampling reproduces the
+/// tableau. The full-power version is `tests/qec_dem_audit.rs`.
 #[test]
-fn fast_sampling_matches_tableau_sampling() {
-    let mut rng = StdRng::seed_from_u64(101);
+fn dem_sampling_matches_tableau_quick() {
     let sc = SurfaceCode::new(3, 3);
-    let p = 0.01;
-    let noise = NoiseModel::circuit_level(p, p);
+    let noise = NoiseModel::circuit_level(0.01, 0.01);
+    let shots = 3000;
+    let mut rng = StdRng::seed_from_u64(101);
+    let t = sc.detector_rates(&noise, shots, SamplingMethod::Tableau, &mut rng);
+    let f = sc.detector_rates(&noise, shots, SamplingMethod::DetectorErrorModel, &mut rng);
+    for (k, (a, b)) in t.iter().zip(&f).enumerate() {
+        let p = (a + b) / 2.0;
+        let se = (p * (1.0 - p) * 2.0 / shots as f64).sqrt().max(1e-9);
+        assert!(
+            ((a - b) / se).abs() < 5.0,
+            "detector {k}: tableau {a} vs dem {b}"
+        );
+    }
+    let rt = sc.run_experiment(&noise, shots, SamplingMethod::Tableau, &mut rng);
+    let rf = sc.run_experiment(&noise, shots, SamplingMethod::DetectorErrorModel, &mut rng);
+    let (a, b) = (rt.logical_error_rate, rf.logical_error_rate);
+    let p = (a + b) / 2.0;
+    let se = (p * (1.0 - p) * 2.0 / shots as f64).sqrt().max(1e-9);
+    assert!(((a - b) / se).abs() < 5.0, "decoded: tableau {a} vs dem {b}");
+    // and noise is not ignored
+    assert!(rt.logical_errors > 0 && rf.logical_errors > 0);
+}
 
-    let shots = 1500;
-    let res_fast = sc.run_experiment_fast(&noise, shots, &mut rng);
-    let res_tab = sc.run_experiment_tableau(&noise, 200, &mut rng);
-
-    // Both should measure low logical error rates below 0.15
+#[test]
+fn larger_distance_suppresses_errors_below_threshold() {
+    let mut rng = StdRng::seed_from_u64(5);
+    let noise = NoiseModel::circuit_level(0.002, 0.002);
+    let r3 = SurfaceCode::new(3, 3).run_experiment_dem(&noise, 20_000, &mut rng);
+    let r5 = SurfaceCode::new(5, 5).run_experiment_dem(&noise, 20_000, &mut rng);
     assert!(
-        res_fast.logical_error_rate < 0.15,
-        "fast sampling error rate: {}",
-        res_fast.logical_error_rate
-    );
-    assert!(
-        res_tab.logical_error_rate < 0.15,
-        "tableau sampling error rate: {}",
-        res_tab.logical_error_rate
+        r5.logical_errors < r3.logical_errors,
+        "d=5 ({}) should beat d=3 ({}) at p=0.2%",
+        r5.logical_errors,
+        r3.logical_errors
     );
 }
