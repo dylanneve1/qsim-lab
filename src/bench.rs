@@ -219,6 +219,11 @@ pub fn path_engine(
         merge_rotations: !engine.contains("nomerge"),
         parallel: !engine.contains("serial"),
         fuse: !engine.contains("nofuse"),
+        drop_below: if engine.contains("nodrop") {
+            0.0
+        } else {
+            1e-14
+        },
         ..Default::default()
     };
     move |c: &Circuit, o: &PauliSum| {
@@ -231,7 +236,8 @@ pub fn path_engine(
 }
 
 /// [`clifford_t`] with a choice of engine (`legacy`, `frame`, and `frame`
-/// variants containing `noprune` / `nomerge` / `serial`), stopping after the
+/// variants containing `noprune` / `nomerge` / `serial` / `nofuse` /
+/// `nodrop`), stopping after the
 /// first circuit that takes longer than `time_limit` seconds. Times are the
 /// minimum over `repeat` runs. `observable` is `z0` (`<Z_0>`, the README's
 /// original benchmark, whose value is exactly 0 here) or `stab`
@@ -278,6 +284,8 @@ pub fn clifford_t_with(
         "gates total",
         "Pauli terms (peak)",
         "rotations",
+        "term visits",
+        "pruned",
         observable,
         "time (s)",
     ]);
@@ -308,6 +316,8 @@ pub fn clifford_t_with(
                     c.num_gates().to_string(),
                     st.peak_terms.to_string(),
                     st.rotations.to_string(),
+                    st.term_visits.to_string(),
+                    st.pruned_terms.to_string(),
                     format!("{v:+.12e}"),
                     format!("{dt:.4}"),
                 ]);
@@ -320,6 +330,8 @@ pub fn clifford_t_with(
                     t.to_string(),
                     c.num_gates().to_string(),
                     format!("aborted: {e}"),
+                    "-".to_string(),
+                    "-".to_string(),
                     "-".to_string(),
                     "-".to_string(),
                     format!("{best:.4}"),
