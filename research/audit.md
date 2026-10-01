@@ -147,3 +147,28 @@ load; blocked runs are tighter. Even taking the *worst* blocked rep against
 the *best* base rep the ratio stays ≥ 3.5×. No headline claim to compare
 against yet (EXPERIMENTS-sv.md has only the profile).
 
+## 4. PR #1 (improvements-and-optimizations @ ca89cdc) — gates, optimize, QASM
+
+Adapter `audit-adapters/pr1_gates_qasm.rs`; reference matrices for the new
+gates written from textbook/Qiskit definitions in the adapter.
+`QSIM_FUZZ_ITERS=5`. Verdict posted on the PR: **BUG** (QASM I/O only).
+
+| check | result |
+|---|---|
+| I/Sx/Sxdg/U/ISwap/ISwapdg on SV f64/f32, exact MPS | pass (≤1e-12 / 1e-5 / 1e-9) |
+| new Cliffords on tableau (exact probabilities, stabilizer signs) | pass |
+| new gates in Pauli-path ⟨P⟩ | pass (≤1e-10) |
+| `optimize()` preserves state | pass **up to global phase**; drops Rx/Ry/Rz(2πk) = −I (278/1000 circuits differ by a sign) |
+| QASM round trip of unitary circuits | pass (≤1e-12) |
+| `parse_param` precedence | **BUG**: `pi/2*3`→π/6, `1/2/4`→2; `pi-1`, `pi/2+pi/4` rejected |
+| `to_qasm` with `c_if` / noise ops | **BUG**: silently dropped |
+| `creg` size with repeated measurement | **BUG**: `creg c[n]` but writes `c[k]` for k ≥ n |
+| `reset_all` | pass |
+
+Side finding (pre-existing on main, not PR #1): `Mps` default relative
+cutoff `1e-14` on s²/Σs² truncates singular values ~1e-7 relative, so
+"exact" MPS (bond ≥ Schmidt rank) differs from the state vector by up to
+~3e-8 in amplitude on 5-qubit circuits with iSWAP/U gates. With
+`set_cutoff(0.0)` it is exact to 1e-15. The audit's exact-MPS tests now set
+cutoff 0; the MPS agent's accuracy claims should state which cutoff they use.
+

@@ -422,6 +422,7 @@ fn mps_exact_matches_reference() {
             let c = random_circuit(&mut rng, n, depth, false, false);
             let r = RefSv::run(&c);
             let mut m = Mps::new(n, 1 << (n / 2 + 1));
+            m.set_cutoff(0.0);
             c.run(&mut m, &mut rng).unwrap();
             let d = max_amp_diff(&r.a, (0..1u128 << n).map(|i| m.amplitude(i)));
             assert!(
