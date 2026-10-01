@@ -28,6 +28,19 @@ impl BitMatrix {
         m
     }
 
+    /// Resets all elements to zero without reallocating.
+    pub fn reset_zeros(&mut self) {
+        self.data.fill(0);
+    }
+
+    /// Resets this matrix to the identity matrix without reallocating.
+    pub fn reset_identity(&mut self) {
+        self.reset_zeros();
+        for i in 0..self.np {
+            self.set(i, i, true);
+        }
+    }
+
     /// Number of lines (and bits per line).
     pub fn size(&self) -> usize {
         self.np

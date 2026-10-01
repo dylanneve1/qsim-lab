@@ -21,6 +21,7 @@ pub type Mat4 = [[Complex64; 4]; 4];
 /// A quantum gate together with the qubits it acts on.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Gate {
+    I(usize),
     H(usize),
     X(usize),
     Y(usize),
@@ -29,6 +30,8 @@ pub enum Gate {
     Sdg(usize),
     T(usize),
     Tdg(usize),
+    Sx(usize),
+    Sxdg(usize),
     /// `exp(-i θ X / 2)`
     Rx(usize, f64),
     /// `exp(-i θ Y / 2)`
@@ -37,10 +40,14 @@ pub enum Gate {
     Rz(usize, f64),
     /// `diag(1, e^{iθ})`
     Phase(usize, f64),
+    /// `U(θ, φ, λ)` universal single-qubit gate.
+    U(usize, f64, f64, f64),
     /// `Cnot(control, target)`
     Cnot(usize, usize),
     Cz(usize, usize),
     Swap(usize, usize),
+    ISwap(usize, usize),
+    ISwapdg(usize, usize),
     /// Controlled phase `diag(1, 1, 1, e^{iθ})`.
     CPhase(usize, usize, f64),
     /// Toffoli: `Ccx(control1, control2, target)`.
@@ -59,9 +66,11 @@ impl Gate {
     pub fn qubits(&self) -> Vec<usize> {
         use Gate::*;
         match *self {
-            H(q) | X(q) | Y(q) | Z(q) | S(q) | Sdg(q) | T(q) | Tdg(q) => vec![q],
-            Rx(q, _) | Ry(q, _) | Rz(q, _) | Phase(q, _) => vec![q],
-            Cnot(a, b) | Cz(a, b) | Swap(a, b) | CPhase(a, b, _) => vec![a, b],
+            I(q) | H(q) | X(q) | Y(q) | Z(q) | S(q) | Sdg(q) | T(q) | Tdg(q) | Sx(q)
+            | Sxdg(q) => vec![q],
+            Rx(q, _) | Ry(q, _) | Rz(q, _) | Phase(q, _) | U(q, _, _, _) => vec![q],
+            Cnot(a, b) | Cz(a, b) | Swap(a, b) | ISwap(a, b) | ISwapdg(a, b)
+            | CPhase(a, b, _) => vec![a, b],
             Ccx(a, b, t) => vec![a, b, t],
         }
     }
@@ -76,7 +85,19 @@ impl Gate {
         use Gate::*;
         matches!(
             self,
-            H(_) | X(_) | Y(_) | Z(_) | S(_) | Sdg(_) | Cnot(..) | Cz(..) | Swap(..)
+            I(_) | H(_)
+                | X(_)
+                | Y(_)
+                | Z(_)
+                | S(_)
+                | Sdg(_)
+                | Sx(_)
+                | Sxdg(_)
+                | Cnot(..)
+                | Cz(..)
+                | Swap(..)
+                | ISwap(..)
+                | ISwapdg(..)
         )
     }
 
@@ -93,12 +114,17 @@ impl Gate {
             Sdg(q) => S(q),
             T(q) => Tdg(q),
             Tdg(q) => T(q),
+            Sx(q) => Sxdg(q),
+            Sxdg(q) => Sx(q),
             Rx(q, t) => Rx(q, -t),
             Ry(q, t) => Ry(q, -t),
             Rz(q, t) => Rz(q, -t),
             Phase(q, t) => Phase(q, -t),
+            U(q, th, ph, lam) => U(q, -th, -lam, -ph),
             CPhase(a, b, t) => CPhase(a, b, -t),
-            g => g, // H, X, Y, Z, CNOT, CZ, SWAP, CCX are self-inverse
+            ISwap(a, b) => ISwapdg(a, b),
+            ISwapdg(a, b) => ISwap(a, b),
+            g => g, // I, H, X, Y, Z, CNOT, CZ, SWAP, CCX are self-inverse
         }
     }
 
@@ -106,6 +132,7 @@ impl Gate {
     pub fn diagonal_1q(&self) -> Option<(Complex64, Complex64)> {
         use Gate::*;
         Some(match *self {
+            I(_) => (ONE, ONE),
             Z(_) => (ONE, c(-1.0, 0.0)),
             S(_) => (ONE, c(0.0, 1.0)),
             Sdg(_) => (ONE, c(0.0, -1.0)),
@@ -131,6 +158,14 @@ impl Gate {
             H(_) => [[c(h, 0.0), c(h, 0.0)], [c(h, 0.0), c(-h, 0.0)]],
             X(_) => [[ZERO, ONE], [ONE, ZERO]],
             Y(_) => [[ZERO, c(0.0, -1.0)], [c(0.0, 1.0), ZERO]],
+            Sx(_) => [
+                [c(0.5, 0.5), c(0.5, -0.5)],
+                [c(0.5, -0.5), c(0.5, 0.5)],
+            ],
+            Sxdg(_) => [
+                [c(0.5, -0.5), c(0.5, 0.5)],
+                [c(0.5, 0.5), c(0.5, -0.5)],
+            ],
             Rx(_, t) => {
                 let (s, co) = (t / 2.0).sin_cos();
                 [[c(co, 0.0), c(0.0, -s)], [c(0.0, -s), c(co, 0.0)]]
@@ -138,6 +173,14 @@ impl Gate {
             Ry(_, t) => {
                 let (s, co) = (t / 2.0).sin_cos();
                 [[c(co, 0.0), c(-s, 0.0)], [c(s, 0.0), c(co, 0.0)]]
+            }
+            U(_, th, ph, lam) => {
+                let (s, co) = (th / 2.0).sin_cos();
+                let m00 = c(co, 0.0);
+                let m01 = -Complex64::from_polar(s, lam);
+                let m10 = Complex64::from_polar(s, ph);
+                let m11 = Complex64::from_polar(co, ph + lam);
+                [[m00, m01], [m10, m11]]
             }
             _ => return None,
         })
@@ -166,6 +209,18 @@ impl Gate {
                 m[2][1] = ONE;
                 m[3][3] = ONE;
             }
+            ISwap(..) => {
+                m[0][0] = ONE;
+                m[1][2] = c(0.0, 1.0);
+                m[2][1] = c(0.0, 1.0);
+                m[3][3] = ONE;
+            }
+            ISwapdg(..) => {
+                m[0][0] = ONE;
+                m[1][2] = c(0.0, -1.0);
+                m[2][1] = c(0.0, -1.0);
+                m[3][3] = ONE;
+            }
             CPhase(_, _, t) => {
                 m[0][0] = ONE;
                 m[1][1] = ONE;
@@ -185,6 +240,20 @@ impl Gate {
     pub fn decompose_to_clifford_rz(&self) -> Vec<Gate> {
         use Gate::*;
         match *self {
+            I(_) => vec![],
+            Sx(q) => vec![H(q), S(q), H(q)],
+            Sxdg(q) => vec![H(q), Sdg(q), H(q)],
+            ISwap(a, b) => vec![Swap(a, b), Cz(a, b), S(a), S(b)],
+            ISwapdg(a, b) => vec![Swap(a, b), Cz(a, b), Sdg(a), Sdg(b)],
+            U(q, th, ph, lam) => vec![
+                Rz(q, lam),
+                Sdg(q),
+                H(q),
+                Rz(q, th),
+                H(q),
+                S(q),
+                Rz(q, ph),
+            ],
             Rx(q, t) => vec![H(q), Rz(q, t), H(q)],
             // Ry(θ) = S Rx(θ) S†, applied in time order S†, Rx, S.
             Ry(q, t) => vec![Sdg(q), H(q), Rz(q, t), H(q), S(q)],
@@ -303,12 +372,39 @@ mod tests {
             Gate::Ry(0, -1.1),
             Gate::Rz(0, 2.0),
             Gate::Phase(0, 0.7),
+            Gate::I(0),
+            Gate::Sx(0),
+            Gate::Sxdg(0),
+            Gate::U(0, 1.2, -0.5, 0.8),
         ];
         let id = [[ONE, ZERO], [ZERO, ONE]];
         for g in gates {
             let p = mat2_mul(&mat(g), &mat(g.inverse()));
             assert!(approx_eq2(&p, &id), "{g:?}");
         }
+    }
+
+    #[test]
+    fn sx_squared_is_x() {
+        let sx = mat(Gate::Sx(0));
+        let sx2 = mat2_mul(&sx, &sx);
+        // Sx^2 = X up to global phase, check equality
+        assert!(approx_eq2(&sx2, &mat(Gate::X(0))));
+    }
+
+    #[test]
+    fn iswap_matrix() {
+        let m = Gate::ISwap(0, 1).matrix_2q().unwrap();
+        assert_eq!(m[0][0], ONE);
+        assert_eq!(m[1][2], c(0.0, 1.0));
+        assert_eq!(m[2][1], c(0.0, 1.0));
+        assert_eq!(m[3][3], ONE);
+
+        let mdg = Gate::ISwapdg(0, 1).matrix_2q().unwrap();
+        assert_eq!(mdg[0][0], ONE);
+        assert_eq!(mdg[1][2], c(0.0, -1.0));
+        assert_eq!(mdg[2][1], c(0.0, -1.0));
+        assert_eq!(mdg[3][3], ONE);
     }
 
     #[test]
