@@ -70,13 +70,28 @@ pub struct WindowPlan {
     pub perm_passes: usize,
 }
 
+/// How the scheduler treats `Swap` gates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SwapPolicy {
+    /// Always fold into the logical->physical map (never executed; the final
+    /// order is restored by buffer permutations).
+    Always,
+    /// Execute as an in-buffer gate when both qubits are in the window, fold
+    /// into the layout otherwise (a swap that reaches outside the window is
+    /// free; one inside is cheaper as a cache-blocked kernel than as a
+    /// strided copy later).
+    Hybrid,
+    /// Always execute as a gate (needs both qubits in the window).
+    Never,
+}
+
 /// Knobs for [`schedule_window`].
 #[derive(Clone, Debug)]
 pub struct WindowOptions {
     /// Number of high qubits `k` per window (buffer is `2^(c+k)` amplitudes).
     pub extra_bits: usize,
-    /// Fold `Swap` gates into the layout instead of executing them.
-    pub elide_swaps: bool,
+    /// How `Swap` gates are handled.
+    pub swaps: SwapPolicy,
     /// Put the layout back to canonical order at the end.
     pub restore_order: bool,
     /// Candidate score is `drained / |needed|^alpha` (tuned per strategy; the
@@ -88,7 +103,7 @@ impl Default for WindowOptions {
     fn default() -> Self {
         WindowOptions {
             extra_bits: 3,
-            elide_swaps: true,
+            swaps: SwapPolicy::Hybrid,
             restore_order: true,
             alphas: vec![1.0, 0.5, 0.0, 2.0],
         }
@@ -104,7 +119,7 @@ struct Deps {
 }
 
 impl Deps {
-    fn build(gates: &[Gate], n: usize, elide: bool) -> Deps {
+    fn build(gates: &[Gate], n: usize, policy: SwapPolicy) -> Deps {
         let mut last: Vec<Option<u32>> = vec![None; n];
         let mut succ: Vec<Vec<u32>> = vec![Vec::new(); gates.len()];
         let mut indeg0 = vec![0u32; gates.len()];
@@ -126,7 +141,7 @@ impl Deps {
                 indeg0[i] += 1;
             }
             qubits.push((qs, nq));
-            swap.push(elide && matches!(g, Gate::Swap(..)));
+            swap.push(policy != SwapPolicy::Never && matches!(g, Gate::Swap(..)));
         }
         Deps {
             qubits,
@@ -168,6 +183,7 @@ impl State {
         &mut self,
         deps: &Deps,
         in_w: &[bool],
+        hybrid: bool,
         mut emit: impl FnMut(u32, &[usize; 3]),
     ) -> usize {
         let mut count = 0;
@@ -177,7 +193,8 @@ impl State {
             while i < self.ready.len() {
                 let id = self.ready[i];
                 let (qs, nq) = deps.qubits[id as usize];
-                if deps.swap[id as usize] {
+                let both_in = in_w[self.v2p[qs[0]]] && in_w[self.v2p[qs[1]]];
+                if deps.swap[id as usize] && !(hybrid && both_in) {
                     self.v2p.swap(qs[0], qs[1]);
                 } else {
                     let mut ph = [0usize; 3];
@@ -302,7 +319,8 @@ fn schedule_one(
     opts: &WindowOptions,
     alpha: f64,
 ) -> Result<WindowPlan, SimError> {
-    let deps = Deps::build(gates, n, opts.elide_swaps);
+    let deps = Deps::build(gates, n, opts.swaps);
+    let hybrid = opts.swaps == SwapPolicy::Hybrid;
     let mut st = State::new(&deps, v2p0.to_vec());
     let mut passes: Vec<WindowPass> = Vec::new();
     let mut elided = 0usize;
@@ -331,7 +349,7 @@ fn schedule_one(
         // ---- gate phase: drain, extend the window when stuck ----
         loop {
             let mut local_emitted: Vec<Gate> = Vec::new();
-            st.drain(&deps, &in_w, |id, ph| {
+            st.drain(&deps, &in_w, hybrid, |id, ph| {
                 local_emitted.push(remap_physical(&gates[id as usize], ph));
             });
             emitted.extend(local_emitted);
@@ -371,7 +389,7 @@ fn schedule_one(
                 for &p in &need {
                     w2[p] = true;
                 }
-                let drained = sim.drain(&deps, &w2, |_, _| {});
+                let drained = sim.drain(&deps, &w2, hybrid, |_, _| {});
                 let score = drained as f64 / (need.len() as f64).powf(alpha);
                 let better = match &best {
                     None => true,

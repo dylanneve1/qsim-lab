@@ -151,6 +151,8 @@ pub struct OocStats {
     pub io_time: Duration,
     /// Wall-clock time spent in CPU compute (cache-blocked kernels + RAM swaps).
     pub compute_time: Duration,
+    /// Part of `compute_time` spent permuting buffer bits (layout changes).
+    pub perm_time: Duration,
     /// Time the compute thread spent blocked waiting for a read to finish or a
     /// free buffer (windowed scheduler with I/O overlap): the *exposed* I/O.
     pub stall_time: Duration,
@@ -1007,6 +1009,7 @@ impl<T: Real> OocStateVector<T> {
         };
 
         let mut compute = Duration::ZERO;
+        let mut perm_dur = Duration::ZERO;
         let mut stall = Duration::ZERO;
         let mut scratch: Vec<Complex<T>> = if pass.perm.is_some() {
             vec![Complex::<T>::zero(); group_amps]
@@ -1019,8 +1022,10 @@ impl<T: Real> OocStateVector<T> {
                 ex.apply_to_chunk(buf);
             }
             if let Some(perm) = &pass.perm {
+                let t1 = Instant::now();
                 permute_bits(buf, &mut scratch, perm);
                 std::mem::swap(buf, &mut scratch);
+                perm_dur += t1.elapsed();
             }
             *compute += t0.elapsed();
         };
@@ -1104,6 +1109,7 @@ impl<T: Real> OocStateVector<T> {
         }
         self.stats.io_time += Duration::from_nanos(io_nanos.load(Ordering::Relaxed));
         self.stats.compute_time += compute;
+        self.stats.perm_time += perm_dur;
         self.stats.stall_time += stall;
 
         // Update the layout from the pass's permutation.

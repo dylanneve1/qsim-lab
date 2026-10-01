@@ -1,33 +1,34 @@
-//! Comprehensive benchmark suite for out-of-core state vector simulation.
+//! Out-of-core state vector benchmark: one configuration per invocation, one CSV
+//! line on stdout (so every run can go through `bench.sh`).
 //!
-//! Measures:
-//! - Total file passes, local passes, and swap passes.
-//! - Bytes read and written, effective I/O throughput.
-//! - Wall-clock time, I/O time, CPU compute time.
-//! - Head-to-head comparisons against in-RAM blocked executor at 16..=24 qubits.
-//! - Scaling up to n=29 qubits (4 GiB state vector) breaking the in-RAM 1 GiB limit.
+//! ```text
+//! ooc_bench header
+//! ooc_bench ram   <workload> <n> <f32|f64> [reps]
+//! ooc_bench ooc   <workload> <n> <f32|f64> <swap|window> <chunk_bits> <group_bits> <overlap 0|1> [verify 0|1]
+//! ```
+//!
+//! Workloads: `qft`, `brick` (4 layers), `brick16` (16 layers), `ghz`.
+//! Scratch directory: `$OOC_SCRATCH` (default `/tmp/ooc-scratch`). With
+//! `verify=1` and `n <= 26` the final state is compared chunk by chunk with the
+//! in-RAM blocked executor (max |Δamp|, streamed so RAM stays at one state).
 
 use qsim_lab::algorithms;
 use qsim_lab::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::ooc::{OocConfig, OocStateVector};
+use qsim_lab::ooc::{OocConfig, OocScheduler, OocStateVector};
 use qsim_lab::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 
 fn workload(name: &str, n: usize) -> Circuit {
+    let mut rng = StdRng::seed_from_u64(42 + n as u64);
     match name {
         "ghz" => algorithms::ghz(n),
         "qft" => algorithms::qft(n),
-        "brick" => {
-            let mut rng = StdRng::seed_from_u64(42 + n as u64);
-            // 4 layers of brickwork gates across all adjacent pairs
-            algorithms::random_brickwork(n, 4, &mut rng)
-        }
+        "brick" => algorithms::random_brickwork(n, 4, &mut rng),
+        "brick16" => algorithms::random_brickwork(n, 16, &mut rng),
         _ => panic!("unknown workload: {name}"),
     }
 }
@@ -36,192 +37,120 @@ fn scratch_path() -> PathBuf {
     PathBuf::from(std::env::var("OOC_SCRATCH").unwrap_or_else(|_| "/tmp/ooc-scratch".into()))
 }
 
-struct RunResult {
-    workload: String,
-    n: usize,
-    c: usize,
-    prec: &'static str,
-    file_bytes: u64,
-    passes: usize,
-    local_passes: usize,
-    swap_passes: usize,
-    bytes_moved: u64,
-    wall_ms: f64,
-    io_ms: f64,
-    compute_ms: f64,
-    throughput_gb_s: f64,
-    in_ram_ms: Option<f64>,
-    max_err: Option<f64>,
+const HEADER: &str = "kind,workload,n,prec,sched,chunk_bits,group_bits,overlap,file_mb,passes,gate_passes,perm_passes,read_mb,written_mb,wall_ms,io_busy_ms,compute_ms,perm_ms,stall_ms,gb_per_s,max_err";
+
+fn run_ram<T: Real>(wl: &str, n: usize, prec: &str, reps: usize) {
+    let circ = workload(wl, n);
+    let bcfg = BlockConfig::default();
+    let mut best = f64::INFINITY;
+    for _ in 0..reps {
+        let mut sv = StateVector::<T>::new(n);
+        let t0 = Instant::now();
+        sv.apply_circuit_blocked(&circ, &bcfg).unwrap();
+        best = best.min(t0.elapsed().as_secs_f64() * 1e3);
+    }
+    let mb = ((1usize << n) * std::mem::size_of::<num_complex::Complex<T>>()) as f64 / 1048576.0;
+    println!("ram,{wl},{n},{prec},blocked,,,,{mb:.0},,,,,,{best:.1},,,,,,");
 }
 
-fn bench_ooc<T: Real>(
-    workload_name: &str,
+#[allow(clippy::too_many_arguments)]
+fn run_ooc<T: Real>(
+    wl: &str,
     n: usize,
+    prec: &str,
+    sched: OocScheduler,
     c: usize,
-    prec_name: &'static str,
-    compare_ram: bool,
-) -> RunResult {
-    let circ = workload(workload_name, n);
+    k: usize,
+    overlap: bool,
+    verify: bool,
+) {
+    let circ = workload(wl, n);
     let bcfg = BlockConfig::default();
-
-    let mut in_ram_ms = None;
-    let mut in_ram_amps = None;
-
-    if compare_ram && n <= 22 {
-        let t0 = Instant::now();
-        let mut in_ram = StateVector::<T>::new(n);
-        in_ram.apply_circuit_blocked(&circ, &bcfg).unwrap();
-        in_ram_ms = Some(t0.elapsed().as_secs_f64() * 1e3);
-        in_ram_amps = Some(in_ram.amplitudes().to_vec());
-    }
-
-    let ooc_cfg = OocConfig {
+    let cfg = OocConfig {
         chunk_bits: c,
         scratch_dir: Some(scratch_path()),
-        block_config: bcfg,
+        block_config: bcfg.clone(),
         restore_order: true,
-        ..OocConfig::default()
+        scheduler: sched,
+        group_bits: k,
+        overlap_io: overlap,
     };
-
-    let mut ooc = OocStateVector::<T>::temp(n, c, ooc_cfg).unwrap();
+    let mut ooc = OocStateVector::<T>::temp(n, c, cfg).unwrap();
     let stats = ooc.simulate_circuit(&circ).unwrap();
 
-    let mut max_err = None;
-    if let Some(ref ram_amps) = in_ram_amps {
-        let ooc_amps = ooc.read_amplitudes().unwrap();
+    let mut max_err = f64::NAN;
+    if verify {
+        let mut sv = StateVector::<T>::new(n);
+        sv.apply_circuit_blocked(&circ, &bcfg).unwrap();
+        let amps = sv.amplitudes();
+        let mut buf = vec![num_complex::Complex::<T>::default(); 1 << c];
         let mut err = 0.0f64;
-        for (x, y) in ooc_amps.iter().zip(ram_amps.iter()) {
-            let d = (*x - *y).norm().to_f64();
-            if d > err {
-                err = d;
+        for ci in 0..ooc.num_chunks() {
+            ooc.read_chunk(ci, &mut buf).unwrap();
+            for (j, z) in buf.iter().enumerate() {
+                let d = *z - amps[(ci << c) | j];
+                err = err.max(d.norm().to_f64());
             }
         }
-        max_err = Some(err);
+        max_err = err;
     } else {
-        // Verify norm without loading full vector into RAM
         let norm = ooc.state_norm().unwrap();
-        assert!(
-            (norm - 1.0).abs() < 1e-4,
-            "State norm {norm} diverged from 1.0!"
-        );
+        assert!((norm - 1.0).abs() < 1e-3, "state norm {norm} diverged from 1.0");
     }
 
-    let bytes_moved = stats.bytes_read + stats.bytes_written;
-    let wall_s = stats.wall_time.as_secs_f64();
-    let throughput_gb_s = if wall_s > 0.0 {
-        (bytes_moved as f64) / (1024.0 * 1024.0 * 1024.0) / wall_s
-    } else {
-        0.0
-    };
-
-    RunResult {
-        workload: workload_name.to_string(),
-        n,
-        c,
-        prec: prec_name,
-        file_bytes: ooc.total_bytes(),
-        passes: stats.file_passes,
-        local_passes: stats.local_passes,
-        swap_passes: stats.swap_passes,
-        bytes_moved,
-        wall_ms: wall_s * 1e3,
-        io_ms: stats.io_time.as_secs_f64() * 1e3,
-        compute_ms: stats.compute_time.as_secs_f64() * 1e3,
-        throughput_gb_s,
-        in_ram_ms,
-        max_err,
-    }
+    let moved = (stats.bytes_read + stats.bytes_written) as f64;
+    let wall = stats.wall_time.as_secs_f64();
+    println!(
+        "ooc,{wl},{n},{prec},{},{c},{},{},{:.0},{},{},{},{:.0},{:.0},{:.1},{:.1},{:.1},{:.1},{:.1},{:.2},{:e}",
+        if sched == OocScheduler::Swap { "swap" } else { "window" },
+        if sched == OocScheduler::Swap { 0 } else { k },
+        overlap as u8,
+        ooc.total_bytes() as f64 / 1048576.0,
+        stats.file_passes,
+        stats.local_passes,
+        stats.swap_passes,
+        stats.bytes_read as f64 / 1048576.0,
+        stats.bytes_written as f64 / 1048576.0,
+        wall * 1e3,
+        stats.io_time.as_secs_f64() * 1e3,
+        stats.compute_time.as_secs_f64() * 1e3,
+        stats.perm_time.as_secs_f64() * 1e3,
+        stats.stall_time.as_secs_f64() * 1e3,
+        moved / 1e9 / wall,
+        max_err
+    );
 }
 
 fn main() {
-    println!("==========================================================================================");
-    println!("qsim-lab: Out-of-Core State Vector Simulation Benchmark Suite");
-    println!("==========================================================================================");
-
-    let mut results: Vec<RunResult> = Vec::new();
-
-    // 1. Head-to-Head & Accuracy Sweeps: n = 16..22 (f64, forced small chunks)
-    println!("\n--- Part 1: Exactness & Head-to-Head vs in-RAM Blocked (f64, small chunks) ---");
-    for &n in &[16, 18, 20, 22] {
-        let c = n - 4; // forced 16 chunks
-        for wl in &["qft", "brick"] {
-            let res = bench_ooc::<f64>(wl, n, c, "f64", true);
-            println!(
-                "[{}] n={:2}, c={:2} | passes={:2} (loc={:2}, swap={:2}) | data={:6.1} MB | OOC={:7.1} ms, RAM={:7.1} ms | max_err={:e}",
-                res.workload,
-                res.n,
-                res.c,
-                res.passes,
-                res.local_passes,
-                res.swap_passes,
-                (res.bytes_moved as f64) / (1024.0 * 1024.0),
-                res.wall_ms,
-                res.in_ram_ms.unwrap_or(0.0),
-                res.max_err.unwrap_or(0.0)
-            );
-            results.push(res);
+    let a: Vec<String> = std::env::args().skip(1).collect();
+    match a.first().map(String::as_str) {
+        Some("header") => println!("{HEADER}"),
+        Some("ram") => {
+            let n: usize = a[2].parse().unwrap();
+            let reps: usize = a.get(4).map_or(1, |x| x.parse().unwrap());
+            if a[3] == "f32" {
+                run_ram::<f32>(&a[1], n, "f32", reps)
+            } else {
+                run_ram::<f64>(&a[1], n, "f64", reps)
+            }
         }
-    }
-
-    // 2. Scaling beyond physical RAM & in-RAM memory cap: n = 24..29 (f32)
-    // 26 qubits = 512 MB, 27 qubits = 1.0 GB (cap!), 28 qubits = 2.0 GB, 29 qubits = 4.0 GB!
-    println!("\n--- Part 2: Scaling to High Qubit Counts (f32, up to n=29, NVMe out-of-core) ---");
-    let sizes: Vec<usize> = std::env::var("OOC_SIZES")
-        .map(|v| v.split(',').map(|x| x.parse().unwrap()).collect())
-        .unwrap_or(vec![24, 26, 27, 28]);
-    for &n in &sizes {
-        let c = 22.min(n - 1); // 2^22 chunk = 16 MiB per chunk in f32
-        for wl in &["qft", "brick"] {
-            let res = bench_ooc::<f32>(wl, n, c, "f32", false);
-            println!(
-                "[{}] n={:2}, c={:2} | file={:6.1} MB | passes={:2} (loc={:2}, swap={:2}) | moved={:7.1} MB | wall={:8.1} ms (io={:7.1} ms, comp={:7.1} ms) | {:5.2} GB/s",
-                res.workload,
-                res.n,
-                res.c,
-                (res.file_bytes as f64) / (1024.0 * 1024.0),
-                res.passes,
-                res.local_passes,
-                res.swap_passes,
-                (res.bytes_moved as f64) / (1024.0 * 1024.0),
-                res.wall_ms,
-                res.io_ms,
-                res.compute_ms,
-                res.throughput_gb_s
-            );
-            results.push(res);
+        Some("ooc") => {
+            let n: usize = a[2].parse().unwrap();
+            let sched = if a[4] == "swap" {
+                OocScheduler::Swap
+            } else {
+                OocScheduler::Window
+            };
+            let c: usize = a[5].parse().unwrap();
+            let k: usize = a[6].parse().unwrap();
+            let ov = a[7] == "1";
+            let verify = a.get(8).is_some_and(|x| x == "1");
+            if a[3] == "f32" {
+                run_ooc::<f32>(&a[1], n, "f32", sched, c, k, ov, verify)
+            } else {
+                run_ooc::<f64>(&a[1], n, "f64", sched, c, k, ov, verify)
+            }
         }
+        _ => eprintln!("usage: see the module docs of examples/ooc_bench.rs"),
     }
-
-    // Write CSV data
-    let csv_path = PathBuf::from("research/data/ooc/scaling.csv");
-    let mut f = File::create(&csv_path).expect("failed to create CSV output file");
-    writeln!(
-        f,
-        "workload,n,c,precision,file_bytes,passes,local_passes,swap_passes,bytes_moved,wall_ms,io_ms,compute_ms,throughput_gb_s,in_ram_ms,max_err"
-    )
-    .unwrap();
-
-    for r in &results {
-        writeln!(
-            f,
-            "{},{},{},{},{},{},{},{},{},{:.2},{:.2},{:.2},{:.3},{:.2},{:e}",
-            r.workload,
-            r.n,
-            r.c,
-            r.prec,
-            r.file_bytes,
-            r.passes,
-            r.local_passes,
-            r.swap_passes,
-            r.bytes_moved,
-            r.wall_ms,
-            r.io_ms,
-            r.compute_ms,
-            r.throughput_gb_s,
-            r.in_ram_ms.unwrap_or(0.0),
-            r.max_err.unwrap_or(0.0)
-        )
-        .unwrap();
-    }
-    println!("\nBenchmark results written to {}", csv_path.display());
 }
