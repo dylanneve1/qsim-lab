@@ -1,0 +1,6 @@
+[bench.sh] load at start: 3.49
+a=65268735  qubits=27  measured=2182522944714542  order=Some(1116297)  factor=None  peak_amplitudes=67108864  peak_amp_bytes=1073741824
+a=42986718  qubits=27  measured=3597090323742306  order=Some(1594710)  factor=None  peak_amplitudes=67108864  peak_amp_bytes=1073741824
+a=54407422  qubits=27  measured=562464916495476  order=Some(1594710)  factor=Some(8191)  peak_amplitudes=67108864  peak_amp_bytes=1073741824
+66994189 = 8179 x 8191
+time 96.917 s  peak RSS 1028.8 MiB

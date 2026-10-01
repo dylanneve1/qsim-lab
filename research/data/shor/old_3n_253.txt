@@ -1,0 +1,8 @@
+[bench.sh] load at start: 1.89
+a=245  qubits=24  measured=2383  order=None  factor=None
+a=108  qubits=24  measured=42896  order=Some(55)  factor=None
+a=65  qubits=24  measured=8937  order=Some(22)  factor=None
+a=179  qubits=24  measured=40513  order=Some(55)  factor=None
+a=98  qubits=24  measured=26810  order=Some(22)  factor=Some(11)
+253 = 11 x 23
+time 16.302 s  peak RSS 533.2 MiB

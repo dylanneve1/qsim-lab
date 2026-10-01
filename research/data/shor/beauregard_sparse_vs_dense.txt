@@ -1,0 +1,12 @@
+== beauregard N=21 base 2 
+a=2  qubits=13  measured=512  order=Some(6)  factor=Some(3)  peak_amplitudes=8192  peak_amp_bytes=131072
+time 0.066 s  peak RSS 6.1 MiB
+== beauregard N=21 base 2 --sparse
+a=2  qubits=13  measured=512  order=Some(6)  factor=Some(3)  peak_amplitudes=8192  peak_amp_bytes=716800
+time 1.198 s  peak RSS 6.4 MiB
+== beauregard N=35 base 2 
+a=2  qubits=15  measured=3072  order=Some(12)  factor=Some(5)  peak_amplitudes=32768  peak_amp_bytes=524288
+time 0.180 s  peak RSS 7.6 MiB
+== beauregard N=35 base 2 --sparse
+a=2  qubits=15  measured=3072  order=Some(12)  factor=Some(5)  peak_amplitudes=32768  peak_amp_bytes=2867200
+time 9.225 s  peak RSS 14.5 MiB

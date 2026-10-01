@@ -1,0 +1,50 @@
+== 4186067 base 3 
+[bench.sh] load at start: 1.68
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=8388608  peak_amp_bytes=134217728
+time 3.002 s  peak RSS 196.6 MiB
+[bench.sh] load at start: 1.87
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=8388608  peak_amp_bytes=134217728
+time 3.033 s  peak RSS 196.7 MiB
+[bench.sh] load at start: 1.87
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=8388608  peak_amp_bytes=134217728
+time 3.014 s  peak RSS 196.8 MiB
+== 4186067 base 3 --fused
+[bench.sh] load at start: 2.12
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=134217728
+time 1.385 s  peak RSS 132.8 MiB
+[bench.sh] load at start: 2.12
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=134217728
+time 1.401 s  peak RSS 132.6 MiB
+[bench.sh] load at start: 2.27
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=134217728
+time 1.414 s  peak RSS 132.6 MiB
+== 4186067 base 3 --fused --f32
+[bench.sh] load at start: 2.27
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=67108864
+time 1.175 s  peak RSS 68.5 MiB
+[bench.sh] load at start: 2.27
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=67108864
+time 1.097 s  peak RSS 68.6 MiB
+[bench.sh] load at start: 2.27
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=4194304  peak_amp_bytes=67108864
+time 1.095 s  peak RSS 68.5 MiB
+== 4186067 base 3 --sparse
+[bench.sh] load at start: 2.41
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=2090988  peak_amp_bytes=91750400
+time 9.464 s  peak RSS 179.2 MiB
+[bench.sh] load at start: 2.30
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=2090988  peak_amp_bytes=91750400
+time 9.403 s  peak RSS 179.1 MiB
+[bench.sh] load at start: 2.17
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=2090988  peak_amp_bytes=91750400
+time 9.270 s  peak RSS 179.2 MiB
+== 4186067 base 3 --fused --sparse
+[bench.sh] load at start: 1.99
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=522747  peak_amp_bytes=22937600
+time 1.262 s  peak RSS 141.3 MiB
+[bench.sh] load at start: 1.99
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=522747  peak_amp_bytes=22937600
+time 1.193 s  peak RSS 141.1 MiB
+[bench.sh] load at start: 2.23
+a=3  qubits=23  measured=6346516393564  order=Some(1045494)  factor=Some(2053)  peak_amplitudes=522747  peak_amp_bytes=22937600
+time 1.260 s  peak RSS 140.8 MiB

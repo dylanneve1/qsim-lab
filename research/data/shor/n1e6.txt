@@ -1,0 +1,60 @@
+== N=1005973 semiclassical permutation --sparse --fused seed 1
+[bench.sh] load at start: 4.57
+a=980062  qubits=21  measured=787573303086  order=Some(41832)  factor=Some(1009)  peak_amplitudes=20916  peak_amp_bytes=716800
+1005973 = 997 x 1009
+time 0.024 s  peak RSS 10.3 MiB
+== N=1005973 semiclassical permutation --sparse seed 1
+[bench.sh] load at start: 4.57
+a=980062  qubits=21  measured=787573303086  order=Some(41832)  factor=Some(1009)  peak_amplitudes=83664  peak_amp_bytes=2867200
+1005973 = 997 x 1009
+time 0.046 s  peak RSS 8.8 MiB
+== N=1005973 semiclassical permutation --fused seed 1
+[bench.sh] load at start: 4.57
+a=980062  qubits=21  measured=787573303086  order=Some(41832)  factor=Some(1009)  peak_amplitudes=1048576  peak_amp_bytes=33554432
+1005973 = 997 x 1009
+time 0.558 s  peak RSS 36.8 MiB
+== N=1005973 semiclassical permutation  seed 1
+[bench.sh] load at start: 4.57
+a=980062  qubits=21  measured=787573303086  order=Some(41832)  factor=Some(1009)  peak_amplitudes=2097152  peak_amp_bytes=33554432
+1005973 = 997 x 1009
+time 0.910 s  peak RSS 52.9 MiB
+== N=1003883 semiclassical permutation --sparse --fused seed 1
+[bench.sh] load at start: 4.57
+a=978026  qubits=21  measured=587661682478  order=Some(9108)  factor=Some(1013)  peak_amplitudes=4554  peak_amp_bytes=179200
+1003883 = 991 x 1013
+time 0.013 s  peak RSS 6.2 MiB
+== N=1003883 semiclassical permutation --sparse seed 1
+[bench.sh] load at start: 4.57
+a=978026  qubits=21  measured=587661682478  order=Some(9108)  factor=Some(1013)  peak_amplitudes=18216  peak_amp_bytes=716800
+1003883 = 991 x 1013
+time 0.017 s  peak RSS 5.7 MiB
+== N=1003883 semiclassical permutation --fused seed 1
+[bench.sh] load at start: 4.57
+a=978026  qubits=21  measured=587661682478  order=Some(9108)  factor=Some(1013)  peak_amplitudes=1048576  peak_amp_bytes=33554432
+1003883 = 991 x 1013
+time 0.496 s  peak RSS 36.8 MiB
+== N=1003883 semiclassical permutation  seed 1
+[bench.sh] load at start: 4.69
+a=978026  qubits=21  measured=587661682478  order=Some(9108)  factor=Some(1013)  peak_amplitudes=2097152  peak_amp_bytes=33554432
+1003883 = 991 x 1013
+time 0.900 s  peak RSS 52.6 MiB
+== N=1001677 semiclassical permutation --sparse --fused seed 1
+[bench.sh] load at start: 4.69
+a=975877  qubits=21  measured=909555627822  order=Some(499838)  factor=Some(983)  peak_amplitudes=249919  peak_amp_bytes=11468800
+1001677 = 983 x 1019
+time 0.812 s  peak RSS 73.4 MiB
+== N=1001677 semiclassical permutation --sparse seed 1
+[bench.sh] load at start: 4.69
+a=975877  qubits=21  measured=909555627822  order=Some(499838)  factor=Some(983)  peak_amplitudes=999676  peak_amp_bytes=45875200
+1001677 = 983 x 1019
+time 3.931 s  peak RSS 116.7 MiB
+== N=1001677 semiclassical permutation --fused seed 1
+[bench.sh] load at start: 4.55
+a=975877  qubits=21  measured=909555627822  order=Some(499838)  factor=Some(983)  peak_amplitudes=1048576  peak_amp_bytes=33554432
+1001677 = 983 x 1019
+time 0.446 s  peak RSS 36.6 MiB
+== N=1001677 semiclassical permutation  seed 1
+[bench.sh] load at start: 4.55
+a=975877  qubits=21  measured=909555627822  order=Some(499838)  factor=Some(983)  peak_amplitudes=2097152  peak_amp_bytes=33554432
+1001677 = 983 x 1019
+time 0.915 s  peak RSS 52.7 MiB
