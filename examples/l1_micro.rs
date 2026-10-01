@@ -1,7 +1,7 @@
 //! Single-thread kernel micro-benchmark for the blocked executor: `K` fused
 //! complex single-qubit gates (and optionally CNOTs) on an `n`-qubit register
 //! that fits in one block, reported as cycles per amplitude per op at an
-//! assumed clock (calibrated with a dependent-add chain).
+//! assumed clock (3.228 GHz, override with env GHZ).
 //!
 //! usage: l1_micro <n,...> [f32|f64] [K] [u1|cnot|mix] [reps] [tbits]
 //! `tbits` = restrict gate targets to qubits < tbits (default n)
@@ -11,28 +11,10 @@ use qsim_lab::blocked::{BlockConfig, KOp};
 use qsim_lab::statevector::{Real, StateVector};
 use std::time::Instant;
 
+/// Assumed clock: M1 Pro P-core max is 3.228 GHz; override with `GHZ=`.
+/// (A dependent-add calibration was tried and discarded: LLVM folds the chain.)
 fn clock_ghz() -> f64 {
-    // dependent integer add chain: 1 cycle latency each on M1 and x86
-    let n = 400_000_000u64;
-    let mut best = f64::INFINITY;
-    for _ in 0..3 {
-        let t = Instant::now();
-        let mut x = std::hint::black_box(1u64);
-        for _ in 0..n / 8 {
-            x = x.wrapping_add(3);
-            x = x.wrapping_add(5);
-            x = x.wrapping_add(7);
-            x = x.wrapping_add(9);
-            x = x.wrapping_add(11);
-            x = x.wrapping_add(13);
-            x = x.wrapping_add(15);
-            x = x.wrapping_add(17);
-            x = std::hint::black_box(x);
-        }
-        std::hint::black_box(x);
-        best = best.min(t.elapsed().as_secs_f64());
-    }
-    n as f64 / best / 1e9
+    3.228
 }
 
 fn gates(n: usize, k: usize, kind: &str, tb: usize) -> Vec<KOp> {
@@ -109,7 +91,7 @@ fn main() {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(clock_ghz);
-    println!("clock {ghz:.3} GHz (dependent-add chain)");
+    println!("clock {ghz:.3} GHz (assumed)");
     match prec {
         "f32" => run::<f32>(&ns, k, kind, reps, tb, ghz),
         _ => run::<f64>(&ns, k, kind, reps, tb, ghz),
