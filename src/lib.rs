@@ -32,11 +32,14 @@
 //! assert!(bits.iter().all(|&b| b == bits[0]));
 //! ```
 
+pub mod adaptive;
+pub mod adaptive_bench;
 pub mod algorithms;
 pub mod bench;
 pub mod blocked;
 pub mod circuit;
 pub mod compile;
+pub mod dag;
 pub mod gate;
 pub mod hsf;
 pub mod mps;

@@ -1,0 +1,45 @@
+[bench.sh] load at start: 7.43
+| two-phase n=50 t=40 | frame | -1.032679283595e-5 | 1878 | - | - | - | 0.0160 |
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.4067 |
+| two-phase n=50 t=80 | frame | aborted: 4416896 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.2674 |
+| two-phase n=50 t=100 | frame | aborted: 5743704 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.3639 |
+[bench.sh] load at start: 7.43
+| two-phase n=50 t=40 | dense | -1.032679283595e-5 | 1 | k=45 (1 terms) | 26 | 1024 MiB (frame 0.007 s + dense 0.757 s) | 0.8323 |
+| two-phase n=50 t=60 | dense | +3.376190913433e-6 | 1 | k=62 (1 terms) | 26 | 1024 MiB (frame 0.010 s + dense 0.852 s) | 0.9472 |
+| two-phase n=50 t=80 | dense | +3.619655661167e-6 | 1 | k=82 (1 terms) | 26 | 1024 MiB (frame 0.010 s + dense 0.879 s) | 0.9679 |
+| two-phase n=50 t=100 | dense | +5.220015138626e-6 | 1 | k=100 (1 terms) | 26 | 1024 MiB (frame 0.011 s + dense 0.867 s) | 0.9595 |
+[bench.sh] load at start: 7.48
+| two-phase n=50 t=40 | auto | -1.032679283595e-5 | 1878 | k=5 (23 terms) | 5 | 0 MiB (frame 0.012 s + dense 0.000 s) | 0.0120 |
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB (frame 0.009 s + dense 0.078 s) | 0.0886 |
+| two-phase n=50 t=80 | auto | +3.619655661164e-6 | 3 | k=72 (3 terms) | 20 | 16 MiB (frame 0.012 s + dense 0.111 s) | 0.1229 |
+| two-phase n=50 t=100 | auto | +5.220015138626e-6 | 3 | k=90 (3 terms) | 20 | 16 MiB (frame 0.012 s + dense 0.123 s) | 0.1350 |
+[bench.sh] load at start: 7.48
+| two-phase n=50 t=40 | frame | -1.032679283595e-5 | 1878 | - | - | - | 0.0116 |
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.3975 |
+| two-phase n=50 t=80 | frame | aborted: 4416896 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.2933 |
+| two-phase n=50 t=100 | frame | aborted: 5743704 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.3030 |
+[bench.sh] load at start: 7.48
+| two-phase n=50 t=40 | dense | -1.032679283595e-5 | 1 | k=45 (1 terms) | 26 | 1024 MiB (frame 0.007 s + dense 0.679 s) | 0.7476 |
+| two-phase n=50 t=60 | dense | +3.376190913433e-6 | 1 | k=62 (1 terms) | 26 | 1024 MiB (frame 0.011 s + dense 0.712 s) | 0.8175 |
+| two-phase n=50 t=80 | dense | +3.619655661166e-6 | 1 | k=82 (1 terms) | 26 | 1024 MiB (frame 0.009 s + dense 0.880 s) | 1.0001 |
+| two-phase n=50 t=100 | dense | +5.220015138626e-6 | 1 | k=100 (1 terms) | 26 | 1024 MiB (frame 0.014 s + dense 0.957 s) | 1.0479 |
+[bench.sh] load at start: 7.04
+| two-phase n=50 t=40 | auto | -1.032679283595e-5 | 1878 | k=5 (23 terms) | 5 | 0 MiB (frame 0.014 s + dense 0.000 s) | 0.0139 |
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB (frame 0.014 s + dense 0.151 s) | 0.1659 |
+| two-phase n=50 t=80 | auto | +3.619655661164e-6 | 3 | k=72 (3 terms) | 20 | 16 MiB (frame 0.015 s + dense 0.215 s) | 0.2297 |
+| two-phase n=50 t=100 | auto | +5.220015138626e-6 | 3 | k=90 (3 terms) | 20 | 16 MiB (frame 0.012 s + dense 0.247 s) | 0.2590 |
+[bench.sh] load at start: 7.04
+| two-phase n=50 t=40 | frame | -1.032679283595e-5 | 1878 | - | - | - | 0.0233 |
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.4873 |
+| two-phase n=50 t=80 | frame | aborted: 4416896 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.2552 |
+| two-phase n=50 t=100 | frame | aborted: 5743704 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.2928 |
+[bench.sh] load at start: 7.04
+| two-phase n=50 t=40 | dense | -1.032679283595e-5 | 1 | k=45 (1 terms) | 26 | 1024 MiB (frame 0.007 s + dense 0.758 s) | 0.8337 |
+| two-phase n=50 t=60 | dense | +3.376190913433e-6 | 1 | k=62 (1 terms) | 26 | 1024 MiB (frame 0.014 s + dense 0.883 s) | 0.9736 |
+| two-phase n=50 t=80 | dense | +3.619655661165e-6 | 1 | k=82 (1 terms) | 26 | 1024 MiB (frame 0.010 s + dense 0.936 s) | 1.0330 |
+| two-phase n=50 t=100 | dense | +5.220015138626e-6 | 1 | k=100 (1 terms) | 26 | 1024 MiB (frame 0.010 s + dense 1.035 s) | 1.1187 |
+[bench.sh] load at start: 7.12
+| two-phase n=50 t=40 | auto | -1.032679283595e-5 | 1878 | k=5 (23 terms) | 5 | 0 MiB (frame 0.015 s + dense 0.000 s) | 0.0155 |
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB (frame 0.014 s + dense 0.135 s) | 0.1504 |
+| two-phase n=50 t=80 | auto | +3.619655661164e-6 | 3 | k=72 (3 terms) | 20 | 16 MiB (frame 0.010 s + dense 0.165 s) | 0.1758 |
+| two-phase n=50 t=100 | auto | +5.220015138626e-6 | 3 | k=90 (3 terms) | 20 | 16 MiB (frame 0.017 s + dense 0.217 s) | 0.2338 |
