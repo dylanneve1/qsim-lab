@@ -444,3 +444,40 @@ adapters.
 
 Verdict: **REPRODUCED — correct (already merged).** No speed headline in
 this PR to re-time.
+
+## 13. SymPhase detector sampler vs Stim 1.16 on identical surface-code circuits
+
+Audit of the headline claim that qsim-lab's SymPhase detector sampler is 3–4× faster than Stim (RESULTS.md). Previously, each simulator had sampled its own circuit.
+
+**Methodology & Identical-Circuit Export:**
+- An exporter (`examples/stim_export.rs`) constructs qsim-lab's exact rotated planar surface code memory circuit (`SurfaceCode::new(d, d)`, rounds = d, `NoiseModel::circuit_level(0.003, 0.003)`).
+- Emits in Stim's `.stim` format:
+  - Initial `R` on all qubits (round 0 starts in noiseless |0⟩ in qsim-lab, so no `X_ERROR` in round 0).
+  - Rounds `r > 0`: `R` on all syndrome ancillas, followed by `X_ERROR(p_reset)`.
+  - Gate noise: `DEPOLARIZE1(p_1q)` after single-qubit `H`, `DEPOLARIZE2(p_2q)` after each `CX`.
+  - Sequential CNOT schedule matching `build_circuit()`: Z-checks (NW, NE, SW, SE) then X-checks (NW, SW, NE, SE with hook-safe swap).
+  - Readout noise: `MZ(p_meas)` on all measured ancillas and final data qubits.
+  - Detectors: exact `rec[...]` lookbacks matching `SurfaceCode::detector_records()` (round-0 ancilla measurements, round-to-round XORs, final data check parity XOR last ancilla).
+  - Observable: column 0 data measurements matching `SurfaceCode::observable_records()`.
+
+**Statistical Equivalence Gate:**
+Both simulators sampled the exported `.stim` files at p = 0.003 (50k–100k shots per distance). Per-detector firing rates and logical observable rates were cross-checked via two-proportion z-tests against a Bonferroni-corrected threshold (|z| > 4.9):
+- d = 3 (16 detectors + 1 obs, 99,968 shots): max |z| = 2.51 (OBS: sym=0.04152, stim=0.04075, z=+0.87); 0/17 fail.
+- d = 5 (72 detectors + 1 obs, 99,968 shots): max |z| = 2.16 (OBS: sym=0.10715, stim=0.10617, z=+0.71); 0/73 fail.
+- d = 7 (192 detectors + 1 obs, 99,968 shots): max |z| = 3.34 (OBS: sym=0.18649, stim=0.18491, z=+0.91); 0/193 fail.
+- d = 11 (720 detectors + 1 obs, 49,984 shots): max |z| = 3.15 (OBS: sym=0.34125, stim=0.34165, z=-0.13); 0/721 fail.
+Across 1,004 individual checks, 0 failed.
+
+**Speed Comparison (min-of-5, single-threaded, bit-packed output, via `bench.sh` lock, load ~11.5):**
+Harness `research/data/audit/audit_stim_symphase.py` timed Stim 1.16 (`compile_detector_sampler().sample(shots, append_observables=True, bit_packed=True)`) and qsim-lab SymPhase (`det_sampler.sample_batch(...)`) interleaved over 5 repetitions. Raw timings in `research/data/audit/stim_benchmark_results.txt`.
+
+| distance | qubits | detectors | qsim-lab (shots/s) | Stim (shots/s) | ratio (qsim/Stim) |
+|---|---|---|---|---|---|
+| 3 | 17 | 16 | **5.51×10⁷** (0.01815s) | 8.44×10⁶ (0.11853s) | **6.53×** |
+| 5 | 49 | 72 | **1.21×10⁷** (0.04125s) | 2.80×10⁶ (0.17877s) | **4.33×** |
+| 7 | 97 | 192 | **4.57×10⁶** (0.04381s) | 1.03×10⁶ (0.19464s) | **4.44×** |
+| 11 | 241 | 720 | **9.63×10⁵** (0.05190s) | 2.28×10⁵ (0.21877s) | **4.22×** |
+| 15 | 449 | 1792 | **4.40×10⁵** (0.04538s) | 1.09×10⁵ (0.18388s) | **4.05×** |
+
+Verdict: **REPRODUCED AND CONFIRMED.** On an exact apples-to-apples basis with identical circuits and bit-packed output, SymPhase outperforms Stim by **4.0×–6.5×**.
+
