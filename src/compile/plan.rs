@@ -56,8 +56,8 @@ pub struct AdaptiveRule {
 impl Default for AdaptiveRule {
     fn default() -> Self {
         AdaptiveRule {
-            min_qubits: 14,
-            margin: 3,
+            min_qubits: 12,
+            margin: 1,
             max_active: 26,
         }
     }

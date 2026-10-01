@@ -27,8 +27,7 @@
 //!   `2^needed · 2^T · ⌈n/64⌉ < 2^n / 4` ([`crate::compile::plan`]).
 //! * **Adaptive** (compressed state) when the component is unitary with
 //!   `n >= ADAPTIVE_MIN_QUBITS`, active dimension `d <= ADAPTIVE_MAX_ACTIVE`
-//!   and `d + ADAPTIVE_MARGIN <= n` (so the dense register is at least
-//!   `2^ADAPTIVE_MARGIN` times smaller than a full state vector). Used for
+//!   and `d + ADAPTIVE_MARGIN <= n` (so the dense register is smaller than a full state vector). Used for
 //!   terminal samples and Z-product expectations, never for amplitudes: the
 //!   compressed state drops global phases.
 //! * **State vector** otherwise, f64, blocked executor, refused above
@@ -48,10 +47,11 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 
 /// Smallest component (in qubits) for which the compressed state is tried.
-pub const ADAPTIVE_MIN_QUBITS: usize = 14;
+pub const ADAPTIVE_MIN_QUBITS: usize = 12;
 /// The dense active register must be at least this many qubits smaller than
-/// the component.
-pub const ADAPTIVE_MARGIN: usize = 3;
+/// the component (measured: adaptive ties the state vector at `d = n` and
+/// wins from `d = n - 1`, see `research/pipeline.md`).
+pub const ADAPTIVE_MARGIN: usize = 1;
 /// Largest active register (qubits) the compressed state may allocate.
 pub const ADAPTIVE_MAX_ACTIVE: usize = 26;
 
@@ -215,5 +215,36 @@ pub fn choose_shor_path(
         semiclassical: sc,
         sparse: sp,
         overridden: sc != semiclassical || sp != sparse,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shor_path_follows_the_memory_cap() {
+        let cap = MAX_STATE_BYTES;
+        // N = 15: 12 qubits, dense gate-level path fits; flags are respected.
+        let p = choose_shor_path(15, Oracle::Permutation, false, false, false, cap);
+        assert_eq!(
+            p,
+            ShorPath {
+                semiclassical: false,
+                sparse: false,
+                overridden: false
+            }
+        );
+        // N ~ 1.6e7: 3n = 72 qubits dense cannot exist -> semiclassical sparse.
+        let p = choose_shor_path(16_777_207, Oracle::Permutation, false, false, false, cap);
+        assert!(p.semiclassical && p.sparse && p.overridden);
+        // semiclassical dense still fits at n = 8 (9 qubits) but not at n = 40.
+        let p = choose_shor_path(200, Oracle::Permutation, true, false, false, cap);
+        assert!(p.semiclassical && !p.sparse && !p.overridden);
+        let p = choose_shor_path(1 << 40 | 1, Oracle::Permutation, true, false, false, cap);
+        assert!(p.sparse && p.overridden);
+        // explicit sparse is never changed
+        let p = choose_shor_path(15, Oracle::Permutation, true, true, false, cap);
+        assert!(p.semiclassical && p.sparse && !p.overridden);
     }
 }

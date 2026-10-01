@@ -1,0 +1,11 @@
+[bench.sh] load at start: 6.09
+(min of 3; shared VM; shots=1000 unless noted)
+random dense               n=20  gates=780   shots=1000  gatewise    0.4312s  run    0.3095s  simulate    0.3235s  | run   1.39x  simulate    1.33x  [StateVector]
+random dense               n=22  gates=516   shots=1000  gatewise    1.2655s  run    0.3446s  simulate    0.3359s  | run   3.67x  simulate    3.77x  [StateVector]
+qft                        n=22  gates=286   shots=1000  gatewise    0.4151s  run    0.0783s  simulate    0.0674s  | run   5.30x  simulate    6.16x  [StateVector]
+two independent blocks     n=24  gates=644   shots=1000  gatewise    4.8659s  run    2.9294s  simulate    0.0045s  | run   1.66x  simulate 1087.47x  [StateVector, StateVector]
+ghz                        n=24  gates=24    shots=1000  gatewise    0.5660s  run    0.3029s  simulate    0.0012s  | run   1.87x  simulate  462.34x  [Tableau]
+clifford+T t=4             n=22  gates=664   shots=1000  gatewise    4.9113s  run    0.9114s  simulate    0.0010s  | run   5.39x  simulate 4815.24x  [Adaptive]
+clifford+T t=8             n=22  gates=1196  shots=1000  gatewise    6.7161s  run    1.0969s  simulate    0.0015s  | run   6.12x  simulate 4390.53x  [Adaptive]
+clifford+T t=14            n=22  gates=1994  shots=1000  gatewise   11.3592s  run    1.7026s  simulate    0.0024s  | run   6.67x  simulate 4766.79x  [Adaptive]
+mid-circuit measure/reset  n=16  gates=558   shots=100   gatewise   16.2547s  run    5.3665s  simulate    5.1217s  | run   3.03x  simulate    3.17x  [StateVector]
