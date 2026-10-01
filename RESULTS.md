@@ -57,7 +57,7 @@ Rotated surface-code memory, rounds = d, circuit-level noise p = 0.3%.
 | SymPhase | per-shot vs tableau, d=3–15 | 190–890× | exact-distribution check passed on 190 circuits |
 
 ## Things it can do now
-- **Shor's algorithm:** factors 1,005,973 = 997 × 1009 in 0.024 s / 10 MB, using one recycled control qubit (21 qubits) and an exact sparse state. Dense f32 goes to 26-bit N. The fully gate-level version (Beauregard adder) reaches 10-bit N; a sparse-preserving ripple-carry oracle is next. With a permutation oracle at this size, the cost tracks the classical period-finding difficulty (see `research/shor.md`).
+- **Shor's algorithm:** factors 1,005,973 = 997 × 1009 in 0.024 s / 10 MB, using one recycled control qubit (21 qubits) and an exact sparse state. Dense f32 goes to 26-bit N. **The full gate-level circuit at N ≈ 10⁶:** with a ripple-carry modular multiplier built only from X, CNOT and Toffoli gates, which keeps the exact sparse state at ≤ 2r amplitudes, 1,005,973 = 997 × 1009 factors in **10.8 s / 14 MB**. That's 64 qubits and 1,148,440 gates (415,498 Toffolis), with the same measured value and period as the oracle version. With a permutation oracle at this size, the cost tracks the classical period-finding difficulty (see `research/shor.md`).
 - **Surface-code memory below threshold:** p = 0.3%, 50,000 shots per point, with the logical error rate roughly halving at each distance step:
 
   | distance | 3 | 5 | 7 | 9 | 11 |
