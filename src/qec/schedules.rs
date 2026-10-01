@@ -376,6 +376,43 @@ impl ScheduledSurfaceCode {
         self.decoder.graph.min_logical_weight_and_count()
     }
 
+    /// Extract defect indices and raw logical flip from raw measurement records.
+    pub fn extract_z_defects(&self, raw_bits: &[bool]) -> (Vec<usize>, bool) {
+        let parity = |recs: &[usize]| recs.iter().fold(false, |a, &r| a ^ raw_bits[r]);
+        let defects = self
+            .detector_records()
+            .iter()
+            .enumerate()
+            .filter(|(_, recs)| parity(recs))
+            .map(|(i, _)| i)
+            .collect();
+        (defects, parity(&self.observable_records()))
+    }
+
+    /// Run full stabilizer-tableau memory experiment for independent cross-check.
+    pub fn run_experiment_tableau<R: RngCore>(
+        &self,
+        noise: &NoiseModel,
+        shots: usize,
+        rng: &mut R,
+    ) -> (f64, usize) {
+        use crate::stabilizer::Tableau;
+        let circuit = self.build_circuit();
+        let total_q = SurfaceCode::total_qubits(self.d);
+        let mut errors = 0;
+        for _ in 0..shots {
+            let mut tab = Tableau::new(total_q);
+            let raw_bits = circuit
+                .run_noisy(&mut tab, noise, rng)
+                .expect("tableau simulation failed");
+            let (defects, raw_logical) = self.extract_z_defects(&raw_bits);
+            if raw_logical ^ self.decoder.decode(&defects) {
+                errors += 1;
+            }
+        }
+        (errors as f64 / shots.max(1) as f64, errors)
+    }
+
     /// Logical error rate under uniform depolarizing noise using the DEM sampler.
     pub fn logical_error_rate<R: RngCore>(
         &self,
@@ -806,5 +843,23 @@ mod tests {
         let p_biased_1 = sc.logical_error_rate_biased(&noise, 1.0, 2000, &mut rng);
         assert!(p_dem > 0.0 && p_biased_1 > 0.0);
         assert!((p_dem - p_biased_1).abs() < 0.03);
+    }
+
+    #[test]
+    fn test_d5_distances() {
+        let std_sc = ScheduledSurfaceCode::new(5, 5, Schedule::standard());
+        assert_eq!(std_sc.circuit_distance(), Some(5));
+
+        let bad_sc = ScheduledSurfaceCode::new(
+            5,
+            5,
+            Schedule {
+                z_perm: Permutation([0, 1, 2, 3]),
+                x_perm: Permutation([0, 1, 2, 3]),
+                interleaved: false,
+            },
+        );
+        // Hook error on unswapped schedule drops circuit distance to 3 at d=5!
+        assert_eq!(bad_sc.circuit_distance(), Some(3));
     }
 }
