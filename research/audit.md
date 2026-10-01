@@ -243,3 +243,42 @@ Verdict: **BUG — not mergeable as is; mergeable after the one-line
 propagation fix + making the fast path use the caller's noise model.**
 Findings and fix sent to the QEC agent.
 
+## 7. exp/compiler @ 49facf8 — compile module (peephole, light cone, components, suffix, Clifford prefix, plans)
+
+**Merge.** Based on e86e91b; merged with main (4d151f4) it fails to compile
+at 10 exhaustive `match op` sites in `src/compile/{analysis,peephole,plan}.rs`
+(new `Op` variants). Needs a real port (non-gate ops as barriers / fallback),
+not a one-liner. Audited on its own base.
+
+**Accuracy** — `audit-adapters/compiler_plans.rs`, `QSIM_FUZZ_ITERS=5`, all pass:
+
+| target | check | worst |
+|---|---|---|
+| `optimize` (peephole) | e^{iφ}·U_opt vs U on cancellation-rich circuits (inverse pairs, commuting Rz in between, rotations summing to 2πk) | 3.9e-14 |
+| `compile_unitary` + `statevector::<f64>` | amplitudes incl. global phase; random pass subsets; universal / Clifford / Clifford+T / disconnected+idle / monomial-suffix families; n = 1…12 | 2.8e-14 |
+| `factored().amplitude(x)` | every x | ≤1e-12 |
+| `statevector::<f32>` | | ≤1e-5 |
+| `expectation_z_product` | random qubit subsets incl. 0 and n−1 | ≤1e-10 |
+| `compile_sampling` terminal | `exact_distribution()` vs reference; chi-square of `sample()` f64 (4000 shots) and f32 (2000); measure_all / random subset in random order / duplicate measures | ≤1e-10, χ² pass |
+| `compile_sampling` mid-circuit | same, measurements interleaved with gates | pass |
+| Pauli-path dispatch | wide (8–13q) Clifford+T/Rz, 1–3 measured qubits | pass |
+
+Backend coverage of the terminal test: StateVector 675, Tableau 220,
+PauliPath 6 (+11 in the dedicated test) component plans; 514 plans used a
+classical monomial suffix. The branch's own suite also passes (41 lib tests
++ all integration tests).
+
+**Speed** — `audit-adapters/bench_compiler.rs`: "always-SV"
+(`PlanOptions::none()` + 1000 f32 shots) and compiled (compile + 1000 shots)
+**interleaved**, 5 pairs, min; through bench.sh; raw
+`research/data/audit/compiler_49facf8_bench.txt`.
+
+| workload | claim | always-SV min (s) | compiled min (s) | reproduced | load |
+|---|---|---|---|---|---|
+| BV-23 (24 q) | 722× | 0.630 | 0.00085 | **745×** | 8.6 |
+| GHZ-24 | 177× | 0.214 | 0.00145 | **148×** | 8.6 |
+| rand Clifford+T n22 d30 p0.01 | 8.5× | 3.608 | 0.583 | **6.2×** | 8.6→10.0 |
+
+Verdict: **REPRODUCED** (Clifford+T ratio ~27% below the claim, same order;
+base runs were noisy 3.6–4.8 s). Correct; not mergeable until ported to main.
+
