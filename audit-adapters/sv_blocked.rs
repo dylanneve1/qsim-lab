@@ -5,6 +5,7 @@
 //! forcing the multi-chunk path even at n = 2).
 //!
 //! Copy to `tests/` of an exp/sv checkout together with `tests/audit_common/`.
+#![allow(clippy::field_reassign_with_default)]
 
 mod audit_common;
 
@@ -17,14 +18,25 @@ use rand::{Rng, SeedableRng};
 fn configs(rng: &mut StdRng) -> Vec<BlockConfig> {
     let mut v = vec![BlockConfig::default()];
     for _ in 0..4 {
-        v.push(BlockConfig {
-            block_bytes: [8usize, 16, 32, 64, 256, 1024, 4096, 1 << 18][rng.random_range(0..8)],
-            slots: rng.random_range(0..9),
-            fuse_1q: rng.random_bool(0.5),
-            small_n: rng.random_range(0..4),
-        });
+        let mut c = BlockConfig::default();
+        c.block_bytes = [8usize, 16, 32, 64, 256, 1024, 4096, 1 << 18][rng.random_range(0..8)];
+        c.slots = rng.random_range(0..9);
+        c.fuse_1q = rng.random_bool(0.5);
+        c.small_n = rng.random_range(0..4);
+        // fields added in eb03e29; delete these two lines for 973f40b
+        c.split_phases = rng.random_bool(0.5);
+        c.schedule_diag = rng.random_bool(0.5);
+        v.push(c);
     }
     v
+}
+
+fn small(block_bytes: usize, slots: usize) -> BlockConfig {
+    let mut c = BlockConfig::default();
+    c.block_bytes = block_bytes;
+    c.slots = slots;
+    c.small_n = 0;
+    c
 }
 
 #[test]
@@ -80,7 +92,7 @@ fn blocked_large_registers_match_reference() {
         let mut rng = StdRng::seed_from_u64(seed);
         let c = random_circuit(&mut rng, n, 60 * iters(), false, false);
         let r = RefSv::run(&c);
-        for cfg in [BlockConfig::default(), BlockConfig { block_bytes: 4096, slots: 2, fuse_1q: true, small_n: 0 }] {
+        for cfg in [BlockConfig::default(), small(4096, 2)] {
             let mut sv = StateVectorF64::new(n);
             sv.apply_circuit_blocked(&c, &cfg).unwrap();
             let d = max_amp_diff(&r.a, (0..1 << n).map(|i| sv.amplitude(i)));
@@ -112,7 +124,7 @@ fn blocked_long_fusion_runs() {
             c.gate(g);
         }
         let r = RefSv::run(&c);
-        let cfg = BlockConfig { small_n: 0, block_bytes: 16, ..BlockConfig::default() };
+        let cfg = small(16, 6);
         let mut sv = StateVectorF64::new(n);
         sv.apply_circuit_blocked(&c, &cfg).unwrap();
         let d = max_amp_diff(&r.a, (0..1 << n).map(|i| sv.amplitude(i)));

@@ -172,3 +172,33 @@ cutoff `1e-14` on s²/Σs² truncates singular values ~1e-7 relative, so
 `set_cutoff(0.0)` it is exact to 1e-15. The audit's exact-MPS tests now set
 cutoff 0; the MPS agent's accuracy claims should state which cutoff they use.
 
+## 5. exp/sv HEAD ea41235 (+ eb03e29) and the merge with main
+
+**Merge with main.** Textually clean, but does not compile:
+`apply_circuit_blocked` matches `Op` exhaustively with only `Gate`/`Measure`
+(E0004: Reset, ClassicControlled, XFlip, … not covered). One-line fix: a
+`_ =>` panic arm. With it, **973f40b + main passes every test in the tree**
+(lib 34, algorithms, blocked, cross_check, identities, noise, properties,
+repetition, surface) plus `differential_fuzz` and the blocked adapter at
+`QSIM_FUZZ_ITERS=5`. Verdict for 973f40b: **REPRODUCED, safe to merge**
+(with the fix).
+
+**BUG at HEAD ea41235** (regression introduced by eb03e29 "real-rotation/
+phase split of fused 1q gates"). `apply_circuit_blocked` with
+`BlockConfig::default()` returns wrong amplitudes; greedy delta-debugging
+(`audit-adapters/sv_blocked_repro_ea41235.rs`) shrinks the fuzz failure
+(seed 2698035465) to 10 gates on 5 qubits:
+
+```
+[Y(0), Cnot(0,4), Rx(0, π/4), Z(0), H(0), X(0), S(0), Z(0), T(0), H(0)]
+max |Δamp| = 0.261 vs reference
+```
+
+It fails only with `fuse_1q && split_phases` (either `schedule_diag`); it
+passes without the leading `Y(0)` or without the CNOT, and with
+`split_phases = false`. So the phase factor of a split fused run is applied
+on the wrong side of a non-diagonal op on the same qubit. The branch's own
+`tests/blocked.rs` (random brickwork / universal circuits vs gate-by-gate)
+did not catch it. Verdict for ea41235: **BUG — do not merge**. (The sv agent
+had already exited, so the repro was handed to the parent.)
+
