@@ -96,7 +96,9 @@ fn bench<T: Real>(wl: &str, n: usize, depth: usize, reps: usize, specs: &[String
         .unwrap_or(3.228);
     let threads = rayon::current_num_threads();
     let mut times: Vec<Vec<f64>> = vec![Vec::new(); cfgs.len()];
-    let mut last: Vec<Option<StateVector<T>>> = (0..cfgs.len()).map(|_| None).collect();
+    // only the first config's final state is kept (memory: n=26 f64 is 1 GiB)
+    let mut first: Option<StateVector<T>> = None;
+    let mut diffs = vec![0.0f64; cfgs.len()];
     let mut csv = std::env::var("CSV").ok().map(|p| {
         std::fs::OpenOptions::new()
             .create(true)
@@ -117,7 +119,11 @@ fn bench<T: Real>(wl: &str, n: usize, depth: usize, reps: usize, specs: &[String
             if let Some(f) = csv.as_mut() {
                 writeln!(f, "{wl},{n},{prec},{name},{rep},{dt:.6}").unwrap();
             }
-            last[i] = Some(s);
+            if i == 0 {
+                first = Some(s);
+            } else if rep == reps - 1 {
+                diffs[i] = maxdiff(first.as_ref().unwrap().amplitudes(), s.amplitudes());
+            }
         }
     }
     for (i, (name, cfg)) in cfgs.iter().enumerate() {
@@ -126,10 +132,7 @@ fn bench<T: Real>(wl: &str, n: usize, depth: usize, reps: usize, specs: &[String
         let fused = fuse_1q(&ops, n, false);
         let work = amp_ops(&fused, n);
         let cyc = min * ghz * 1e9 * threads as f64 / work;
-        let d = maxdiff(
-            last[0].as_ref().unwrap().amplitudes(),
-            last[i].as_ref().unwrap().amplitudes(),
-        );
+        let d = diffs[i];
         let extra = match cfg {
             Some(cfg) if cfg.l1_tile_bytes > 0 => {
                 let st = tile_stats::<T>(&ops, n, cfg);
