@@ -573,7 +573,7 @@ impl DemSampler {
                 continue;
             }
             if let Some(locs) = by_kind.remove(&kind) {
-                groups.push((p.min(1.0), (1.0 - p.min(1.0)).ln(), locs));
+                groups.push((p.min(1.0), (-p.min(1.0)).ln_1p(), locs));
             }
         }
         Self {
@@ -629,7 +629,7 @@ impl DemSampler {
             loop {
                 let u: f64 = 1.0 - rng.random::<f64>();
                 let skip = (u.ln() / ln_q).floor();
-                if !(skip < (n - i) as f64) {
+                if skip.is_nan() || skip >= (n - i) as f64 {
                     break;
                 }
                 i += skip as usize;
