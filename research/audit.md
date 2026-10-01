@@ -374,3 +374,24 @@ tests above. Recommend making it relative to the observable's norm, or
 defaulting to 0 when t is large.
 
 Verdict: **REPRODUCED — correct, safe to merge.**
+
+## 11. main @ 8139a6a — PRs 1–3 combined (0a71b97) + HSF merged
+
+One worktree at 8139a6a, every adapter copied in, `QSIM_FUZZ_ITERS=3`.
+
+| check | result |
+|---|---|
+| crate suite (lib 48, hsf 15, stabilizer, new_gates_and_qasm, noise, surface, repetition, …) | pass |
+| differential_fuzz, sv_blocked (split_phases now off by default on main) | pass |
+| pr1_gates_qasm (11) | pass |
+| pr1_qasm_malformed (fix 7e76105) | wrong arity, extra params, `h q[2]` out of range now `Err` with clear messages. `cx q[0],q[0]` still parses, but every simulator rejects it at run time (`RepeatedQubit`), so not silent. Broadcast `h q;` is unsupported but errors. |
+| hsf_amplitudes (520 circuits, worst 1.1e-15) + non-unitary rejection (216/216 Err) | pass |
+| **hsf_newgates** (new: HSF fuzz with I/Sx/Sxdg/U/ISwap/ISwapdg in 40% of gates, PR 1 reference matrices) | pass, 503 circuits, worst Δ 8.2e-16 |
+| pauli_frame_audit (1,200 circuits, 88% non-zero; wide 61 non-zero) | pass, worst 3.6e-15 |
+| **stab_reset_audit** (new, PR 3's reset fix): reset of an entangled qubit with no prior measurement, 1–3 resets with Cliffords after; full distribution vs a RefSv branch mixture, χ² 6σ, 4,000 shots, both `Tableau::reset_qubit` and `Circuit::run` | pass (262 non-deterministic circuits). **On pre-PR3 main 5b51571 it fails immediately** (χ² = 4000, n = 2): the old forced-0 bug is real and is fixed. |
+
+PR 3 speed claims (syndrome d=21 100–145×, GHZ measure 4800×) were **not
+re-timed** (budget); correctness of the outcome distributions is covered
+above and by the crate's frozen-reference hash tests.
+
+Verdict for main @ 8139a6a: **correct, all audit gates green.**
