@@ -747,3 +747,60 @@ fn oracle_detects_a_non_commuting_swap() {
     c2.h(0).measure(0).x(1).h(0).cnot(0, 1).measure(1);
     assert_same_states(&full_states(&c1), &full_states(&c2), 1e-12, "oracle");
 }
+
+/// On parameter-free gates spanning at most 3 qubits the rule set is also
+/// complete: it reports commuting exactly when the matrices commute.
+#[test]
+fn ops_commute_is_complete_on_named_gates() {
+    use Gate::*;
+    let mut gates = Vec::new();
+    for q in 0..3 {
+        gates.extend([
+            I(q),
+            H(q),
+            X(q),
+            Y(q),
+            Z(q),
+            S(q),
+            Sdg(q),
+            T(q),
+            Tdg(q),
+            Sx(q),
+            Sxdg(q),
+        ]);
+    }
+    for a in 0..3 {
+        for b in 0..3 {
+            if a != b {
+                gates.extend([Cnot(a, b), Cz(a, b), Swap(a, b), ISwap(a, b), ISwapdg(a, b)]);
+                let t = 3 - a - b;
+                gates.push(Ccx(a, b, t));
+            }
+        }
+    }
+    let n = 3;
+    let dim = 1 << n;
+    for a in &gates {
+        for b in &gates {
+            let (ma, mb) = (embed_dense(a, n), embed_dense(b, n));
+            let mut d = 0.0f64;
+            for i in 0..dim {
+                for j in 0..dim {
+                    let mut ab = C::new(0.0, 0.0);
+                    let mut ba = C::new(0.0, 0.0);
+                    for k in 0..dim {
+                        ab += ma[i * dim + k] * mb[k * dim + j];
+                        ba += mb[i * dim + k] * ma[k * dim + j];
+                    }
+                    d = d.max((ab - ba).norm());
+                }
+            }
+            let truth = d < 1e-9;
+            assert_eq!(
+                dag::ops_commute(&Op::Gate(*a), &Op::Gate(*b)),
+                truth,
+                "{a:?} vs {b:?}"
+            );
+        }
+    }
+}

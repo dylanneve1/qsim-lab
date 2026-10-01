@@ -134,7 +134,7 @@ fn counts(label: &str, c: &Circuit) {
     let g0 = c.num_gates();
     let pct = |x: usize| 100.0 * (g0 as f64 - x as f64) / g0.max(1) as f64;
     println!(
-        "{label:<34} gates {g0:>7} | optimize() {:>7} ({:>5.1}%) | dag-adjacent {:>7} ({:>5.1}%) | dag-commute {:>7} ({:>5.1}%) | T {:>5} -> {:>5} / {:>5} | passes {}",
+        "{label:<34} gates {g0:>7} | optimize() {:>7} ({:>5.1}%) | dag-adjacent {:>7} ({:>5.1}%) | dag-commute {:>7} ({:>5.1}%) | T {:>5} -> {:>5} / {:>5} | passes {} searches {} steps {}",
         base.num_gates(),
         pct(base.num_gates()),
         o_adj.circuit.num_gates(),
@@ -145,6 +145,8 @@ fn counts(label: &str, c: &Circuit) {
         base.t_count(),
         o.circuit.t_count(),
         st.passes,
+        st.searches,
+        st.walk_steps,
     );
     // Spot-check exactness on small unitary bodies.
     let body = |c: &Circuit| Circuit {
@@ -248,6 +250,19 @@ fn run_timing() {
         let t_topo = time_min(5, || {
             std::hint::black_box(d2.topo_order());
         });
+        let mut lb = String::new();
+        for look_back in [0, 1, 4, 16] {
+            let o = PeepholeOptions {
+                look_back,
+                ..Default::default()
+            };
+            let mut gates = 0;
+            let t = time_min(5, || {
+                gates = dag::optimize_with(&c, o).unwrap().0.circuit.num_gates();
+            });
+            lb += &format!(" lb{look_back}: {:.0} ns/op ({gates} gates)", 1e9 * t / ops);
+        }
+        println!("  look-back sweep:{lb}");
         let t_cone = time_min(5, || {
             std::hint::black_box(dag::light_cone(&c, &[0]).unwrap());
         });

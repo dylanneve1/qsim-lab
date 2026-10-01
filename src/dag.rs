@@ -41,6 +41,7 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU};
 use std::fmt;
+use std::hash::{BuildHasherDefault, Hasher};
 
 /// Index of a node. Ids are stable: removing a node never renumbers the
 /// others, and new nodes get fresh ids.
@@ -1234,7 +1235,11 @@ pub fn ops_commute(a: &Op, b: &Op) -> bool {
     if ga == gb {
         return true;
     }
-    if parameter_free(ga) && parameter_free(gb) {
+    // Two single-qubit named gates commute iff they share an eigenbasis
+    // (Z: diagonal, X: X/Sx, Y: Y, or H's), which the axis rule and the
+    // equality test above already decide; only multi-qubit pairs need the
+    // matrix check.
+    if (an > 1 || bn > 1) && parameter_free(ga) && parameter_free(gb) {
         return matrix_commute_cached(ga, gb);
     }
     false
@@ -1242,7 +1247,27 @@ pub fn ops_commute(a: &Op, b: &Op) -> bool {
 
 thread_local! {
     /// Memo of matrix commutation checks, keyed by [`shape_key`].
-    static COMMUTE_CACHE: RefCell<HashMap<u32, bool>> = RefCell::new(HashMap::new());
+    static COMMUTE_CACHE: RefCell<HashMap<u32, bool, BuildHasherDefault<MulHasher>>> =
+        RefCell::new(HashMap::default());
+}
+
+/// Multiplicative hasher for small integer keys (the std SipHash costs
+/// more than the rest of a commutation check).
+#[derive(Default)]
+struct MulHasher(u64);
+
+impl Hasher for MulHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.0 = (self.0.rotate_left(5) ^ b as u64).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+        }
+    }
+    fn write_u32(&mut self, x: u32) {
+        self.0 = (x as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    }
 }
 
 /// Index of a parameter-free gate kind (`None` for parametrised gates).
@@ -1482,6 +1507,10 @@ pub struct PeepholeOptions {
     /// If false, a gate only merges with its direct wire neighbour (the
     /// adjacent-only baseline, for A/B measurements).
     pub commute: bool,
+    /// After a rewrite, how many earlier nodes per wire are re-queued for
+    /// another partner search (they may have been blocked by the removed
+    /// gates). 0 relies on whole extra passes alone.
+    pub look_back: usize,
 }
 
 impl Default for PeepholeOptions {
@@ -1490,6 +1519,7 @@ impl Default for PeepholeOptions {
             window: 1024,
             fixpoint: true,
             commute: true,
+            look_back: 4,
         }
     }
 }
@@ -1501,6 +1531,9 @@ pub struct PeepholeStats {
     pub merges: usize,
     pub cancellations: usize,
     pub removed_identities: usize,
+    /// Partner searches started, and nodes walked past in total.
+    pub searches: usize,
+    pub walk_steps: usize,
 }
 
 /// Commutation-aware peephole on a circuit (see [`peephole`]).
@@ -1801,16 +1834,17 @@ pub fn peephole(d: &mut Dag, opts: PeepholeOptions) -> (f64, PeepholeStats) {
                 continue;
             }
             let Op::Gate(g) = *d.op(id) else { continue };
-            let Some((m, mg)) = find_partner(d, id, &g, opts) else {
+            stats.searches += 1;
+            let Some((m, mg)) = find_partner(d, id, &g, opts, &mut stats.walk_steps) else {
                 continue;
             };
             let (out, ph) = combine(&g, &mg).expect("partner is combinable");
             phase += ph;
-            let mut revisit = wire_predecessors(d, id, LOOK_BACK);
+            let mut revisit = wire_predecessors(d, id, opts.look_back);
             d.remove(id).expect("live");
             match out {
                 None => {
-                    revisit.extend(wire_predecessors(d, m, LOOK_BACK));
+                    revisit.extend(wire_predecessors(d, m, opts.look_back));
                     d.remove(m).expect("live");
                     stats.cancellations += 1;
                 }
@@ -1840,9 +1874,6 @@ pub fn peephole(d: &mut Dag, opts: PeepholeOptions) -> (f64, PeepholeStats) {
     (phase.rem_euclid(TAU), stats)
 }
 
-/// How far back along each wire a rewrite re-queues earlier gates.
-const LOOK_BACK: usize = 16;
-
 /// Up to `k` live nodes before `id` on each of its wires.
 fn wire_predecessors(d: &Dag, id: NodeId, k: usize) -> Vec<NodeId> {
     let n = d.n(id);
@@ -1864,7 +1895,13 @@ fn wire_predecessors(d: &Dag, id: NodeId, k: usize) -> Vec<NodeId> {
 /// Walks forward from gate node `id` along each of its wires, past nodes
 /// it commutes with, to the first node it can combine with. Returns that
 /// node if it is the same on every wire.
-fn find_partner(d: &Dag, id: NodeId, g: &Gate, opts: PeepholeOptions) -> Option<(NodeId, Gate)> {
+fn find_partner(
+    d: &Dag,
+    id: NodeId,
+    g: &Gate,
+    opts: PeepholeOptions,
+    walked: &mut usize,
+) -> Option<(NodeId, Gate)> {
     let gop = Op::Gate(*g);
     let node = d.n(id);
     let mut found: Option<NodeId> = None;
@@ -1886,6 +1923,7 @@ fn find_partner(d: &Dag, id: NodeId, g: &Gate, opts: PeepholeOptions) -> Option<
                 return None;
             }
             steps += 1;
+            *walked += 1;
             cur = c.next[c.slot(q).expect("wire")];
         };
         match found {
