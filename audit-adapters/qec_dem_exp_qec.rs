@@ -1,5 +1,5 @@
 //! Variant of tests/qec_dem_audit.rs for the exp/qec circuit-derived DEM API
-//! (`SurfaceCode::with_noise`, `ErrorMechanism::probability`).
+//! (updated for exp/qec @ dbc3e86: `SurfaceCode::dem_sampler(&noise)`).
 //! Audit: does the surface-code "fast detector sampler" reproduce the
 //! detector statistics of full circuit-level tableau simulation?
 //!
@@ -23,7 +23,7 @@ use qsim_lab::noise::NoiseModel;
 use qsim_lab::qec::SurfaceCode;
 use qsim_lab::Tableau;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 
 struct Stats {
     det: Vec<usize>,
@@ -55,25 +55,10 @@ fn tableau_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut S
 
 fn fast_stats(sc: &SurfaceCode, noise: &NoiseModel, shots: usize, rng: &mut StdRng) -> Stats {
     let nd = sc.decoder.graph.num_nodes;
-    let mut s = Stats {
-        det: vec![0; nd],
-        raw_logical: 0,
-        decoded_errors: 0,
-    };
-    let mut flags = vec![false; nd];
+    let mut s = Stats { det: vec![0; nd], raw_logical: 0, decoded_errors: 0 };
+    let sampler = sc.dem_sampler(noise);
     for _ in 0..shots {
-        flags.fill(false);
-        let mut flip = false;
-        for em in &sc.error_mechanisms {
-            let p = em.probability;
-            if p > 0.0 && rng.random::<f64>() < p {
-                for &d in &em.detectors {
-                    flags[d] ^= true;
-                }
-                flip ^= em.flips_logical;
-            }
-        }
-        let defects: Vec<usize> = (0..nd).filter(|&d| flags[d]).collect();
+        let (defects, flip) = sampler.sample(rng);
         for &d in &defects {
             s.det[d] += 1;
         }
@@ -118,7 +103,9 @@ fn fast_detector_sampler_matches_tableau_d3() {
         _ => NoiseModel::circuit_level(p, p),
     };
     println!("noise mode {mode}: {noise:?}");
-    let sc = SurfaceCode::with_noise(3, 3, &noise);
+    let d: usize = std::env::var("QSIM_DEM_D").ok().and_then(|s| s.parse().ok()).unwrap_or(3);
+    // built with a DIFFERENT noise model on purpose: the sampler must use the caller's
+    let sc = SurfaceCode::new(d, d);
     let mut rng = StdRng::seed_from_u64(7);
     let tab = tableau_stats(&sc, &noise, shots, &mut rng);
     let fast = fast_stats(&sc, &noise, shots, &mut rng);

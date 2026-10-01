@@ -402,3 +402,45 @@ peeks and outcome sequences equal a fresh tableau under the same RNG; n up
 to 130; deterministic peeks vs RefSv) passes on 8139a6a. With 923addc's
 three sign-clearing lines removed it fails immediately (peek mismatch,
 n = 2), so the test covers the PR1×PR3 semantic conflict.
+
+## 12. PR #4 exp/qec @ dbc3e86 — circuit-derived DEM, exact sampler, hook-safe order
+
+**DEM vs full tableau** — `audit-adapters/qec_dem_exp_qec.rs` updated to the
+new API (`SurfaceCode::new(d,d).dem_sampler(&noise)`; the code object is
+deliberately built without the noise so the sampler must use the caller's).
+Per-detector two-proportion z, Bonferroni 4.9σ, seed 7. Raw:
+`research/data/audit/qec_dbc3e86_channels.txt`.
+
+| noise (p = 0.005 base) | shots | max \|z\| (dets) | raw logical tab / DEM | decoded tab / DEM |
+|---|---|---|---|---|
+| **reset only (0.02)** — was 28.6σ at 100c2dc | 20k | **2.5** (17) | 0 / 0 | 0 / 0 |
+| readout only (0.02) | 20k | 1.7 | 0.0597 / 0.0586 | 0.0123 / 0.0137 |
+| 2q depolarising only (0.01) | 20k | 3.2 | 0.1040 / 0.1011 | 0.0226 / 0.0236 |
+| 1q depolarising only (0.02) | 20k | 0 (no Z-detector events either way: 1q noise only follows H on X ancillas) | 0 / 0 | 0 / 0 |
+| circuit-level, no reset | 20k | 1.4 | 0.0715 / 0.0675 | 0.0118 / 0.0106 |
+| circuit-level, all channels | 80k | 2.0 | 0.06591 / 0.06586 | 0.01174 / 0.01150 |
+| circuit-level, all channels, **d = 5** | 20k | 2.5 (73) | 0.1673 / 0.1670 | 0.0135 / 0.0123 |
+
+Both earlier bugs are gone: reset faults are now in the model (reset-only
+agrees), and `dem_sampler` / `run_experiment(…, DetectorErrorModel)` with
+`NoiseModel::none()` give 0 defects / 0 logical errors in 2,000 shots.
+
+**Hook claim, checked without the branch's fault list** —
+`audit-adapters/qec_hook_audit.rs`. Faults are injected as explicit gates
+into `build_circuit()`, run noiselessly on the tableau, and decoded with
+`sc.decoder`:
+- Every single fault (15 two-qubit Paulis after each CNOT, X/Y/Z after each
+  H and reset, readout flips) is corrected: **d=3 1,233/1,233, d=5
+  6,793/6,793**. 3,000 random fault *pairs* at d=5 are all corrected.
+- Old NW,NE,SW,SE order (rebuilt by swapping the 2nd/3rd CNOT of each
+  weight-4 X check): **all 6 hook faults at d=3 have exactly the Z-detector
+  pattern of a single data-X fault with the opposite logical flip**, so no
+  decoder can correct them. New order: 0 of 6. Decoder-independent
+  confirmation of the claim.
+
+Branch suite, clippy `-D warnings`, fmt: pass. Merged into main as part of
+db30279; the merged tree passes all 22 test binaries including these
+adapters.
+
+Verdict: **REPRODUCED — correct (already merged).** No speed headline in
+this PR to re-time.
