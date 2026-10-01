@@ -134,8 +134,7 @@ Final run (`research/data/pipeline/bench_final.txt`, load 5.7):
 Reading it honestly:
 * The blocked-by-default `Circuit::run` is the generic win: 2.7-4x over gate-by-gate on dense
   circuits and mid-circuit circuits on this box. (An earlier run, `bench1.txt`, measured 1.4x at
-  n = 20 and 3.7x at n = 22: the load was equally high, so the n = 20 figure is uncertain. Block
-  size is tuned for n > 14.)
+  n = 20 and 3.7x at n = 22: the load was equally high, so the n = 20 figure is uncertain.)
 * `simulate` on a *dense* circuit is the same engine as `run`: 0.9-1.2x (noise). The pipeline only
   adds value when the circuit has structure: independent components (1000x+ here, because 2x12
   qubits replace one 24-qubit vector), Clifford (tableau), and few-T Clifford+T (adaptive,
