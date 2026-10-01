@@ -218,3 +218,36 @@ $B $Q run shor --modulus 1003 --semiclassical --oracle beauregard --base 2   # (
 $B $Q run shor --modulus 143 --semiclassical --oracle beauregard --base 2 --no-blocked
 cargo test --release --test shor_scale
 ```
+
+## Gate-level ripple-carry oracle: the actual circuit at N ≈ 10^6 (exp/shor-ripple)
+
+The agent hit its time limit, so the parent recorded these results from its
+bench run. Raw output: `research/data/shor/ripple_benchmarks.txt`; script:
+`bench_ripple.sh`.
+
+`src/shor_ripple.rs` builds the controlled modular multiplier only from X,
+CNOT and Toffoli gates: a Cuccaro ripple-carry adder, then a modular adder,
+then the controlled modular multiplier, with ancillas uncomputed. Those gates
+map basis states to basis states, so the exact sparse state never holds more
+than 2r nonzero amplitudes. The circuit is simulated **gate by gate** (or by
+evaluating each reversible block per sparse branch). Both modes give the same
+measured integer.
+
+| N | factors | qubits | total gates | Toffoli | peak nonzero amps | time | peak RSS |
+|---|---|---|---|---|---|---|---|
+| 143 | 11 × 13 | 28 | 74,540 | 25,846 | 40 | 0.026 s | 5 MiB |
+| 1003 | 17 × 59 | 34 | 149,430 | 52,560 | 928 | 0.066 s (gate-by-gate 0.195 s) | 6 MiB |
+| 1,003,883 | 991 × 1013 | 64 | 1,149,685 | 416,746 | 18,216 | 4.3 s | 10 MiB |
+| **1,005,973** | **997 × 1009** | **64** | **1,148,440** | **415,498** | **83,664** | **10.8 s** | **14 MiB** |
+
+The gate-level Beauregard path was limited to 10-bit N because its
+Fourier-space adder makes the state dense. The ripple-carry circuit keeps it
+sparse, so **the full gate-level Shor circuit for a 20-bit semiprime (64
+qubits, 1.15 million gates) runs exactly in about 11 s and 14 MB**. For the
+same seed, the measured value, the order (r = 41,832 for 1,005,973) and the
+base match the permutation-oracle path.
+
+The caveat still applies: the simulation cost tracks the order r, which is
+exactly why Shor is easy to simulate in this structured way and hard in
+general. This is a demonstration of exact gate-level simulation at scale, not
+a classical speedup for factoring.

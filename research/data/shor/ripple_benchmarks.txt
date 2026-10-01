@@ -1,0 +1,42 @@
+Starting Ripple benchmarks at Thu Oct  1 07:42:19 PM UTC 2026
+== --modulus 15 --semiclassical --sparse --oracle ripple --seed 1
+a=13  qubits=16  measured=0  order=Some(4)  factor=Some(5)  peak_amplitudes=8  peak_amp_bytes=350  total_gates=9872  toffoli_gates=3072
+15 = 3 x 5
+time 0.002 s  peak RSS 5.0 MiB
+== --modulus 15 --semiclassical --sparse --oracle ripple --gate-by-gate --seed 1
+a=13  qubits=16  measured=0  order=Some(4)  factor=Some(5)  peak_amplitudes=8  peak_amp_bytes=350  total_gates=9872  toffoli_gates=3072
+15 = 3 x 5
+time 0.004 s  peak RSS 4.2 MiB
+== --modulus 21 --semiclassical --sparse --oracle ripple --seed 1
+a=19  qubits=19  measured=512  order=Some(6)  factor=Some(7)  peak_amplitudes=12  peak_amp_bytes=350  total_gates=18171  toffoli_gates=5950
+21 = 3 x 7
+time 0.009 s  peak RSS 5.0 MiB
+== --modulus 21 --semiclassical --sparse --oracle ripple --gate-by-gate --seed 1
+a=19  qubits=19  measured=512  order=Some(6)  factor=Some(7)  peak_amplitudes=12  peak_amp_bytes=350  total_gates=18171  toffoli_gates=5950
+21 = 3 x 7
+time 0.007 s  peak RSS 4.2 MiB
+== --modulus 143 --semiclassical --sparse --oracle ripple --seed 1
+a=138  qubits=28  measured=26214  order=Some(20)  factor=Some(13)  peak_amplitudes=40  peak_amp_bytes=1400  total_gates=74540  toffoli_gates=25846
+143 = 11 x 13
+time 0.026 s  peak RSS 5.4 MiB
+== --modulus 143 --semiclassical --sparse --oracle ripple --gate-by-gate --seed 1
+a=138  qubits=28  measured=26214  order=Some(20)  factor=Some(13)  peak_amplitudes=40  peak_amp_bytes=1400  total_gates=74540  toffoli_gates=25846
+143 = 11 x 13
+time 0.026 s  peak RSS 5.1 MiB
+== --modulus 1003 --semiclassical --sparse --oracle ripple --seed 1
+a=976  qubits=34  measured=354798  order=Some(464)  factor=Some(17)  peak_amplitudes=928  peak_amp_bytes=44800  total_gates=149430  toffoli_gates=52560
+1003 = 17 x 59
+time 0.066 s  peak RSS 5.8 MiB
+== --modulus 1003 --semiclassical --sparse --oracle ripple --gate-by-gate --seed 1
+a=976  qubits=34  measured=354798  order=Some(464)  factor=Some(17)  peak_amplitudes=928  peak_amp_bytes=44800  total_gates=149430  toffoli_gates=52560
+1003 = 17 x 59
+time 0.195 s  peak RSS 5.4 MiB
+== --modulus 1003883 --semiclassical --sparse --oracle ripple --seed 1
+a=978026  qubits=64  measured=587661682478  order=Some(9108)  factor=Some(1013)  peak_amplitudes=18216  peak_amp_bytes=716800  total_gates=1149685  toffoli_gates=416746
+1003883 = 991 x 1013
+time 4.289 s  peak RSS 9.6 MiB
+== --modulus 1005973 --semiclassical --sparse --oracle ripple --seed 1
+a=980062  qubits=64  measured=787573303086  order=Some(41832)  factor=Some(1009)  peak_amplitudes=83664  peak_amp_bytes=2867200  total_gates=1148440  toffoli_gates=415498
+1005973 = 997 x 1009
+time 10.839 s  peak RSS 13.9 MiB
+Finished Ripple benchmarks at Thu Oct  1 07:42:34 PM UTC 2026
