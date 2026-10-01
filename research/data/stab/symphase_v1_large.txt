@@ -1,0 +1,7 @@
+[bench.sh] load at start: 7.93
+p = 0.001, rounds = d, sampler shots = 64 x 100, tableau shots = 30
+
+| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym |
+|---|---|---|---|---|---|---|---|---|---|
+| 11 | 241 | 1441 | 25422 | 156619 | 4.8 | 1616.6 | 2.545 | 635x | 415.5, 418.3 |
+| 15 | 449 | 3585 | 65746 | 546391 | 21.6 | 5524.1 | 8.848 | 624x | 1074.9, 1048.8 |
