@@ -624,4 +624,8 @@ impl Simulator for RefTableau {
         self.reset_qubit(q, rng);
         Ok(())
     }
+    fn reset_all(&mut self) -> Result<(), SimError> {
+        *self = RefTableau::new(self.n);
+        Ok(())
+    }
 }

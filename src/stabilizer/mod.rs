@@ -311,6 +311,10 @@ impl Tableau {
         self.zs.reset_identity();
         self.rd.fill(0);
         self.rs.fill(0);
+        // Inverse-row signs of the identity Clifford are all +.
+        self.sx.fill(0);
+        self.sz.fill(0);
+        self.untracked_meas = 0;
         self.layout = Layout::QubitMajor;
     }
 
