@@ -15,9 +15,9 @@
 //! `QSIM_FUZZ_SEED` changes the base seed. Failures print the seed and the
 //! offending circuit.
 
-mod common;
+mod audit_common;
 
-use common::*;
+use audit_common::*;
 use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::{Circuit, Gate, Mps, Simulator, StateVectorF32, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
