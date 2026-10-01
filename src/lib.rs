@@ -34,6 +34,7 @@
 
 pub mod algorithms;
 pub mod bench;
+pub mod blocked;
 pub mod circuit;
 pub mod gate;
 pub mod mps;
