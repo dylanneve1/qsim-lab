@@ -304,6 +304,21 @@ impl Tableau {
         self.n
     }
 
+    /// Resets the tableau back to `|0...0>` without reallocating.
+    pub fn reset_all(&mut self) {
+        self.xd.reset_identity();
+        self.zd.reset_zeros();
+        self.xs.reset_zeros();
+        self.zs.reset_identity();
+        self.rd.fill(0);
+        self.rs.fill(0);
+        // Inverse-row signs of the identity Clifford are all +.
+        self.sx.fill(0);
+        self.sz.fill(0);
+        self.untracked_meas = 0;
+        self.layout = Layout::QubitMajor;
+    }
+
     /// Bytes of tableau storage.
     pub fn bytes(&self) -> usize {
         self.xd.bytes() * 4 + (self.rd.len() * 4) * 8
@@ -513,15 +528,38 @@ impl Tableau {
             gate: *g,
         });
         match *g {
+            Gate::I(_) => {}
             Gate::H(a) => self.h(a),
             Gate::S(a) => self.s(a),
             Gate::Sdg(a) => self.sdg(a),
             Gate::X(a) => self.x(a),
             Gate::Y(a) => self.y(a),
             Gate::Z(a) => self.z(a),
+            Gate::Sx(a) => {
+                self.h(a);
+                self.s(a);
+                self.h(a);
+            }
+            Gate::Sxdg(a) => {
+                self.h(a);
+                self.sdg(a);
+                self.h(a);
+            }
             Gate::Cnot(c, t) => self.cnot(c, t),
             Gate::Cz(a, b) => self.cz(a, b),
             Gate::Swap(a, b) => self.swap(a, b),
+            Gate::ISwap(a, b) => {
+                self.swap(a, b);
+                self.cz(a, b);
+                self.s(a);
+                self.s(b);
+            }
+            Gate::ISwapdg(a, b) => {
+                self.swap(a, b);
+                self.cz(a, b);
+                self.sdg(a);
+                self.sdg(b);
+            }
             Gate::Phase(a, t) | Gate::Rz(a, t) if is_multiple_of_half_pi(t) => {
                 let k = (t / FRAC_PI_2).round().rem_euclid(4.0) as usize;
                 for _ in 0..k {
@@ -1116,6 +1154,10 @@ impl Simulator for Tableau {
             });
         }
         self.reset_qubit(q, rng);
+        Ok(())
+    }
+    fn reset_all(&mut self) -> Result<(), SimError> {
+        self.reset_all();
         Ok(())
     }
 }

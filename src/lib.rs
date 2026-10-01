@@ -39,12 +39,14 @@ pub mod circuit;
 pub mod gate;
 pub mod mps;
 pub mod noise;
+pub mod pauli_frame;
 pub mod pauli_path;
+pub mod qasm;
 pub mod qec;
 pub mod stabilizer;
 pub mod statevector;
 
-pub use circuit::{Circuit, Op, SimError, Simulator};
+pub use circuit::{Circuit, CircuitStats, Op, SimError, Simulator};
 pub use gate::Gate;
 pub use mps::Mps;
 pub use noise::NoiseModel;

@@ -83,6 +83,35 @@ enum BenchCmd {
         step: usize,
         #[arg(long, default_value_t = 1 << 22)]
         max_terms: usize,
+        #[arg(long, default_value_t = 0)]
+        min_t: usize,
+        /// legacy | frame (variants: frame-noprune, frame-nomerge, frame-serial)
+        #[arg(long, default_value = "frame")]
+        engine: String,
+        /// Stop after the first circuit slower than this (seconds).
+        #[arg(long, default_value_t = f64::INFINITY)]
+        time_limit: f64,
+        /// Report the minimum time over this many runs.
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        /// z0 (<Z_0>, exactly 0 on these circuits) | stab (a stabilizer of
+        /// the Clifford skeleton, generically non-zero)
+        #[arg(long, default_value = "z0")]
+        observable: String,
+    },
+    /// Pauli paths on a Cuccaro ripple-carry adder (structured Toffoli
+    /// circuit) of growing width.
+    Adder {
+        #[arg(long, value_delimiter = ',', default_values_t = [2, 4, 8, 16, 32, 64])]
+        bits: Vec<usize>,
+        #[arg(long, default_value_t = 1 << 22)]
+        max_terms: usize,
+        #[arg(long, default_value = "frame")]
+        engine: String,
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        #[arg(long, default_value_t = 30.0)]
+        time_limit: f64,
     },
     /// MPS: GHZ at large n, then random circuits.
     Mps {
@@ -156,10 +185,34 @@ fn main() {
                 max_t,
                 step,
                 max_terms,
+                min_t,
+                engine,
+                time_limit,
+                repeat,
+                observable,
             } => {
-                println!("## Clifford+T, Pauli-path summation\n");
-                let ts: Vec<usize> = (0..=max_t).step_by(step.max(1)).collect();
-                bench::clifford_t(qubits, depth, &ts, max_terms);
+                println!("## Clifford+T, Pauli-path summation ({engine}, {observable})\n");
+                let ts: Vec<usize> = (min_t..=max_t).step_by(step.max(1)).collect();
+                bench::clifford_t_with(
+                    qubits,
+                    depth,
+                    &ts,
+                    max_terms,
+                    &engine,
+                    time_limit,
+                    repeat,
+                    &observable,
+                );
+            }
+            BenchCmd::Adder {
+                bits,
+                max_terms,
+                engine,
+                repeat,
+                time_limit,
+            } => {
+                println!("## Cuccaro adder, Pauli-path summation ({engine})\n");
+                bench::adder(&bits, max_terms, &engine, repeat, time_limit);
             }
             BenchCmd::Mps {
                 random_qubits,

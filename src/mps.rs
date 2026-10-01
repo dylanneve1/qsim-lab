@@ -87,6 +87,20 @@ impl Mps {
         self.n
     }
 
+    /// Resets the MPS back to `|0...0>` without reallocating site tensor buffers.
+    pub fn reset_all(&mut self) {
+        for site in &mut self.sites {
+            site.dl = 1;
+            site.dr = 1;
+            site.data.clear();
+            site.data.push(C::new(1.0, 0.0));
+            site.data.push(C::new(0.0, 0.0));
+        }
+        self.center = 0;
+        self.fidelity = 1.0;
+        self.truncations = 0;
+    }
+
     /// Bond dimensions between neighbouring sites (`n - 1` entries).
     pub fn bond_dims(&self) -> Vec<usize> {
         self.sites[..self.n - 1].iter().map(|s| s.dr).collect()
@@ -262,6 +276,9 @@ impl Mps {
 
     pub fn apply_gate(&mut self, g: &Gate) -> Result<(), SimError> {
         check_gate(g, self.n)?;
+        if matches!(g, Gate::I(_)) {
+            return Ok(());
+        }
         if let Some(m) = g.matrix_1q() {
             let q = g.qubits()[0];
             self.apply_1q(q, &m);
@@ -416,6 +433,10 @@ impl Simulator for Mps {
             });
         }
         self.reset_qubit(q, rng);
+        Ok(())
+    }
+    fn reset_all(&mut self) -> Result<(), SimError> {
+        self.reset_all();
         Ok(())
     }
 }
