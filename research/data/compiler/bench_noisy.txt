@@ -1,0 +1,7 @@
+[bench.sh] load at start: 8.27
+min of 7 runs; sampling cases draw 1000 shots with f32 amplitudes; compiled time includes compilation.
+
+| workload | qubits | gates | always-SV (s) | compiled (s) | compile only (s) | speedup | notes |
+|---|---|---|---|---|---|---|---|
+| rep-code d7 x3 rounds + noise | 17 | 58 | 11.9824 | 0.0198 | 0.0000 | 603.9x | gates 58→58 (peephole) →58 (state prop) →58 (cone) ; suffix 0 ; comps [13q/50g/Tableau, 1q/2g/Tableau, 1q/2g/Tableau, 1q/2g/Tableau, 1q/2g/Tableau] |
+| teleport chain 6 hops (feed-forward) | 13 | 26 | 0.2550 | 0.2202 | 0.0000 | 1.2x | gates 26→26 (peephole) →26 (state prop) →26 (cone) ; suffix 0 ; comps [13q/26g/StateVector] |
