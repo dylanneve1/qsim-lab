@@ -102,6 +102,11 @@ impl BitMatrix {
     }
 
     /// All lines as consecutive `w`-word chunks.
+    pub fn raw(&self) -> &[u64] {
+        &self.data
+    }
+
+    /// All lines as consecutive `w`-word chunks, mutable.
     pub fn raw_mut(&mut self) -> &mut [u64] {
         &mut self.data
     }

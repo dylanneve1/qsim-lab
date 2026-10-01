@@ -83,6 +83,95 @@ enum BenchCmd {
         step: usize,
         #[arg(long, default_value_t = 1 << 22)]
         max_terms: usize,
+        #[arg(long, default_value_t = 0)]
+        min_t: usize,
+        /// legacy | frame (variants: frame-noprune, frame-nomerge, frame-serial)
+        #[arg(long, default_value = "frame")]
+        engine: String,
+        /// Stop after the first circuit slower than this (seconds).
+        #[arg(long, default_value_t = f64::INFINITY)]
+        time_limit: f64,
+        /// Report the minimum time over this many runs.
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        /// z0 (<Z_0>, exactly 0 on these circuits) | stab (a stabilizer of
+        /// the Clifford skeleton, generically non-zero)
+        #[arg(long, default_value = "z0")]
+        observable: String,
+    },
+    /// Pauli paths on a Cuccaro ripple-carry adder (structured Toffoli
+    /// circuit) of growing width.
+    Adder {
+        #[arg(long, value_delimiter = ',', default_values_t = [2, 4, 8, 16, 32, 64])]
+        bits: Vec<usize>,
+        #[arg(long, default_value_t = 1 << 22)]
+        max_terms: usize,
+        #[arg(long, default_value = "frame")]
+        engine: String,
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        #[arg(long, default_value_t = 30.0)]
+        time_limit: f64,
+    },
+    /// Hybrid Schrödinger–Feynman vs the f64 state vector, as the number of
+    /// gates crossing the cut grows.
+    HsfCrossover {
+        #[arg(long, default_value_t = 20)]
+        n: usize,
+        #[arg(long, value_delimiter = ',', default_values_t = [0, 2, 4, 6, 8, 10, 12, 14])]
+        ks: Vec<usize>,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        #[arg(long, default_value_t = 3)]
+        reps: usize,
+        /// Skip the full-output measurement.
+        #[arg(long)]
+        no_full: bool,
+    },
+    /// HSF amplitude batches beyond the state vector's memory cap.
+    HsfBig {
+        #[arg(long, value_delimiter = ',', default_values_t = [32, 36, 40])]
+        ns: Vec<usize>,
+        #[arg(long, value_delimiter = ',', default_values_t = [4, 8])]
+        ks: Vec<usize>,
+        #[arg(long, default_value_t = 6)]
+        depth: usize,
+        #[arg(long, default_value_t = 64)]
+        amps: usize,
+        /// Put all crossing gates in the middle layer instead of spreading them.
+        #[arg(long)]
+        middle: bool,
+    },
+    /// One HSF or state-vector run per process (for peak RSS).
+    HsfPoint {
+        #[arg(long)]
+        n: usize,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        /// sv, full or amps
+        #[arg(long)]
+        mode: String,
+    },
+    /// A/B of HSF design choices on one circuit.
+    HsfAblation {
+        #[arg(long, default_value_t = 22)]
+        n: usize,
+        #[arg(long, default_value_t = 8)]
+        k: usize,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        #[arg(long, default_value_t = 3)]
+        reps: usize,
+        #[arg(long)]
+        middle: bool,
     },
     /// MPS: GHZ at large n, then random circuits.
     Mps {
@@ -156,10 +245,73 @@ fn main() {
                 max_t,
                 step,
                 max_terms,
+                min_t,
+                engine,
+                time_limit,
+                repeat,
+                observable,
             } => {
-                println!("## Clifford+T, Pauli-path summation\n");
-                let ts: Vec<usize> = (0..=max_t).step_by(step.max(1)).collect();
-                bench::clifford_t(qubits, depth, &ts, max_terms);
+                println!("## Clifford+T, Pauli-path summation ({engine}, {observable})\n");
+                let ts: Vec<usize> = (min_t..=max_t).step_by(step.max(1)).collect();
+                bench::clifford_t_with(
+                    qubits,
+                    depth,
+                    &ts,
+                    max_terms,
+                    &engine,
+                    time_limit,
+                    repeat,
+                    &observable,
+                );
+            }
+            BenchCmd::Adder {
+                bits,
+                max_terms,
+                engine,
+                repeat,
+                time_limit,
+            } => {
+                println!("## Cuccaro adder, Pauli-path summation ({engine})\n");
+                bench::adder(&bits, max_terms, &engine, repeat, time_limit);
+            }
+            BenchCmd::HsfCrossover {
+                n,
+                ks,
+                depth,
+                amps,
+                reps,
+                no_full,
+            } => {
+                println!("## HSF vs state vector, n = {n}, depth {depth}\n");
+                bench::hsf_crossover(n, &ks, depth, amps, reps, !no_full);
+            }
+            BenchCmd::HsfBig {
+                ns,
+                ks,
+                depth,
+                amps,
+                middle,
+            } => {
+                println!("## HSF beyond the state vector, depth {depth}, middle = {middle}\n");
+                bench::hsf_big(&ns, &ks, depth, amps, middle);
+            }
+            BenchCmd::HsfPoint {
+                n,
+                k,
+                depth,
+                amps,
+                mode,
+            } => bench::hsf_point(n, k, depth, amps, &mode),
+            BenchCmd::HsfAblation {
+                n,
+                k,
+                depth,
+                amps,
+                reps,
+                middle,
+            } => {
+                println!("## HSF ablation, n = {n}, k = {k}, depth {depth}, middle = {middle}\n");
+                bench::hsf_ablation(n, k, depth, amps, reps, middle);
             }
             BenchCmd::Mps {
                 random_qubits,

@@ -1,0 +1,36 @@
+[bench.sh] load at start: 10.78
+
+running 1 test
+det  tableau_rate  fast_rate  z
+  0  0.01145  0.01445  -2.7
+  1  0.02025  0.02510  -3.3
+  2  0.01765  0.02355  -4.2
+  3  0.01370  0.01465  -0.8
+  4  0.03310  0.01740  +10.0
+  5  0.05885  0.02830  +15.0
+  6  0.05835  0.02960  +14.0
+  7  0.03370  0.01995  +8.5
+  8  0.03650  0.01865  +10.9
+  9  0.06120  0.03180  +14.0
+ 10  0.06100  0.02845  +15.7
+ 11  0.03810  0.01960  +11.1
+ 12  0.03270  0.01495  +11.6
+ 13  0.05805  0.02305  +17.7
+ 14  0.05760  0.02545  +16.1
+ 15  0.03045  0.01505  +10.3
+ 16  0.00000  0.00000  +0.0
+raw logical flip: tableau 0.07665 fast 0.05725 z=+7.8
+decoded logical error: tableau 0.02495 fast 0.00425 z=+17.3
+
+thread 'fast_detector_sampler_matches_tableau_d3' (461656) panicked at tests/qec_dem_audit.rs:143:5:
+detector model disagrees with circuit: 12 detectors beyond 4.9σ (worst 17.7σ), logical z=7.8, decoded z=17.3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test fast_detector_sampler_matches_tableau_d3 ... FAILED
+
+failures:
+
+failures:
+    fast_detector_sampler_matches_tableau_d3
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.61s
+

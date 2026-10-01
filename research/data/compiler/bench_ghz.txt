@@ -1,0 +1,6 @@
+[bench.sh] load at start: 7.49
+min of 7 runs; sampling cases draw 1000 shots with f32 amplitudes; compiled time includes compilation.
+| workload | qubits | gates | always-SV (s) | compiled (s) | compile only (s) | speedup | notes |
+|---|---|---|---|---|---|---|---|
+| ghz20 | 20 | 20 | 0.0074 | 0.0010 | 0.0000 | 7.2x | gates 20→20 (peephole) →20 (state prop) →1 (cone) ; suffix 19 ; comps [1q/1g/Tableau] |
+| ghz24 | 24 | 24 | 0.1124 | 0.0012 | 0.0000 | 90.5x | gates 24→24 (peephole) →24 (state prop) →1 (cone) ; suffix 23 ; comps [1q/1g/Tableau] |

@@ -340,3 +340,39 @@ fn qasm_rejects_wrong_arity_and_bad_registers() {
         ]
     );
 }
+
+/// `reset_all` must leave the tableau indistinguishable from a fresh one,
+/// including the inverse-row signs used by sign tracking.
+#[test]
+fn tableau_reset_all_matches_fresh_tableau() {
+    let mut rng = StdRng::seed_from_u64(9);
+    for _ in 0..30 {
+        let n = 7;
+        let mut c = Circuit::new(n);
+        for _ in 0..40 {
+            let q = rng.random_range(0..n);
+            let mut r = rng.random_range(0..n);
+            while r == q {
+                r = rng.random_range(0..n);
+            }
+            match rng.random_range(0..6) {
+                0 => c.h(q),
+                1 => c.s(q),
+                2 => c.cnot(q, r),
+                3 => c.cz(q, r),
+                4 => c.measure(q),
+                _ => c.x(q),
+            };
+        }
+        c.measure_all();
+        let seed = rng.random::<u64>();
+        let mut fresh = Tableau::new(n);
+        let want = c.run(&mut fresh, &mut StdRng::seed_from_u64(seed)).unwrap();
+        let mut used = Tableau::new(n);
+        c.run(&mut used, &mut StdRng::seed_from_u64(seed ^ 1))
+            .unwrap();
+        used.reset_all();
+        let got = c.run(&mut used, &mut StdRng::seed_from_u64(seed)).unwrap();
+        assert_eq!(want, got);
+    }
+}

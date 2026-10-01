@@ -22,8 +22,18 @@ pub enum SimError {
     },
     /// The Pauli-path simulator exceeded its term budget.
     TooManyTerms { terms: usize, limit: usize },
+    /// The backend computes amplitudes of a unitary circuit and cannot apply
+    /// the non-unitary operation (measurement, reset, noise channel or
+    /// classically conditioned gate) at position `op_index` of `Circuit::ops`.
+    MeasurementNotSupported {
+        backend: &'static str,
+        op_index: usize,
+    },
     /// A classical bit index referenced by a conditional operation was out of range.
     ClassicalBitOutOfRange { bit: usize, available: usize },
+    /// The request needs something this circuit does not have (e.g. a
+    /// state vector or amplitude of a circuit with measurements or noise).
+    NotSupported { what: &'static str },
     /// Failed to parse OpenQASM source.
     QasmError(String),
 }
@@ -45,12 +55,17 @@ impl fmt::Display for SimError {
             SimError::TooManyTerms { terms, limit } => {
                 write!(f, "{terms} Pauli terms exceeds the limit of {limit}")
             }
+            SimError::MeasurementNotSupported { backend, op_index } => write!(
+                f,
+                "the {backend} backend cannot simulate the non-unitary operation at op {op_index}"
+            ),
             SimError::ClassicalBitOutOfRange { bit, available } => {
                 write!(
                     f,
                     "classical bit {bit} is out of range ({available} available)"
                 )
             }
+            SimError::NotSupported { what } => write!(f, "not supported: {what}"),
             SimError::QasmError(msg) => write!(f, "OpenQASM error: {msg}"),
         }
     }

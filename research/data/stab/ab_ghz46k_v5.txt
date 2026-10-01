@@ -1,0 +1,11 @@
+[bench.sh] load at start: 15.86
+## ghz (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| ghz n=46336 | 2.81352 | 2.27306 | 1.24 | 1.10 | same |
+## ghz (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| ghz n=46336 | 1.63653 | 1.69360 | 0.97 | 1.02 | same |

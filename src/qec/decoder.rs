@@ -49,6 +49,35 @@ impl DecodingGraph {
         self.adj[u].push(edge_idx);
         self.adj[v].push(edge_idx);
     }
+
+    /// Minimum number of edges in a set that triggers no detector but flips
+    /// the logical observable (the graph-like circuit distance): a shortest
+    /// walk from the boundary back to the boundary with odd logical parity.
+    /// Returns `None` if no such set exists.
+    pub fn min_logical_weight(&self) -> Option<usize> {
+        let n = self.num_nodes;
+        let b = self.boundary_node;
+        let mut dist = vec![usize::MAX; 2 * n];
+        let mut q = VecDeque::new();
+        dist[2 * b] = 0;
+        q.push_back((b, 0usize));
+        while let Some((u, par)) = q.pop_front() {
+            let du = dist[2 * u + par];
+            for &e in &self.adj[u] {
+                let edge = &self.edges[e];
+                let v = if edge.u == u { edge.v } else { edge.u };
+                let np = par ^ edge.flips_logical as usize;
+                if dist[2 * v + np] == usize::MAX {
+                    dist[2 * v + np] = du + 1;
+                    if v == b && np == 1 {
+                        return Some(du + 1);
+                    }
+                    q.push_back((v, np));
+                }
+            }
+        }
+        None
+    }
 }
 
 /// Disjoint Set Union (DSU) structure tracking parity and boundary connectivity.

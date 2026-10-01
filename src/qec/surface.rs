@@ -4,16 +4,47 @@
 //! For code distance `d`, there are `d^2` data qubits and `d^2 - 1` syndrome ancillas
 //! (`(d^2 - 1) / 2` Z-type and `(d^2 - 1) / 2` X-type), for a total of `2d^2 - 1` physical qubits.
 //!
-//! A logical qubit `|0_L>` is stored and protected across `rounds = d` syndrome extraction
-//! cycles with circuit-level depolarizing noise and readout errors. Syndromes are extracted
-//! on the stabilizer tableau and decoded with the [`UnionFindDecoder`].
+//! A logical qubit `|0_L>` is stored for `rounds` syndrome-extraction cycles under
+//! circuit-level noise ([`NoiseModel`]: depolarizing after every gate, readout flips,
+//! reset flips) and then all data qubits are measured in the Z basis. Only the Z-type
+//! detectors are decoded (a Z-basis memory experiment is sensitive to X errors only).
+//!
+//! # Detectors and observable
+//!
+//! Detector `r * num_z + k` (for Z-stabilizer `k`):
+//! * `r = 0`: the round-0 measurement of ancilla `k` (deterministically 0 without noise);
+//! * `0 < r < rounds`: round `r` XOR round `r - 1` of ancilla `k`;
+//! * `r = rounds`: parity of the final data measurements in stabilizer `k`, XOR the last
+//!   ancilla measurement.
+//!
+//! The observable is the parity of the final data measurements on column 0 (`Z_L`).
+//!
+//! # Sampling methods
+//!
+//! [`SamplingMethod::Tableau`] runs the full circuit through the CHP tableau with
+//! [`Circuit::run_noisy`]. [`SamplingMethod::DetectorErrorModel`] samples the same
+//! distribution from the circuit-derived fault list in [`crate::qec::dem`] (every noise
+//! location and every Pauli the noise model can insert, propagated through the circuit).
+//! The two are checked against each other per detector and on the decoded logical error
+//! rate (`tests/qec_dem_audit.rs`). There is no silent switch between them.
+//!
+//! # Decoding graph
+//!
+//! [`SurfaceCode::new`] builds the Union-Find graph from the circuit's faults
+//! ([`crate::qec::dem::decoding_graph_from_faults`]), so it contains the diagonal
+//! (space-time) edges produced by faults in the middle of the CNOT schedule.
+//! [`SurfaceCode::with_phenomenological_decoder`] keeps the older hand-built graph
+//! (space edges per round and time edges only) for comparison.
 
 use crate::circuit::Circuit;
 use crate::noise::NoiseModel;
 use crate::qec::decoder::{DecodingGraph, UnionFindDecoder};
+use crate::qec::dem::{
+    decoding_graph_from_faults, CircuitFaults, DemSampler, ErrorMechanism, GraphReport,
+};
 use crate::qec::repetition::MemoryExperimentResult;
 use crate::stabilizer::Tableau;
-use rand::{Rng, RngCore};
+use rand::RngCore;
 
 /// A stabilizer face on the dual grid.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,19 +52,18 @@ pub struct StabilizerFace {
     pub r: usize,
     pub c: usize,
     pub is_z: bool,
-    /// Indices of neighboring data qubits in `0..d^2`.
+    /// Indices of neighboring data qubits in `0..d^2`, in the order their
+    /// CNOTs are applied.
     pub data_qubits: Vec<usize>,
 }
 
-/// An error mechanism in the detector error model.
-#[derive(Clone, Debug)]
-pub struct ErrorMechanism {
-    /// Detectors flipped by this error.
-    pub detectors: Vec<usize>,
-    /// Whether this error flips the logical Z observable.
-    pub flips_logical: bool,
-    /// Probability scaling factor relative to base p.
-    pub p_factor: f64,
+/// How to sample shots of the memory experiment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SamplingMethod {
+    /// Full circuit simulation on the stabilizer tableau (`O(n^2)` per measurement).
+    Tableau,
+    /// Exact sampling from the circuit-derived fault list (see [`crate::qec::dem`]).
+    DetectorErrorModel,
 }
 
 /// A rotated surface code memory experiment.
@@ -44,28 +74,56 @@ pub struct SurfaceCode {
     pub z_stabilizers: Vec<StabilizerFace>,
     pub x_stabilizers: Vec<StabilizerFace>,
     pub decoder: UnionFindDecoder,
-    pub error_mechanisms: Vec<ErrorMechanism>,
+    /// Every noise location of `build_circuit()` with the detector/observable
+    /// signature of every Pauli the noise model can insert there.
+    pub faults: CircuitFaults,
+    /// How the decoding graph was derived (all zeros for the phenomenological graph).
+    pub graph_report: GraphReport,
 }
 
 impl SurfaceCode {
-    /// Creates a rotated surface code for distance `d` (must be odd >= 3) and `rounds`.
+    /// Creates a rotated surface code for distance `d` (odd, >= 3) and `rounds >= 1`,
+    /// decoded on a graph derived from the circuit's own faults.
     pub fn new(d: usize, rounds: usize) -> Self {
+        let mut sc = Self::skeleton(d, rounds);
+        // Uniform noise only sets the relative weights used to break logical-flag ties.
+        let (graph, report) = decoding_graph_from_faults(&sc.faults, &NoiseModel::uniform(1e-3));
+        sc.decoder = UnionFindDecoder::new(graph);
+        sc.graph_report = report;
+        sc
+    }
+
+    /// Same code and circuit, but decoded on the hand-built phenomenological graph
+    /// ([`SurfaceCode::build_z_decoding_graph`]): one space edge per data qubit per
+    /// round and one time edge per check, no diagonal edges.
+    pub fn with_phenomenological_decoder(d: usize, rounds: usize) -> Self {
+        Self::skeleton(d, rounds)
+    }
+
+    fn skeleton(d: usize, rounds: usize) -> Self {
         assert!(d >= 3 && d % 2 == 1, "distance must be an odd integer >= 3");
         assert!(rounds >= 1, "rounds must be >= 1");
-
         let (z_stabilizers, x_stabilizers) = Self::generate_stabilizers(d);
         let graph = Self::build_z_decoding_graph(d, rounds, &z_stabilizers);
-        let decoder = UnionFindDecoder::new(graph);
-        let error_mechanisms = Self::build_error_mechanisms(d, rounds, &z_stabilizers);
-
-        Self {
+        let mut sc = Self {
             d,
             rounds,
             z_stabilizers,
             x_stabilizers,
-            decoder,
-            error_mechanisms,
-        }
+            decoder: UnionFindDecoder::new(graph),
+            faults: CircuitFaults {
+                num_detectors: 0,
+                locations: Vec::new(),
+            },
+            graph_report: GraphReport::default(),
+        };
+        sc.faults = CircuitFaults::from_circuit(
+            &sc.build_circuit(),
+            &sc.detector_records(),
+            &sc.observable_records(),
+        )
+        .expect("surface code circuit is Clifford with NoiseModel-only noise");
+        sc
     }
 
     /// Number of data qubits: `d^2`.
@@ -152,6 +210,18 @@ impl SurfaceCode {
                     continue; // right is X boundary
                 }
 
+                // CNOT order. Z checks: NW, NE, SW, SE. X checks: NW, SW, NE, SE.
+                // An X fault on an X-check ancilla after two of its four CNOTs spreads
+                // to the last two data qubits ("hook" error). With the X-check order
+                // above that pair is vertical, i.e. perpendicular to the horizontal
+                // X-type logical, so a hook costs at most one unit of distance
+                // ([`UnionFindDecoder`] graph distance stays `d`). With NW, NE, SW, SE
+                // the hook pair is horizontal and the circuit distance for this
+                // Z-memory experiment drops to about `(d + 1) / 2` (measured: 3 at
+                // d = 5). Z-check hooks are Z errors, invisible to Z memory.
+                if !is_z && data.len() == 4 {
+                    data.swap(1, 2);
+                }
                 let face = StabilizerFace {
                     r,
                     c,
@@ -206,7 +276,7 @@ impl SurfaceCode {
                         // Internal data qubit connects two neighboring Z-stabilizers
                         let u = r * num_z + touching[0];
                         let v = r * num_z + touching[1];
-                        graph.add_edge(u, v, false, 1);
+                        graph.add_edge(u, v, is_logical, 1);
                     }
                     _ => {}
                 }
@@ -223,56 +293,6 @@ impl SurfaceCode {
         }
 
         graph
-    }
-
-    /// Builds the list of independent error mechanisms for fast detector sampling.
-    pub fn build_error_mechanisms(
-        d: usize,
-        rounds: usize,
-        z_stabs: &[StabilizerFace],
-    ) -> Vec<ErrorMechanism> {
-        let num_z = z_stabs.len();
-        let mut mechanisms = Vec::new();
-
-        let mut data_to_z = vec![Vec::new(); d * d];
-        for (k, z) in z_stabs.iter().enumerate() {
-            for &dq in &z.data_qubits {
-                data_to_z[dq].push(k);
-            }
-        }
-
-        for r in 0..=rounds {
-            // Data qubit X errors (bit flips)
-            for (dq, touching) in data_to_z.iter().enumerate().take(d * d) {
-                let (_, c) = Self::data_coords(d, dq);
-                let flips_logical = c == 0;
-
-                let mut detectors = Vec::new();
-                for &k in touching {
-                    detectors.push(r * num_z + k);
-                }
-
-                mechanisms.push(ErrorMechanism {
-                    detectors,
-                    flips_logical,
-                    p_factor: 1.0,
-                });
-            }
-
-            // Ancilla readout measurement errors
-            if r < rounds {
-                for k in 0..num_z {
-                    let detectors = vec![r * num_z + k, (r + 1) * num_z + k];
-                    mechanisms.push(ErrorMechanism {
-                        detectors,
-                        flips_logical: false,
-                        p_factor: 1.0,
-                    });
-                }
-            }
-        }
-
-        mechanisms
     }
 
     /// Builds the full quantum circuit for syndrome extraction.
@@ -339,161 +359,163 @@ impl SurfaceCode {
         c
     }
 
-    /// Extracts Z-detector defect node indices and the raw logical measurement from raw circuit output.
-    pub fn extract_z_defects(&self, raw_bits: &[bool]) -> (Vec<usize>, bool) {
-        let d = self.d;
-        let rounds = self.rounds;
-        let num_z = self.z_stabilizers.len();
-        let num_x = self.x_stabilizers.len();
-        let anc_per_round = num_z + num_x;
-
-        let mut defects = Vec::new();
-
-        // Round 0 defects
-        for (k, &bit) in raw_bits[..num_z].iter().enumerate() {
-            if bit {
-                defects.push(k);
-            }
-        }
-
-        // Intermediate rounds
-        for r in 1..rounds {
-            let curr_base = r * anc_per_round;
-            let prev_base = (r - 1) * anc_per_round;
-            for k in 0..num_z {
-                let m_curr = raw_bits[curr_base + k];
-                let m_prev = raw_bits[prev_base + k];
-                if m_curr != m_prev {
-                    defects.push(r * num_z + k);
-                }
-            }
-        }
-
-        // Final round from data qubit measurements
-        let data_base = rounds * anc_per_round;
-        let data_bits = &raw_bits[data_base..data_base + d * d];
-
-        let prev_base = (rounds - 1) * anc_per_round;
-        for (k, stab) in self.z_stabilizers.iter().enumerate() {
-            let mut parity = false;
-            for &dq in &stab.data_qubits {
-                parity ^= data_bits[dq];
-            }
-            let m_prev = raw_bits[prev_base + k];
-            if parity != m_prev {
-                defects.push(rounds * num_z + k);
-            }
-        }
-
-        // Logical Z_L is the product of Z on column 0: dq = (r, 0)
-        let mut raw_logical = false;
-        for r in 0..d {
-            raw_logical ^= data_bits[Self::data_idx(d, r, 0)];
-        }
-
-        (defects, raw_logical)
+    /// Measurement records per syndrome round (Z ancillas first, then X ancillas).
+    fn records_per_round(&self) -> usize {
+        self.z_stabilizers.len() + self.x_stabilizers.len()
     }
 
-    /// Fast detector sampling (Pauli frame / DEM sampling).
-    pub fn run_experiment_fast<R: RngCore>(
+    /// For each Z-detector (index `r * num_z + k`), the measurement records whose
+    /// parity it is. See the module docs.
+    pub fn detector_records(&self) -> Vec<Vec<usize>> {
+        let num_z = self.z_stabilizers.len();
+        let apr = self.records_per_round();
+        let data_base = self.rounds * apr;
+        let mut dets = Vec::with_capacity((self.rounds + 1) * num_z);
+        for r in 0..self.rounds {
+            for k in 0..num_z {
+                let mut v = vec![r * apr + k];
+                if r > 0 {
+                    v.push((r - 1) * apr + k);
+                }
+                dets.push(v);
+            }
+        }
+        for (k, stab) in self.z_stabilizers.iter().enumerate() {
+            let mut v: Vec<usize> = stab.data_qubits.iter().map(|&q| data_base + q).collect();
+            v.push((self.rounds - 1) * apr + k);
+            dets.push(v);
+        }
+        dets
+    }
+
+    /// Measurement records whose parity is the logical `Z_L` (data column 0).
+    pub fn observable_records(&self) -> Vec<usize> {
+        let data_base = self.rounds * self.records_per_round();
+        (0..self.d)
+            .map(|r| data_base + Self::data_idx(self.d, r, 0))
+            .collect()
+    }
+
+    /// Extracts Z-detector defect node indices and the raw logical measurement from raw
+    /// circuit output, using exactly the definitions of [`Self::detector_records`].
+    pub fn extract_z_defects(&self, raw_bits: &[bool]) -> (Vec<usize>, bool) {
+        let parity = |recs: &[usize]| recs.iter().fold(false, |a, &r| a ^ raw_bits[r]);
+        let defects = self
+            .detector_records()
+            .iter()
+            .enumerate()
+            .filter(|(_, recs)| parity(recs))
+            .map(|(i, _)| i)
+            .collect();
+        (defects, parity(&self.observable_records()))
+    }
+
+    /// Exact detector sampler for `noise` (see [`crate::qec::dem`]).
+    pub fn dem_sampler(&self, noise: &NoiseModel) -> DemSampler {
+        DemSampler::new(&self.faults, noise)
+    }
+
+    /// The merged detector error model for `noise`: one independent mechanism per
+    /// distinct signature (for inspection; sampling uses [`Self::dem_sampler`]).
+    pub fn detector_error_model(&self, noise: &NoiseModel) -> Vec<ErrorMechanism> {
+        self.faults.merged_mechanisms(noise)
+    }
+
+    /// Runs the memory experiment with an explicitly chosen sampling method.
+    pub fn run_experiment<R: RngCore>(
         &self,
         noise: &NoiseModel,
         shots: usize,
+        method: SamplingMethod,
         rng: &mut R,
     ) -> MemoryExperimentResult {
-        let p = noise.p_1q;
         let mut logical_errors = 0;
-
-        let num_detectors = self.decoder.graph.num_nodes;
-        let mut defect_flags = vec![false; num_detectors];
-
-        for _ in 0..shots {
-            defect_flags.fill(false);
-            let mut true_logical_flip = false;
-
-            for em in &self.error_mechanisms {
-                let err_p = (p * em.p_factor).min(1.0);
-                if err_p > 0.0 && rng.random::<f64>() < err_p {
-                    for &det in &em.detectors {
-                        defect_flags[det] = !defect_flags[det];
-                    }
-                    if em.flips_logical {
-                        true_logical_flip = !true_logical_flip;
-                    }
-                }
-            }
-
-            let mut active_defects = Vec::new();
-            for (det, &fired) in defect_flags.iter().enumerate() {
-                if fired {
-                    active_defects.push(det);
-                }
-            }
-
-            let predicted_flip = self.decoder.decode(&active_defects);
-            if predicted_flip != true_logical_flip {
+        self.for_each_shot(noise, shots, method, rng, |defects, raw_logical| {
+            if raw_logical ^ self.decoder.decode(defects) {
                 logical_errors += 1;
             }
-        }
-
-        let logical_error_rate = logical_errors as f64 / shots as f64;
+        });
         MemoryExperimentResult {
             distance: self.d,
             rounds: self.rounds,
-            physical_p: p,
+            physical_p: noise.p_2q,
             shots,
             logical_errors,
-            logical_error_rate,
+            logical_error_rate: logical_errors as f64 / shots.max(1) as f64,
         }
     }
 
-    /// Full stabilizer tableau simulation of the surface code memory experiment.
+    /// Full stabilizer-tableau memory experiment.
     pub fn run_experiment_tableau<R: RngCore>(
         &self,
         noise: &NoiseModel,
         shots: usize,
         rng: &mut R,
     ) -> MemoryExperimentResult {
-        let circuit = self.build_circuit();
-        let total_q = Self::total_qubits(self.d);
-        let mut logical_errors = 0;
-
-        for _ in 0..shots {
-            let mut tab = Tableau::new(total_q);
-            let raw_bits = circuit
-                .run_noisy(&mut tab, noise, rng)
-                .expect("tableau simulation failed");
-            let (defects, raw_logical) = self.extract_z_defects(&raw_bits);
-            let predicted_flip = self.decoder.decode(&defects);
-            let corrected_logical = raw_logical ^ predicted_flip;
-            if corrected_logical {
-                logical_errors += 1;
-            }
-        }
-
-        let logical_error_rate = logical_errors as f64 / shots as f64;
-        MemoryExperimentResult {
-            distance: self.d,
-            rounds: self.rounds,
-            physical_p: noise.p_1q,
-            shots,
-            logical_errors,
-            logical_error_rate,
-        }
+        self.run_experiment(noise, shots, SamplingMethod::Tableau, rng)
     }
 
-    /// Default memory experiment: uses full tableau for small shot counts (<= 300) and
-    /// fast detector sampling for large statistical sweeps.
-    pub fn run_experiment<R: RngCore>(
+    /// Memory experiment sampled from the circuit-derived detector error model.
+    pub fn run_experiment_dem<R: RngCore>(
         &self,
         noise: &NoiseModel,
         shots: usize,
         rng: &mut R,
     ) -> MemoryExperimentResult {
-        if shots <= 300 && self.d <= 5 {
-            self.run_experiment_tableau(noise, shots, rng)
-        } else {
-            self.run_experiment_fast(noise, shots, rng)
+        self.run_experiment(noise, shots, SamplingMethod::DetectorErrorModel, rng)
+    }
+
+    /// Calls `f(defects, raw_logical_flip)` for each of `shots` sampled shots.
+    pub fn for_each_shot<R: RngCore, F: FnMut(&[usize], bool)>(
+        &self,
+        noise: &NoiseModel,
+        shots: usize,
+        method: SamplingMethod,
+        rng: &mut R,
+        mut f: F,
+    ) {
+        match method {
+            SamplingMethod::Tableau => {
+                let circuit = self.build_circuit();
+                let nq = Self::total_qubits(self.d);
+                for _ in 0..shots {
+                    let mut tab = Tableau::new(nq);
+                    let bits = circuit
+                        .run_noisy(&mut tab, noise, rng)
+                        .expect("tableau simulation failed");
+                    let (defects, raw) = self.extract_z_defects(&bits);
+                    f(&defects, raw);
+                }
+            }
+            SamplingMethod::DetectorErrorModel => {
+                let sampler = self.dem_sampler(noise);
+                let mut flags = Vec::new();
+                let mut defects = Vec::new();
+                for _ in 0..shots {
+                    let raw = sampler.sample_into(rng, &mut flags, &mut defects);
+                    f(&defects, raw);
+                }
+            }
         }
+    }
+
+    /// Per-detector firing rates under `method`.
+    pub fn detector_rates<R: RngCore>(
+        &self,
+        noise: &NoiseModel,
+        shots: usize,
+        method: SamplingMethod,
+        rng: &mut R,
+    ) -> Vec<f64> {
+        let mut counts = vec![0usize; self.faults.num_detectors];
+        self.for_each_shot(noise, shots, method, rng, |defects, _| {
+            for &d in defects {
+                counts[d] += 1;
+            }
+        });
+        counts
+            .iter()
+            .map(|&c| c as f64 / shots.max(1) as f64)
+            .collect()
     }
 }

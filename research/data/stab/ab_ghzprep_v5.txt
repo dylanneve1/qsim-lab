@@ -1,0 +1,17 @@
+[bench.sh] load at start: 13.69
+## ghzprep (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| ghzprep n=1000 | 0.00005 | 0.00010 | 0.46 | 0.55 | same |
+| ghzprep n=5000 | 0.00550 | 0.00638 | 0.86 | 0.86 | same |
+| ghzprep n=10000 | 0.02280 | 0.02530 | 0.90 | 0.89 | same |
+| ghzprep n=20000 | 0.09123 | 0.10393 | 0.88 | 0.88 | same |
+## ghzprep (ab)
+
+| case | ref min (s) | new min (s) | ref/new (mins) | median ratio | outcomes |
+|---|---|---|---|---|---|
+| ghzprep n=1000 | 0.00005 | 0.00007 | 0.71 | 0.68 | same |
+| ghzprep n=5000 | 0.00514 | 0.00543 | 0.95 | 0.96 | same |
+| ghzprep n=10000 | 0.02314 | 0.02443 | 0.95 | 0.96 | same |
+| ghzprep n=20000 | 0.09544 | 0.09818 | 0.97 | 0.96 | same |
