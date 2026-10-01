@@ -209,7 +209,7 @@ pub fn phase_to_dense(mask: usize, pat: usize, f: Complex64) -> DenseOp {
     DenseOp { qs, mat }
 }
 
-/// Fuses consecutive gates on up to `max_k` qubits (2 <= max_k <= 4).
+/// Fuses consecutive gates on up to `max_k` qubits (2 <= `max_k` <= 3).
 pub fn fuse_dense_ops(ops: &[KOp], n: usize, max_k: usize) -> Vec<KOp> {
     if max_k < 2 {
         return ops.to_vec();

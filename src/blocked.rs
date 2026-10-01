@@ -30,6 +30,8 @@ use crate::statevector::{Real, StateVector};
 use num_complex::{Complex, Complex64};
 use rayon::prelude::*;
 
+use crate::dense_kernels as dk;
+
 const C0: Complex64 = Complex64::new(0.0, 0.0);
 const C1: Complex64 = Complex64::new(1.0, 0.0);
 const XMAT: Mat2 = [[C0, C1], [C1, C0]];
@@ -278,6 +280,12 @@ pub struct BlockConfig {
     pub schedule_diag: bool,
     /// Maximum number of qubits to fuse into a dense unitary (1 = disabled/baseline, 2..4).
     pub max_fusion: usize,
+    /// Use the AVX2+FMA build of the kernels when the CPU has them
+    /// (runtime-detected; ignored elsewhere).
+    pub simd: bool,
+    /// Run 2x2 gates on the three lowest block bits with the lane-exchange
+    /// tile kernel instead of per-pair scalar code.
+    pub tile_u1: bool,
 }
 
 impl Default for BlockConfig {
@@ -290,6 +298,8 @@ impl Default for BlockConfig {
             split_phases: false,
             schedule_diag: true,
             max_fusion: 1,
+            simd: true,
+            tile_u1: true,
         }
     }
 }
@@ -549,14 +559,10 @@ enum LOp<T: Real> {
         re: [T; 64],
         im: [T; 64],
     },
-    Dense4 {
-        t: [usize; 4],
-        re: [T; 256],
-        im: [T; 256],
-    },
 }
 
 struct Prepared<T: Real> {
+    tile_u1: bool,
     l: usize,
     inner_mask: usize,
     ops: Vec<LOp<T>>,
@@ -784,13 +790,6 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
                             im: im.try_into().unwrap(),
                         });
                     }
-                    4 => {
-                        ops.push(LOp::Dense4 {
-                            t: [t_qs[0], t_qs[1], t_qs[2], t_qs[3]],
-                            re: re.try_into().unwrap(),
-                            im: im.try_into().unwrap(),
-                        });
-                    }
                     _ => panic!("unsupported dense fusion width {}", t_qs.len()),
                 }
                 i += 1;
@@ -798,6 +797,7 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
         }
     }
     Prepared {
+        tile_u1: true,
         l: st.inner.len(),
         inner_mask,
         ops,
@@ -959,6 +959,7 @@ fn u1_group8<T: Real, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], 
     }
 }
 
+#[inline(always)]
 fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKind, cin: usize) {
     let s = 1usize << t;
     let Buf { re, im } = buf;
@@ -1014,6 +1015,7 @@ fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKi
     });
 }
 
+#[inline(always)]
 fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
     let (sa, sb) = (1usize << a, 1usize << b);
     let Buf { re, im } = buf;
@@ -1033,233 +1035,23 @@ fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
     });
 }
 
+/// A 2x2 gate: the tile kernel for in-vector targets (bit < 3) when
+/// enabled, otherwise [`apply_u1`].
 #[inline(always)]
-fn four<T>(
-    v: &mut [T],
-    i0: usize,
-    i1: usize,
-    i2: usize,
-    i3: usize,
-    run: usize,
-) -> (&mut [T], &mut [T], &mut [T], &mut [T]) {
-    let (left, right) = v.split_at_mut(i2);
-    let (s0, s1) = left.split_at_mut(i1);
-    let (s2, s3) = right.split_at_mut(i3 - i2);
-    (&mut s0[i0..i0 + run], &mut s1[..run], &mut s2[..run], &mut s3[..run])
-}
-
-#[inline(always)]
-fn dense2_slice_kernel<T: Real>(
-    ar: &mut [T],
-    ai: &mut [T],
-    br: &mut [T],
-    bi: &mut [T],
-    cr: &mut [T],
-    ci: &mut [T],
-    dr: &mut [T],
-    di: &mut [T],
-    mr: &[T; 16],
-    mi: &[T; 16],
-) {
-    let len = ar.len();
-    for k in 0..len {
-        let x0r = ar[k]; let x0i = ai[k];
-        let x1r = br[k]; let x1i = bi[k];
-        let x2r = cr[k]; let x2i = ci[k];
-        let x3r = dr[k]; let x3i = di[k];
-
-        ar[k] = mr[0]*x0r - mi[0]*x0i + mr[1]*x1r - mi[1]*x1i + mr[2]*x2r - mi[2]*x2i + mr[3]*x3r - mi[3]*x3i;
-        ai[k] = mr[0]*x0i + mi[0]*x0r + mr[1]*x1i + mi[1]*x1r + mr[2]*x2i + mi[2]*x2r + mr[3]*x3i + mi[3]*x3r;
-
-        br[k] = mr[4]*x0r - mi[4]*x0i + mr[5]*x1r - mi[5]*x1i + mr[6]*x2r - mi[6]*x2i + mr[7]*x3r - mi[7]*x3i;
-        bi[k] = mr[4]*x0i + mi[4]*x0r + mr[5]*x1i + mi[5]*x1r + mr[6]*x2i + mi[6]*x2r + mr[7]*x3i + mi[7]*x3r;
-
-        cr[k] = mr[8]*x0r - mi[8]*x0i + mr[9]*x1r - mi[9]*x1i + mr[10]*x2r - mi[10]*x2i + mr[11]*x3r - mi[11]*x3i;
-        ci[k] = mr[8]*x0i + mi[8]*x0r + mr[9]*x1i + mi[9]*x1r + mr[10]*x2i + mi[10]*x2r + mr[11]*x3i + mi[11]*x3r;
-
-        dr[k] = mr[12]*x0r - mi[12]*x0i + mr[13]*x1r - mi[13]*x1i + mr[14]*x2r - mi[14]*x2i + mr[15]*x3r - mi[15]*x3i;
-        di[k] = mr[12]*x0i + mi[12]*x0r + mr[13]*x1i + mi[13]*x1r + mr[14]*x2i + mi[14]*x2r + mr[15]*x3i + mi[15]*x3r;
-    }
-}
-
-fn apply_dense2<T: Real>(
-    buf: &mut Buf<T>,
-    _l: usize,
-    t: [usize; 2],
-    mr: &[T; 16],
-    mi: &[T; 16],
-) {
-    let [t0, t1] = t;
-    let s0 = 1usize << t0;
-    let s1 = 1usize << t1;
-    let Buf { re, im } = buf;
-
-    for (cr, ci) in re.chunks_exact_mut(2 * s1).zip(im.chunks_exact_mut(2 * s1)) {
-        let (lo_r, hi_r) = cr.split_at_mut(s1);
-        let (lo_i, hi_i) = ci.split_at_mut(s1);
-        for (((sub_lo_r, sub_lo_i), sub_hi_r), sub_hi_i) in lo_r
-            .chunks_exact_mut(2 * s0)
-            .zip(lo_i.chunks_exact_mut(2 * s0))
-            .zip(hi_r.chunks_exact_mut(2 * s0))
-            .zip(hi_i.chunks_exact_mut(2 * s0))
-        {
-            let (ar, br) = sub_lo_r.split_at_mut(s0);
-            let (ai, bi) = sub_lo_i.split_at_mut(s0);
-            let (cr, dr) = sub_hi_r.split_at_mut(s0);
-            let (ci, di) = sub_hi_i.split_at_mut(s0);
-            dense2_slice_kernel(ar, ai, br, bi, cr, ci, dr, di, mr, mi);
-        }
-    }
-}
-
-fn apply_dense3<T: Real>(
+fn apply_u1_k<T: Real, const FMA: bool>(
+    tile: bool,
     buf: &mut Buf<T>,
     l: usize,
-    t: [usize; 3],
-    mr: &[T; 64],
-    mi: &[T; 64],
+    t: usize,
+    m: &[T; 8],
+    kind: UKind,
+    cin: usize,
 ) {
-    let [t0, t1, t2] = t;
-    let s0 = 1usize << t0;
-    let s1 = 1usize << t1;
-    let s2 = 1usize << t2;
-    let fixed = s0 | s1 | s2;
-    let Buf { re, im } = buf;
-
-    let offsets = [
-        0,
-        s0,
-        s1,
-        s0 + s1,
-        s2,
-        s0 + s2,
-        s1 + s2,
-        s0 + s1 + s2,
-    ];
-
-    if t0 == 0 && t1 == 1 && t2 == 2 && l >= 3 {
-        for (cr, ci) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
-            let mut xr = [T::zero(); 8];
-            let mut xi = [T::zero(); 8];
-            for m in 0..8 {
-                xr[m] = cr[m];
-                xi[m] = ci[m];
-            }
-            for r in 0..8 {
-                let mut sr = T::zero();
-                let mut si = T::zero();
-                let r_off = r * 8;
-                for c in 0..8 {
-                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
-                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
-                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
-                }
-                cr[r] = sr;
-                ci[r] = si;
-            }
-        }
-        return;
+    if tile && cin == 0 && t < 3 && l >= 4 && !matches!(kind, UKind::X) {
+        dk::apply_dense::<T, FMA, 1, 2>(&mut buf.re, &mut buf.im, l, [t], &m[..4], &m[4..]);
+    } else {
+        apply_u1(buf, l, t, m, kind, cin);
     }
-
-    for_each_run(l, fixed, |base, run| {
-        for k in 0..run {
-            let mut xr = [T::zero(); 8];
-            let mut xi = [T::zero(); 8];
-            let mut idxs = [0usize; 8];
-            for m in 0..8 {
-                let idx = base + offsets[m] + k;
-                idxs[m] = idx;
-                xr[m] = re[idx];
-                xi[m] = im[idx];
-            }
-            for r in 0..8 {
-                let mut sr = T::zero();
-                let mut si = T::zero();
-                let r_off = r * 8;
-                for c in 0..8 {
-                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
-                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
-                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
-                }
-                re[idxs[r]] = sr;
-                im[idxs[r]] = si;
-            }
-        }
-    });
-}
-
-fn apply_dense4<T: Real>(
-    buf: &mut Buf<T>,
-    l: usize,
-    t: [usize; 4],
-    mr: &[T; 256],
-    mi: &[T; 256],
-) {
-    let [t0, t1, t2, t3] = t;
-    let s0 = 1usize << t0;
-    let s1 = 1usize << t1;
-    let s2 = 1usize << t2;
-    let s3 = 1usize << t3;
-    let fixed = s0 | s1 | s2 | s3;
-    let Buf { re, im } = buf;
-
-    let mut offsets = [0usize; 16];
-    for m in 0..16 {
-        offsets[m] = (if m & 1 != 0 { s0 } else { 0 })
-            | (if m & 2 != 0 { s1 } else { 0 })
-            | (if m & 4 != 0 { s2 } else { 0 })
-            | (if m & 8 != 0 { s3 } else { 0 });
-    }
-
-    if t0 == 0 && t1 == 1 && t2 == 2 && t3 == 3 && l >= 4 {
-        for (cr, ci) in re.chunks_exact_mut(16).zip(im.chunks_exact_mut(16)) {
-            let mut xr = [T::zero(); 16];
-            let mut xi = [T::zero(); 16];
-            for m in 0..16 {
-                xr[m] = cr[m];
-                xi[m] = ci[m];
-            }
-            for r in 0..16 {
-                let mut sr = T::zero();
-                let mut si = T::zero();
-                let r_off = r * 16;
-                for c in 0..16 {
-                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
-                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
-                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
-                }
-                cr[r] = sr;
-                ci[r] = si;
-            }
-        }
-        return;
-    }
-
-    for_each_run(l, fixed, |base, run| {
-        for k in 0..run {
-            let mut xr = [T::zero(); 16];
-            let mut xi = [T::zero(); 16];
-            let mut idxs = [0usize; 16];
-            for m in 0..16 {
-                let idx = base + offsets[m] + k;
-                idxs[m] = idx;
-                xr[m] = re[idx];
-                xi[m] = im[idx];
-            }
-            for r in 0..16 {
-                let mut sr = T::zero();
-                let mut si = T::zero();
-                let r_off = r * 16;
-                for c in 0..16 {
-                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
-                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
-                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
-                }
-                re[idxs[r]] = sr;
-                im[idxs[r]] = si;
-            }
-        }
-    });
 }
 
 const LO_BITS: usize = 8;
@@ -1288,6 +1080,7 @@ fn diag_kernel<T: Real>(ar: &mut [T], ai: &mut [T], lr: &[T], li: &[T], h: Compl
 }
 
 /// `out[x] = init * prod_j e[j][bit j of x]` for `x < 2^e.len()`.
+#[inline(always)]
 fn product_table(out: &mut Vec<Complex64>, e: &[[Complex64; 2]], init: Complex64) {
     out.clear();
     out.resize(1 << e.len(), init);
@@ -1301,6 +1094,7 @@ fn product_table(out: &mut Vec<Complex64>, e: &[[Complex64; 2]], init: Complex64
     }
 }
 
+#[inline(always)]
 fn apply_diag_group<T: Real>(
     buf: &mut Buf<T>,
     l: usize,
@@ -1406,9 +1200,15 @@ mod prof {
     }
 }
 
-fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut DiagScratch<T>) {
+#[inline(always)]
+fn run_ops<T: Real, const FMA: bool>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
     if prof::on() {
-        return run_ops_prof(p, buf, base, sc);
+        return run_ops_prof::<T, FMA>(p, buf, base, sc);
     }
     let l = p.l;
     for op in &p.ops {
@@ -1421,7 +1221,7 @@ fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut Dia
                 cout,
             } => {
                 if base & cout == *cout {
-                    apply_u1(buf, l, *t, m, *kind, *cin);
+                    apply_u1_k::<T, FMA>(p.tile_u1, buf, l, *t, m, *kind, *cin);
                 }
             }
             LOp::Swap { a, b } => apply_swap(buf, l, *a, *b),
@@ -1430,14 +1230,18 @@ fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut Dia
                     apply_diag_group(buf, l, g, base, sc);
                 }
             }
-            LOp::Dense2 { t, re, im } => apply_dense2(buf, l, *t, re, im),
-            LOp::Dense3 { t, re, im } => apply_dense3(buf, l, *t, re, im),
-            LOp::Dense4 { t, re, im } => apply_dense4(buf, l, *t, re, im),
+            LOp::Dense2 { t, re, im } => {
+                dk::apply_dense::<T, FMA, 2, 4>(&mut buf.re, &mut buf.im, l, *t, re, im)
+            }
+            LOp::Dense3 { t, re, im } => {
+                dk::apply_dense::<T, FMA, 3, 8>(&mut buf.re, &mut buf.im, l, *t, re, im)
+            }
         }
     }
 }
 
-fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut DiagScratch<T>) {
+#[inline(always)]
+fn run_ops_prof<T: Real, const FMA: bool>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut DiagScratch<T>) {
     let l = p.l;
     for op in &p.ops {
         let t0 = std::time::Instant::now();
@@ -1450,7 +1254,7 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
                 cout,
             } => {
                 if base & cout == *cout {
-                    apply_u1(buf, l, *t, m, *kind, *cin);
+                    apply_u1_k::<T, FMA>(p.tile_u1, buf, l, *t, m, *kind, *cin);
                 }
                 let k = if (cin | (1 << t)) & SMALL != 0 {
                     3
@@ -1470,15 +1274,11 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
                 prof::add(5, t0);
             }
             LOp::Dense2 { t, re, im } => {
-                apply_dense2(buf, l, *t, re, im);
+                dk::apply_dense::<T, FMA, 2, 4>(&mut buf.re, &mut buf.im, l, *t, re, im);
                 prof::add(0, t0);
             }
             LOp::Dense3 { t, re, im } => {
-                apply_dense3(buf, l, *t, re, im);
-                prof::add(0, t0);
-            }
-            LOp::Dense4 { t, re, im } => {
-                apply_dense4(buf, l, *t, re, im);
+                dk::apply_dense::<T, FMA, 3, 8>(&mut buf.re, &mut buf.im, l, *t, re, im);
                 prof::add(0, t0);
             }
         }
@@ -1541,7 +1341,7 @@ impl Pext {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn load_run<T: Real>(buf: &mut Buf<T>, off: usize, run: &[Complex<T>]) {
     let r = &mut buf.re[off..off + run.len()];
     let i = &mut buf.im[off..off + run.len()];
@@ -1551,7 +1351,7 @@ fn load_run<T: Real>(buf: &mut Buf<T>, off: usize, run: &[Complex<T>]) {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn store_run<T: Real>(buf: &Buf<T>, off: usize, run: &mut [Complex<T>]) {
     let r = &buf.re[off..off + run.len()];
     let i = &buf.im[off..off + run.len()];
@@ -1567,14 +1367,151 @@ fn new_buf<T: Real>(l: usize) -> Buf<T> {
     }
 }
 
-fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
+/// Loads a contiguous chunk, runs the stage's ops on it and stores it back.
+#[inline(always)]
+fn chunk_contig_body<T: Real, const FMA: bool>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    c: usize,
+    chunk: &mut [Complex<T>],
+) {
+    let t0 = std::time::Instant::now();
+    load_run(buf, 0, chunk);
+    if prof::on() {
+        prof::add(6, t0);
+    }
+    run_ops::<T, FMA>(p, buf, c << p.l, sc);
+    let t0 = std::time::Instant::now();
+    store_run(buf, 0, chunk);
+    if prof::on() {
+        prof::add(7, t0);
+    }
+}
+
+/// Gathers `2^ns` runs of `2^bc` amplitudes, runs the ops, scatters back.
+#[inline(always)]
+fn chunk_gather_body<T: Real, const FMA: bool>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    base: usize,
+    bc: usize,
+    runs: &mut [Option<&mut [Complex<T>]>],
+) {
+    let t0 = std::time::Instant::now();
+    for (r, run) in runs.iter().enumerate() {
+        let run = run.as_ref().expect("every run is assigned");
+        load_run(buf, r << bc, run);
+    }
+    if prof::on() {
+        prof::add(6, t0);
+    }
+    run_ops::<T, FMA>(p, buf, base, sc);
+    let t0 = std::time::Instant::now();
+    for (r, run) in runs.iter_mut().enumerate() {
+        let run = run.as_mut().expect("every run is assigned");
+        store_run(buf, r << bc, run);
+    }
+    if prof::on() {
+        prof::add(7, t0);
+    }
+}
+
+/// AVX2+FMA builds of the chunk bodies. Everything they call is
+/// `#[inline(always)]`, so the whole kernel stack is compiled with the
+/// wider ISA (portable builds only have SSE2).
+///
+/// # Safety
+/// The CPU must support `avx2` and `fma` (checked once by [`simd_ok`]).
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn chunk_contig_avx2<T: Real>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    c: usize,
+    chunk: &mut [Complex<T>],
+) {
+    chunk_contig_body::<T, true>(p, buf, sc, c, chunk)
+}
+
+/// See [`chunk_contig_avx2`].
+///
+/// # Safety
+/// The CPU must support `avx2` and `fma`.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn chunk_gather_avx2<T: Real>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    base: usize,
+    bc: usize,
+    runs: &mut [Option<&mut [Complex<T>]>],
+) {
+    chunk_gather_body::<T, true>(p, buf, sc, base, bc, runs)
+}
+
+/// True when the AVX2+FMA kernels may be used (x86-64 CPU with both).
+pub fn simd_ok() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        use std::sync::OnceLock;
+        static OK: OnceLock<bool> = OnceLock::new();
+        *OK.get_or_init(|| {
+            std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
+        })
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        false
+    }
+}
+
+#[inline]
+fn chunk_contig<T: Real>(
+    avx: bool,
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    c: usize,
+    chunk: &mut [Complex<T>],
+) {
+    #[cfg(target_arch = "x86_64")]
+    if avx {
+        // SAFETY: `avx` is only true when `simd_ok()` (avx2 + fma present).
+        unsafe { return chunk_contig_avx2(p, buf, sc, c, chunk) }
+    }
+    let _ = avx;
+    chunk_contig_body::<T, false>(p, buf, sc, c, chunk)
+}
+
+#[inline]
+fn chunk_gather<T: Real>(
+    avx: bool,
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    sc: &mut DiagScratch<T>,
+    base: usize,
+    bc: usize,
+    runs: &mut [Option<&mut [Complex<T>]>],
+) {
+    #[cfg(target_arch = "x86_64")]
+    if avx {
+        // SAFETY: `avx` is only true when `simd_ok()` (avx2 + fma present).
+        unsafe { return chunk_gather_avx2(p, buf, sc, base, bc, runs) }
+    }
+    let _ = avx;
+    chunk_gather_body::<T, false>(p, buf, sc, base, bc, runs)
+}
+
+fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, avx: bool) {
     let l = p.l;
     if l >= n {
         let mut buf = new_buf::<T>(l);
         let mut sc = DiagScratch::default();
-        load_run(&mut buf, 0, amps);
-        run_ops(p, &mut buf, 0, &mut sc);
-        store_run(&buf, 0, amps);
+        chunk_contig(avx, p, &mut buf, &mut sc, 0, amps);
         return;
     }
     let full = (1usize << n) - 1;
@@ -1585,17 +1522,7 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
         amps.par_chunks_mut(1 << l)
             .enumerate()
             .for_each_init(init, |(buf, sc), (c, chunk)| {
-                let t0 = std::time::Instant::now();
-                load_run(buf, 0, chunk);
-                if prof::on() {
-                    prof::add(6, t0);
-                }
-                run_ops(p, buf, c << l, sc);
-                let t0 = std::time::Instant::now();
-                store_run(buf, 0, chunk);
-                if prof::on() {
-                    prof::add(7, t0);
-                }
+                chunk_contig(avx, p, buf, sc, c, chunk);
             });
         return;
     }
@@ -1617,24 +1544,61 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
     ord.par_chunks_mut(1 << ns)
         .enumerate()
         .for_each_init(init, |(buf, sc), (c, runs)| {
-            let t0 = std::time::Instant::now();
-            for (r, run) in runs.iter().enumerate() {
-                let run = run.as_ref().expect("every run is assigned");
-                load_run(buf, r << bc, run);
-            }
-            if prof::on() {
-                prof::add(6, t0);
-            }
-            run_ops(p, buf, deposit(c, outer_phys), sc);
-            let t0 = std::time::Instant::now();
-            for (r, run) in runs.iter_mut().enumerate() {
-                let run = run.as_mut().expect("every run is assigned");
-                store_run(buf, r << bc, run);
-            }
-            if prof::on() {
-                prof::add(7, t0);
-            }
+            chunk_gather(avx, p, buf, sc, deposit(c, outer_phys), bc, runs);
         });
+}
+
+/// Single-thread kernel microbenchmark on an L2-resident buffer of `2^l`
+/// amplitudes: seconds per application of a dense `k`-qubit op (or, for
+/// `k == 1`, a complex 2x2 gate) on buffer bits `t`.
+#[doc(hidden)]
+pub fn micro_kernel<T: Real>(l: usize, t: &[usize], reps: usize, avx: bool) -> f64 {
+    let mut buf = new_buf::<T>(l);
+    for (i, (a, b)) in buf.re.iter_mut().zip(buf.im.iter_mut()).enumerate() {
+        *a = T::from_f64(((i * 7 + 3) % 17) as f64 * 0.01);
+        *b = T::from_f64(((i * 5 + 1) % 13) as f64 * 0.01);
+    }
+    // Unitary (Walsh-Hadamard with column phases) so values stay normal floats.
+    let d = 1usize << t.len();
+    let v = 1.0 / (d as f64).sqrt();
+    let entry = |r: usize, c: usize| {
+        let sign = if (r & c).count_ones() % 2 == 0 { v } else { -v };
+        let ph = 0.3 * c as f64;
+        (sign * ph.cos(), sign * ph.sin())
+    };
+    let re: Vec<T> = (0..d * d).map(|i| T::from_f64(entry(i / d, i % d).0)).collect();
+    let im: Vec<T> = (0..d * d).map(|i| T::from_f64(entry(i / d, i % d).1)).collect();
+    let mut m = [T::zero(); 8];
+    for k in 0..4 {
+        m[k] = re[k];
+        m[4 + k] = im[k];
+    }
+    let op = match t.len() {
+        1 => LOp::U1 { t: t[0], m, kind: UKind::Complex, cin: 0, cout: 0 },
+        2 => LOp::Dense2 { t: [t[0], t[1]], re: re[..].try_into().unwrap(), im: im[..].try_into().unwrap() },
+        _ => LOp::Dense3 { t: [t[0], t[1], t[2]], re: re[..].try_into().unwrap(), im: im[..].try_into().unwrap() },
+    };
+    let p = Prepared { tile_u1: true, l, ops: vec![op], inner_mask: (1 << l) - 1 };
+    let mut sc = DiagScratch::default();
+    let t0 = std::time::Instant::now();
+    for _ in 0..reps {
+        #[cfg(target_arch = "x86_64")]
+        if avx && simd_ok() {
+            // SAFETY: simd_ok() checked avx2+fma.
+            unsafe { micro_avx2(&p, &mut buf, &mut sc) };
+            continue;
+        }
+        run_ops::<T, false>(&p, &mut buf, 0, &mut sc);
+    }
+    let dt = t0.elapsed().as_secs_f64() / reps as f64;
+    std::hint::black_box(&buf);
+    dt
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn micro_avx2<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, sc: &mut DiagScratch<T>) {
+    run_ops::<T, true>(p, buf, 0, sc)
 }
 
 impl<T: Real> StateVector<T> {
@@ -1662,10 +1626,11 @@ impl<T: Real> StateVector<T> {
             std::env::var_os("QSIM_PROF").is_some(),
             std::sync::atomic::Ordering::Relaxed,
         );
+        let avx = cfg.simd && simd_ok();
         let amps = self.amplitudes_mut();
         for st in &stages {
             let t0 = std::time::Instant::now();
-            let p = if cfg.schedule_diag {
+            let mut p = if cfg.schedule_diag {
                 prepare::<T>(
                     &Stage {
                         inner: st.inner.clone(),
@@ -1676,8 +1641,9 @@ impl<T: Real> StateVector<T> {
             } else {
                 prepare::<T>(st, n)
             };
+            p.tile_u1 = cfg.tile_u1;
             let t1 = std::time::Instant::now();
-            run_stage(amps, n, &p);
+            run_stage(amps, n, &p, avx);
             if trace {
                 let groups: Vec<usize> = p
                     .ops

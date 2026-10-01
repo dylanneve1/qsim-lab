@@ -137,15 +137,9 @@ fn bench<T: Real>(
     }
 }
 
-fn main() {
-    let a: Vec<String> = std::env::args().collect();
-    let wl = a[1].as_str();
-    let ns: Vec<usize> = a[2].split(',').map(|x| x.parse().unwrap()).collect();
-    let prec = a.get(3).map(|s| s.as_str()).unwrap_or("f32");
-    let mode = a.get(4).map(|s| s.as_str()).unwrap_or("both");
-    let reps: usize = a.get(5).map(|s| s.parse().unwrap()).unwrap_or(5);
+fn parse_cfg<'a>(kvs: impl Iterator<Item = &'a str>) -> BlockConfig {
     let mut cfg = BlockConfig::default();
-    for kv in a.iter().skip(6) {
+    for kv in kvs {
         let (k, v) = kv.split_once('=').unwrap();
         match k {
             "block_kib" => cfg.block_bytes = v.parse::<usize>().unwrap() << 10,
@@ -154,10 +148,76 @@ fn main() {
             "small_n" => cfg.small_n = v.parse().unwrap(),
             "split" => cfg.split_phases = v == "1",
             "sched" => cfg.schedule_diag = v == "1",
+            "tile" => cfg.tile_u1 = v == "1",
+            "simd" => cfg.simd = v == "1",
             "fusion" => cfg.max_fusion = v.parse().unwrap(),
             _ => panic!("unknown key {k}"),
         }
     }
+    cfg
+}
+
+/// Interleaved A/B: `sv_speed ab <wl> <n> <f32|f64> <rounds> <cfg>...` where
+/// each cfg is `key=val,key=val` (or `base` for the gate-by-gate path).
+/// Runs the configs round-robin and prints min / median wall per config and
+/// the max |Δamp| against the first config.
+fn ab<T: Real>(wl: &str, n: usize, rounds: usize, cfgs: &[String]) {
+    let (c, init) = workload(wl, n);
+    let parsed: Vec<Option<BlockConfig>> = cfgs
+        .iter()
+        .map(|s| if s == "base" { None } else { Some(parse_cfg(s.split(',').filter(|x| !x.is_empty()))) })
+        .collect();
+    let mut times: Vec<Vec<f64>> = vec![Vec::new(); cfgs.len()];
+    let mut first: Option<StateVector<T>> = None;
+    let mut diffs = vec![0.0f64; cfgs.len()];
+    for round in 0..rounds {
+        for (i, p) in parsed.iter().enumerate() {
+            let mut s = StateVector::<T>::basis_state(c.num_qubits, init);
+            let t = Instant::now();
+            match p {
+                None => s.apply_circuit(&c).unwrap(),
+                Some(cfg) => s.apply_circuit_blocked(&c, cfg).unwrap(),
+            }
+            times[i].push(t.elapsed().as_secs_f64());
+            if round == 0 {
+                match &first {
+                    None => first = Some(s),
+                    Some(f) => diffs[i] = maxdiff(f.amplitudes(), s.amplitudes()),
+                }
+            }
+        }
+    }
+    println!("| workload | n | config | min wall s | median wall s | max abs diff vs first |");
+    println!("|---|---|---|---|---|---|");
+    for (i, name) in cfgs.iter().enumerate() {
+        let mut v = times[i].clone();
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!(
+            "| {wl} | {n} | {name} | {:.4} | {:.4} | {:.2e} |",
+            v[0],
+            v[v.len() / 2],
+            diffs[i]
+        );
+    }
+}
+
+fn main() {
+    let a: Vec<String> = std::env::args().collect();
+    if a[1] == "ab" {
+        let n: usize = a[3].parse().unwrap();
+        let rounds: usize = a[5].parse().unwrap();
+        match a[4].as_str() {
+            "f32" => ab::<f32>(&a[2], n, rounds, &a[6..]),
+            _ => ab::<f64>(&a[2], n, rounds, &a[6..]),
+        }
+        return;
+    }
+    let wl = a[1].as_str();
+    let ns: Vec<usize> = a[2].split(',').map(|x| x.parse().unwrap()).collect();
+    let prec = a.get(3).map(|s| s.as_str()).unwrap_or("f32");
+    let mode = a.get(4).map(|s| s.as_str()).unwrap_or("both");
+    let reps: usize = a.get(5).map(|s| s.parse().unwrap()).unwrap_or(5);
+    let cfg = parse_cfg(a.iter().skip(6).map(|x| x.as_str()));
     let modes: Vec<&str> = match mode {
         "both" => vec!["base", "blocked"],
         m => vec![m],

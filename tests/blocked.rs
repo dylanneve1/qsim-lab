@@ -64,6 +64,8 @@ fn configs() -> Vec<BlockConfig> {
             split_phases: split,
             schedule_diag: sched,
             max_fusion: fusion,
+            simd: true,
+            tile_u1: true,
         });
     }
     v
