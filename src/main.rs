@@ -1,6 +1,7 @@
 //! `qsim`: run examples and benchmarks from the command line.
 
 use clap::{Parser, Subcommand, ValueEnum};
+use qsim_lab::adaptive_bench;
 use qsim_lab::algorithms;
 use qsim_lab::bench;
 use qsim_lab::circuit::{Circuit, Simulator};
@@ -26,6 +27,12 @@ enum Cmd {
     Bench {
         #[command(subcommand)]
         which: BenchCmd,
+    },
+    /// Adaptive tableau -> Pauli frame -> compressed state vector
+    /// experiments (one method per invocation, for interleaved A/B runs).
+    Adaptive {
+        #[command(subcommand)]
+        which: AdaptiveCmd,
     },
     /// Run an example circuit and print its measurement statistics.
     Run {
@@ -182,6 +189,66 @@ enum BenchCmd {
     },
 }
 
+#[derive(Subcommand)]
+enum AdaptiveCmd {
+    /// Exact <O> by one method: sv | legacy | frame | dense | auto | switch:K
+    /// (comma-separated list allowed; `sweep` = switch:0..=t step --step).
+    Expect {
+        /// random | two-phase
+        #[arg(long, default_value = "random")]
+        family: String,
+        #[arg(long, default_value_t = 50)]
+        qubits: usize,
+        /// T gates (random) or core T gates (two-phase); comma-separated.
+        #[arg(long, value_delimiter = ',', default_values_t = [30])]
+        t: Vec<usize>,
+        #[arg(long, default_value_t = 20)]
+        core: usize,
+        #[arg(long, default_value_t = 20)]
+        t_tail: usize,
+        #[arg(long, default_value_t = 3)]
+        depth: usize,
+        #[arg(long, default_value = "auto")]
+        methods: String,
+        #[arg(long, default_value = "stab")]
+        observable: String,
+        #[arg(long, default_value_t = 1 << 22)]
+        max_terms: usize,
+        #[arg(long, default_value_t = 26)]
+        max_dense: usize,
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        #[arg(long, default_value_t = 4)]
+        step: usize,
+        /// Print the table header.
+        #[arg(long)]
+        header: bool,
+    },
+    /// Sampling all qubits: sv | compressed.
+    Sample {
+        #[arg(long, default_value = "random")]
+        family: String,
+        #[arg(long, default_value_t = 50)]
+        qubits: usize,
+        #[arg(long, value_delimiter = ',', default_values_t = [10, 20])]
+        t: Vec<usize>,
+        #[arg(long, default_value_t = 20)]
+        core: usize,
+        #[arg(long, default_value_t = 0)]
+        t_tail: usize,
+        #[arg(long, default_value_t = 3)]
+        depth: usize,
+        #[arg(long, default_value = "compressed")]
+        methods: String,
+        #[arg(long, default_value_t = 100_000)]
+        shots: usize,
+        #[arg(long, default_value_t = 26)]
+        max_dense: usize,
+        #[arg(long)]
+        header: bool,
+    },
+}
+
 #[derive(Clone, Copy, ValueEnum)]
 enum Example {
     Bell,
@@ -323,6 +390,75 @@ fn main() {
                 bench::mps_random(random_qubits, max_bond, &[2, 4, 8, 12, 16, 20, 24, 32]);
                 println!("\n## Random brickwork circuits, MPS with a small bond cap\n");
                 bench::mps_random(60, 32, &[4, 8, 16, 32]);
+            }
+        },
+        Cmd::Adaptive { which } => match which {
+            AdaptiveCmd::Expect {
+                family,
+                qubits,
+                t,
+                core,
+                t_tail,
+                depth,
+                methods,
+                observable,
+                max_terms,
+                max_dense,
+                repeat,
+                step,
+                header,
+            } => {
+                if header {
+                    adaptive_bench::expect_header();
+                }
+                for &tt in &t {
+                    let c = adaptive_bench::family(&family, qubits, tt, core, t_tail, depth);
+                    let obs = adaptive_bench::observable(&c, &observable);
+                    let label = format!("{family} n={qubits} t={tt}");
+                    for m in methods.split(',') {
+                        if m == "sweep" {
+                            let tot = c.t_count();
+                            for k in (0..=tot).step_by(step.max(1)) {
+                                adaptive_bench::expect_row(
+                                    &c,
+                                    &label,
+                                    &obs,
+                                    &format!("switch:{k}"),
+                                    max_terms,
+                                    max_dense,
+                                    repeat,
+                                );
+                            }
+                        } else {
+                            adaptive_bench::expect_row(
+                                &c, &label, &obs, m, max_terms, max_dense, repeat,
+                            );
+                        }
+                    }
+                }
+            }
+            AdaptiveCmd::Sample {
+                family,
+                qubits,
+                t,
+                core,
+                t_tail,
+                depth,
+                methods,
+                shots,
+                max_dense,
+                header,
+            } => {
+                if header {
+                    adaptive_bench::sample_header();
+                }
+                for &tt in &t {
+                    let c = adaptive_bench::family(&family, qubits, tt, core, t_tail, depth);
+                    let label = format!("{family} n={qubits} t={tt}");
+                    for m in methods.split(',') {
+                        adaptive_bench::sample_row(&c, &label, shots, m, max_dense);
+                    }
+                }
             }
         },
         Cmd::Run {

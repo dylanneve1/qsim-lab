@@ -233,7 +233,7 @@ struct Rot {
 }
 
 /// Images of the generators `X_q`, `Z_q` under `P -> C† P C`.
-struct HeisenbergTableau {
+pub(crate) struct HeisenbergTableau {
     w: usize,
     /// `2n` images (X_0..X_{n-1}, Z_0..Z_{n-1}), each `2w` words.
     img: Vec<u64>,
@@ -259,7 +259,12 @@ fn mul_words(a: &mut [u64], e: &mut i32, b: &[u64], w: usize) {
 }
 
 impl HeisenbergTableau {
-    fn new(n: usize) -> Self {
+    /// Words per bit vector (`ceil(n / 64)`, at least 1).
+    pub(crate) fn words(&self) -> usize {
+        self.w
+    }
+
+    pub(crate) fn new(n: usize) -> Self {
         let w = n.div_ceil(64).max(1);
         let mut img = vec![0u64; 2 * n * 2 * w];
         for q in 0..n {
@@ -276,7 +281,7 @@ impl HeisenbergTableau {
 
     /// Image of the Hermitian string `p` (2w words) with sign: returns
     /// `(negated, image)`.
-    fn map(&self, p: &[u64]) -> (bool, Vec<u64>) {
+    pub(crate) fn map(&self, p: &[u64]) -> (bool, Vec<u64>) {
         let w = self.w;
         let mut acc = vec![0u64; 2 * w];
         let mut e: i32 = (0..w).map(|i| (p[i] & p[w + i]).count_ones() as i32).sum();
@@ -302,7 +307,7 @@ impl HeisenbergTableau {
     }
 
     /// `C -> G C`: new image of a generator `g` is `old(G† g G)`.
-    fn apply_clifford(&mut self, g: &Gate) {
+    pub(crate) fn apply_clifford(&mut self, g: &Gate) {
         let w = self.w;
         let ginv = g.inverse();
         let mut updates = Vec::new();
@@ -743,7 +748,88 @@ fn cos_sin(theta: f64) -> (f64, f64) {
     }
 }
 
+/// Where the Heisenberg sweep stopped when a [`SwitchPolicy`] asked it to
+/// hand over to a Schrödinger simulation of the remaining rotations.
+///
+/// Everything is in the CNOT frame of the pruning proof: rotation `j`
+/// (1-based, `j <= stage`) is `exp(-i θ_j Q_j / 2)` with `Q_j` the
+/// Hermitian string `i^{|x∧z|} X^x Z^z`, `x` supported on the first `d[j]`
+/// qubits and `z` already projected there. The operator `terms` lives on the
+/// first `d[stage]` qubits, and the exact value is
+/// `<φ| terms |φ>` with `φ = R_stage ⋯ R_1 |0^{d[stage]}>`.
+#[derive(Clone, Debug)]
+pub(crate) struct SwitchPoint {
+    pub stage: usize,
+    /// `d[j] = dim span{x(Q_1..Q_j)}` for `j = 0..=stage`.
+    pub d: Vec<usize>,
+    /// `(x, z, θ)` for rotations `1..=stage` (index `j - 1`).
+    pub rots: Vec<(u64, u64, f64)>,
+    /// `(x, z, coefficient)` of the propagated operator.
+    pub terms: Vec<(u64, u64, f64)>,
+    pub stats: PathStats,
+}
+
+/// Result of a staged Heisenberg sweep.
+pub(crate) enum Staged {
+    /// The sweep ran to the end: exact value.
+    Done(f64, PathStats),
+    /// The policy asked for a switch.
+    Switched(Box<SwitchPoint>),
+}
+
+/// Called before each rotation `stage` (rotations `1..=stage` remain) with
+/// `(stage, live terms, d, term visits so far)`; returns true to stop the
+/// Heisenberg sweep and hand over. Only called when pruning is on and
+/// `d[stage] <= 62`.
+pub(crate) type SwitchPolicy<'a> = &'a mut dyn FnMut(usize, usize, &[usize], u64) -> bool;
+
 fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathStats), SimError> {
+    match run_staged::<W>(comp, opt, None)? {
+        Staged::Done(v, s) => Ok((v, s)),
+        Staged::Switched(_) => unreachable!("no policy"),
+    }
+}
+
+fn low_word<const W: usize>(v: &[u64; W]) -> u64 {
+    debug_assert!(v[1..].iter().all(|&w| w == 0));
+    v[0]
+}
+
+fn switch_point<const W: usize>(
+    stage: usize,
+    d: &[usize],
+    axes: &[Key<W>],
+    thetas: &[f64],
+    store: &Store<W>,
+    stats: PathStats,
+) -> Box<SwitchPoint> {
+    let rots = (0..stage)
+        .map(|j| {
+            let mut q = axes[j];
+            q.project_z(&mask_below::<W>(d[j + 1]));
+            (low_word(&q.x), low_word(&q.z), thetas[j])
+        })
+        .collect();
+    let terms = store
+        .shards
+        .iter()
+        .flat_map(|s| s.iter())
+        .map(|(k, &c)| (low_word(&k.x), low_word(&k.z), c))
+        .collect();
+    Box::new(SwitchPoint {
+        stage,
+        d: d[..=stage].to_vec(),
+        rots,
+        terms,
+        stats,
+    })
+}
+
+fn run_staged<const W: usize>(
+    comp: Compiled,
+    opt: &FrameOptions,
+    mut policy: Option<SwitchPolicy<'_>>,
+) -> Result<Staged, SimError> {
     let Compiled {
         n, w, rots, obs, ..
     } = comp;
@@ -802,6 +888,20 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
         ..Default::default()
     };
     for j in (0..m).rev() {
+        if let Some(p) = policy.as_mut() {
+            if opt.prune && d[j + 1] <= 62 && p(j + 1, store.len(), &d, stats.term_visits) {
+                stats.final_terms = store.len();
+                stats.pruned_terms = pruned0 + store.pruned;
+                return Ok(Staged::Switched(switch_point(
+                    j + 1,
+                    &d,
+                    &axes,
+                    &thetas,
+                    &store,
+                    stats,
+                )));
+            }
+        }
         stats.term_visits += store.len() as u64;
         // rotation j+1 in 1-based stage numbering; stage j+1 -> j.
         let mut q = axes[j];
@@ -823,6 +923,17 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
         let len = store.len();
         stats.peak_terms = stats.peak_terms.max(len);
         if len > opt.max_terms {
+            // Last chance: a policy may still take over on the (smaller)
+            // register of the next stage instead of failing.
+            if let Some(p) = policy.as_mut() {
+                if opt.prune && j > 0 && d[j] <= 62 && p(j, usize::MAX, &d, stats.term_visits) {
+                    stats.final_terms = len;
+                    stats.pruned_terms = pruned0 + store.pruned;
+                    return Ok(Staged::Switched(switch_point(
+                        j, &d, &axes, &thetas, &store, stats,
+                    )));
+                }
+            }
             return Err(SimError::TooManyTerms {
                 terms: len,
                 limit: opt.max_terms,
@@ -834,7 +945,46 @@ fn run<const W: usize>(comp: Compiled, opt: &FrameOptions) -> Result<(f64, PathS
     }
     stats.final_terms = store.len();
     stats.pruned_terms = pruned0 + store.pruned;
-    Ok((store.zero_state_value(), stats))
+    Ok(Staged::Done(store.zero_state_value(), stats))
+}
+
+/// [`expectation`] with a [`SwitchPolicy`]: the Heisenberg sweep may stop
+/// early and return a [`SwitchPoint`] (see [`crate::adaptive`]).
+pub(crate) fn expectation_staged(
+    circuit: &Circuit,
+    observable: &PauliSum,
+    opt: &FrameOptions,
+    policy: SwitchPolicy<'_>,
+) -> Option<Result<Staged, SimError>> {
+    let wn = circuit.num_qubits.div_ceil(64).max(1);
+    if wn > 8 {
+        return None;
+    }
+    let mut comp = match compile(circuit, observable) {
+        Ok(c) => c,
+        Err(e) => return Some(Err(e)),
+    };
+    let non_clifford = comp.non_clifford;
+    if opt.merge_rotations {
+        comp.rots = merge_rotations(std::mem::take(&mut comp.rots), comp.w);
+    }
+    let p = Some(policy);
+    let r = match wn {
+        1 => run_staged::<1>(comp, opt, p),
+        2 => run_staged::<2>(comp, opt, p),
+        3 | 4 => run_staged::<4>(comp, opt, p),
+        _ => run_staged::<8>(comp, opt, p),
+    };
+    Some(r.map(|st| match st {
+        Staged::Done(v, mut s) => {
+            s.non_clifford_gates = non_clifford;
+            Staged::Done(v, s)
+        }
+        Staged::Switched(mut sp) => {
+            sp.stats.non_clifford_gates = non_clifford;
+            Staged::Switched(sp)
+        }
+    }))
 }
 
 /// Exact `<0| U† O U |0>` with the frame engine. Returns `None` when the

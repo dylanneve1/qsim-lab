@@ -115,6 +115,29 @@ impl PauliSum {
         };
     }
 
+    /// The terms as `(string, coefficient)`, qubit 0 first (e.g. `"XIZY"`).
+    pub fn terms_as_strings(&self) -> Vec<(String, f64)> {
+        let s = 2 * self.w;
+        self.keys
+            .chunks(s)
+            .zip(&self.coefs)
+            .map(|(k, &c)| {
+                let st = (0..self.n)
+                    .map(|q| {
+                        let (wi, b) = (q / 64, 1u64 << (q % 64));
+                        match (k[wi] & b != 0, k[self.w + wi] & b != 0) {
+                            (false, false) => 'I',
+                            (true, false) => 'X',
+                            (true, true) => 'Y',
+                            (false, true) => 'Z',
+                        }
+                    })
+                    .collect();
+                (st, c)
+            })
+            .collect()
+    }
+
     pub fn num_terms(&self) -> usize {
         self.coefs.len()
     }
