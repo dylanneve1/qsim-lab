@@ -44,6 +44,15 @@ cp tests/differential_fuzz.rs wt/<topic>/tests/
 cd wt/<topic> && cargo test --release --test differential_fuzz
 ```
 
+Sensitivity check (mutation test): perturbing the state-vector CPhase angle
+by 1e−9 rad (`from_polar(1.0, th + 1e-9)`) is caught immediately by
+`sv_f64_matches_reference` (Δ = 4.0e−10 at n = 2). On main @ 86e5d67 all 11
+tests pass in 8 s (release).
+
+Per-branch adapters live in `audit-adapters/` (copied into `tests/` /
+`examples/` of a worktree of the branch under audit, together with
+`tests/audit_common/`).
+
 ### Previous auditor's leftovers
 `examples/adversarial_fuzz.rs` + `tests/adversarial_fuzz.rs` (uncommitted)
 did **not compile** against the current API (`StateVector::measure`/`reset`
@@ -100,4 +109,41 @@ circuit* (propagate every single fault of `run_noisy`'s noise channels
 through the Clifford circuit to detectors/observable, merge identical
 symptoms with p ← p₁(1−p₂)+p₂(1−p₁)), and agreement at d=3 within the
 Bonferroni bound for every detector and both logical rates.
+
+## 3. exp/sv @ 973f40b — cache-blocked executor (`apply_circuit_blocked`)
+
+No PR yet; audited pre-emptively.
+
+**Accuracy.** `audit-adapters/sv_blocked.rs`: blocked executor vs the
+independent reference, n ∈ {1..11, 13} with 5 configs per circuit (default +
+4 random adversarial: `block_bytes` ∈ {8 B … 256 KiB}, `slots` 0–8, fusion
+on/off, `small_n` 0–3 forcing the multi-chunk path at tiny n), plus 16/18
+qubits (default and 4 KiB/2-slot configs) and 500-gate single-qubit fusion
+runs. `QSIM_FUZZ_ITERS=10`: **pass**, worst |Δamp| f64 = 1.0e−15, f32 =
+3.7e−7. Their own `tests/blocked.rs` compares against the in-crate
+gate-by-gate path only; this adds an independent oracle and edge-biased
+gates (Ccx in all orderings, Swap, CPhase with angles at 0/π/2π ± ε).
+
+**Merge hazard.** exp/sv is based on e86e91b; main's `Op` enum gained
+Reset/ClassicControlled/noise variants, so the exhaustive
+`match op { Op::Gate, Op::Measure }` in `apply_circuit_blocked` will not
+compile after merging main. Told the sv agent.
+
+**Speed** (`audit-adapters/bench_sv_blocked.rs`: base and blocked runs
+*interleaved* in one process, 5 reps each, min reported; default
+`BlockConfig`; portable release build; through `bench.sh`; raw:
+`research/data/audit/sv_973f40b_bench.txt`):
+
+| workload | n | prec | base min (s) | blocked min (s) | speedup | load |
+|---|---|---|---|---|---|---|
+| qft | 22 | f32 | 0.442 | 0.073 | 6.05× | 11.4 |
+| brick (20 layers) | 22 | f32 | 3.735 | 0.775 | 4.82× | 11.4→10.5 |
+| qft | 22 | f64 | 0.736 | 0.101 | 7.29× | 10.5 |
+| qft | 24 | f32 | 1.724 | 0.214 | 8.05× | 10.3 |
+| brick (20 layers) | 24 | f32 | 13.92 | 2.80 | 4.97× | 10.0→8.3 |
+
+Base-run spread is large (e.g. qft-24 base 1.72–3.93 s) because of box
+load; blocked runs are tighter. Even taking the *worst* blocked rep against
+the *best* base rep the ratio stays ≥ 3.5×. No headline claim to compare
+against yet (EXPERIMENTS-sv.md has only the profile).
 
