@@ -35,7 +35,7 @@ const C1: Complex64 = Complex64::new(1.0, 0.0);
 const XMAT: Mat2 = [[C0, C1], [C1, C0]];
 
 /// Executor IR: one operation on physical qubits.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum KOp {
     /// 2x2 unitary `m` on qubit `q`, applied where all qubits in the bit mask
     /// `ctrl` are 1.
@@ -49,24 +49,40 @@ pub enum KOp {
     },
     /// Exchanges qubits `a` and `b`.
     Swap { a: usize, b: usize },
+    /// Dense unitary on up to 4 qubits.
+    Dense(std::sync::Arc<crate::dense_fusion::DenseOp>),
 }
 
 impl KOp {
     /// Bit mask of every qubit the op involves.
-    fn touches(&self) -> usize {
-        match *self {
-            KOp::U1 { q, ctrl, .. } => (1 << q) | ctrl,
-            KOp::Phase { mask, .. } => mask,
-            KOp::Swap { a, b } => (1 << a) | (1 << b),
+    pub fn touches(&self) -> usize {
+        match self {
+            KOp::U1 { q, ctrl, .. } => (1 << *q) | *ctrl,
+            KOp::Phase { mask, .. } => *mask,
+            KOp::Swap { a, b } => (1 << *a) | (1 << *b),
+            KOp::Dense(d) => {
+                let mut m = 0usize;
+                for &q in &d.qs {
+                    m |= 1 << q;
+                }
+                m
+            }
         }
     }
 
     /// Bit mask of the qubits that must be inner (in the cache block).
-    fn needs_inner(&self) -> usize {
-        match *self {
-            KOp::U1 { q, .. } => 1 << q,
+    pub fn needs_inner(&self) -> usize {
+        match self {
+            KOp::U1 { q, .. } => 1 << *q,
             KOp::Phase { .. } => 0,
-            KOp::Swap { a, b } => (1 << a) | (1 << b),
+            KOp::Swap { a, b } => (1 << *a) | (1 << *b),
+            KOp::Dense(d) => {
+                let mut m = 0usize;
+                for &q in &d.qs {
+                    m |= 1 << q;
+                }
+                m
+            }
         }
     }
 }
@@ -204,14 +220,14 @@ pub fn fuse_1q(ops: &[KOp], n: usize, split: bool) -> Vec<KOp> {
         });
     };
     for op in ops {
-        match *op {
-            KOp::U1 { q, m, ctrl: 0 } => accumulate(&mut pending, q, m),
+        match op {
+            KOp::U1 { q, m, ctrl: 0 } => accumulate(&mut pending, *q, *m),
             KOp::Phase { mask, pat, f } if mask.count_ones() == 1 => {
                 let q = mask.trailing_zeros() as usize;
-                let m = if pat == 0 {
-                    [[f, C0], [C0, C1]]
+                let m = if *pat == 0 {
+                    [[*f, C0], [C0, C1]]
                 } else {
-                    [[C1, C0], [C0, f]]
+                    [[C1, C0], [C0, *f]]
                 };
                 accumulate(&mut pending, q, m);
             }
@@ -224,7 +240,7 @@ pub fn fuse_1q(ops: &[KOp], n: usize, split: bool) -> Vec<KOp> {
                         emit_1q(&mut out, q, m, split);
                     }
                 }
-                out.push(*op);
+                out.push(op.clone());
             }
         }
     }
@@ -260,6 +276,8 @@ pub struct BlockConfig {
     /// Reorder diagonal terms within a stage (they commute with every op
     /// not targeting their qubits) so they form as few passes as possible.
     pub schedule_diag: bool,
+    /// Maximum number of qubits to fuse into a dense unitary (1 = disabled/baseline, 2..4).
+    pub max_fusion: usize,
 }
 
 impl Default for BlockConfig {
@@ -271,6 +289,7 @@ impl Default for BlockConfig {
             small_n: 12,
             split_phases: false,
             schedule_diag: true,
+            max_fusion: 1,
         }
     }
 }
@@ -333,7 +352,7 @@ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage> 
         } else {
             hi = merged;
         }
-        cur.push(*op);
+        cur.push(op.clone());
     }
     if !cur.is_empty() {
         stages.push(finish(hi, cur));
@@ -364,8 +383,9 @@ pub fn schedule_diag(ops: &[KOp]) -> Vec<KOp> {
     let mut t_diag = vec![0usize; nbits]; // diagonal term on q
     let mut layer = vec![0usize; ops.len()];
     for (i, op) in ops.iter().enumerate() {
-        match *op {
+        match op {
             KOp::U1 { q, ctrl, .. } => {
+                let (q, ctrl) = (*q, *ctrl);
                 let mut e = t_tgt[q].max(t_ctl[q]).max(t_diag[q]);
                 for c in bits(ctrl) {
                     e = e.max(t_tgt[c]);
@@ -378,6 +398,7 @@ pub fn schedule_diag(ops: &[KOp]) -> Vec<KOp> {
                 }
             }
             KOp::Swap { a, b } => {
+                let (a, b) = (*a, *b);
                 let e = 1 + [a, b]
                     .iter()
                     .map(|&q| t_tgt[q].max(t_ctl[q]).max(t_diag[q]))
@@ -387,7 +408,20 @@ pub fn schedule_diag(ops: &[KOp]) -> Vec<KOp> {
                 t_tgt[a] = e;
                 t_tgt[b] = e;
             }
+            KOp::Dense(d) => {
+                let e = 1 + d
+                    .qs
+                    .iter()
+                    .map(|&q| t_tgt[q].max(t_ctl[q]).max(t_diag[q]))
+                    .max()
+                    .unwrap_or(0);
+                layer[i] = e;
+                for &q in &d.qs {
+                    t_tgt[q] = e;
+                }
+            }
             KOp::Phase { mask, .. } => {
+                let mask = *mask;
                 let e = bits(mask).map(|q| t_tgt[q]).max().unwrap_or(0);
                 layer[i] = e;
                 for q in bits(mask) {
@@ -401,14 +435,19 @@ pub fn schedule_diag(ops: &[KOp]) -> Vec<KOp> {
     let mut first_tgt = vec![top + 1; nbits];
     let mut hi = vec![0usize; ops.len()];
     for (i, op) in ops.iter().enumerate().rev() {
-        match *op {
-            KOp::U1 { q, .. } => first_tgt[q] = first_tgt[q].min(layer[i]),
+        match op {
+            KOp::U1 { q, .. } => first_tgt[*q] = first_tgt[*q].min(layer[i]),
             KOp::Swap { a, b } => {
-                first_tgt[a] = first_tgt[a].min(layer[i]);
-                first_tgt[b] = first_tgt[b].min(layer[i]);
+                first_tgt[*a] = first_tgt[*a].min(layer[i]);
+                first_tgt[*b] = first_tgt[*b].min(layer[i]);
+            }
+            KOp::Dense(d) => {
+                for &q in &d.qs {
+                    first_tgt[q] = first_tgt[q].min(layer[i]);
+                }
             }
             KOp::Phase { mask, .. } => {
-                hi[i] = bits(mask).map(|q| first_tgt[q]).min().unwrap_or(top + 1) - 1;
+                hi[i] = bits(*mask).map(|q| first_tgt[q]).min().unwrap_or(top + 1) - 1;
             }
         }
     }
@@ -444,7 +483,7 @@ pub fn schedule_diag(ops: &[KOp]) -> Vec<KOp> {
         by_slot[slot].push(i);
     }
     for slot in by_slot {
-        out.extend(slot.into_iter().map(|i| ops[i]));
+        out.extend(slot.into_iter().map(|i| ops[i].clone()));
     }
     out
 }
@@ -500,6 +539,21 @@ enum LOp<T: Real> {
         b: usize,
     },
     Diag(DiagBlock),
+    Dense2 {
+        t: [usize; 2],
+        re: [T; 16],
+        im: [T; 16],
+    },
+    Dense3 {
+        t: [usize; 3],
+        re: [T; 64],
+        im: [T; 64],
+    },
+    Dense4 {
+        t: [usize; 4],
+        re: [T; 256],
+        im: [T; 256],
+    },
 }
 
 struct Prepared<T: Real> {
@@ -543,9 +597,10 @@ fn build_diag_block(terms: &[KOp], pos: &[Option<usize>]) -> DiagBlock {
     let mut multi = Vec::new(); // >= 2 inner bits
     let mut single = Vec::new(); // <= 1 inner bit
     for op in terms {
-        let KOp::Phase { mask, pat, f } = *op else {
+        let KOp::Phase { mask, pat, f } = op else {
             unreachable!()
         };
+        let (mask, pat, f) = (*mask, *pat, *f);
         let (imask, omask) = split_mask(mask, pos);
         let (ipat, opat) = map_pat(mask, pat, pos);
         let t = T2 {
@@ -708,6 +763,37 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
                     i += 1;
                 }
                 ops.push(LOp::Diag(build_diag_block(&st.ops[start..i], &pos)));
+            }
+            KOp::Dense(ref d) => {
+                let t_qs: Vec<usize> =
+                    d.qs.iter().map(|&q| pos[q].expect("target is inner")).collect();
+                let re: Vec<T> = d.mat.iter().map(|z| T::from_f64(z.re)).collect();
+                let im: Vec<T> = d.mat.iter().map(|z| T::from_f64(z.im)).collect();
+                match t_qs.len() {
+                    2 => {
+                        ops.push(LOp::Dense2 {
+                            t: [t_qs[0], t_qs[1]],
+                            re: re.try_into().unwrap(),
+                            im: im.try_into().unwrap(),
+                        });
+                    }
+                    3 => {
+                        ops.push(LOp::Dense3 {
+                            t: [t_qs[0], t_qs[1], t_qs[2]],
+                            re: re.try_into().unwrap(),
+                            im: im.try_into().unwrap(),
+                        });
+                    }
+                    4 => {
+                        ops.push(LOp::Dense4 {
+                            t: [t_qs[0], t_qs[1], t_qs[2], t_qs[3]],
+                            re: re.try_into().unwrap(),
+                            im: im.try_into().unwrap(),
+                        });
+                    }
+                    _ => panic!("unsupported dense fusion width {}", t_qs.len()),
+                }
+                i += 1;
             }
         }
     }
@@ -947,6 +1033,235 @@ fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
     });
 }
 
+#[inline(always)]
+fn four<T>(
+    v: &mut [T],
+    i0: usize,
+    i1: usize,
+    i2: usize,
+    i3: usize,
+    run: usize,
+) -> (&mut [T], &mut [T], &mut [T], &mut [T]) {
+    let (left, right) = v.split_at_mut(i2);
+    let (s0, s1) = left.split_at_mut(i1);
+    let (s2, s3) = right.split_at_mut(i3 - i2);
+    (&mut s0[i0..i0 + run], &mut s1[..run], &mut s2[..run], &mut s3[..run])
+}
+
+#[inline(always)]
+fn dense2_slice_kernel<T: Real>(
+    ar: &mut [T],
+    ai: &mut [T],
+    br: &mut [T],
+    bi: &mut [T],
+    cr: &mut [T],
+    ci: &mut [T],
+    dr: &mut [T],
+    di: &mut [T],
+    mr: &[T; 16],
+    mi: &[T; 16],
+) {
+    let len = ar.len();
+    for k in 0..len {
+        let x0r = ar[k]; let x0i = ai[k];
+        let x1r = br[k]; let x1i = bi[k];
+        let x2r = cr[k]; let x2i = ci[k];
+        let x3r = dr[k]; let x3i = di[k];
+
+        ar[k] = mr[0]*x0r - mi[0]*x0i + mr[1]*x1r - mi[1]*x1i + mr[2]*x2r - mi[2]*x2i + mr[3]*x3r - mi[3]*x3i;
+        ai[k] = mr[0]*x0i + mi[0]*x0r + mr[1]*x1i + mi[1]*x1r + mr[2]*x2i + mi[2]*x2r + mr[3]*x3i + mi[3]*x3r;
+
+        br[k] = mr[4]*x0r - mi[4]*x0i + mr[5]*x1r - mi[5]*x1i + mr[6]*x2r - mi[6]*x2i + mr[7]*x3r - mi[7]*x3i;
+        bi[k] = mr[4]*x0i + mi[4]*x0r + mr[5]*x1i + mi[5]*x1r + mr[6]*x2i + mi[6]*x2r + mr[7]*x3i + mi[7]*x3r;
+
+        cr[k] = mr[8]*x0r - mi[8]*x0i + mr[9]*x1r - mi[9]*x1i + mr[10]*x2r - mi[10]*x2i + mr[11]*x3r - mi[11]*x3i;
+        ci[k] = mr[8]*x0i + mi[8]*x0r + mr[9]*x1i + mi[9]*x1r + mr[10]*x2i + mi[10]*x2r + mr[11]*x3i + mi[11]*x3r;
+
+        dr[k] = mr[12]*x0r - mi[12]*x0i + mr[13]*x1r - mi[13]*x1i + mr[14]*x2r - mi[14]*x2i + mr[15]*x3r - mi[15]*x3i;
+        di[k] = mr[12]*x0i + mi[12]*x0r + mr[13]*x1i + mi[13]*x1r + mr[14]*x2i + mi[14]*x2r + mr[15]*x3i + mi[15]*x3r;
+    }
+}
+
+fn apply_dense2<T: Real>(
+    buf: &mut Buf<T>,
+    _l: usize,
+    t: [usize; 2],
+    mr: &[T; 16],
+    mi: &[T; 16],
+) {
+    let [t0, t1] = t;
+    let s0 = 1usize << t0;
+    let s1 = 1usize << t1;
+    let Buf { re, im } = buf;
+
+    for (cr, ci) in re.chunks_exact_mut(2 * s1).zip(im.chunks_exact_mut(2 * s1)) {
+        let (lo_r, hi_r) = cr.split_at_mut(s1);
+        let (lo_i, hi_i) = ci.split_at_mut(s1);
+        for (((sub_lo_r, sub_lo_i), sub_hi_r), sub_hi_i) in lo_r
+            .chunks_exact_mut(2 * s0)
+            .zip(lo_i.chunks_exact_mut(2 * s0))
+            .zip(hi_r.chunks_exact_mut(2 * s0))
+            .zip(hi_i.chunks_exact_mut(2 * s0))
+        {
+            let (ar, br) = sub_lo_r.split_at_mut(s0);
+            let (ai, bi) = sub_lo_i.split_at_mut(s0);
+            let (cr, dr) = sub_hi_r.split_at_mut(s0);
+            let (ci, di) = sub_hi_i.split_at_mut(s0);
+            dense2_slice_kernel(ar, ai, br, bi, cr, ci, dr, di, mr, mi);
+        }
+    }
+}
+
+fn apply_dense3<T: Real>(
+    buf: &mut Buf<T>,
+    l: usize,
+    t: [usize; 3],
+    mr: &[T; 64],
+    mi: &[T; 64],
+) {
+    let [t0, t1, t2] = t;
+    let s0 = 1usize << t0;
+    let s1 = 1usize << t1;
+    let s2 = 1usize << t2;
+    let fixed = s0 | s1 | s2;
+    let Buf { re, im } = buf;
+
+    let offsets = [
+        0,
+        s0,
+        s1,
+        s0 + s1,
+        s2,
+        s0 + s2,
+        s1 + s2,
+        s0 + s1 + s2,
+    ];
+
+    if t0 == 0 && t1 == 1 && t2 == 2 && l >= 3 {
+        for (cr, ci) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
+            let mut xr = [T::zero(); 8];
+            let mut xi = [T::zero(); 8];
+            for m in 0..8 {
+                xr[m] = cr[m];
+                xi[m] = ci[m];
+            }
+            for r in 0..8 {
+                let mut sr = T::zero();
+                let mut si = T::zero();
+                let r_off = r * 8;
+                for c in 0..8 {
+                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
+                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
+                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
+                }
+                cr[r] = sr;
+                ci[r] = si;
+            }
+        }
+        return;
+    }
+
+    for_each_run(l, fixed, |base, run| {
+        for k in 0..run {
+            let mut xr = [T::zero(); 8];
+            let mut xi = [T::zero(); 8];
+            let mut idxs = [0usize; 8];
+            for m in 0..8 {
+                let idx = base + offsets[m] + k;
+                idxs[m] = idx;
+                xr[m] = re[idx];
+                xi[m] = im[idx];
+            }
+            for r in 0..8 {
+                let mut sr = T::zero();
+                let mut si = T::zero();
+                let r_off = r * 8;
+                for c in 0..8 {
+                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
+                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
+                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
+                }
+                re[idxs[r]] = sr;
+                im[idxs[r]] = si;
+            }
+        }
+    });
+}
+
+fn apply_dense4<T: Real>(
+    buf: &mut Buf<T>,
+    l: usize,
+    t: [usize; 4],
+    mr: &[T; 256],
+    mi: &[T; 256],
+) {
+    let [t0, t1, t2, t3] = t;
+    let s0 = 1usize << t0;
+    let s1 = 1usize << t1;
+    let s2 = 1usize << t2;
+    let s3 = 1usize << t3;
+    let fixed = s0 | s1 | s2 | s3;
+    let Buf { re, im } = buf;
+
+    let mut offsets = [0usize; 16];
+    for m in 0..16 {
+        offsets[m] = (if m & 1 != 0 { s0 } else { 0 })
+            | (if m & 2 != 0 { s1 } else { 0 })
+            | (if m & 4 != 0 { s2 } else { 0 })
+            | (if m & 8 != 0 { s3 } else { 0 });
+    }
+
+    if t0 == 0 && t1 == 1 && t2 == 2 && t3 == 3 && l >= 4 {
+        for (cr, ci) in re.chunks_exact_mut(16).zip(im.chunks_exact_mut(16)) {
+            let mut xr = [T::zero(); 16];
+            let mut xi = [T::zero(); 16];
+            for m in 0..16 {
+                xr[m] = cr[m];
+                xi[m] = ci[m];
+            }
+            for r in 0..16 {
+                let mut sr = T::zero();
+                let mut si = T::zero();
+                let r_off = r * 16;
+                for c in 0..16 {
+                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
+                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
+                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
+                }
+                cr[r] = sr;
+                ci[r] = si;
+            }
+        }
+        return;
+    }
+
+    for_each_run(l, fixed, |base, run| {
+        for k in 0..run {
+            let mut xr = [T::zero(); 16];
+            let mut xi = [T::zero(); 16];
+            let mut idxs = [0usize; 16];
+            for m in 0..16 {
+                let idx = base + offsets[m] + k;
+                idxs[m] = idx;
+                xr[m] = re[idx];
+                xi[m] = im[idx];
+            }
+            for r in 0..16 {
+                let mut sr = T::zero();
+                let mut si = T::zero();
+                let r_off = r * 16;
+                for c in 0..16 {
+                    let (mr_rc, mi_rc) = (mr[r_off + c], mi[r_off + c]);
+                    sr = sr + mr_rc * xr[c] - mi_rc * xi[c];
+                    si = si + mr_rc * xi[c] + mi_rc * xr[c];
+                }
+                re[idxs[r]] = sr;
+                im[idxs[r]] = si;
+            }
+        }
+    });
+}
+
 const LO_BITS: usize = 8;
 
 /// Scratch tables reused across diagonal passes.
@@ -1115,6 +1430,9 @@ fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut Dia
                     apply_diag_group(buf, l, g, base, sc);
                 }
             }
+            LOp::Dense2 { t, re, im } => apply_dense2(buf, l, *t, re, im),
+            LOp::Dense3 { t, re, im } => apply_dense3(buf, l, *t, re, im),
+            LOp::Dense4 { t, re, im } => apply_dense4(buf, l, *t, re, im),
         }
     }
 }
@@ -1150,6 +1468,18 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
                     apply_diag_group(buf, l, g, base, sc);
                 }
                 prof::add(5, t0);
+            }
+            LOp::Dense2 { t, re, im } => {
+                apply_dense2(buf, l, *t, re, im);
+                prof::add(0, t0);
+            }
+            LOp::Dense3 { t, re, im } => {
+                apply_dense3(buf, l, *t, re, im);
+                prof::add(0, t0);
+            }
+            LOp::Dense4 { t, re, im } => {
+                apply_dense4(buf, l, *t, re, im);
+                prof::add(0, t0);
             }
         }
     }
@@ -1315,6 +1645,13 @@ impl<T: Real> StateVector<T> {
         let ops = if cfg.fuse_1q {
             fused = fuse_1q(ops, n, cfg.split_phases);
             &fused[..]
+        } else {
+            ops
+        };
+        let dense_fused;
+        let ops = if cfg.max_fusion > 1 {
+            dense_fused = crate::dense_fusion::fuse_dense_ops(ops, n, cfg.max_fusion);
+            &dense_fused[..]
         } else {
             ops
         };

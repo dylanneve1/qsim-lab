@@ -48,12 +48,13 @@ fn check<T: Real>(c: &Circuit, cfg: &BlockConfig, seed: u64, tol: f64) {
 /// few or many slots, with and without 1q fusion.
 fn configs() -> Vec<BlockConfig> {
     let mut v = Vec::new();
-    for (kib, slots, fuse, split, sched) in [
-        (1, 2, true, true, true),
-        (1, 4, false, false, true),
-        (2, 0, true, false, false),
-        (4, 3, true, true, false),
-        (256, 6, true, true, true),
+    for (kib, slots, fuse, split, sched, fusion) in [
+        (1, 2, true, true, true, 1),
+        (1, 4, false, false, true, 1),
+        (2, 0, true, false, false, 2),
+        (4, 3, true, true, false, 3),
+        (256, 6, true, true, true, 4),
+        (256, 6, true, false, true, 2),
     ] {
         v.push(BlockConfig {
             block_bytes: kib << 10,
@@ -62,6 +63,7 @@ fn configs() -> Vec<BlockConfig> {
             small_n: 4,
             split_phases: split,
             schedule_diag: sched,
+            max_fusion: fusion,
         });
     }
     v
@@ -100,7 +102,7 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
     #[test]
-    fn random_circuits_match(n in 3usize..11, len in 1usize..120, seed in 0u64..1000, ci in 0usize..5) {
+    fn random_circuits_match(n in 3usize..11, len in 1usize..120, seed in 0u64..1000, ci in 0usize..6) {
         let mut rng = StdRng::seed_from_u64(seed);
         let c = random_universal(n, len, &mut rng);
         let cfg = &configs()[ci];

@@ -154,6 +154,7 @@ fn main() {
             "small_n" => cfg.small_n = v.parse().unwrap(),
             "split" => cfg.split_phases = v == "1",
             "sched" => cfg.schedule_diag = v == "1",
+            "fusion" => cfg.max_fusion = v.parse().unwrap(),
             _ => panic!("unknown key {k}"),
         }
     }
