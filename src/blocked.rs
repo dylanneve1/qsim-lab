@@ -260,6 +260,10 @@ pub struct BlockConfig {
     /// Reorder diagonal terms within a stage (they commute with every op
     /// not targeting their qubits) so they form as few passes as possible.
     pub schedule_diag: bool,
+    /// Use the AVX2+FMA build of the chunk kernels when the CPU has them
+    /// (checked at run time; the portable kernels are used otherwise).
+    /// Results agree with the portable path to rounding error.
+    pub simd: bool,
 }
 
 impl Default for BlockConfig {
@@ -271,6 +275,7 @@ impl Default for BlockConfig {
             small_n: 12,
             split_phases: false,
             schedule_diag: true,
+            simd: true,
         }
     }
 }
@@ -508,6 +513,7 @@ struct Prepared<T: Real> {
     ops: Vec<LOp<T>>,
 }
 
+#[inline(always)]
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
     Complex::new(T::from_f64(z.re), T::from_f64(z.im))
 }
@@ -732,7 +738,7 @@ struct Buf<T> {
 }
 
 /// Inserts a zero bit at each position of `fixed` (ascending) into `x`.
-#[inline]
+#[inline(always)]
 fn insert_zeros(mut x: usize, mut fixed: usize) -> usize {
     while fixed != 0 {
         let f = fixed.trailing_zeros();
@@ -745,7 +751,7 @@ fn insert_zeros(mut x: usize, mut fixed: usize) -> usize {
 
 /// Calls `f(base, run)` for every maximal run of indices `j < 2^l` with
 /// `(j & fixed) == 0`: `base..base+run` are those indices.
-#[inline]
+#[inline(always)]
 fn for_each_run(l: usize, fixed: usize, mut f: impl FnMut(usize, usize)) {
     let low = fixed.trailing_zeros().min(l as u32) as usize;
     let run = 1usize << low;
@@ -757,20 +763,45 @@ fn for_each_run(l: usize, fixed: usize, mut f: impl FnMut(usize, usize)) {
     }
 }
 
+/// `a * b + c`: a fused multiply-add when `F` (only ever instantiated with
+/// `F = true` inside `#[target_feature(enable = "fma")]` code, where it
+/// lowers to one `vfmadd` instruction; with `F = false` it is the portable
+/// two-rounding `a * b + c`, so the fallback never calls a software `fma`).
+#[inline(always)]
+fn fma<T: Real, const F: bool>(a: T, b: T, c: T) -> T {
+    if F {
+        a.mul_add(b, c)
+    } else {
+        a * b + c
+    }
+}
+
 /// `(a, b) <- (m0 a + m1 b, m2 a + m3 b)` elementwise; `m` holds the real
 /// parts then the imaginary parts of the four entries.
 #[inline(always)]
-fn u1_kernel<T: Real>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
+fn u1_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
     let len = ar.len();
     let (ai, br, bi) = (&mut ai[..len], &mut br[..len], &mut bi[..len]);
     for k in 0..len {
         let (xr, xi, yr, yi) = (ar[k], ai[k], br[k], bi[k]);
-        ar[k] = m0r * xr - m0i * xi + m1r * yr - m1i * yi;
-        ai[k] = m0r * xi + m0i * xr + m1r * yi + m1i * yr;
-        br[k] = m2r * xr - m2i * xi + m3r * yr - m3i * yi;
-        bi[k] = m2r * xi + m2i * xr + m3r * yi + m3i * yr;
+        let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
+        let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
+        ar[k] = a;
+        ai[k] = b;
+        br[k] = c;
+        bi[k] = d;
     }
+}
+
+/// `(m0 + i m0i) (xr + i xi) + (m1 + i m1i) (yr + i yi)` for
+/// `m = [m0, m0i, m1, m1i]`.
+#[inline(always)]
+fn cmul2<T: Real, const F: bool>(m: [T; 4], xr: T, xi: T, yr: T, yi: T) -> (T, T) {
+    let [m0r, m0i, m1r, m1i] = m;
+    let re = fma::<T, F>(m0r, xr, fma::<T, F>(-m0i, xi, fma::<T, F>(m1r, yr, -(m1i * yi))));
+    let im = fma::<T, F>(m0r, xi, fma::<T, F>(m0i, xr, fma::<T, F>(m1r, yi, m1i * yr)));
+    (re, im)
 }
 
 /// Splits `v` into `v[lo..lo+run]` and `v[hi..hi+run]` (`lo + run <= hi`).
@@ -803,21 +834,21 @@ fn small_pairs(l: usize, fixed: usize, cin: usize, s: usize, mut f: impl FnMut(u
 
 /// `(a, b) <- (m0 a + m1 b, m2 a + m3 b)` for a real matrix.
 #[inline(always)]
-fn u1_real_kernel<T: Real>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
+fn u1_real_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], br: &mut [T], bi: &mut [T], m: &[T; 8]) {
     let [m0, m1, m2, m3, ..] = *m;
     let len = ar.len();
     let (ai, br, bi) = (&mut ai[..len], &mut br[..len], &mut bi[..len]);
     for k in 0..len {
         let (xr, xi, yr, yi) = (ar[k], ai[k], br[k], bi[k]);
-        ar[k] = m0 * xr + m1 * yr;
-        ai[k] = m0 * xi + m1 * yi;
-        br[k] = m2 * xr + m3 * yr;
-        bi[k] = m2 * xi + m3 * yi;
+        ar[k] = fma::<T, F>(m0, xr, m1 * yr);
+        ai[k] = fma::<T, F>(m0, xi, m1 * yi);
+        br[k] = fma::<T, F>(m2, xr, m3 * yr);
+        bi[k] = fma::<T, F>(m2, xi, m3 * yi);
     }
 }
 
 #[inline(always)]
-fn u1_slices<T: Real>(
+fn u1_slices<T: Real, const F: bool>(
     ar: &mut [T],
     ai: &mut [T],
     br: &mut [T],
@@ -830,8 +861,8 @@ fn u1_slices<T: Real>(
             ar.swap_with_slice(br);
             ai.swap_with_slice(bi);
         }
-        UKind::Real => u1_real_kernel(ar, ai, br, bi, m),
-        UKind::Complex => u1_kernel(ar, ai, br, bi, m),
+        UKind::Real => u1_real_kernel::<T, F>(ar, ai, br, bi, m),
+        UKind::Complex => u1_kernel::<T, F>(ar, ai, br, bi, m),
     }
 }
 
@@ -840,7 +871,7 @@ fn u1_slices<T: Real>(
 /// group are computed as one short vector (about 2x faster than walking
 /// runs of length 1 or 2).
 #[inline(always)]
-fn u1_group8<T: Real, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], m: &[T; 8]) {
+fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], m: &[T; 8]) {
     let s = 1usize << TB;
     let lo: [usize; 4] = std::array::from_fn(|k| ((k >> TB) << (TB + 1)) | (k & (s - 1)));
     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
@@ -853,17 +884,18 @@ fn u1_group8<T: Real, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], 
             let (ar, ai, br, bi) = match K {
                 0 => (yr[k], yi[k], xr[k], xi[k]),
                 1 => (
-                    m0r * xr[k] + m1r * yr[k],
-                    m0r * xi[k] + m1r * yi[k],
-                    m2r * xr[k] + m3r * yr[k],
-                    m2r * xi[k] + m3r * yi[k],
+                    fma::<T, F>(m0r, xr[k], m1r * yr[k]),
+                    fma::<T, F>(m0r, xi[k], m1r * yi[k]),
+                    fma::<T, F>(m2r, xr[k], m3r * yr[k]),
+                    fma::<T, F>(m2r, xi[k], m3r * yi[k]),
                 ),
-                _ => (
-                    m0r * xr[k] - m0i * xi[k] + m1r * yr[k] - m1i * yi[k],
-                    m0r * xi[k] + m0i * xr[k] + m1r * yi[k] + m1i * yr[k],
-                    m2r * xr[k] - m2i * xi[k] + m3r * yr[k] - m3i * yi[k],
-                    m2r * xi[k] + m2i * xr[k] + m3r * yi[k] + m3i * yr[k],
-                ),
+                _ => {
+                    let (a, b) =
+                        cmul2::<T, F>([m0r, m0i, m1r, m1i], xr[k], xi[k], yr[k], yi[k]);
+                    let (c, d) =
+                        cmul2::<T, F>([m2r, m2i, m3r, m3i], xr[k], xi[k], yr[k], yi[k]);
+                    (a, b, c, d)
+                }
             };
             gr[lo[k]] = ar;
             gi[lo[k]] = ai;
@@ -873,18 +905,19 @@ fn u1_group8<T: Real, const TB: usize, const K: u8>(re: &mut [T], im: &mut [T], 
     }
 }
 
-fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKind, cin: usize) {
+#[inline(always)]
+fn apply_u1<T: Real, const F: bool>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKind, cin: usize) {
     let s = 1usize << t;
     let Buf { re, im } = buf;
     let fixed = cin | s;
     if cin == 0 && t < 2 && l >= 3 {
         match (t, kind) {
-            (0, UKind::X) => u1_group8::<T, 0, 0>(re, im, m),
-            (0, UKind::Real) => u1_group8::<T, 0, 1>(re, im, m),
-            (0, UKind::Complex) => u1_group8::<T, 0, 2>(re, im, m),
-            (_, UKind::X) => u1_group8::<T, 1, 0>(re, im, m),
-            (_, UKind::Real) => u1_group8::<T, 1, 1>(re, im, m),
-            (_, UKind::Complex) => u1_group8::<T, 1, 2>(re, im, m),
+            (0, UKind::X) => u1_group8::<T, F, 0, 0>(re, im, m),
+            (0, UKind::Real) => u1_group8::<T, F, 0, 1>(re, im, m),
+            (0, UKind::Complex) => u1_group8::<T, F, 0, 2>(re, im, m),
+            (_, UKind::X) => u1_group8::<T, F, 1, 0>(re, im, m),
+            (_, UKind::Real) => u1_group8::<T, F, 1, 1>(re, im, m),
+            (_, UKind::Complex) => u1_group8::<T, F, 1, 2>(re, im, m),
         }
         return;
     }
@@ -897,17 +930,15 @@ fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKi
             }),
             UKind::Real => small_pairs(l, fixed, cin, s, |i, j| {
                 let (xr, xi, yr, yi) = (re[i], im[i], re[j], im[j]);
-                re[i] = m0r * xr + m1r * yr;
-                im[i] = m0r * xi + m1r * yi;
-                re[j] = m2r * xr + m3r * yr;
-                im[j] = m2r * xi + m3r * yi;
+                re[i] = fma::<T, F>(m0r, xr, m1r * yr);
+                im[i] = fma::<T, F>(m0r, xi, m1r * yi);
+                re[j] = fma::<T, F>(m2r, xr, m3r * yr);
+                im[j] = fma::<T, F>(m2r, xi, m3r * yi);
             }),
             UKind::Complex => small_pairs(l, fixed, cin, s, |i, j| {
                 let (xr, xi, yr, yi) = (re[i], im[i], re[j], im[j]);
-                re[i] = m0r * xr - m0i * xi + m1r * yr - m1i * yi;
-                im[i] = m0r * xi + m0i * xr + m1r * yi + m1i * yr;
-                re[j] = m2r * xr - m2i * xi + m3r * yr - m3i * yi;
-                im[j] = m2r * xi + m2i * xr + m3r * yi + m3i * yr;
+                (re[i], im[i]) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
+                (re[j], im[j]) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
             }),
         }
         return;
@@ -916,7 +947,7 @@ fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKi
         for (cr, ci) in re.chunks_exact_mut(2 * s).zip(im.chunks_exact_mut(2 * s)) {
             let (ar, br) = cr.split_at_mut(s);
             let (ai, bi) = ci.split_at_mut(s);
-            u1_slices(ar, ai, br, bi, m, kind);
+            u1_slices::<T, F>(ar, ai, br, bi, m, kind);
         }
         return;
     }
@@ -924,10 +955,11 @@ fn apply_u1<T: Real>(buf: &mut Buf<T>, l: usize, t: usize, m: &[T; 8], kind: UKi
         let base = base | cin;
         let (ar, br) = two(re, base, base + s, run);
         let (ai, bi) = two(im, base, base + s, run);
-        u1_slices(ar, ai, br, bi, m, kind);
+        u1_slices::<T, F>(ar, ai, br, bi, m, kind);
     });
 }
 
+#[inline(always)]
 fn apply_swap<T: Real>(buf: &mut Buf<T>, l: usize, a: usize, b: usize) {
     let (sa, sb) = (1usize << a, 1usize << b);
     let Buf { re, im } = buf;
@@ -960,15 +992,15 @@ struct DiagScratch<T> {
 
 /// `a[k] *= (lr[k] + i li[k]) * h` on a run.
 #[inline(always)]
-fn diag_kernel<T: Real>(ar: &mut [T], ai: &mut [T], lr: &[T], li: &[T], h: Complex<T>) {
+fn diag_kernel<T: Real, const F: bool>(ar: &mut [T], ai: &mut [T], lr: &[T], li: &[T], h: Complex<T>) {
     let len = ar.len();
     let (ai, lr, li) = (&mut ai[..len], &lr[..len], &li[..len]);
     for k in 0..len {
-        let fr = lr[k] * h.re - li[k] * h.im;
-        let fi = lr[k] * h.im + li[k] * h.re;
+        let fr = fma::<T, F>(lr[k], h.re, -(li[k] * h.im));
+        let fi = fma::<T, F>(lr[k], h.im, li[k] * h.re);
         let (xr, xi) = (ar[k], ai[k]);
-        ar[k] = xr * fr - xi * fi;
-        ai[k] = xr * fi + xi * fr;
+        ar[k] = fma::<T, F>(xr, fr, -(xi * fi));
+        ai[k] = fma::<T, F>(xr, fi, xi * fr);
     }
 }
 
@@ -986,7 +1018,8 @@ fn product_table(out: &mut Vec<Complex64>, e: &[[Complex64; 2]], init: Complex64
     }
 }
 
-fn apply_diag_group<T: Real>(
+#[inline(always)]
+fn apply_diag_group<T: Real, const F: bool>(
     buf: &mut Buf<T>,
     l: usize,
     g: &DiagGroup,
@@ -1032,21 +1065,21 @@ fn apply_diag_group<T: Real>(
         let rr = &mut re[h << lb..(h + 1) << lb];
         let ri = &mut im[h << lb..(h + 1) << lb];
         if cm_lo == 0 {
-            diag_kernel(rr, ri, &sc.lor, &sc.loi, hv);
+            diag_kernel::<T, F>(rr, ri, &sc.lor, &sc.loi, hv);
         } else if cm_lo & SMALL != 0 {
             for x in 0..rr.len() {
                 if x & cm_lo == cp_lo {
-                    let fr = sc.lor[x] * hv.re - sc.loi[x] * hv.im;
-                    let fi = sc.lor[x] * hv.im + sc.loi[x] * hv.re;
+                    let fr = fma::<T, F>(sc.lor[x], hv.re, -(sc.loi[x] * hv.im));
+                    let fi = fma::<T, F>(sc.lor[x], hv.im, sc.loi[x] * hv.re);
                     let (xr, xi) = (rr[x], ri[x]);
-                    rr[x] = xr * fr - xi * fi;
-                    ri[x] = xr * fi + xi * fr;
+                    rr[x] = fma::<T, F>(xr, fr, -(xi * fi));
+                    ri[x] = fma::<T, F>(xr, fi, xi * fr);
                 }
             }
         } else {
             for_each_run(lb, cm_lo, |b0, run| {
                 let b0 = b0 | cp_lo;
-                diag_kernel(
+                diag_kernel::<T, F>(
                     &mut rr[b0..b0 + run],
                     &mut ri[b0..b0 + run],
                     &sc.lor[b0..b0 + run],
@@ -1055,6 +1088,54 @@ fn apply_diag_group<T: Real>(
                 );
             });
         }
+    }
+}
+
+/// Runs the ops of a prepared stage on one buffer, using the AVX2+FMA build
+/// of the kernels when `simd` is set (see [`simd_available`]).
+fn run_ops<T: Real>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+    simd: bool,
+) {
+    #[cfg(target_arch = "x86_64")]
+    if simd {
+        // SAFETY: `simd` is only ever true when `simd_available()` returned
+        // true, i.e. the running CPU supports AVX2 and FMA.
+        unsafe { return run_ops_avx2(p, buf, base, sc) };
+    }
+    let _ = simd;
+    run_ops_impl::<T, false>(p, buf, base, sc);
+}
+
+/// The same kernels, compiled with AVX2 and FMA enabled.
+///
+/// # Safety
+/// The caller must have verified that the CPU supports `avx2` and `fma`.
+/// Everything reached from here is `#[inline(always)]`, so it is compiled
+/// as part of this function with those features; the body is safe Rust.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,fma")]
+unsafe fn run_ops_avx2<T: Real>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
+    run_ops_impl::<T, true>(p, buf, base, sc)
+}
+
+/// Whether the AVX2+FMA kernels can run on this CPU (detected once).
+pub fn simd_available() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        false
     }
 }
 
@@ -1091,9 +1172,15 @@ mod prof {
     }
 }
 
-fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut DiagScratch<T>) {
+#[inline(always)]
+fn run_ops_impl<T: Real, const F: bool>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
     if prof::on() {
-        return run_ops_prof(p, buf, base, sc);
+        return run_ops_prof::<T, F>(p, buf, base, sc);
     }
     let l = p.l;
     for op in &p.ops {
@@ -1106,20 +1193,26 @@ fn run_ops<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut Dia
                 cout,
             } => {
                 if base & cout == *cout {
-                    apply_u1(buf, l, *t, m, *kind, *cin);
+                    apply_u1::<T, F>(buf, l, *t, m, *kind, *cin);
                 }
             }
             LOp::Swap { a, b } => apply_swap(buf, l, *a, *b),
             LOp::Diag(d) => {
                 for g in &d.groups {
-                    apply_diag_group(buf, l, g, base, sc);
+                    apply_diag_group::<T, F>(buf, l, g, base, sc);
                 }
             }
         }
     }
 }
 
-fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mut DiagScratch<T>) {
+#[inline(always)]
+fn run_ops_prof<T: Real, const F: bool>(
+    p: &Prepared<T>,
+    buf: &mut Buf<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
     let l = p.l;
     for op in &p.ops {
         let t0 = std::time::Instant::now();
@@ -1132,7 +1225,7 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
                 cout,
             } => {
                 if base & cout == *cout {
-                    apply_u1(buf, l, *t, m, *kind, *cin);
+                    apply_u1::<T, F>(buf, l, *t, m, *kind, *cin);
                 }
                 let k = if (cin | (1 << t)) & SMALL != 0 {
                     3
@@ -1147,7 +1240,7 @@ fn run_ops_prof<T: Real>(p: &Prepared<T>, buf: &mut Buf<T>, base: usize, sc: &mu
             }
             LOp::Diag(d) => {
                 for g in &d.groups {
-                    apply_diag_group(buf, l, g, base, sc);
+                    apply_diag_group::<T, F>(buf, l, g, base, sc);
                 }
                 prof::add(5, t0);
             }
@@ -1237,13 +1330,13 @@ fn new_buf<T: Real>(l: usize) -> Buf<T> {
     }
 }
 
-fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
+fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: bool) {
     let l = p.l;
     if l >= n {
         let mut buf = new_buf::<T>(l);
         let mut sc = DiagScratch::default();
         load_run(&mut buf, 0, amps);
-        run_ops(p, &mut buf, 0, &mut sc);
+        run_ops(p, &mut buf, 0, &mut sc, simd);
         store_run(&buf, 0, amps);
         return;
     }
@@ -1260,7 +1353,7 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
                 if prof::on() {
                     prof::add(6, t0);
                 }
-                run_ops(p, buf, c << l, sc);
+                run_ops(p, buf, c << l, sc, simd);
                 let t0 = std::time::Instant::now();
                 store_run(buf, 0, chunk);
                 if prof::on() {
@@ -1295,7 +1388,7 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>) {
             if prof::on() {
                 prof::add(6, t0);
             }
-            run_ops(p, buf, deposit(c, outer_phys), sc);
+            run_ops(p, buf, deposit(c, outer_phys), sc, simd);
             let t0 = std::time::Instant::now();
             for (r, run) in runs.iter_mut().enumerate() {
                 let run = run.as_mut().expect("every run is assigned");
@@ -1325,6 +1418,7 @@ impl<T: Real> StateVector<T> {
             std::env::var_os("QSIM_PROF").is_some(),
             std::sync::atomic::Ordering::Relaxed,
         );
+        let simd = cfg.simd && simd_available();
         let amps = self.amplitudes_mut();
         for st in &stages {
             let t0 = std::time::Instant::now();
@@ -1340,7 +1434,7 @@ impl<T: Real> StateVector<T> {
                 prepare::<T>(st, n)
             };
             let t1 = std::time::Instant::now();
-            run_stage(amps, n, &p);
+            run_stage(amps, n, &p, simd);
             if trace {
                 let groups: Vec<usize> = p
                     .ops
