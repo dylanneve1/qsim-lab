@@ -24,6 +24,9 @@ use std::collections::BTreeMap;
 #[derive(Clone, Copy, Debug)]
 pub struct PlanOptions {
     pub peephole: bool,
+    /// Phase folding (merge Z-rotations on equal parities) after the first
+    /// peephole. Off by default.
+    pub phase_fold: bool,
     pub light_cone: bool,
     pub suffix: bool,
     pub split: bool,
@@ -79,6 +82,7 @@ impl Default for PlanOptions {
     fn default() -> Self {
         PlanOptions {
             peephole: true,
+            phase_fold: false,
             light_cone: true,
             suffix: true,
             split: true,
@@ -96,6 +100,7 @@ impl PlanOptions {
     pub fn none() -> Self {
         PlanOptions {
             peephole: false,
+            phase_fold: false,
             light_cone: false,
             suffix: false,
             split: false,
@@ -281,6 +286,16 @@ fn front_end(
     } else {
         c.clone()
     };
+    if opts.phase_fold {
+        let o = super::phasefold::phase_fold(&c);
+        phase += o.global_phase;
+        c = o.circuit;
+        if opts.peephole {
+            let o = optimize(&c);
+            phase += o.global_phase;
+            c = o.circuit;
+        }
+    }
     stats.gates_after_peephole = c.num_gates();
     let mut wire_of: Vec<usize> = (0..n).collect();
     if opts.swap_elim {
