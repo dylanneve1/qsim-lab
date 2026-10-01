@@ -71,7 +71,9 @@ pub fn family(name: &str, n: usize, t: usize, core: usize, t_tail: usize, depth:
         // The README / research/pauli.md family (seed 3, nested in t).
         "random" => clifford_t_family(n, depth, t, 3)(t),
         "two-phase" => two_phase(n, core, t, t_tail, depth, 5),
-        _ => panic!("unknown family {name:?} (random | two-phase)"),
+        // Cuccaro ripple-carry adder on `t` bits (n is ignored: 2t + 2).
+        "adder" => crate::bench::cuccaro_adder(t),
+        _ => panic!("unknown family {name:?} (random | two-phase | adder)"),
     }
 }
 
@@ -274,6 +276,9 @@ pub fn observable(c: &Circuit, name: &str) -> PauliSum {
     match name {
         "stab" => skeleton_stabilizer(c, &[0]),
         "z0" => PauliSum::z_product(c.num_qubits, &[0]),
-        _ => panic!("unknown observable {name:?} (stab | z0)"),
+        "zlast" => PauliSum::z_product(c.num_qubits, &[c.num_qubits - 1]),
+        // Z_2 Z_{n-2}: Z_b0 Z_b_top on the adder.
+        "zz" => PauliSum::z_product(c.num_qubits, &[2, c.num_qubits - 2]),
+        _ => panic!("unknown observable {name:?} (stab | z0 | zlast | zz)"),
     }
 }

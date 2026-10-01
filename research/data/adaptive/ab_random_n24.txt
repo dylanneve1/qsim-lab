@@ -1,0 +1,45 @@
+[bench.sh] load at start: 7.93
+| random n=24 t=64 | frame | -5.082015779726e-4 | 262585 | - | - | - | 0.2075 |
+| random n=24 t=72 | frame | +3.876371825211e-5 | 1800559 | - | - | - | 0.5419 |
+| random n=24 t=80 | frame | aborted: 5651605 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.4257 |
+| random n=24 t=88 | frame | aborted: 4741643 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.4263 |
+[bench.sh] load at start: 7.93
+| random n=24 t=64 | dense | -5.082015779726e-4 | 1 | k=60 (1 terms) | 24 | 256 MiB (frame 0.004 s + dense 1.917 s) | 1.9399 |
+| random n=24 t=72 | dense | +3.876371825211e-5 | 1 | k=67 (1 terms) | 24 | 256 MiB (frame 0.004 s + dense 2.274 s) | 2.2981 |
+| random n=24 t=80 | dense | +1.042991672928e-4 | 1 | k=75 (1 terms) | 24 | 256 MiB (frame 0.005 s + dense 2.386 s) | 2.4120 |
+| random n=24 t=88 | dense | +2.326666854969e-5 | 1 | k=83 (1 terms) | 24 | 256 MiB (frame 0.006 s + dense 2.829 s) | 2.8669 |
+[bench.sh] load at start: 8.33
+| random n=24 t=64 | auto | -5.082015779726e-4 | 262585 | k=7 (1204 terms) | 6 | 0 MiB (frame 0.138 s + dense 0.000 s) | 0.1383 |
+| random n=24 t=72 | auto | +3.876371825211e-5 | 1800559 | k=9 (10835 terms) | 7 | 0 MiB (frame 0.520 s + dense 0.001 s) | 0.5203 |
+| random n=24 t=80 | auto | +1.042991672928e-4 | 4 | k=69 (4 terms) | 24 | 256 MiB (frame 0.028 s + dense 2.843 s) | 2.8985 |
+| random n=24 t=88 | auto | +2.326666854969e-5 | 4 | k=80 (4 terms) | 24 | 256 MiB (frame 0.009 s + dense 3.038 s) | 3.0673 |
+[bench.sh] load at start: 8.71
+| random n=24 t=64 | frame | -5.082015779726e-4 | 262585 | - | - | - | 0.1541 |
+| random n=24 t=72 | frame | +3.876371825211e-5 | 1800559 | - | - | - | 0.4495 |
+| random n=24 t=80 | frame | aborted: 5651605 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.3910 |
+| random n=24 t=88 | frame | aborted: 4741643 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.3781 |
+[bench.sh] load at start: 8.71
+| random n=24 t=64 | dense | -5.082015779726e-4 | 1 | k=60 (1 terms) | 24 | 256 MiB (frame 0.006 s + dense 1.814 s) | 1.8447 |
+| random n=24 t=72 | dense | +3.876371825211e-5 | 1 | k=67 (1 terms) | 24 | 256 MiB (frame 0.008 s + dense 2.048 s) | 2.0745 |
+| random n=24 t=80 | dense | +1.042991672928e-4 | 1 | k=75 (1 terms) | 24 | 256 MiB (frame 0.005 s + dense 2.391 s) | 2.4205 |
+| random n=24 t=88 | dense | +2.326666854969e-5 | 1 | k=83 (1 terms) | 24 | 256 MiB (frame 0.006 s + dense 2.799 s) | 2.8656 |
+[bench.sh] load at start: 8.91
+| random n=24 t=64 | auto | -5.082015779726e-4 | 262585 | k=7 (1204 terms) | 6 | 0 MiB (frame 0.138 s + dense 0.000 s) | 0.1381 |
+| random n=24 t=72 | auto | +3.876371825211e-5 | 1800559 | k=9 (10835 terms) | 7 | 0 MiB (frame 0.522 s + dense 0.001 s) | 0.5225 |
+| random n=24 t=80 | auto | +1.042991672928e-4 | 4 | k=69 (4 terms) | 24 | 256 MiB (frame 0.005 s + dense 2.424 s) | 2.4600 |
+| random n=24 t=88 | auto | +2.326666854969e-5 | 4 | k=80 (4 terms) | 24 | 256 MiB (frame 0.005 s + dense 2.819 s) | 2.8462 |
+[bench.sh] load at start: 8.84
+| random n=24 t=64 | frame | -5.082015779726e-4 | 262585 | - | - | - | 0.1017 |
+| random n=24 t=72 | frame | +3.876371825211e-5 | 1800559 | - | - | - | 0.5709 |
+| random n=24 t=80 | frame | aborted: 5651605 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.4176 |
+| random n=24 t=88 | frame | aborted: 4741643 Pauli terms exceeds the limit of 4000000 | - | - | - | - | 0.4190 |
+[bench.sh] load at start: 8.85
+| random n=24 t=64 | dense | -5.082015779726e-4 | 1 | k=60 (1 terms) | 24 | 256 MiB (frame 0.004 s + dense 1.984 s) | 2.0099 |
+| random n=24 t=72 | dense | +3.876371825211e-5 | 1 | k=67 (1 terms) | 24 | 256 MiB (frame 0.004 s + dense 2.172 s) | 2.1971 |
+| random n=24 t=80 | dense | +1.042991672928e-4 | 1 | k=75 (1 terms) | 24 | 256 MiB (frame 0.005 s + dense 2.342 s) | 2.3733 |
+| random n=24 t=88 | dense | +2.326666854969e-5 | 1 | k=83 (1 terms) | 24 | 256 MiB (frame 0.009 s + dense 2.541 s) | 2.5753 |
+[bench.sh] load at start: 9.03
+| random n=24 t=64 | auto | -5.082015779726e-4 | 262585 | k=8 (1796 terms) | 7 | 0 MiB (frame 0.219 s + dense 0.000 s) | 0.2193 |
+| random n=24 t=72 | auto | +3.876371825211e-5 | 1800559 | k=9 (10835 terms) | 7 | 0 MiB (frame 0.606 s + dense 0.001 s) | 0.6071 |
+| random n=24 t=80 | auto | +1.042991672928e-4 | 4 | k=69 (4 terms) | 24 | 256 MiB (frame 0.010 s + dense 2.204 s) | 2.2302 |
+| random n=24 t=88 | auto | +2.326666854968e-5 | 4 | k=80 (4 terms) | 24 | 256 MiB (frame 0.011 s + dense 2.785 s) | 2.8145 |
