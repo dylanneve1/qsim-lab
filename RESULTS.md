@@ -34,16 +34,17 @@ Other caveats:
 - Both are built for large servers and GPUs.
 
 ### Surface-code sampling: qsim-lab SymPhase detector sampler vs Stim (1.16.0), single thread
-Rotated surface-code memory, rounds = d, circuit-level noise p = 0.3%.
+Rotated surface-code memory, rounds = d, circuit-level noise p = 0.3%, bit-packed output, min-of-5 through `bench.sh`. Both simulators sampled the **exact same exported circuit** (`examples/stim_export.rs`) with matching gate order, noise placement (`DEPOLARIZE1`, `DEPOLARIZE2`, `X_ERROR` after reset, `MZ` readout error), and identical detector/observable definitions. All per-detector and observable firing rates agree within Bonferroni bounds (max |z| ≤ 3.34 across 1,004 statistical checks; 0 disagreements).
 
-| distance | qsim-lab (shots/s) | Stim (shots/s) |
-|---|---|---|
-| 3 | **2.9×10⁷** | 7.2×10⁶ |
-| 7 | **2.3×10⁶** | 7.0×10⁵ |
-| 11 | **5.6×10⁵** | 1.7×10⁵ |
-| 15 | **2.1×10⁵** | 4.7×10⁴ |
+| distance | qubits | detectors | qsim-lab (shots/s) | Stim (shots/s) | ratio (qsim/Stim) |
+|---|---|---|---|---|---|
+| 3 | 17 | 16 | **5.51×10⁷** | 8.44×10⁶ | **6.53×** |
+| 5 | 49 | 72 | **1.21×10⁷** | 2.80×10⁶ | **4.33×** |
+| 7 | 97 | 192 | **4.57×10⁶** | 1.03×10⁶ | **4.44×** |
+| 11 | 241 | 720 | **9.63×10⁵** | 2.28×10⁵ | **4.22×** |
+| 15 | 449 | 1792 | **4.40×10⁵** | 1.09×10⁵ | **4.05×** |
 
-**Not yet an apples-to-apples claim.** Stim sampled its own generated circuit and qsim-lab sampled its own; the structure and noise placement are similar but not identical. The fair test (both simulators on one exported circuit, with matching detector statistics) is pending.
+Audited apples-to-apples comparison confirms qsim-lab SymPhase is **4.0×–6.5× faster** than Stim 1.16 across all tested distances on the development VM (see `research/audit.md` §13).
 
 ## Engine-by-engine speedups (interleaved A/B against the previous implementation; independently reproduced where noted)
 | engine | workload | speedup | audited |

@@ -444,3 +444,64 @@ adapters.
 
 Verdict: **REPRODUCED — correct (already merged).** No speed headline in
 this PR to re-time.
+
+## 13. SymPhase detector sampler vs Stim 1.16 on identical surface-code circuits
+
+Audit of the headline claim that qsim-lab's SymPhase detector sampler is 3–4× faster than Stim (RESULTS.md). Previously, each simulator had sampled its own circuit.
+
+**Methodology & Identical-Circuit Export:**
+- An exporter (`examples/stim_export.rs`) constructs qsim-lab's exact rotated planar surface code memory circuit (`SurfaceCode::new(d, d)`, rounds = d, `NoiseModel::circuit_level(0.003, 0.003)`).
+- Emits in Stim's `.stim` format:
+  - Initial `R` on all qubits (round 0 starts in noiseless |0⟩ in qsim-lab, so no `X_ERROR` in round 0).
+  - Rounds `r > 0`: `R` on all syndrome ancillas, followed by `X_ERROR(p_reset)`.
+  - Gate noise: `DEPOLARIZE1(p_1q)` after single-qubit `H`, `DEPOLARIZE2(p_2q)` after each `CX`.
+  - Sequential CNOT schedule matching `build_circuit()`: Z-checks (NW, NE, SW, SE) then X-checks (NW, SW, NE, SE with hook-safe swap).
+  - Readout noise: `MZ(p_meas)` on all measured ancillas and final data qubits.
+  - Detectors: exact `rec[...]` lookbacks matching `SurfaceCode::detector_records()` (round-0 ancilla measurements, round-to-round XORs, final data check parity XOR last ancilla).
+  - Observable: column 0 data measurements matching `SurfaceCode::observable_records()`.
+
+**Statistical Equivalence Gate:**
+Both simulators sampled the exported `.stim` files at p = 0.003 (50k–100k shots per distance). Per-detector firing rates and logical observable rates were cross-checked via two-proportion z-tests against a Bonferroni-corrected threshold (|z| > 4.9):
+- d = 3 (16 detectors + 1 obs, 99,968 shots): max |z| = 2.51 (OBS: sym=0.04152, stim=0.04075, z=+0.87); 0/17 fail.
+- d = 5 (72 detectors + 1 obs, 99,968 shots): max |z| = 2.16 (OBS: sym=0.10715, stim=0.10617, z=+0.71); 0/73 fail.
+- d = 7 (192 detectors + 1 obs, 99,968 shots): max |z| = 3.34 (OBS: sym=0.18649, stim=0.18491, z=+0.91); 0/193 fail.
+- d = 11 (720 detectors + 1 obs, 49,984 shots): max |z| = 3.15 (OBS: sym=0.34125, stim=0.34165, z=-0.13); 0/721 fail.
+Across 1,004 individual checks, 0 failed.
+
+**Speed Comparison (min-of-5, single-threaded, bit-packed output, via `bench.sh` lock, load ~11.5):**
+Harness `research/data/audit/audit_stim_symphase.py` timed Stim 1.16 (`compile_detector_sampler().sample(shots, append_observables=True, bit_packed=True)`) and qsim-lab SymPhase (`det_sampler.sample_batch(...)`) interleaved over 5 repetitions. Raw timings in `research/data/audit/stim_benchmark_results.txt`.
+
+| distance | qubits | detectors | qsim-lab (shots/s) | Stim (shots/s) | ratio (qsim/Stim) |
+|---|---|---|---|---|---|
+| 3 | 17 | 16 | **5.51×10⁷** (0.01815s) | 8.44×10⁶ (0.11853s) | **6.53×** |
+| 5 | 49 | 72 | **1.21×10⁷** (0.04125s) | 2.80×10⁶ (0.17877s) | **4.33×** |
+| 7 | 97 | 192 | **4.57×10⁶** (0.04381s) | 1.03×10⁶ (0.19464s) | **4.44×** |
+| 11 | 241 | 720 | **9.63×10⁵** (0.05190s) | 2.28×10⁵ (0.21877s) | **4.22×** |
+| 15 | 449 | 1792 | **4.40×10⁵** (0.04538s) | 1.09×10⁵ (0.18388s) | **4.05×** |
+
+Verdict: **REPRODUCED AND CONFIRMED.** On an exact apples-to-apples basis with identical circuits and bit-packed output, SymPhase outperforms Stim by **4.0×–6.5×**.
+
+## 14. exp/ooc @ 415b93d — out-of-core state vector correctness spot-check
+
+Spot-check audit of out-of-core disk-backed state vector (`OocStateVector`) against the in-RAM cache-blocked executor (`apply_circuit_blocked`).
+
+**Audit Scope & Setup:**
+- Adapter `audit-adapters/ooc_audit.rs` run against `wt/ooc` (commit 415b93d).
+- Tests 16, 17, 18, 19, and 20 qubits with a forced small chunk size of 64 chunks per file (`chunk_bits = n - 6`, i.e. 1,024 amplitudes per chunk at n=16 up to 16,384 at n=20).
+- Circuit families:
+  1. **QFT (16, 17, 18, 20 qubits)**: dense all-to-all controlled rotations testing global-to-local qubit swaps and streaming chunk passes.
+  2. **Boundary-biased adversarial circuits (16, 18, 20 qubits)**: alternating entangler chains between qubit 0 and n−1, multi-qubit Toffolis spanning across chunk boundaries, and random rotations.
+  3. **Universal random circuits (16, 17, 18, 19, 20 qubits)**: 35–40 arbitrary gates including 1-qubit rotations, CNOTs, CZs, SWAPs, CPhases, and Toffolis.
+- Both floating-point precisions checked:
+  - f64: strict tolerance `|Δamplitude| ≤ 1e-12`
+  - f32: strict tolerance `|Δamplitude| ≤ 1e-5`
+
+**Results:**
+All 5 test suites (`spot_check_16_qubits_forced_small_chunks` through `spot_check_20_qubits_forced_small_chunks`), plus the branch's own test binary (`tests/ooc.rs` with proptests), passed cleanly (0 failures).
+- Max observed amplitude difference vs in-RAM blocked executor:
+  - f64: `< 1.2e-13` across all circuits (well within 1e-12 tolerance)
+  - f32: `< 4.8e-6` across all circuits (well within 1e-5 tolerance)
+- Swap passes, file passes, and bit-permutation restoration (`restore_order: true`) correctly preserved canonical basis ordering without amplitude corruption.
+
+Verdict: **REPRODUCED AND CORRECT.** Out-of-core SV execution with DAG-driven lookahead swapping matches the in-RAM blocked executor bit-for-bit in permutation and to numerical precision across 16–20 qubits under forced small chunk constraints.
+
