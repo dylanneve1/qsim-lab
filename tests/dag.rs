@@ -738,7 +738,10 @@ proptest! {
         assert_same_states(
             &labelled_states(&c, None, &outputs),
             &labelled_states(&ours, None, &outputs),
-            1e-12,
+            // Dropping gates changes the f64 rounding path; 30 random gates
+            // drift ~2e-12 (seed 5042061061179466422). A real light-cone bug
+            // is an O(1) error, so 1e-10 keeps the check sharp.
+            1e-10,
             "prop light cone",
         );
     }
