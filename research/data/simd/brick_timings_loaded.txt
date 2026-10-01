@@ -1,0 +1,60 @@
+### n=24 round 1
+default   9.58
+| brick | 24 | f32 | 1190 | blocked | 2.6090 | 5.57 | 2.609 |
+native    9.58
+| brick | 24 | f32 | 1190 | blocked | 1.9484 | 4.27 | 1.948 |
+dispatch  9.62
+| brick | 24 | f32 | 1190 | blocked | 2.1252 | 4.65 | 2.125 |
+qsim      9.62
+[bench.sh] load at start: 9.62
+qsim fuse 2 n 24 min 2.7778 2.778
+### n=24 round 2
+default   9.57
+| brick | 24 | f32 | 1190 | blocked | 3.0541 | 5.24 | 3.054 |
+native    10.48
+| brick | 24 | f32 | 1190 | blocked | 2.3435 | 4.21 | 2.344 |
+dispatch  10.48
+| brick | 24 | f32 | 1190 | blocked | 2.7544 | 4.52 | 2.754 |
+qsim      10.44
+[bench.sh] load at start: 10.44
+qsim fuse 2 n 24 min 2.7266 2.727
+### n=24 round 3
+default   10.89
+| brick | 24 | f32 | 1190 | blocked | 2.9259 | 5.22 | 2.926 |
+native    10.82
+| brick | 24 | f32 | 1190 | blocked | 2.1625 | 4.26 | 2.162 |
+dispatch  10.82
+| brick | 24 | f32 | 1190 | blocked | 2.3680 | 4.67 | 2.368 |
+qsim      10.75
+[bench.sh] load at start: 10.75
+qsim fuse 2 n 24 min 2.3417 2.342
+### n=26 round 1
+default   10.61
+| brick | 26 | f32 | 1290 | blocked | 11.6049 | 22.12 | 11.605 |
+native    10.75
+| brick | 26 | f32 | 1290 | blocked | 9.1779 | 17.75 | 9.178 |
+dispatch  10.87
+| brick | 26 | f32 | 1290 | blocked | 9.0794 | 19.52 | 9.079 |
+qsim      10.81
+[bench.sh] load at start: 10.81
+qsim fuse 2 n 26 min 6.7918 6.792
+### n=26 round 2
+default   10.66
+| brick | 26 | f32 | 1290 | blocked | 7.9213 | 22.37 | 7.921 |
+native    10.24
+| brick | 26 | f32 | 1290 | blocked | 7.0472 | 17.92 | 7.047 |
+dispatch  9.51
+| brick | 26 | f32 | 1290 | blocked | 10.9769 | 19.61 | 10.977 |
+qsim      9.28
+[bench.sh] load at start: 9.28
+qsim fuse 2 n 26 min 8.7732 8.773
+### n=26 round 3
+default   9.40
+| brick | 26 | f32 | 1290 | blocked | 11.8631 | 22.49 | 11.863 |
+native    9.86
+| brick | 26 | f32 | 1290 | blocked | 7.5660 | 17.81 | 7.566 |
+dispatch  10.91
+| brick | 26 | f32 | 1290 | blocked | 8.1455 | 19.39 | 8.146 |
+qsim      11.09
+[bench.sh] load at start: 11.09
+qsim fuse 2 n 26 min 7.1610 7.161
