@@ -160,7 +160,7 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
         // If no qreg was declared, scan for referenced qubit indices like q[0]
         let mut max_q = 0usize;
         let mut found = false;
-        for part in full_code.split(|c: char| c == '[' || c == ']') {
+        for part in full_code.split(['[', ']']) {
             if let Ok(idx) = part.trim().parse::<usize>() {
                 max_q = max_q.max(idx + 1);
                 found = true;
@@ -178,10 +178,9 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
         let s = arg.trim();
         if let Some((reg, idx_str)) = s.split_once('[') {
             if let Some(idx_str) = idx_str.strip_suffix(']') {
-                let idx: usize = idx_str
-                    .trim()
-                    .parse()
-                    .map_err(|e| SimError::QasmError(format!("bad qubit index '{idx_str}': {e}")))?;
+                let idx: usize = idx_str.trim().parse().map_err(|e| {
+                    SimError::QasmError(format!("bad qubit index '{idx_str}': {e}"))
+                })?;
                 let offset = qreg_offsets.get(reg.trim()).copied().unwrap_or(0);
                 let q = offset + idx;
                 if q >= total_qubits {
@@ -203,7 +202,9 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
             }
             return Ok(q);
         }
-        Err(SimError::QasmError(format!("cannot resolve qubit argument '{s}'")))
+        Err(SimError::QasmError(format!(
+            "cannot resolve qubit argument '{s}'"
+        )))
     };
 
     // Second pass: parse gates and measurements
@@ -213,9 +214,9 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
             continue;
         }
         let (gate_spec, rest) = if trimmed.contains('(') {
-            let close_idx = trimmed.find(')').ok_or_else(|| {
-                SimError::QasmError(format!("unmatched '(' in '{trimmed}'"))
-            })?;
+            let close_idx = trimmed
+                .find(')')
+                .ok_or_else(|| SimError::QasmError(format!("unmatched '(' in '{trimmed}'")))?;
             let gate_spec = trimmed[..=close_idx].trim();
             let rest = trimmed[close_idx + 1..].trim();
             (gate_spec, rest)
@@ -402,11 +403,7 @@ mod tests {
     #[test]
     fn qasm_roundtrip() {
         let mut c = Circuit::new(3);
-        c.h(0)
-            .cnot(0, 1)
-            .rz(1, 0.5)
-            .swap(1, 2)
-            .measure_all();
+        c.h(0).cnot(0, 1).rz(1, 0.5).swap(1, 2).measure_all();
         let qasm = to_qasm(&c);
         let parsed = from_qasm(&qasm).unwrap();
         assert_eq!(parsed.num_qubits, 3);

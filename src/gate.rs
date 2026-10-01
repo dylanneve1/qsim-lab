@@ -66,11 +66,13 @@ impl Gate {
     pub fn qubits(&self) -> Vec<usize> {
         use Gate::*;
         match *self {
-            I(q) | H(q) | X(q) | Y(q) | Z(q) | S(q) | Sdg(q) | T(q) | Tdg(q) | Sx(q)
-            | Sxdg(q) => vec![q],
+            I(q) | H(q) | X(q) | Y(q) | Z(q) | S(q) | Sdg(q) | T(q) | Tdg(q) | Sx(q) | Sxdg(q) => {
+                vec![q]
+            }
             Rx(q, _) | Ry(q, _) | Rz(q, _) | Phase(q, _) | U(q, _, _, _) => vec![q],
-            Cnot(a, b) | Cz(a, b) | Swap(a, b) | ISwap(a, b) | ISwapdg(a, b)
-            | CPhase(a, b, _) => vec![a, b],
+            Cnot(a, b) | Cz(a, b) | Swap(a, b) | ISwap(a, b) | ISwapdg(a, b) | CPhase(a, b, _) => {
+                vec![a, b]
+            }
             Ccx(a, b, t) => vec![a, b, t],
         }
     }
@@ -158,14 +160,8 @@ impl Gate {
             H(_) => [[c(h, 0.0), c(h, 0.0)], [c(h, 0.0), c(-h, 0.0)]],
             X(_) => [[ZERO, ONE], [ONE, ZERO]],
             Y(_) => [[ZERO, c(0.0, -1.0)], [c(0.0, 1.0), ZERO]],
-            Sx(_) => [
-                [c(0.5, 0.5), c(0.5, -0.5)],
-                [c(0.5, -0.5), c(0.5, 0.5)],
-            ],
-            Sxdg(_) => [
-                [c(0.5, -0.5), c(0.5, 0.5)],
-                [c(0.5, 0.5), c(0.5, -0.5)],
-            ],
+            Sx(_) => [[c(0.5, 0.5), c(0.5, -0.5)], [c(0.5, -0.5), c(0.5, 0.5)]],
+            Sxdg(_) => [[c(0.5, -0.5), c(0.5, 0.5)], [c(0.5, 0.5), c(0.5, -0.5)]],
             Rx(_, t) => {
                 let (s, co) = (t / 2.0).sin_cos();
                 [[c(co, 0.0), c(0.0, -s)], [c(0.0, -s), c(co, 0.0)]]
@@ -245,15 +241,7 @@ impl Gate {
             Sxdg(q) => vec![H(q), Sdg(q), H(q)],
             ISwap(a, b) => vec![Swap(a, b), Cz(a, b), S(a), S(b)],
             ISwapdg(a, b) => vec![Swap(a, b), Cz(a, b), Sdg(a), Sdg(b)],
-            U(q, th, ph, lam) => vec![
-                Rz(q, lam),
-                Sdg(q),
-                H(q),
-                Rz(q, th),
-                H(q),
-                S(q),
-                Rz(q, ph),
-            ],
+            U(q, th, ph, lam) => vec![Rz(q, lam), Sdg(q), H(q), Rz(q, th), H(q), S(q), Rz(q, ph)],
             Rx(q, t) => vec![H(q), Rz(q, t), H(q)],
             // Ry(θ) = S Rx(θ) S†, applied in time order S†, Rx, S.
             Ry(q, t) => vec![Sdg(q), H(q), Rz(q, t), H(q), S(q)],

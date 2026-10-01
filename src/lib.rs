@@ -39,8 +39,8 @@ pub mod gate;
 pub mod mps;
 pub mod noise;
 pub mod pauli_path;
-pub mod qec;
 pub mod qasm;
+pub mod qec;
 pub mod stabilizer;
 pub mod statevector;
 

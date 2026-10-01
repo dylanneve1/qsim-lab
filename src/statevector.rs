@@ -299,7 +299,10 @@ impl<T: Real> StateVector<T> {
         if self.amps.len() < PAR_MIN_LEN {
             self.amps.iter().map(|a| a.norm_sqr().to_f64()).collect()
         } else {
-            self.amps.par_iter().map(|a| a.norm_sqr().to_f64()).collect()
+            self.amps
+                .par_iter()
+                .map(|a| a.norm_sqr().to_f64())
+                .collect()
         }
     }
 
@@ -455,7 +458,11 @@ impl<T: Real> StateVector<T> {
     /// Applies an arbitrary 4x4 unitary to qubits `(a, b)` (matrix indexed
     /// by `2*bit(a) + bit(b)`).
     pub fn apply_2q_matrix(&mut self, a: usize, b: usize, m: &Mat4) {
-        assert!(a < self.n && b < self.n, "qubits ({a}, {b}) out of range for {} qubits", self.n);
+        assert!(
+            a < self.n && b < self.n,
+            "qubits ({a}, {b}) out of range for {} qubits",
+            self.n
+        );
         assert_ne!(a, b);
         let (l, h) = (a.min(b), a.max(b));
         // for_each_quad orders slices as 2*bit(h) + bit(l)
@@ -477,7 +484,11 @@ impl<T: Real> StateVector<T> {
 
     /// Applies `m` to `target` on the subspace where all `controls` are 1.
     pub fn apply_multi_controlled_1q(&mut self, controls: &[usize], target: usize, m: &Mat2) {
-        assert!(target < self.n, "target {target} out of range for {} qubits", self.n);
+        assert!(
+            target < self.n,
+            "target {target} out of range for {} qubits",
+            self.n
+        );
         for &c in controls {
             assert!(c < self.n, "control {c} out of range for {} qubits", self.n);
         }

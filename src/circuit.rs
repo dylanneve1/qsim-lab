@@ -721,16 +721,12 @@ fn try_combine_gates(a: &Gate, b: &Gate) -> Option<Option<Gate>> {
     use Gate::*;
     match (*a, *b) {
         // Self-inverses
-        (H(q1), H(q2)) | (X(q1), X(q2)) | (Y(q1), Y(q2)) | (Z(q1), Z(q2)) if q1 == q2 => {
-            Some(None)
-        }
+        (H(q1), H(q2)) | (X(q1), X(q2)) | (Y(q1), Y(q2)) | (Z(q1), Z(q2)) if q1 == q2 => Some(None),
         (S(q1), Sdg(q2)) | (Sdg(q1), S(q2)) if q1 == q2 => Some(None),
         (T(q1), Tdg(q2)) | (Tdg(q1), T(q2)) if q1 == q2 => Some(None),
         (Sx(q1), Sxdg(q2)) | (Sxdg(q1), Sx(q2)) if q1 == q2 => Some(None),
         (Cnot(c1, t1), Cnot(c2, t2)) if c1 == c2 && t1 == t2 => Some(None),
-        (Cz(a1, b1), Cz(a2, b2)) if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) => {
-            Some(None)
-        }
+        (Cz(a1, b1), Cz(a2, b2)) if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) => Some(None),
         (Swap(a1, b1), Swap(a2, b2)) if (a1 == a2 && b1 == b2) || (a1 == b2 && b1 == a2) => {
             Some(None)
         }
