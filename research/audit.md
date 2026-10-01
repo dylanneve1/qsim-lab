@@ -331,3 +331,46 @@ Cosmetic: the error variant for noise/reset/c_if is still
 
 Verdict: **REPRODUCED / correct — safe to merge** (merge onto current main so
 5b51571's `split_phases=false` default is picked up).
+
+## 10. PR #2 exp/pauli @ 74db386 — rotation-frame engine with exact pruning
+
+**Accuracy** — `audit-adapters/pauli_frame_audit.rs` (new). Adversarial
+family built for *non-zero* values: circuit = L · W† · M · W with W a random
+Clifford (dense rotation axes), M a sparse non-Clifford core on 1–3 qubits
+(T/Tdg, Rz/Rx/Ry/Phase at π/4, π, 1e-9, generic; Rz(θ)Rz(−θ) pairs;
+same-axis rotations separated by a commuting Z; CPhase; Ccx; CNOT glue;
+t up to ~40 ≫ n), L a final H / H·S layer so that the X/Y/Z observable on a
+random subset is near ±1. Values vs the independent `RefSv`.
+
+| test | scope | result |
+|---|---|---|
+| `frame_matches_reference_nonzero` (`QSIM_FUZZ_ITERS=5`) | n ∈ {1,2,3,4,5,6,8,10,12,14}; all 16 {prune,merge,parallel,fuse} × drop_below {1e-14, 0} at n ≤ 8, 2 combos above; legacy too | pass; at ITERS=1: 400 circuits, **350 (88%) with \|⟨P⟩\| > 1e-3**, pruning fired in 3,080 option-runs, worst Δ 3.3e-15 |
+| `frame_matches_legacy_wide` | n ∈ {63, 64, 65, 128} (word boundaries), frame default and no-prune/no-merge/nodrop vs legacy | pass (23 non-zero at ITERS=1) |
+| mutation: stage projection `d[j]→d[j]−1` | | caught (both tests) |
+| mutation: rotation-axis z projection mask `d[j+1]→d[j]` | | caught |
+| mutation: stage-0 observable mask `d[m]→d[m]−1` | | caught |
+| full crate suite + differential_fuzz | | pass |
+
+**Speed** — headline "stab, t=36: legacy vs frame-noprune ≈ 63×". Same
+`qsim bench clifford-t --observable stab --min-t 36 --max-t 36`, engines
+interleaved, each run its own bench.sh lock, 5 reps, load 8.7–9.9. Raw:
+`research/data/audit/pauli_74db386_ab_stab_t36.txt`.
+
+| engine | min (s) | peak terms | value |
+|---|---|---|---|
+| legacy | 4.742 | 1,012,191 | +2.762135864010e-3 |
+| frame-noprune | 0.0945 | 1,012,191 | identical |
+| frame (pruned) | 0.0103 | 1 | identical |
+
+legacy / frame-noprune = **50×** (per-pair 44–73×) vs claimed 63×
+[61–118]; legacy / frame = 460×. Same order, peak terms identical as
+claimed.
+
+Open concern (not a bug at tested sizes): `drop_below = 1e-14` is
+absolute. Values in this family decay like 2^{−k/2}, so at t ≫ 100 the
+value itself can approach 1e-14 and the drop is no longer negligible
+relative to it. The exact `drop_below = 0` path exists and is covered by the
+tests above. Recommend making it relative to the observable's norm, or
+defaulting to 0 when t is large.
+
+Verdict: **REPRODUCED — correct, safe to merge.**
