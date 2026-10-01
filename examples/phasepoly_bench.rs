@@ -85,7 +85,7 @@ fn nc(c: &Circuit) -> usize {
 }
 
 fn check(name: &str, c: &Circuit, o: &Circuit, phase: f64) {
-    if c.num_qubits > 12 {
+    if c.num_qubits > 22 {
         return;
     }
     // arithmetic circuits are permutations on |0>: use a random-ish input
@@ -122,10 +122,9 @@ fn main() {
     for n in [8usize, 16, 32] {
         // a (n), b (n), carry-in, carry-out
         let a: Vec<usize> = (0..n).collect();
-        let b: Vec<usize> = (n..2 * n).collect();
+        let b: Vec<usize> = (n..2 * n + 1).collect();
         let mut c = Circuit::new(2 * n + 2);
-        cuccaro_add(&mut c, &a, &b, 2 * n);
-        let _ = 2 * n + 1;
+        cuccaro_add(&mut c, &a, &b, 2 * n + 1);
         cases.push((format!("cuccaro_add_n{n}"), lower(&c)));
     }
     for (n, r) in [(6, 1), (10, 2), (16, 2)] {
