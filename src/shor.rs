@@ -24,7 +24,7 @@
 
 pub mod fused;
 
-use crate::algorithms::{gcd, pow_mod, shor_postprocess};
+use crate::algorithms::{gcd, pow_mod};
 use crate::blocked::BlockConfig;
 use crate::circuit::Circuit;
 use crate::gate::Gate;
@@ -69,7 +69,7 @@ pub trait OrderFindingState: Clone {
     fn stored(&self) -> usize;
     /// One round before the measurement of bit `i` (see
     /// [`Instance::round`]); fused states override it.
-    fn round(&mut self, inst: &Instance, i: usize, y_low: u64)
+    fn round(&mut self, inst: &Instance, i: usize, y_low: u128)
     where
         Self: Sized,
     {
@@ -131,7 +131,6 @@ impl OrderFindingState for SparseState {
         self.apply_gate(g).expect("valid gate");
     }
     fn ctrl_mul(&mut self, m: usize, mult: u64, _inv: u64, n_mod: u64) {
-        assert!(n_mod < 1 << 32);
         let mask = (1u64 << m) - 1;
         self.apply_permutation(|k| {
             if k & 1 == 0 {
@@ -141,7 +140,7 @@ impl OrderFindingState for SparseState {
             if y >= n_mod {
                 return k;
             }
-            (k & !(mask << 1)) | ((y * mult % n_mod) << 1)
+            (k & !(mask << 1)) | (mul_mod(y, mult, n_mod) << 1)
         });
     }
     fn prob_one(&self, q: usize) -> f64 {
@@ -156,6 +155,80 @@ impl OrderFindingState for SparseState {
     fn stored(&self) -> usize {
         self.peak_nnz()
     }
+}
+
+/// `x · y mod n` (64-bit product when it cannot overflow).
+#[inline]
+pub fn mul_mod(x: u64, y: u64, n: u64) -> u64 {
+    if n <= 1 << 32 {
+        x * y % n
+    } else {
+        (u128::from(x) * u128::from(y) % u128::from(n)) as u64
+    }
+}
+
+/// Denominators of the continued-fraction convergents of `x / 2^t`
+/// (`t <= 126`).
+pub fn convergents(x: u128, t: u32) -> Vec<u128> {
+    let (mut num, mut den) = (x, 1u128 << t);
+    let (mut q_prev, mut q) = (1u128, 0u128);
+    let mut out = Vec::new();
+    while den != 0 {
+        let a = num / den;
+        let q_next = a.saturating_mul(q).saturating_add(q_prev);
+        q_prev = q;
+        q = q_next;
+        out.push(q);
+        let r = num % den;
+        num = den;
+        den = r;
+    }
+    out
+}
+
+/// How many multiples `k·q` of each convergent denominator `q` are tried.
+pub const ORDER_MULTIPLES: u64 = 256;
+
+/// Classical post-processing for the scaled paths. Like
+/// [`crate::algorithms::shor_postprocess`], plus the standard fix for
+/// `measured/2^t ≈ s/r` with `gcd(s, r) = g > 1` (the convergent is `r/g`):
+/// try `k·q` for `k = 1..=ORDER_MULTIPLES`, take the first `r` with
+/// `a^r = 1 mod N`, and strip small prime factors that keep `a^r = 1`.
+/// Purely classical; it does not change the quantum distribution, only how
+/// many runs are needed.
+pub fn postprocess(n_mod: u64, a: u64, measured: u128, t: u32) -> (Option<u64>, Option<u64>) {
+    let mut order = None;
+    'outer: for q in convergents(measured, t) {
+        if q == 0 || q >= u128::from(n_mod) {
+            continue;
+        }
+        let q = q as u64;
+        for k in 1..=ORDER_MULTIPLES {
+            let Some(r) = q.checked_mul(k).filter(|&r| r < n_mod) else {
+                break;
+            };
+            if pow_mod(a, r, n_mod) == 1 {
+                let mut r = r;
+                for p in 2..1000u64 {
+                    while r % p == 0 && pow_mod(a, r / p, n_mod) == 1 {
+                        r /= p;
+                    }
+                }
+                order = Some(r);
+                break 'outer;
+            }
+        }
+    }
+    let factor = order.and_then(|r| {
+        if r % 2 == 1 {
+            return None;
+        }
+        let y = pow_mod(a, r / 2, n_mod);
+        [gcd(y + 1, n_mod), gcd(y + n_mod - 1, n_mod)]
+            .into_iter()
+            .find(|&f| f > 1 && f < n_mod)
+    });
+    (order, factor)
 }
 
 /// Number of bits of `N - 1`, i.e. the work-register width `n`.
@@ -198,7 +271,10 @@ impl Instance {
         assert!(n_mod >= 3 && gcd(a, n_mod) == 1);
         let m = work_bits(n_mod);
         let t = 2 * m;
-        assert!(t <= 62, "N too large for u64 phase bookkeeping");
+        assert!(
+            m <= 63,
+            "the work register plus control must fit in a u64 key"
+        );
         let mults = (0..t).map(|k| pow_mod(a, 1 << k, n_mod)).collect();
         Self {
             n_mod,
@@ -231,13 +307,13 @@ impl Instance {
     /// The phase correction applied before the final H of step `i` (which
     /// measures bit `i` of the result), given the lower bits `y_low`
     /// already measured: `-2π · y_low / 2^(i+1)`.
-    pub fn correction(i: usize, y_low: u64) -> f64 {
-        -PI * (y_low as f64) / ((1u64 << i) as f64)
+    pub fn correction(i: usize, y_low: u128) -> f64 {
+        -PI * (y_low as f64) / ((1u128 << i) as f64)
     }
 
     /// Applies one round before the measurement: `H`, controlled
     /// `U^(2^(t-1-i))`, phase correction, `H` on the control qubit.
-    pub fn round<S: OrderFindingState>(&self, s: &mut S, i: usize, y_low: u64) {
+    pub fn round<S: OrderFindingState>(&self, s: &mut S, i: usize, y_low: u128) {
         let k = self.t - 1 - i;
         let mult = self.mults[k];
         let corr = (y_low != 0).then(|| Gate::Phase(0, Self::correction(i, y_low)));
@@ -267,7 +343,8 @@ impl Instance {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemiRun {
     pub a: u64,
-    pub measured: u64,
+    /// The measured `2n`-bit integer (bit `i` = measurement `i`).
+    pub measured: u128,
     pub order: Option<u64>,
     pub factor: Option<u64>,
     pub qubits: usize,
@@ -284,7 +361,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
     mut s: S,
     rng: &mut R,
 ) -> SemiRun {
-    let mut y = 0u64;
+    let mut y = 0u128;
     let (mut peak_stored, mut peak_bytes) = (s.stored(), s.bytes());
     for i in 0..inst.t {
         s.round(inst, i, y);
@@ -299,7 +376,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
             y |= 1 << i;
         }
     }
-    let (order, factor) = shor_postprocess(inst.n_mod, inst.a, y, inst.t as u32);
+    let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
     SemiRun {
         a: inst.a,
         measured: y,
@@ -335,7 +412,7 @@ pub fn semiclassical_distribution<S: OrderFindingState>(
         inst: &Instance,
         mut s: S,
         i: usize,
-        y: u64,
+        y: u128,
         p: f64,
         prune: f64,
         out: &mut [f64],
@@ -358,7 +435,7 @@ pub fn semiclassical_distribution<S: OrderFindingState>(
                 inst,
                 c,
                 i + 1,
-                y | (u64::from(bit) << i),
+                y | (u128::from(bit) << i),
                 p * pb,
                 prune,
                 out,
@@ -467,6 +544,31 @@ pub fn factor_semiclassical<R: Rng + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn convergents_match_the_u64_version() {
+        for (x, t) in [(3u64, 3u32), (64444, 16), (35145706927192, 48)] {
+            let old = crate::algorithms::convergent_denominators(x, t);
+            let new: Vec<u64> = convergents(u128::from(x), t)
+                .into_iter()
+                .map(|q| q as u64)
+                .collect();
+            assert_eq!(old, new);
+        }
+    }
+
+    #[test]
+    fn postprocess_recovers_order_when_s_and_r_share_a_factor() {
+        // N = 143, a = 2 has order 60; s = 18 shares 6 with 60, so the
+        // continued fractions of 18/60 only give 10.
+        let (n, a, r, t) = (143u64, 2u64, 60u64, 16u32);
+        let measured = ((18u128 << t) + u128::from(r) / 2) / u128::from(r);
+        let (old, _) = crate::algorithms::shor_postprocess(n, a, measured as u64, t);
+        assert_ne!(old, Some(60));
+        let (order, factor) = postprocess(n, a, measured, t);
+        assert_eq!(order, Some(60));
+        assert!(matches!(factor, Some(11) | Some(13)));
+    }
 
     #[test]
     fn inverse() {

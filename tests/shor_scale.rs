@@ -212,7 +212,7 @@ fn semiclassical_circuit_runs_through_classic_control() {
             let y = bits
                 .iter()
                 .enumerate()
-                .fold(0u64, |acc, (i, &b)| acc | (u64::from(b) << i));
+                .fold(0u128, |acc, (i, &b)| acc | (u128::from(b) << i));
             let run =
                 shor::order_finding(&inst, Backend::DenseF64, &mut StdRng::seed_from_u64(seed));
             assert_eq!(y, run.measured, "N={n} a={a} seed={seed}");

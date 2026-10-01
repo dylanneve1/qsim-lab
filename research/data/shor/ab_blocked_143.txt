@@ -1,0 +1,20 @@
+== 143 beauregard base2 
+[bench.sh] load at start: 8.84
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 9.023 s  peak RSS 16.2 MiB
+[bench.sh] load at start: 9.25
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 8.695 s  peak RSS 15.9 MiB
+[bench.sh] load at start: 9.13
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 8.598 s  peak RSS 15.8 MiB
+== 143 beauregard base2 --no-blocked
+[bench.sh] load at start: 9.44
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 26.530 s  peak RSS 13.7 MiB
+[bench.sh] load at start: 11.30
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 14.140 s  peak RSS 13.6 MiB
+[bench.sh] load at start: 11.53
+a=2  qubits=19  measured=64444  order=Some(60)  factor=Some(13)  peak_amplitudes=524288  peak_amp_bytes=8388608
+time 11.024 s  peak RSS 13.6 MiB

@@ -1,0 +1,20 @@
+== 1022117 base2 
+time 1.767 s  peak RSS 52.9 MiB
+time 2.500 s  peak RSS 52.7 MiB
+time 2.352 s  peak RSS 52.9 MiB
+== 1022117 base2 --fused
+time 1.321 s  peak RSS 36.8 MiB
+time 1.113 s  peak RSS 36.6 MiB
+time 1.126 s  peak RSS 36.5 MiB
+== 1022117 base2 --fused --f32
+time 0.760 s  peak RSS 20.9 MiB
+time 0.655 s  peak RSS 20.9 MiB
+time 0.317 s  peak RSS 20.8 MiB
+== 1022117 base2 --sparse
+time 0.012 s  peak RSS 5.9 MiB
+time 0.012 s  peak RSS 5.8 MiB
+time 0.015 s  peak RSS 5.8 MiB
+== 1022117 base2 --fused --sparse
+time 0.004 s  peak RSS 4.8 MiB
+time 0.003 s  peak RSS 4.8 MiB
+time 0.003 s  peak RSS 4.9 MiB

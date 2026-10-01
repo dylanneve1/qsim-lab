@@ -1,0 +1,22 @@
+[bench.sh] load at start: 5.46
+a=32626824  qubits=26  measured=633425804752686  order=Some(8369445)  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=23907748  qubits=26  measured=874608884644233  order=Some(8369445)  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=13155361  qubits=26  measured=3042283734853  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=16477179  qubits=26  measured=852661124691047  order=Some(8369445)  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=1389184  qubits=26  measured=860821144447346  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=18902371  qubits=26  measured=456134315469078  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=17491253  qubits=26  measured=723509285738343  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=19803862  qubits=26  measured=542602705107987  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=8478671  qubits=26  measured=220339232400365  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=33089431  qubits=26  measured=999948956644600  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=20655323  qubits=26  measured=736902733048793  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=19755193  qubits=26  measured=578263812912030  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=22013687  qubits=26  measured=41572272499739  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=25271160  qubits=26  measured=65317421485926  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=19231206  qubits=26  measured=599728358928641  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=23122779  qubits=26  measured=808572830405195  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=6300231  qubits=26  measured=651261672393709  order=Some(398545)  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=5866957  qubits=26  measured=857241567710636  order=None  factor=None  peak_amplitudes=33554432  peak_amp_bytes=536870912
+a=29367092  qubits=26  measured=316139825714372  order=Some(16738890)  factor=Some(5783)  peak_amplitudes=33554432  peak_amp_bytes=536870912
+33489353 = 5783 x 5791
+time 199.767 s  peak RSS 517.0 MiB
