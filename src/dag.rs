@@ -38,7 +38,7 @@ use crate::gate::Gate;
 use num_complex::Complex64;
 use std::cell::RefCell;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU};
 use std::fmt;
 
@@ -188,6 +188,13 @@ pub struct Dag {
     live: usize,
     /// Program position for the next appended op (key tie-break).
     next_pos: u64,
+    /// Every edge goes from a smaller key to a larger one, so sorting live
+    /// nodes by key is a topological order (and is exactly the order the
+    /// min-key Kahn sort would produce).
+    keys_topological: bool,
+    /// Node ids increase with keys (no out-of-order insertions), so the
+    /// key order is just id order.
+    ids_in_key_order: bool,
 }
 
 const KEY_SHIFT: u32 = 20;
@@ -204,6 +211,8 @@ impl Dag {
             rtail: NONE,
             live: 0,
             next_pos: 0,
+            keys_topological: true,
+            ids_in_key_order: true,
         }
     }
 
@@ -301,6 +310,12 @@ impl Dag {
                 self.rtail = id;
             }
             _ => {}
+        }
+        if let Some(last) = self.nodes.last() {
+            if last.key >= key {
+                self.ids_in_key_order = false;
+                self.keys_topological = false;
+            }
         }
         self.nodes.push(node);
         self.live += 1;
@@ -478,6 +493,13 @@ impl Dag {
     /// key (original program position) among ready nodes. On a freshly
     /// built DAG this is exactly program order.
     pub fn topo_order(&self) -> Vec<NodeId> {
+        if self.keys_topological {
+            let mut ids: Vec<NodeId> = self.node_ids().collect();
+            if !self.ids_in_key_order {
+                ids.sort_unstable_by_key(|&id| (self.n(id).key, id));
+            }
+            return ids;
+        }
         self.topo_order_with(|id| self.n(id).key)
     }
 
@@ -841,6 +863,18 @@ impl Dag {
                 }
             }
         }
+        // The new nodes take keys old.key, old.key+1, ...; they stay
+        // topological if they remain below every wire successor's key.
+        let top = old.key + gates.len().saturating_sub(1) as u64;
+        if old.next[..old.nq as usize]
+            .iter()
+            .any(|&x| x != NONE && self.n(x).key <= top)
+        {
+            self.keys_topological = false;
+        }
+        if !gates.is_empty() {
+            self.ids_in_key_order = false;
+        }
         // Unlink the old node but remember its wire neighbours.
         let mut cur_prev = old.prev;
         self.nodes[id as usize].alive = false;
@@ -985,6 +1019,9 @@ impl Dag {
         if ka < kb {
             self.nodes[a as usize].key = kb;
             self.nodes[b as usize].key = ka;
+            // Other neighbours of a and b may now sit on the wrong side.
+            self.keys_topological = false;
+            self.ids_in_key_order = false;
         }
         Ok(())
     }
@@ -1204,28 +1241,62 @@ pub fn ops_commute(a: &Op, b: &Op) -> bool {
 }
 
 thread_local! {
-    /// Memo of matrix commutation checks, keyed by the relabelled pair.
-    /// `Gate` holds `f64`s so it is not `Hash`; the cache only ever sees
-    /// parameter-free gates on at most 3 qubits, so it stays small.
-    static COMMUTE_CACHE: RefCell<Vec<((Gate, Gate), bool)>> = const { RefCell::new(Vec::new()) };
+    /// Memo of matrix commutation checks, keyed by [`shape_key`].
+    static COMMUTE_CACHE: RefCell<HashMap<u32, bool>> = RefCell::new(HashMap::new());
 }
 
-/// Relabels the qubits of a pair of gates to `0..k` in order of first
-/// appearance, so the cache is keyed by shape, not by position.
-fn relabel_pair(a: &Gate, b: &Gate) -> Option<(Gate, Gate, usize)> {
-    let mut map: Vec<usize> = Vec::with_capacity(4);
+/// Index of a parameter-free gate kind (`None` for parametrised gates).
+fn kind_index(g: &Gate) -> Option<u32> {
+    use Gate::*;
+    Some(match g {
+        I(_) => 0,
+        H(_) => 1,
+        X(_) => 2,
+        Y(_) => 3,
+        Z(_) => 4,
+        S(_) => 5,
+        Sdg(_) => 6,
+        T(_) => 7,
+        Tdg(_) => 8,
+        Sx(_) => 9,
+        Sxdg(_) => 10,
+        Cnot(..) => 11,
+        Cz(..) => 12,
+        Swap(..) => 13,
+        ISwap(..) => 14,
+        ISwapdg(..) => 15,
+        Ccx(..) => 16,
+        Rx(..) | Ry(..) | Rz(..) | Phase(..) | U(..) | CPhase(..) => return None,
+    })
+}
+
+/// A key identifying a pair of parameter-free gates up to a relabelling
+/// of their qubits (in order of first appearance), plus the relabelling.
+/// `None` if a gate is parametrised or the pair spans more than 3 qubits.
+fn shape_key(a: &Gate, b: &Gate) -> Option<(u32, [usize; 3], usize)> {
+    let (ka, kb) = (kind_index(a)?, kind_index(b)?);
     let (aq, an) = gate_qubits(a);
     let (bq, bn) = gate_qubits(b);
+    let mut map = [usize::MAX; 3];
+    let mut k = 0;
+    let mut key = ka | kb << 5;
+    let mut shift = 10;
     for &q in aq[..an].iter().chain(&bq[..bn]) {
-        if !map.contains(&q) {
-            map.push(q);
-        }
+        let idx = match map[..k].iter().position(|&m| m == q) {
+            Some(i) => i,
+            None => {
+                if k == 3 {
+                    return None;
+                }
+                map[k] = q;
+                k += 1;
+                k - 1
+            }
+        };
+        key |= (idx as u32) << shift;
+        shift += 2;
     }
-    if map.len() > 3 {
-        return None;
-    }
-    let f = |q: usize| map.iter().position(|&m| m == q).unwrap();
-    Some((map_gate(a, f), map_gate(b, f), map.len()))
+    Some((key, map, k))
 }
 
 /// Applies a qubit relabelling to a gate.
@@ -1259,22 +1330,21 @@ pub fn map_gate(g: &Gate, f: impl Fn(usize) -> usize) -> Gate {
 }
 
 fn matrix_commute_cached(a: &Gate, b: &Gate) -> bool {
-    let Some((ra, rb, k)) = relabel_pair(a, b) else {
+    let Some((key, map, k)) = shape_key(a, b) else {
         return false;
     };
-    COMMUTE_CACHE.with(|c| {
-        let key = (ra, rb);
-        if let Some((_, v)) = c.borrow().iter().find(|(kk, _)| *kk == key) {
-            return *v;
-        }
-        let ma = dense(&ra, k);
-        let mb = dense(&rb, k);
-        let ab = matmul(&ma, &mb, 1 << k);
-        let ba = matmul(&mb, &ma, 1 << k);
-        let v = ab.iter().zip(&ba).all(|(x, y)| (x - y).norm() < 1e-9);
-        c.borrow_mut().push((key, v));
-        v
-    })
+    if let Some(v) = COMMUTE_CACHE.with(|c| c.borrow().get(&key).copied()) {
+        return v;
+    }
+    let f = |q: usize| map[..k].iter().position(|&m| m == q).unwrap();
+    let (ra, rb) = (map_gate(a, f), map_gate(b, f));
+    let ma = dense(&ra, k);
+    let mb = dense(&rb, k);
+    let ab = matmul(&ma, &mb, 1 << k);
+    let ba = matmul(&mb, &ma, 1 << k);
+    let v = ab.iter().zip(&ba).all(|(x, y)| (x - y).norm() < 1e-9);
+    COMMUTE_CACHE.with(|c| c.borrow_mut().insert(key, v));
+    v
 }
 
 /// Dense `2^k x 2^k` matrix of a gate on qubits `0..k` (qubit `q` = bit
@@ -1924,6 +1994,49 @@ mod tests {
         d.replace(ids[1], &[]).unwrap();
         d.check_invariants().unwrap();
         assert_eq!(d.to_circuit().ops.len(), 4);
+    }
+
+    /// The key-sorted fast path of `topo_order` must agree with the
+    /// min-key Kahn sort whenever it is used.
+    #[test]
+    fn fast_topo_order_matches_kahn() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        let mut rng = StdRng::seed_from_u64(5);
+        for trial in 0..200 {
+            let c = Circuit::random_clifford_t(4, 6, 0.3, &mut rng);
+            let mut d = Dag::from_circuit(&c).unwrap();
+            for _ in 0..10 {
+                let ids: Vec<_> = d.node_ids().collect();
+                if ids.is_empty() {
+                    break;
+                }
+                let a = ids[rng.random_range(0..ids.len())];
+                match rng.random_range(0..4) {
+                    0 => {
+                        d.remove(a).unwrap();
+                    }
+                    1 => {
+                        if let Op::Gate(g) = *d.op(a) {
+                            let qs = gate_qubits(&g).0;
+                            d.replace(a, &[Gate::H(qs[0]), g, Gate::H(qs[0])]).unwrap();
+                        }
+                    }
+                    2 if trial % 3 == 0 => {
+                        for b in d.successors(a) {
+                            if d.can_slide(a, b) {
+                                d.slide(a, b).unwrap();
+                                break;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                let kahn = d.topo_order_with(|id| d.n(id).key);
+                assert_eq!(d.topo_order(), kahn, "trial {trial}");
+                d.check_invariants().unwrap();
+            }
+        }
     }
 
     #[test]

@@ -236,16 +236,30 @@ fn run_timing() {
         let t_peep = time_min(5, || {
             std::hint::black_box(dag::optimize(&c).unwrap());
         });
+        let adj = PeepholeOptions {
+            commute: false,
+            ..Default::default()
+        };
+        let t_adj = time_min(5, || {
+            std::hint::black_box(dag::optimize_with(&c, adj).unwrap());
+        });
+        let mut d2 = Dag::from_circuit(&c).unwrap();
+        dag::peephole(&mut d2, PeepholeOptions::default());
+        let t_topo = time_min(5, || {
+            std::hint::black_box(d2.topo_order());
+        });
         let t_cone = time_min(5, || {
             std::hint::black_box(dag::light_cone(&c, &[0]).unwrap());
         });
         println!(
-            "n={n:>3} ops={ops:>8} | from_circuit {:>6.1} ns/op | to_circuit {:>6.1} ns/op | optimize() {:>6.1} ns/op | dag peephole {:>7.1} ns/op | dag light cone {:>6.1} ns/op",
+            "n={n:>3} ops={ops:>8} | from_circuit {:>6.1} ns/op | to_circuit {:>6.1} ns/op | optimize() {:>6.1} ns/op | dag peephole {:>7.1} ns/op | dag light cone {:>6.1} ns/op | dag adjacent-only {:>6.1} ns/op | topo after rewrite {:>6.1} ns/op",
             1e9 * t_build / ops,
             1e9 * t_out / ops,
             1e9 * t_base / ops,
             1e9 * t_peep / ops,
             1e9 * t_cone / ops,
+            1e9 * t_adj / ops,
+            1e9 * t_topo / ops,
         );
     }
 }
