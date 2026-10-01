@@ -87,7 +87,7 @@ pub fn expect_row(
     max_terms: usize,
     max_dense: usize,
     repeat: usize,
-) {
+) -> f64 {
     let n = c.num_qubits;
     let mut best = f64::INFINITY;
     let mut out = String::new();
@@ -140,7 +140,7 @@ pub fn expect_row(
                 };
                 match adaptive::expectation(c, obs, &opt) {
                     Ok(r) => Ok(format!(
-                        "{:+.12e} | {} | {} | {} | {}",
+                        "{:+.12e} | {} | {} | {} | {} (frame {:.3} s + dense {:.3} s)",
                         r.value,
                         r.frame_stats.peak_terms,
                         r.switched_at
@@ -155,7 +155,9 @@ pub fn expect_row(
                             format!("{} MiB", (16u64 << r.dense_qubits) >> 20)
                         } else {
                             "-".into()
-                        }
+                        },
+                        r.frame_secs,
+                        r.dense_secs
                     )),
                     Err(e) => Err(e.to_string()),
                 }
@@ -172,6 +174,7 @@ pub fn expect_row(
     }
     println!("| {label} | {method} | {out} | {best:.4} |");
     flush();
+    best
 }
 
 fn sv_expect(sv: &StateVectorF64, obs: &PauliSum) -> f64 {

@@ -1,0 +1,40 @@
+[bench.sh] load at start: 14.50
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB | 0.2795 |
+[bench.sh] load at start: 14.50
+| two-phase n=50 t=60 | switch:53 | +3.376190913433e-6 | 8 | k=53 (8 terms) | 20 | 16 MiB | 0.3376 |
+[bench.sh] load at start: 14.50
+| two-phase n=50 t=60 | switch:59 | +3.376190913434e-6 | 1 | k=59 (1 terms) | 23 | 128 MiB | 0.4209 |
+[bench.sh] load at start: 14.50
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.7826 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB | 0.2679 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:53 | +3.376190913433e-6 | 8 | k=53 (8 terms) | 20 | 16 MiB | 0.3700 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:59 | +3.376190913434e-6 | 1 | k=59 (1 terms) | 23 | 128 MiB | 0.3901 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.7787 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB | 0.3173 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:53 | +3.376190913433e-6 | 8 | k=53 (8 terms) | 20 | 16 MiB | 0.2378 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:59 | +3.376190913434e-6 | 1 | k=59 (1 terms) | 23 | 128 MiB | 0.3926 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.7328 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB | 0.3552 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:53 | +3.376190913433e-6 | 8 | k=53 (8 terms) | 20 | 16 MiB | 0.2768 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | switch:59 | +3.376190913434e-6 | 1 | k=59 (1 terms) | 23 | 128 MiB | 0.4835 |
+[bench.sh] load at start: 14.30
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.8252 |
+[bench.sh] load at start: 14.52
+| two-phase n=50 t=60 | auto | +3.376190913432e-6 | 4 | k=54 (4 terms) | 20 | 16 MiB | 0.3081 |
+[bench.sh] load at start: 14.52
+| two-phase n=50 t=60 | switch:53 | +3.376190913433e-6 | 8 | k=53 (8 terms) | 20 | 16 MiB | 0.3266 |
+[bench.sh] load at start: 14.52
+| two-phase n=50 t=60 | switch:59 | +3.376190913434e-6 | 1 | k=59 (1 terms) | 23 | 128 MiB | 0.4169 |
+[bench.sh] load at start: 14.52
+| two-phase n=50 t=60 | frame | +3.376190913432e-6 | 2513067 | - | - | - | 0.6967 |

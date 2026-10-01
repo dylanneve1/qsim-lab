@@ -220,6 +220,9 @@ enum AdaptiveCmd {
         repeat: usize,
         #[arg(long, default_value_t = 4)]
         step: usize,
+        /// `sweep` stops after a switch point slower than this (seconds).
+        #[arg(long, default_value_t = 10.0)]
+        time_limit: f64,
         /// Print the table header.
         #[arg(long)]
         header: bool,
@@ -406,6 +409,7 @@ fn main() {
                 max_dense,
                 repeat,
                 step,
+                time_limit,
                 header,
             } => {
                 if header {
@@ -417,9 +421,11 @@ fn main() {
                     let label = format!("{family} n={qubits} t={tt}");
                     for m in methods.split(',') {
                         if m == "sweep" {
+                            // From the end of the circuit backwards; stops
+                            // once a switch point is slower than --time-limit.
                             let tot = c.t_count();
-                            for k in (0..=tot).step_by(step.max(1)) {
-                                adaptive_bench::expect_row(
+                            for k in (0..=tot).rev().step_by(step.max(1)) {
+                                let dt = adaptive_bench::expect_row(
                                     &c,
                                     &label,
                                     &obs,
@@ -428,6 +434,9 @@ fn main() {
                                     max_dense,
                                     repeat,
                                 );
+                                if dt > time_limit {
+                                    break;
+                                }
                             }
                         } else {
                             adaptive_bench::expect_row(

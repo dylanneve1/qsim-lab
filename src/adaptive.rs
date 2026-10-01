@@ -1136,6 +1136,9 @@ pub struct AdaptiveOptions {
     /// Seconds per Pauli-term visit, used until enough visits have been
     /// timed to measure it live.
     pub term_secs_per_visit: f64,
+    /// Prior for the log2 growth of the term count per rotation that does
+    /// not grow the x-span (random circuits: about 0.5; worst case 1).
+    pub growth_prior: f64,
 }
 
 impl Default for AdaptiveOptions {
@@ -1146,6 +1149,7 @@ impl Default for AdaptiveOptions {
             max_dense_qubits: 26,
             dense_secs_per_op: 2e-9,
             term_secs_per_visit: 6e-8,
+            growth_prior: 0.5,
         }
     }
 }
@@ -1169,26 +1173,40 @@ pub struct AdaptiveReport {
 
 /// Cost-model decision for [`Strategy::Auto`] at stage `k` (rotations
 /// `1..=k` remain, `t` live terms). Projects the Heisenberg cost of
-/// continuing to every later stage `k'` (a rotation that does not grow the
-/// x-span can double the terms; one that does cannot, because the new
-/// branch is pruned once that direction leaves the span), adds the dense
-/// cost of finishing from `k'`, and switches now iff `k' = k` is the
-/// cheapest choice.
-fn auto_decide(k: usize, t: usize, d: &[usize], visit_secs: f64, opt: &AdaptiveOptions) -> bool {
+/// continuing to every later stage `k'` and adds the dense cost of
+/// finishing from `k'` (`Σ_{j<=k'} 2^{d_j}` amplitude updates plus the
+/// handover evaluation, about `terms · 2^{d_k'}`); switches now iff `k' = k`
+/// is the cheapest choice, otherwise re-decides at the next stage with the
+/// new live term count. Term growth: a rotation that grows the x-span
+/// cannot increase the term count (its branch leaves the span and is pruned
+/// at the next projection); one that does not grow it multiplies the count
+/// by `2^growth`, with `growth` (log2 per such rotation) measured live.
+fn auto_decide(
+    k: usize,
+    t: usize,
+    d: &[usize],
+    visit_secs: f64,
+    growth: f64,
+    opt: &AdaptiveOptions,
+) -> bool {
     let dense_ok = |j: usize| d[j] <= opt.max_dense_qubits.min(30);
     if t == usize::MAX {
         return dense_ok(k);
     }
+    let g = 2f64.powf(growth.clamp(0.0, 1.0));
+    let mut prefix = vec![0.0f64; k + 1];
+    for i in 1..=k {
+        prefix[i] = prefix[i - 1] + (1u64 << d[i].min(62)) as f64;
+    }
     let dense_cost = |j: usize, terms: f64| -> f64 {
-        let prefix: f64 = (1..=j).map(|i| (1u64 << d[i]) as f64).sum();
-        let dim = (1u64 << d[j]) as f64;
+        let dim = (1u64 << d[j].min(62)) as f64;
         let groups = terms.min(dim);
         let eval = dim * terms.min(groups * (d[j] as f64 + 1.0));
-        opt.dense_secs_per_op * (prefix + eval)
+        opt.dense_secs_per_op * (prefix[j] + eval)
     };
     let mut best_j = None;
     let mut best = f64::INFINITY;
-    let mut terms = t as f64;
+    let mut terms = t.max(1) as f64;
     let mut heis = 0.0;
     for j in (0..=k).rev() {
         if dense_ok(j) {
@@ -1207,10 +1225,37 @@ fn auto_decide(k: usize, t: usize, d: &[usize], visit_secs: f64, opt: &AdaptiveO
         }
         heis += visit_secs * terms;
         if d[j] == d[j - 1] {
-            terms = (terms * 2.0).min(4f64.powi(d[j] as i32));
+            terms = (terms * g).min(4f64.powi(d[j] as i32));
         }
     }
     best_j == Some(k)
+}
+
+/// Live estimate of the term growth per span-preserving rotation (log2),
+/// with a prior of [`AdaptiveOptions::growth_prior`] worth 4 observations.
+struct GrowthMeter {
+    prior: f64,
+    sum: f64,
+    count: f64,
+    last: Option<(usize, usize)>, // (stage, terms)
+}
+
+impl GrowthMeter {
+    fn observe(&mut self, k: usize, t: usize, d: &[usize]) {
+        if let Some((k0, t0)) = self.last {
+            // Rotation k0 was just processed (stage k0 -> k0 - 1 = k).
+            // Below ~32 terms the first branchings always double the count;
+            // that small-number regime says nothing about the growth rate.
+            if k0 == k + 1 && d[k0] == d[k] && t0 >= 32 && t > 0 && t != usize::MAX {
+                self.sum += (t as f64 / t0 as f64).log2();
+                self.count += 1.0;
+            }
+        }
+        self.last = Some((k, t));
+    }
+    fn growth(&self) -> f64 {
+        (self.prior * 4.0 + self.sum) / (4.0 + self.count)
+    }
 }
 
 /// Exact `<0| U† O U |0>`, choosing at run time between the Pauli-path
@@ -1226,18 +1271,27 @@ pub fn expectation(
     let t0 = Instant::now();
     let strategy = opt.strategy;
     let max_d = opt.max_dense_qubits.min(30);
+    let mut meter = GrowthMeter {
+        prior: opt.growth_prior,
+        sum: 0.0,
+        count: 0.0,
+        last: None,
+    };
+    let mut sweep_start: Option<Instant> = None;
     let mut policy = |k: usize, t: usize, d: &[usize], visits: u64| -> bool {
         match strategy {
             Strategy::Frame => false,
             Strategy::Dense => d[k] <= max_d,
             Strategy::SwitchAt(s) => (k <= s || t == usize::MAX) && d[k] <= max_d,
             Strategy::Auto => {
+                let start = *sweep_start.get_or_insert_with(Instant::now);
                 let visit = if visits > 100_000 {
-                    t0.elapsed().as_secs_f64() / visits as f64
+                    start.elapsed().as_secs_f64() / visits as f64
                 } else {
                     opt.term_secs_per_visit
                 };
-                auto_decide(k, t, d, visit, opt)
+                meter.observe(k, t, d);
+                auto_decide(k, t, d, visit, meter.growth(), opt)
             }
         }
     };
