@@ -1,0 +1,20 @@
+[bench.sh] load at start: 12.17
+p = 0.001, rounds = d, sampler shots = 64 x 200, tableau shots = 30
+
+| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym | detector nnz | detector sampler (us/shot) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 17 | 33 | 406 | 739 | 0.0 | 25.1 | 0.027 | 934x | 11.1, 10.6 | 645 | 0.025 |
+| 5 | 49 | 145 | 2166 | 6331 | 0.2 | 97.0 | 0.154 | 630x | 43.2, 43.5 | 4027 | 0.125 |
+| 7 | 97 | 385 | 6266 | 25103 | 0.6 | 342.2 | 0.495 | 691x | 111.6, 112.7 | 12401 | 0.354 |
+| 11 | 241 | 1441 | 25422 | 156619 | 4.7 | 1629.0 | 2.658 | 613x | 413.6, 419.2 | 53149 | 1.413 |
+p = 0.001, rounds = d, sampler shots = 64 x 100, tableau shots = 10
+
+| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym | detector nnz | detector sampler (us/shot) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 15 | 449 | 3585 | 65746 | 546391 | 23.2 | 5674.8 | 8.171 | 695x | 1101.1, 1051.1 | 140937 | 3.584 |
+p = 0.01, rounds = d, sampler shots = 64 x 100, tableau shots = 30
+
+| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym | detector nnz | detector sampler (us/shot) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | 49 | 145 | 2166 | 6331 | 0.2 | 95.6 | 0.385 | 249x | 49.8, 50.6 | 4027 | 0.352 |
+| 11 | 241 | 1441 | 25422 | 156619 | 4.7 | 1645.1 | 5.223 | 315x | 563.3, 564.3 | 53149 | 4.067 |

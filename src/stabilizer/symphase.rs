@@ -431,16 +431,72 @@ impl SymPhaseSampler {
         }
         debug_assert_eq!(next as usize, num_vars);
 
-        // 3. Drop groups none of whose variables reach a measurement, and
-        //    renumber the rest densely.
-        let mut used = vec![false; num_vars];
-        for &v in &row_vars {
+        // 3. Drop groups none of whose variables reach a measurement.
+        let mut s = SymPhaseSampler {
+            reference,
+            row_start,
+            row_vars,
+            groups,
+            num_vars,
+        };
+        s.prune();
+        Ok(s)
+    }
+
+    /// A sampler for parities of measurement sets (e.g. QEC detectors:
+    /// `m[r][k] xor m[r-1][k]`) instead of raw measurements. Row `i` of the
+    /// new `A` is the XOR of the rows in `sets[i]`, so a fault that flips a
+    /// stabilizer outcome in every later round touches only the detectors
+    /// where it starts and stops: far fewer non-zeros than the raw rows.
+    /// Variable groups no row needs any more are dropped.
+    pub fn with_parities(&self, sets: &[Vec<usize>]) -> SymPhaseSampler {
+        let mut parity = vec![false; self.num_vars];
+        let mut touched: Vec<u32> = Vec::new();
+        let mut reference = Vec::with_capacity(sets.len());
+        let mut row_start = vec![0u32];
+        let mut row_vars: Vec<u32> = Vec::new();
+        for set in sets {
+            let mut r = false;
+            for &j in set {
+                r ^= self.reference[j];
+                for &v in self.row(j) {
+                    if !parity[v as usize] {
+                        touched.push(v);
+                    }
+                    parity[v as usize] ^= true;
+                }
+            }
+            touched.sort_unstable();
+            for &v in &touched {
+                if std::mem::take(&mut parity[v as usize]) {
+                    row_vars.push(v);
+                }
+            }
+            touched.clear();
+            reference.push(r);
+            row_start.push(row_vars.len() as u32);
+        }
+        let mut out = SymPhaseSampler {
+            reference,
+            row_start,
+            row_vars,
+            groups: self.groups.clone(),
+            num_vars: self.num_vars,
+        };
+        out.prune();
+        out
+    }
+
+    /// Drops variable groups that no row uses and renumbers the rest.
+    fn prune(&mut self) {
+        let mut used = vec![false; self.num_vars];
+        for &v in &self.row_vars {
             used[v as usize] = true;
         }
-        let mut remap = vec![u32::MAX; num_vars];
+        let mut remap = vec![u32::MAX; self.num_vars];
         let mut kept = Vec::new();
         let mut m: u32 = 0;
-        for g in &groups {
+        for g in &self.groups {
             let r = g.first as usize..g.first as usize + g.dist.len();
             if used[r.clone()].iter().any(|&u| u) {
                 for (k, v) in r.enumerate() {
@@ -453,16 +509,11 @@ impl SymPhaseSampler {
                 m += g.dist.len() as u32;
             }
         }
-        for v in &mut row_vars {
+        for v in &mut self.row_vars {
             *v = remap[*v as usize];
         }
-        Ok(SymPhaseSampler {
-            reference,
-            row_start,
-            row_vars,
-            groups: kept,
-            num_vars: m as usize,
-        })
+        self.groups = kept;
+        self.num_vars = m as usize;
     }
 
     /// Number of measurements per shot.

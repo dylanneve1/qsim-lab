@@ -424,3 +424,36 @@ fn exact_distribution_on_targeted_circuits() {
         );
     }
 }
+
+/// Parity (detector) compilation: its exact distribution equals the
+/// distribution of the same parities of the raw measurement records.
+#[test]
+fn parity_sampler_matches_parities_of_raw_distribution() {
+    let mut rng = StdRng::seed_from_u64(99);
+    let mut checked = 0;
+    while checked < 100 {
+        let n = rng.random_range(1..4);
+        let len = rng.random_range(3..14);
+        let c = random_noisy_circuit(n, len, &mut rng);
+        let noise = NoiseModel::none().with_meas(0.1);
+        let s = SymPhaseSampler::new(&c, &noise).unwrap();
+        if enum_size(&s) > 5e3 {
+            continue;
+        }
+        let m = s.num_measurements();
+        let sets: Vec<Vec<usize>> = (0..rng.random_range(1..5))
+            .map(|_| (0..m).filter(|_| rng.random_bool(0.4)).collect())
+            .collect();
+        let ps = s.with_parities(&sets);
+        let mut want = Dist::new();
+        for (k, p) in sampler_dist(&s) {
+            let key: Vec<bool> = sets
+                .iter()
+                .map(|set| set.iter().fold(false, |a, &j| a ^ k[j]))
+                .collect();
+            *want.entry(key).or_insert(0.0) += p;
+        }
+        assert_dist_eq(&want, &sampler_dist(&ps), "parities");
+        checked += 1;
+    }
+}

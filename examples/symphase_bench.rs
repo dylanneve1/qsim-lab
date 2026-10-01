@@ -31,9 +31,9 @@ fn main() {
     let noise = NoiseModel::circuit_level(p, p);
     println!("p = {p}, rounds = d, sampler shots = 64 x {batches}, tableau shots = {tab_shots}\n");
     println!(
-        "| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym |"
+        "| d | qubits | measurements | vars | nnz(A) | compile (ms) | tableau (us/shot) | sampler (us/shot) | speedup/shot | mean ones/shot tab, sym | detector nnz | detector sampler (us/shot) |"
     );
-    println!("|---|---|---|---|---|---|---|---|---|---|");
+    println!("|---|---|---|---|---|---|---|---|---|---|---|---|");
     for &d in &ds {
         let code = SurfaceCode::new(d, d);
         let c = code.build_circuit();
@@ -46,7 +46,21 @@ fn main() {
         }
         let s = s.unwrap();
         let m = s.num_measurements();
-        let (mut t_tab, mut t_sym) = (f64::INFINITY, f64::INFINITY);
+        // detector-like parities: each ancilla against the same ancilla one
+        // round earlier; data measurements as they are
+        let na = SurfaceCode::num_ancillas(d);
+        let sets: Vec<Vec<usize>> = (0..m)
+            .map(|j| {
+                if (na..d * na).contains(&j) {
+                    vec![j - na, j]
+                } else {
+                    vec![j]
+                }
+            })
+            .collect();
+        let ds = s.with_parities(&sets);
+        let mut dvals = vec![0u64; ds.num_vars()];
+        let (mut t_tab, mut t_sym, mut t_det) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
         let (mut ones_tab, mut ones_sym) = (0usize, 0usize);
         let mut rng = StdRng::seed_from_u64(1);
         let mut vals = vec![0u64; s.num_vars()];
@@ -67,9 +81,14 @@ fn main() {
                 ones_sym += out.iter().map(|w| w.count_ones() as usize).sum::<usize>();
             }
             t_sym = t_sym.min(t.elapsed().as_secs_f64() / (64 * batches) as f64);
+            let t = Instant::now();
+            for _ in 0..batches {
+                ds.sample_batch(&mut rng, &mut dvals, &mut out);
+            }
+            t_det = t_det.min(t.elapsed().as_secs_f64() / (64 * batches) as f64);
         }
         println!(
-            "| {d} | {} | {m} | {} | {} | {:.1} | {:.1} | {:.3} | {:.0}x | {:.1}, {:.1} |",
+            "| {d} | {} | {m} | {} | {} | {:.1} | {:.1} | {:.3} | {:.0}x | {:.1}, {:.1} | {} | {:.3} |",
             c.num_qubits,
             s.num_vars(),
             s.nnz(),
@@ -79,6 +98,8 @@ fn main() {
             t_tab / t_sym,
             ones_tab as f64 / tab_shots as f64,
             ones_sym as f64 / (64 * batches) as f64,
+            ds.nnz(),
+            1e6 * t_det,
         );
     }
 }
