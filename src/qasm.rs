@@ -6,13 +6,28 @@ use std::collections::HashMap;
 use std::f64::consts::PI;
 
 /// Serializes a [`Circuit`] into an OpenQASM 2.0 program string.
-pub fn to_qasm(circuit: &Circuit) -> String {
+///
+/// Angles are written in Rust's shortest round-trip form, so
+/// `from_qasm(to_qasm(c))` reproduces every parameter exactly. The classical
+/// register has one bit per measurement (measurement `k` writes `c[k]`).
+///
+/// Classically conditioned gates and stochastic noise channels have no
+/// faithful OpenQASM 2.0 form (`if` compares a whole register), so they are
+/// reported as an error rather than silently dropped.
+pub fn to_qasm(circuit: &Circuit) -> Result<String, SimError> {
     let mut out = String::new();
     out.push_str("OPENQASM 2.0;\n");
     out.push_str("include \"qelib1.inc\";\n");
     let n = circuit.num_qubits;
     out.push_str(&format!("qreg q[{n}];\n"));
-    out.push_str(&format!("creg c[{n}];\n"));
+    let num_meas = circuit
+        .ops
+        .iter()
+        .filter(|op| matches!(op, Op::Measure(_)))
+        .count();
+    if num_meas > 0 {
+        out.push_str(&format!("creg c[{num_meas}];\n"));
+    }
 
     let mut meas_idx = 0;
     for op in &circuit.ops {
@@ -29,12 +44,12 @@ pub fn to_qasm(circuit: &Circuit) -> String {
                 Gate::Tdg(q) => out.push_str(&format!("tdg q[{q}];\n")),
                 Gate::Sx(q) => out.push_str(&format!("sx q[{q}];\n")),
                 Gate::Sxdg(q) => out.push_str(&format!("sxdg q[{q}];\n")),
-                Gate::Rx(q, th) => out.push_str(&format!("rx({th:.16}) q[{q}];\n")),
-                Gate::Ry(q, th) => out.push_str(&format!("ry({th:.16}) q[{q}];\n")),
-                Gate::Rz(q, th) => out.push_str(&format!("rz({th:.16}) q[{q}];\n")),
-                Gate::Phase(q, th) => out.push_str(&format!("u1({th:.16}) q[{q}];\n")),
+                Gate::Rx(q, th) => out.push_str(&format!("rx({th:?}) q[{q}];\n")),
+                Gate::Ry(q, th) => out.push_str(&format!("ry({th:?}) q[{q}];\n")),
+                Gate::Rz(q, th) => out.push_str(&format!("rz({th:?}) q[{q}];\n")),
+                Gate::Phase(q, th) => out.push_str(&format!("u1({th:?}) q[{q}];\n")),
                 Gate::U(q, th, ph, lam) => {
-                    out.push_str(&format!("u3({th:.16},{ph:.16},{lam:.16}) q[{q}];\n"))
+                    out.push_str(&format!("u3({th:?},{ph:?},{lam:?}) q[{q}];\n"))
                 }
                 Gate::Cnot(c, t) => out.push_str(&format!("cx q[{c}],q[{t}];\n")),
                 Gate::Cz(a, b) => out.push_str(&format!("cz q[{a}],q[{b}];\n")),
@@ -52,7 +67,7 @@ pub fn to_qasm(circuit: &Circuit) -> String {
                     out.push_str(&format!("sdg q[{a}];\n"));
                     out.push_str(&format!("sdg q[{b}];\n"));
                 }
-                Gate::CPhase(a, b, th) => out.push_str(&format!("cp({th:.16}) q[{a}],q[{b}];\n")),
+                Gate::CPhase(a, b, th) => out.push_str(&format!("cu1({th:?}) q[{a}],q[{b}];\n")),
                 Gate::Ccx(a, b, t) => out.push_str(&format!("ccx q[{a}],q[{b}],q[{t}];\n")),
             },
             Op::Measure(q) => {
@@ -62,46 +77,237 @@ pub fn to_qasm(circuit: &Circuit) -> String {
             Op::Reset(q) => {
                 out.push_str(&format!("reset q[{q}];\n"));
             }
+            other => {
+                return Err(SimError::QasmError(format!(
+                    "{other:?} has no OpenQASM 2.0 equivalent"
+                )))
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Parses an OpenQASM 2.0 parameter expression.
+///
+/// Grammar (the OpenQASM 2.0 expression language, standard precedence,
+/// left-associative except `^`):
+///
+/// ```text
+/// expr   := term (('+' | '-') term)*
+/// term   := unary (('*' | '/') unary)*
+/// unary  := ('-' | '+') unary | power
+/// power  := atom ('^' unary)?
+/// atom   := number | 'pi' | '(' expr ')' | func '(' expr ')'
+/// func   := sin | cos | tan | exp | ln | sqrt
+/// ```
+fn parse_param(expr: &str) -> Result<f64, String> {
+    let mut p = ExprParser {
+        s: expr.as_bytes(),
+        i: 0,
+    };
+    let v = p.expr()?;
+    p.skip_ws();
+    if p.i != p.s.len() {
+        return Err(format!(
+            "unexpected '{}' in expression '{}'",
+            &expr[p.i..],
+            expr.trim()
+        ));
+    }
+    if !v.is_finite() {
+        return Err(format!("expression '{}' is not finite", expr.trim()));
+    }
+    Ok(v)
+}
+
+struct ExprParser<'a> {
+    s: &'a [u8],
+    i: usize,
+}
+
+impl ExprParser<'_> {
+    fn skip_ws(&mut self) {
+        while self.i < self.s.len() && self.s[self.i].is_ascii_whitespace() {
+            self.i += 1;
+        }
+    }
+
+    fn peek(&mut self) -> Option<u8> {
+        self.skip_ws();
+        self.s.get(self.i).copied()
+    }
+
+    fn eat(&mut self, c: u8) -> bool {
+        if self.peek() == Some(c) {
+            self.i += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn expr(&mut self) -> Result<f64, String> {
+        let mut v = self.term()?;
+        loop {
+            if self.eat(b'+') {
+                v += self.term()?;
+            } else if self.eat(b'-') {
+                v -= self.term()?;
+            } else {
+                return Ok(v);
+            }
+        }
+    }
+
+    fn term(&mut self) -> Result<f64, String> {
+        let mut v = self.unary()?;
+        loop {
+            if self.eat(b'*') {
+                v *= self.unary()?;
+            } else if self.eat(b'/') {
+                let d = self.unary()?;
+                if d == 0.0 {
+                    return Err("division by zero".to_string());
+                }
+                v /= d;
+            } else {
+                return Ok(v);
+            }
+        }
+    }
+
+    fn unary(&mut self) -> Result<f64, String> {
+        if self.eat(b'-') {
+            Ok(-self.unary()?)
+        } else if self.eat(b'+') {
+            self.unary()
+        } else {
+            self.power()
+        }
+    }
+
+    fn power(&mut self) -> Result<f64, String> {
+        let base = self.atom()?;
+        if self.eat(b'^') {
+            // Right-associative: a^b^c = a^(b^c); binds tighter than unary minus
+            // on its left operand, as in the OpenQASM 2.0 grammar.
+            let e = self.unary()?;
+            Ok(base.powf(e))
+        } else {
+            Ok(base)
+        }
+    }
+
+    fn atom(&mut self) -> Result<f64, String> {
+        match self.peek() {
+            None => Err("unexpected end of expression".to_string()),
+            Some(b'(') => {
+                self.i += 1;
+                let v = self.expr()?;
+                if !self.eat(b')') {
+                    return Err("missing ')'".to_string());
+                }
+                Ok(v)
+            }
+            Some(c) if c.is_ascii_digit() || c == b'.' => self.number(),
+            Some(c) if c.is_ascii_alphabetic() => {
+                let start = self.i;
+                while self.i < self.s.len()
+                    && (self.s[self.i].is_ascii_alphanumeric() || self.s[self.i] == b'_')
+                {
+                    self.i += 1;
+                }
+                let name = std::str::from_utf8(&self.s[start..self.i])
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                if name == "pi" {
+                    return Ok(PI);
+                }
+                let f: fn(f64) -> f64 = match name.as_str() {
+                    "sin" => f64::sin,
+                    "cos" => f64::cos,
+                    "tan" => f64::tan,
+                    "exp" => f64::exp,
+                    "ln" => f64::ln,
+                    "sqrt" => f64::sqrt,
+                    _ => return Err(format!("unknown identifier '{name}'")),
+                };
+                if !self.eat(b'(') {
+                    return Err(format!("expected '(' after '{name}'"));
+                }
+                let v = self.expr()?;
+                if !self.eat(b')') {
+                    return Err(format!("missing ')' after argument of '{name}'"));
+                }
+                Ok(f(v))
+            }
+            Some(c) => Err(format!("unexpected character '{}'", c as char)),
+        }
+    }
+
+    /// A decimal literal, optionally with an exponent (`1.5e-3`).
+    fn number(&mut self) -> Result<f64, String> {
+        let start = self.i;
+        while self.i < self.s.len() && (self.s[self.i].is_ascii_digit() || self.s[self.i] == b'.') {
+            self.i += 1;
+        }
+        if self.i < self.s.len() && (self.s[self.i] == b'e' || self.s[self.i] == b'E') {
+            let save = self.i;
+            self.i += 1;
+            if self.i < self.s.len() && (self.s[self.i] == b'+' || self.s[self.i] == b'-') {
+                self.i += 1;
+            }
+            let digits = self.i;
+            while self.i < self.s.len() && self.s[self.i].is_ascii_digit() {
+                self.i += 1;
+            }
+            if self.i == digits {
+                self.i = save; // not an exponent after all
+            }
+        }
+        let text = std::str::from_utf8(&self.s[start..self.i]).unwrap_or("");
+        text.parse::<f64>()
+            .map_err(|e| format!("cannot parse number '{text}': {e}"))
+    }
+}
+
+/// Splits `s` at commas that are not inside parentheses.
+fn split_top_level(s: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0;
+    for (i, c) in s.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                out.push(&s[start..i]);
+                start = i + 1;
+            }
             _ => {}
         }
     }
+    out.push(&s[start..]);
     out
 }
 
-/// Parses a mathematical expression in QASM parameters (numbers, pi, -, +, *, /).
-fn parse_param(expr: &str) -> Result<f64, String> {
-    let s = expr.trim();
-    if s.is_empty() {
-        return Err("empty expression".to_string());
-    }
-    // Handle leading signs
-    if let Some(rest) = s.strip_prefix('-') {
-        return parse_param(rest).map(|v| -v);
-    }
-    if let Some(rest) = s.strip_prefix('+') {
-        return parse_param(rest);
-    }
-    // Handle division (e.g. pi/2, -pi/4)
-    if let Some((num, den)) = s.split_once('/') {
-        let n = parse_param(num)?;
-        let d = parse_param(den)?;
-        if d == 0.0 {
-            return Err("division by zero".to_string());
+/// Index of the `)` matching the first `(` in `s`, if any.
+fn matching_paren(s: &str) -> Option<usize> {
+    let open = s.find('(')?;
+    let mut depth = 0i32;
+    for (i, c) in s[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(open + i);
+                }
+            }
+            _ => {}
         }
-        return Ok(n / d);
     }
-    // Handle multiplication
-    if let Some((a, b)) = s.split_once('*') {
-        let n = parse_param(a)?;
-        let d = parse_param(b)?;
-        return Ok(n * d);
-    }
-    // Constants or literals
-    if s.eq_ignore_ascii_case("pi") {
-        return Ok(PI);
-    }
-    s.parse::<f64>()
-        .map_err(|e| format!("cannot parse number '{s}': {e}"))
+    None
 }
 
 /// Parses comma-separated parameter list inside parentheses: `(p1, p2, ...)`.
@@ -110,11 +316,7 @@ fn parse_param_list(s: &str) -> Result<Vec<f64>, String> {
     if s.is_empty() {
         return Ok(Vec::new());
     }
-    let mut params = Vec::new();
-    for p in s.split(',') {
-        params.push(parse_param(p)?);
-    }
-    Ok(params)
+    split_top_level(s).into_iter().map(parse_param).collect()
 }
 
 /// Parses an OpenQASM 2.0 program string into a [`Circuit`].
@@ -214,11 +416,15 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
             continue;
         }
         let (gate_spec, rest) = if trimmed.contains('(') {
-            let close_idx = trimmed
-                .find(')')
+            let close_idx = matching_paren(trimmed)
                 .ok_or_else(|| SimError::QasmError(format!("unmatched '(' in '{trimmed}'")))?;
             let gate_spec = trimmed[..=close_idx].trim();
             let rest = trimmed[close_idx + 1..].trim();
+            if rest.contains(['(', ')']) {
+                return Err(SimError::QasmError(format!(
+                    "unbalanced parentheses in '{trimmed}'"
+                )));
+            }
             (gate_spec, rest)
         } else {
             match trimmed.split_once(char::is_whitespace) {
@@ -375,7 +581,7 @@ pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
                     circuit.iswapdg(args[0], args[1]);
                 }
             }
-            "cp" | "cphase" => {
+            "cp" | "cu1" | "cphase" => {
                 if args.len() == 2 && !params.is_empty() {
                     circuit.cphase(args[0], args[1], params[0]);
                 }
@@ -404,7 +610,7 @@ mod tests {
     fn qasm_roundtrip() {
         let mut c = Circuit::new(3);
         c.h(0).cnot(0, 1).rz(1, 0.5).swap(1, 2).measure_all();
-        let qasm = to_qasm(&c);
+        let qasm = to_qasm(&c).unwrap();
         let parsed = from_qasm(&qasm).unwrap();
         assert_eq!(parsed.num_qubits, 3);
         assert_eq!(parsed.ops.len(), c.ops.len());

@@ -465,6 +465,12 @@ impl Circuit {
 
     /// Peephole optimization pass: cancels adjacent self-inverses, merges
     /// rotations on identical axes, and eliminates identity/zero-angle gates.
+    ///
+    /// The result equals the original **up to a global phase**: `Rx`, `Ry`
+    /// and `Rz` by a multiple of 2π are `-I`, not `I`, and are removed. That
+    /// is unobservable for a whole circuit but matters if the output is used
+    /// as a controlled sub-circuit. Only directly adjacent operations are
+    /// merged; measurements, resets and conditional ops act as barriers.
     pub fn optimize(&self) -> Circuit {
         let mut ops: Vec<Op> = Vec::new();
         for op in &self.ops {
@@ -616,8 +622,9 @@ impl Circuit {
         wires.join("\n")
     }
 
-    /// Serializes this circuit into OpenQASM 2.0 format.
-    pub fn to_qasm(&self) -> String {
+    /// Serializes this circuit into OpenQASM 2.0 format. Fails for operations
+    /// OpenQASM 2.0 cannot express (classically conditioned gates, noise).
+    pub fn to_qasm(&self) -> Result<String, SimError> {
         crate::qasm::to_qasm(self)
     }
 
