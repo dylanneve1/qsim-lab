@@ -40,7 +40,8 @@ use crate::circuit::Circuit;
 use crate::noise::NoiseModel;
 use crate::qec::decoder::{DecodingGraph, UnionFindDecoder};
 use crate::qec::dem::{
-    decoding_graph_from_faults, CircuitFaults, DemSampler, ErrorMechanism, GraphReport,
+    decoding_graph_from_faults, weighted_decoding_graph_from_faults, CircuitFaults, DemSampler,
+    ErrorMechanism, GraphReport,
 };
 use crate::qec::repetition::MemoryExperimentResult;
 use crate::stabilizer::Tableau;
@@ -88,6 +89,19 @@ impl SurfaceCode {
         let mut sc = Self::skeleton(d, rounds);
         // Uniform noise only sets the relative weights used to break logical-flag ties.
         let (graph, report) = decoding_graph_from_faults(&sc.faults, &NoiseModel::uniform(1e-3));
+        sc.decoder = UnionFindDecoder::new(graph);
+        sc.graph_report = report;
+        sc
+    }
+
+    /// Same code and circuit, decoded by a **weighted** Union-Find on the
+    /// circuit-derived graph: edge lengths are quantised log-likelihood ratios
+    /// `ln((1-p_e)/p_e)` of the edge probabilities under `noise` (see
+    /// [`crate::qec::dem::weighted_decoding_graph_from_faults`]; the most likely
+    /// edge has length `resolution`).
+    pub fn new_weighted(d: usize, rounds: usize, noise: &NoiseModel, resolution: usize) -> Self {
+        let mut sc = Self::skeleton(d, rounds);
+        let (graph, report) = weighted_decoding_graph_from_faults(&sc.faults, noise, resolution);
         sc.decoder = UnionFindDecoder::new(graph);
         sc.graph_report = report;
         sc

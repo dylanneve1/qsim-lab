@@ -1,7 +1,7 @@
 //! Surface-code threshold sweep driver (one CSV line per (d, p) point).
 //!
 //! ```text
-//! cargo run --release --example surface_threshold -- point <d> <p> <shots> <seed> [dem|tableau] [circuit|phenom]
+//! cargo run --release --example surface_threshold -- point <d> <p> <shots> <seed> [dem|tableau] [circuit|phenom|weighted[:res]]
 //! cargo run --release --example surface_threshold -- report <d>
 //! ```
 //!
@@ -71,9 +71,17 @@ fn main() {
                 m => panic!("unknown method {m}"),
             };
             let decoder = args.get(6).map(String::as_str).unwrap_or("circuit");
+            let noise = NoiseModel::circuit_level(p, p);
             let sc = match decoder {
                 "circuit" => SurfaceCode::new(d, d),
                 "phenom" => SurfaceCode::with_phenomenological_decoder(d, d),
+                w if w.starts_with("weighted") => {
+                    let res = w
+                        .strip_prefix("weighted:")
+                        .map(|r| r.parse().unwrap())
+                        .unwrap_or(10);
+                    SurfaceCode::new_weighted(d, d, &noise, res)
+                }
                 x => panic!("unknown decoder graph {x}"),
             };
             let threads: usize = std::env::var("QSIM_THREADS")
@@ -84,7 +92,6 @@ fn main() {
                 .num_threads(threads)
                 .build()
                 .unwrap();
-            let noise = NoiseModel::circuit_level(p, p);
             let chunk = 1000usize;
             let nchunks = shots.div_ceil(chunk);
             let t = Instant::now();
@@ -106,6 +113,6 @@ fn main() {
                 errors as f64 / shots as f64
             );
         }
-        _ => eprintln!("usage: surface_threshold point <d> <p> <shots> <seed> [dem|tableau] [circuit|phenom] | report <d>"),
+        _ => eprintln!("usage: surface_threshold point <d> <p> <shots> <seed> [dem|tableau] [circuit|phenom|weighted[:res]] | report <d>"),
     }
 }
