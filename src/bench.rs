@@ -167,8 +167,10 @@ pub fn stab_ghz(ns: &[usize]) {
 /// (random Clifford block of depth `depth`, T on a random qubit), then a
 /// final Clifford block. The circuit for `t + 1` adds one round at the
 /// start, so the backward propagation for `t` is a prefix of the one for
-/// `t + 1`. Reports the cost of computing `<Z_0>` exactly by Pauli-path
-/// summation.
+/// `t + 1`, which keeps the growth curve smooth. Reports the cost of
+/// computing `<Z_0>` exactly by Pauli-path summation (for these scrambling
+/// circuits the value itself is 0; correctness is covered by the tests,
+/// which compare against the state vector).
 pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
     let max_t = ts.iter().copied().max().unwrap_or(0);
     let mut rng = StdRng::seed_from_u64(3);
@@ -195,22 +197,15 @@ pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
          Clifford block of depth {depth} followed by one T gate.\n",
         fmt_bytes(state_bytes::<f32>(n))
     );
-    header(&[
-        "T gates",
-        "gates total",
-        "<Z_0>",
-        "Pauli terms (peak)",
-        "time (s)",
-    ]);
+    header(&["T gates", "gates total", "Pauli terms (peak)", "time (s)"]);
     for &t in ts {
         let c = build(t);
         let obs = PauliSum::z_product(n, &[0]);
         let t0 = Instant::now();
         match pauli_path::expectation(&c, &obs, max_terms) {
-            Ok((v, st)) => row(&[
+            Ok((_, st)) => row(&[
                 t.to_string(),
                 c.num_gates().to_string(),
-                format!("{:+.6}", v + 0.0), // + 0.0 turns -0.0 into 0.0
                 st.peak_terms.to_string(),
                 format!("{:.4}", secs(t0)),
             ]),
@@ -218,7 +213,6 @@ pub fn clifford_t(n: usize, depth: usize, ts: &[usize], max_terms: usize) {
                 row(&[
                     t.to_string(),
                     c.num_gates().to_string(),
-                    "-".into(),
                     format!("aborted: {e}"),
                     format!("{:.4}", secs(t0)),
                 ]);

@@ -121,6 +121,22 @@ impl PauliSum {
             .sum()
     }
 
+    /// Conjugates by a Clifford circuit `C`: `P -> C P C†` (Schrödinger
+    /// picture, gates in time order). Errors on non-Clifford gates.
+    pub fn conjugate_by_clifford(&mut self, c: &Circuit) -> Result<(), SimError> {
+        for g in c.gates() {
+            check_gate(g, self.n)?;
+            if !g.is_clifford() {
+                return Err(SimError::Unsupported {
+                    backend: "pauli-path (Clifford conjugation)",
+                    gate: *g,
+                });
+            }
+            self.conjugate_clifford(g);
+        }
+        Ok(())
+    }
+
     /// Conjugates every term by a Clifford gate: `P -> G P G†`.
     fn conjugate_clifford(&mut self, g: &Gate) {
         let w = self.w;
@@ -365,6 +381,17 @@ mod tests {
         let (_, st) = expectation(&c, &PauliSum::z_product(3, &[2]), 10).unwrap();
         assert_eq!(st.peak_terms, 1);
         assert_eq!(st.non_clifford_gates, 0);
+    }
+
+    #[test]
+    fn clifford_conjugation_of_observable() {
+        let mut c = Circuit::new(2);
+        c.h(0).cnot(0, 1);
+        let mut p = PauliSum::from_str_single("ZI");
+        p.conjugate_by_clifford(&c).unwrap();
+        assert_eq!(p, PauliSum::from_str_single("XX"));
+        c.t(1);
+        assert!(p.conjugate_by_clifford(&c).is_err());
     }
 
     #[test]
