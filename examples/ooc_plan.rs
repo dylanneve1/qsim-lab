@@ -27,7 +27,9 @@ fn workload(name: &str, n: usize) -> Circuit {
 }
 
 fn main() {
-    println!("workload   n   c | swap-sched passes | window passes by k=2,3,4,5,6 (gate/perm) | plan ms");
+    println!(
+        "workload   n   c | swap-sched passes | window passes by k=2,3,4,5,6 (gate/perm) | plan ms"
+    );
     for wl in ["qft", "brick", "brick16"] {
         for n in [22usize, 24, 26, 28, 30, 32] {
             for c in [18usize, 20, 22] {
@@ -35,7 +37,9 @@ fn main() {
                     continue;
                 }
                 let circ = workload(wl, n);
-                let old = schedule_ooc(&circ, n, c).map(|p| p.steps.len()).unwrap_or(0);
+                let old = schedule_ooc(&circ, n, c)
+                    .map(|p| p.steps.len())
+                    .unwrap_or(0);
                 let mut cells = String::new();
                 let t0 = Instant::now();
                 for k in [2usize, 3, 4, 5, 6] {
@@ -44,7 +48,14 @@ fn main() {
                         ..WindowOptions::default()
                     };
                     match schedule_window(&circ, c, &opts) {
-                        Ok(p) => cells += &format!(" {:>3}({}/{})", p.passes.len(), p.gate_passes, p.perm_passes),
+                        Ok(p) => {
+                            cells += &format!(
+                                " {:>3}({}/{})",
+                                p.passes.len(),
+                                p.gate_passes,
+                                p.perm_passes
+                            )
+                        }
                         Err(e) => cells += &format!(" err:{e}"),
                     }
                 }

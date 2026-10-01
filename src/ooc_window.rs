@@ -422,13 +422,9 @@ fn schedule_one(
                 let mut order: Vec<usize> = Vec::new();
                 while let Some(&start) = wrong.first() {
                     let mut cur = start;
-                    loop {
-                        if let Some(pos) = wrong.iter().position(|&x| x == cur) {
-                            wrong.remove(pos);
-                            order.push(cur);
-                        } else {
-                            break;
-                        }
+                    while let Some(pos) = wrong.iter().position(|&x| x == cur) {
+                        wrong.remove(pos);
+                        order.push(cur);
                         let l = p2v[cur];
                         if l >= c {
                             cur = l;

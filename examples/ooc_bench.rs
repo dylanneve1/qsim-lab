@@ -95,7 +95,10 @@ fn run_ooc<T: Real>(
         max_err = err;
     } else {
         let norm = ooc.state_norm().unwrap();
-        assert!((norm - 1.0).abs() < 1e-3, "state norm {norm} diverged from 1.0");
+        assert!(
+            (norm - 1.0).abs() < 1e-3,
+            "state norm {norm} diverged from 1.0"
+        );
     }
 
     let moved = (stats.bytes_read + stats.bytes_written) as f64;
