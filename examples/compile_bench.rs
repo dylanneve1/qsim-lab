@@ -15,7 +15,7 @@ use rand::{Rng, SeedableRng};
 use std::f64::consts::PI;
 use std::time::Instant;
 
-const REPS: usize = 5;
+const REPS: usize = 7;
 const SHOTS: usize = 1000;
 
 fn min_time<F: FnMut()>(reps: usize, mut f: F) -> f64 {
@@ -122,22 +122,99 @@ fn row(name: &str, c: &Circuit, base: Option<f64>, comp: f64, compile: f64, extr
     );
 }
 
+/// Times `a` and `b` alternately (so both see the same background load on
+/// the shared machine) and returns the minimum of each.
+fn ab<A: FnMut(), B: FnMut()>(reps: usize, mut a: Option<A>, mut b: B) -> (Option<f64>, f64) {
+    let (mut ta, mut tb) = (f64::INFINITY, f64::INFINITY);
+    for _ in 0..reps {
+        if let Some(a) = a.as_mut() {
+            let t = Instant::now();
+            a();
+            ta = ta.min(t.elapsed().as_secs_f64());
+        }
+        let t = Instant::now();
+        b();
+        tb = tb.min(t.elapsed().as_secs_f64());
+    }
+    (a.map(|_| ta), tb)
+}
+
 fn sampling_case(name: &str, c: &Circuit, baseline: bool) {
     let mut rng = StdRng::seed_from_u64(7);
+    let mut rng2 = StdRng::seed_from_u64(8);
     let compile_t = min_time(REPS, || {
         std::hint::black_box(compile_sampling(c, PlanOptions::default()));
     });
     let plan = compile_sampling(c, PlanOptions::default());
-    let comp_t = min_time(REPS, || {
-        let p = compile_sampling(c, PlanOptions::default());
-        std::hint::black_box(p.sample::<f32, _>(SHOTS, &mut rng).unwrap());
-    });
-    let base_t = baseline.then(|| {
-        let p0 = compile_sampling(c, PlanOptions::none());
-        min_time(REPS, || {
-            std::hint::black_box(p0.sample::<f32, _>(SHOTS, &mut rng).unwrap());
-        })
-    });
+    let p0 = compile_sampling(c, PlanOptions::none());
+    let (base_t, comp_t) = ab(
+        REPS,
+        baseline.then_some(|| {
+            std::hint::black_box(p0.sample::<f32, _>(SHOTS, &mut rng2).unwrap());
+        }),
+        || {
+            let p = compile_sampling(c, PlanOptions::default());
+            std::hint::black_box(p.sample::<f32, _>(SHOTS, &mut rng).unwrap());
+        },
+    );
+    if std::env::var("ABLATE").is_ok() {
+        let d = PlanOptions::default();
+        let variants = [
+            (
+                "-peephole",
+                PlanOptions {
+                    peephole: false,
+                    ..d
+                },
+            ),
+            (
+                "-swap_elim",
+                PlanOptions {
+                    swap_elim: false,
+                    ..d
+                },
+            ),
+            (
+                "-state_prop",
+                PlanOptions {
+                    state_prop: false,
+                    ..d
+                },
+            ),
+            (
+                "-light_cone",
+                PlanOptions {
+                    light_cone: false,
+                    ..d
+                },
+            ),
+            ("-suffix", PlanOptions { suffix: false, ..d }),
+            ("-split", PlanOptions { split: false, ..d }),
+            (
+                "-clifford_prefix",
+                PlanOptions {
+                    clifford_prefix: false,
+                    ..d
+                },
+            ),
+            (
+                "-dispatch",
+                PlanOptions {
+                    dispatch: false,
+                    ..d
+                },
+            ),
+        ];
+        let mut parts = Vec::new();
+        for (label, o) in variants {
+            let t = min_time(3, || {
+                let p = compile_sampling(c, o);
+                std::hint::black_box(p.sample::<f32, _>(SHOTS, &mut rng).unwrap());
+            });
+            parts.push(format!("{label} {t:.4}"));
+        }
+        println!("|  ablation: {name} | | | | | | | {} |", parts.join(" ; "));
+    }
     let s = &plan.stats;
     let comps: Vec<String> = s
         .components
@@ -145,9 +222,10 @@ fn sampling_case(name: &str, c: &Circuit, baseline: bool) {
         .map(|(q, g, b)| format!("{q}q/{g}g/{b:?}"))
         .collect();
     let extra = format!(
-        "gates {}→{} (peephole) →{} (cone) ; suffix {} ; comps [{}]",
+        "gates {}→{} (peephole) →{} (state prop) →{} (cone) ; suffix {} ; comps [{}]",
         s.gates_in,
         s.gates_after_peephole,
+        s.gates_after_state_prop,
         s.gates_after_light_cone,
         s.suffix_gates,
         comps.join(", ")
@@ -251,15 +329,19 @@ fn main() {
         let n = 22;
         let mut c = algorithms::qft(n);
         c.append(&algorithms::qft(n).inverse());
-        let t0 = min_time(3, || {
-            let mut s = qsim_lab::StateVectorF32::new(n);
-            s.apply_circuit(&c).unwrap();
-            std::hint::black_box(s);
-        });
-        let t1 = min_time(REPS, || {
-            let p = compile_unitary(&c, PlanOptions::default());
-            std::hint::black_box(p.statevector::<f32>().unwrap());
-        });
+        let (t0, t1) = ab(
+            3,
+            Some(|| {
+                let mut s = qsim_lab::StateVectorF32::new(n);
+                s.apply_circuit(&c).unwrap();
+                std::hint::black_box(s);
+            }),
+            || {
+                let p = compile_unitary(&c, PlanOptions::default());
+                std::hint::black_box(p.statevector::<f32>().unwrap());
+            },
+        );
+        let t0 = t0.expect("baseline");
         let o = optimize(&c);
         row(
             "qft·qft† n22 (state vector)",
@@ -270,21 +352,57 @@ fn main() {
             &format!("gates → {}", o.circuit.num_gates()),
         );
 
+        // QFT of a basis state (the README's `bench qft` workload)
+        let n = 22;
+        let mut c = Circuit::new(n);
+        for q in 0..n {
+            if (0x5A5A_5A5Ausize >> q) & 1 == 1 {
+                c.x(q);
+            }
+        }
+        c.append(&algorithms::qft(n));
+        let (t0, t1) = ab(
+            3,
+            Some(|| {
+                let mut s = qsim_lab::StateVectorF32::new(n);
+                s.apply_circuit(&c).unwrap();
+                std::hint::black_box(s);
+            }),
+            || {
+                let p = compile_unitary(&c, PlanOptions::default());
+                std::hint::black_box(p.statevector::<f32>().unwrap());
+            },
+        );
+        let t0 = t0.expect("baseline");
+        let p = compile_unitary(&c, PlanOptions::default());
+        row(
+            "qft n22 on basis state (state vector)",
+            &c,
+            Some(t0),
+            t1,
+            0.0,
+            &format!("{:?}", p.stats),
+        );
+
         // Clifford prefix absorption: deep random Clifford then a T layer
         let n = 22;
         let mut c = Circuit::random_clifford(n, 30, &mut rng);
         for q in 0..n {
             c.t(q).h(q);
         }
-        let t0 = min_time(3, || {
-            let mut s = qsim_lab::StateVectorF32::new(n);
-            s.apply_circuit(&c).unwrap();
-            std::hint::black_box(s);
-        });
-        let t1 = min_time(REPS, || {
-            let p = compile_unitary(&c, PlanOptions::default());
-            std::hint::black_box(p.statevector::<f32>().unwrap());
-        });
+        let (t0, t1) = ab(
+            3,
+            Some(|| {
+                let mut s = qsim_lab::StateVectorF32::new(n);
+                s.apply_circuit(&c).unwrap();
+                std::hint::black_box(s);
+            }),
+            || {
+                let p = compile_unitary(&c, PlanOptions::default());
+                std::hint::black_box(p.statevector::<f32>().unwrap());
+            },
+        );
+        let t0 = t0.expect("baseline");
         row(
             "clifford(d30)+T layer n22 (state vector)",
             &c,
@@ -298,16 +416,20 @@ fn main() {
         for n in [20, 24] {
             let c = hea(n, 4, &mut rng);
             let q = n / 2;
-            let t0 = min_time(3, || {
-                let mut s = qsim_lab::StateVectorF32::new(n);
-                s.apply_circuit(&c).unwrap();
-                std::hint::black_box(s.expectation_z(q));
-            });
-            let t1 = min_time(REPS, || {
-                std::hint::black_box(
-                    expectation_z_product(&c, &[q], PlanOptions::default()).unwrap(),
-                );
-            });
+            let (t0, t1) = ab(
+                3,
+                Some(|| {
+                    let mut s = qsim_lab::StateVectorF32::new(n);
+                    s.apply_circuit(&c).unwrap();
+                    std::hint::black_box(s.expectation_z(q));
+                }),
+                || {
+                    std::hint::black_box(
+                        expectation_z_product(&c, &[q], PlanOptions::default()).unwrap(),
+                    );
+                },
+            );
+            let t0 = t0.expect("baseline");
             row(&format!("<Z_mid> hea n{n} L4"), &c, Some(t0), t1, 0.0, "");
         }
         let c = hea(64, 4, &mut rng);

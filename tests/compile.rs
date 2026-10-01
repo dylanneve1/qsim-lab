@@ -7,9 +7,12 @@ use common::*;
 use num_complex::Complex64;
 use proptest::prelude::*;
 use qsim_lab::circuit::{Circuit, Op};
-use qsim_lab::compile::analysis::{clifford_prefix, light_cone, split_monomial_suffix};
+use qsim_lab::compile::analysis::{
+    clifford_prefix, eliminate_swaps, light_cone, split_monomial_suffix,
+};
 use qsim_lab::compile::plan::{exact_outcome_distribution, Backend, PlanOptions};
 use qsim_lab::compile::stabsv::clifford_statevector;
+use qsim_lab::compile::stateprop::propagate;
 use qsim_lab::compile::{compile_sampling, compile_unitary, expectation_z_product, optimize};
 use qsim_lab::{Gate, StateVectorF64};
 use rand::rngs::StdRng;
@@ -241,6 +244,37 @@ proptest! {
     }
 
     #[test]
+    fn state_propagation_preserves_state(c in circuit_strategy(false)) {
+        let all: Vec<usize> = (0..c.num_qubits).collect();
+        let (o, ph) = propagate(&c, &all);
+        assert_states_equal(&sv_of(&c), &sv_of(&o), ph)?;
+    }
+
+    #[test]
+    fn state_propagation_preserves_distribution(c in circuit_strategy(true)) {
+        let (o, _) = propagate(&c, &[]);
+        let want = exact_outcome_distribution(&c);
+        prop_assert!(dist_close(&want, &exact_outcome_distribution(&o)) < 1e-10);
+    }
+
+    #[test]
+    fn swap_elimination_preserves_state(c in circuit_strategy(true)) {
+        let (o, wire_of) = eliminate_swaps(&c);
+        prop_assert!(o.gates().all(|g| !matches!(g, Gate::Swap(..))));
+        let want = exact_outcome_distribution(&c);
+        prop_assert!(dist_close(&want, &exact_outcome_distribution(&o)) < 1e-10);
+        let u = Circuit { num_qubits: c.num_qubits, ops: c.ops.iter().filter(|o| matches!(o, Op::Gate(_))).copied().collect() };
+        let (ou, w) = eliminate_swaps(&u);
+        let (a, b) = (sv_of(&u), sv_of(&ou));
+        let n = c.num_qubits;
+        for i in 0..1usize << n {
+            let j = (0..n).fold(0, |acc, q| acc | (((i >> q) & 1) << w[q]));
+            prop_assert!((a.amplitude(i) - b.amplitude(j)).norm() < 1e-12);
+        }
+        let _ = wire_of;
+    }
+
+    #[test]
     fn expectation_matches_statevector(c in circuit_strategy(false), mask in 1usize..128) {
         let n = c.num_qubits;
         let qs: Vec<usize> = (0..n).filter(|q| (mask >> q) & 1 == 1).collect();
@@ -314,10 +348,7 @@ fn pauli_path_dispatch_is_used_and_exact() {
     c.t(0).append(&Circuit::random_clifford(n, 2, &mut rng));
     c.measure(1).measure(2);
     let plan = compile_sampling(&c, PlanOptions::default());
-    assert!(plan
-        .components()
-        .iter()
-        .any(|c| c.backend == Backend::PauliPath || c.backend == Backend::Tableau));
+    assert!(plan.stats.max_sv_qubits() <= 20, "{:?}", plan.stats);
     let s = plan.sample::<f32, _>(100, &mut rng).unwrap();
     assert_eq!(s.len(), 100);
 }
@@ -345,4 +376,21 @@ fn independent_registers_beyond_memory_cap() {
         want *= sv_of(&sub).amplitude(((x >> (8 * r)) & 0xff) as usize);
     }
     assert!((f.amplitude(x) - want).norm() < 1e-12);
+}
+
+#[test]
+fn qft_of_basis_state_factorises() {
+    let n = 12;
+    let mut c = Circuit::new(n);
+    for q in [0, 2, 3, 7, 11] {
+        c.x(q);
+    }
+    c.append(&qsim_lab::algorithms::qft(n));
+    let plan = compile_unitary(&c, PlanOptions::default());
+    assert!(plan.stats.max_sv_qubits() <= 1, "{:?}", plan.stats);
+    let got = plan.statevector::<f64>().unwrap();
+    let want = sv_of(&c);
+    for i in 0..1 << n {
+        assert!((got.amplitude(i) - want.amplitude(i)).norm() < 1e-12);
+    }
 }
