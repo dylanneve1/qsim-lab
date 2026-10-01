@@ -403,9 +403,7 @@ impl CircuitFaults {
                 probability,
             })
             .collect();
-        v.sort_by(|a, b| {
-            (&a.detectors, a.flips_logical).cmp(&(&b.detectors, b.flips_logical))
-        });
+        v.sort_by(|a, b| (&a.detectors, a.flips_logical).cmp(&(&b.detectors, b.flips_logical)));
         v
     }
 }

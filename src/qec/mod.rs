@@ -1,7 +1,7 @@
 //! Quantum error correction (QEC) codes, decoders, and threshold benchmarks.
 
-pub mod dem;
 pub mod decoder;
+pub mod dem;
 pub mod repetition;
 pub mod surface;
 

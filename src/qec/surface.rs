@@ -210,6 +210,18 @@ impl SurfaceCode {
                     continue; // right is X boundary
                 }
 
+                // CNOT order. Z checks: NW, NE, SW, SE. X checks: NW, SW, NE, SE.
+                // An X fault on an X-check ancilla after two of its four CNOTs spreads
+                // to the last two data qubits ("hook" error). With the X-check order
+                // above that pair is vertical, i.e. perpendicular to the horizontal
+                // X-type logical, so a hook costs at most one unit of distance
+                // ([`UnionFindDecoder`] graph distance stays `d`). With NW, NE, SW, SE
+                // the hook pair is horizontal and the circuit distance for this
+                // Z-memory experiment drops to about `(d + 1) / 2` (measured: 3 at
+                // d = 5). Z-check hooks are Z errors, invisible to Z memory.
+                if !is_z && data.len() == 4 {
+                    data.swap(1, 2);
+                }
                 let face = StabilizerFace {
                     r,
                     c,

@@ -19,12 +19,18 @@ fn surface_code_noiseless_has_zero_detectors_and_logical_errors() {
             } else {
                 300
             };
-            sc.for_each_shot(&NoiseModel::none(), shots, method, &mut rng, |defects, raw| {
-                assert!(
-                    defects.is_empty() && !raw,
-                    "d={d} {method:?}: noiseless shot had defects {defects:?} / logical {raw}"
-                );
-            });
+            sc.for_each_shot(
+                &NoiseModel::none(),
+                shots,
+                method,
+                &mut rng,
+                |defects, raw| {
+                    assert!(
+                        defects.is_empty() && !raw,
+                        "d={d} {method:?}: noiseless shot had defects {defects:?} / logical {raw}"
+                    );
+                },
+            );
         }
     }
 }
@@ -55,9 +61,8 @@ fn backward_sweep_matches_forward_pauli_frames_on_every_fault() {
                     (FaultKind::Readout, Op::Measure(_)) => vec![],
                     other => panic!("unexpected location {other:?}"),
                 };
-                let fwd =
-                    propagate_forward(&circuit, loc.op_index, loc.kind, &paulis, &dets, &obs)
-                        .unwrap();
+                let fwd = propagate_forward(&circuit, loc.op_index, loc.kind, &paulis, &dets, &obs)
+                    .unwrap();
                 assert_eq!(&fwd, sig, "d={d} op {} outcome {j}", loc.op_index);
                 n_checked += 1;
             }
@@ -198,7 +203,10 @@ fn dem_sampling_matches_tableau_quick() {
     let (a, b) = (rt.logical_error_rate, rf.logical_error_rate);
     let p = (a + b) / 2.0;
     let se = (p * (1.0 - p) * 2.0 / shots as f64).sqrt().max(1e-9);
-    assert!(((a - b) / se).abs() < 5.0, "decoded: tableau {a} vs dem {b}");
+    assert!(
+        ((a - b) / se).abs() < 5.0,
+        "decoded: tableau {a} vs dem {b}"
+    );
     // and noise is not ignored
     assert!(rt.logical_errors > 0 && rf.logical_errors > 0);
 }
