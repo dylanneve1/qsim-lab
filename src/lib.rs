@@ -14,6 +14,23 @@
 //!
 //! All backends consume the same [`Circuit`]/[`Gate`] types and implement
 //! [`Simulator`].
+//!
+//! ```
+//! use qsim_lab::{Circuit, StateVectorF32, Tableau};
+//! use rand::SeedableRng;
+//!
+//! let mut c = Circuit::new(3);
+//! c.h(0).cnot(0, 1).cnot(1, 2).measure_all();
+//! let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+//!
+//! let mut sv = StateVectorF32::new(3);
+//! let bits = c.run(&mut sv, &mut rng).unwrap(); // dense simulation
+//! assert!(bits.iter().all(|&b| b == bits[0]));
+//!
+//! let mut tab = Tableau::new(3);
+//! let bits = c.run(&mut tab, &mut rng).unwrap(); // stabilizer simulation
+//! assert!(bits.iter().all(|&b| b == bits[0]));
+//! ```
 
 pub mod algorithms;
 pub mod bench;
