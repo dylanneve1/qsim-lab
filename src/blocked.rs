@@ -502,6 +502,13 @@ enum LOp<T: Real> {
     Diag(DiagBlock),
 }
 
+/// A block of executor ops compiled for one register size
+/// ([`StateVector::compile_kops`]).
+pub struct CompiledKOps<T: Real> {
+    n: usize,
+    stages: Vec<Prepared<T>>,
+}
+
 struct Prepared<T: Real> {
     l: usize,
     inner_mask: usize,
@@ -1363,6 +1370,47 @@ impl<T: Real> StateVector<T> {
         }
         if prof::on() {
             prof::report();
+        }
+    }
+
+    /// Compiles `ops` (fusion, stage planning, per-stage preparation) once
+    /// so the same block can be run many times with [`StateVector::run_compiled`].
+    /// `n` is the register size the plan is for.
+    pub fn compile_kops(n: usize, ops: &[KOp], cfg: &BlockConfig) -> CompiledKOps<T> {
+        let fused;
+        let ops = if cfg.fuse_1q {
+            fused = fuse_1q(ops, n, cfg.split_phases);
+            &fused[..]
+        } else {
+            ops
+        };
+        let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+        let stages = plan_stages(ops, n, l, cfg.slots)
+            .into_iter()
+            .map(|st| {
+                if cfg.schedule_diag {
+                    prepare::<T>(
+                        &Stage {
+                            inner: st.inner.clone(),
+                            ops: schedule_diag(&st.ops),
+                        },
+                        n,
+                    )
+                } else {
+                    prepare::<T>(&st, n)
+                }
+            })
+            .collect();
+        CompiledKOps { n, stages }
+    }
+
+    /// Runs a block compiled by [`StateVector::compile_kops`].
+    pub fn run_compiled(&mut self, plan: &CompiledKOps<T>) {
+        assert_eq!(plan.n, self.num_qubits(), "plan compiled for another size");
+        let n = plan.n;
+        let amps = self.amplitudes_mut();
+        for p in &plan.stages {
+            run_stage(amps, n, p);
         }
     }
 
