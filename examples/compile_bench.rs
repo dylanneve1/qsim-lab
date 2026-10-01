@@ -373,7 +373,11 @@ fn main() {
             m += 2;
         }
         c.measure(n - 1);
-        sampling_case(&format!("teleport chain {hops} hops (feed-forward)"), &c, true);
+        sampling_case(
+            &format!("teleport chain {hops} hops (feed-forward)"),
+            &c,
+            true,
+        );
     }
     if want("unitary") {
         let n = 22;
