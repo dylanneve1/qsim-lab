@@ -657,7 +657,7 @@ pub fn rewrite(p: &Program, allow_clifford: bool) -> Rewrite {
                         }
                         if allow && g.iter().all(|x| x.is_clifford()) {
                             let k = cliff::compact(&g).0.len();
-                            if g.len() * reps > 4 * (k * k + 8) {
+                            if g.len() * reps > 25 * (k * k + 8) {
                                 if let Some(pg) = power_gates(&g, *reps as u64) {
                                     if pg.len() < g.len() * reps {
                                         st.ops.extend(pg.into_iter().map(Op::Gate));

@@ -1,0 +1,14 @@
+# load: 2.93 4.65 5.07 10/646 971805
+[bench.sh] load at start: 2.93
+# diag n=14 r=30000 max|Δamp| = 4.972692303747157e-14
+diag,phase-layer,14,30000,gatewise,8.406641
+diag,phase-layer,14,30000,plain-batch,0.499860
+diag,phase-layer,14,30000,plain-per-copy,3.467239
+diag,phase-layer,14,30000,repeat,0.000313
+diag,phase-layer,14,30000,repeat-force-small,0.000348
+# diag n=20 r=200 max|Δamp| = 1.2046209566307026e-16
+diag,phase-layer,20,200,gatewise,2.842228
+diag,phase-layer,20,200,plain-batch,0.015003
+diag,phase-layer,20,200,plain-per-copy,0.561006
+diag,phase-layer,20,200,repeat,0.009019
+diag,phase-layer,20,200,repeat-force-small,0.009644

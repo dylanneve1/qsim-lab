@@ -664,7 +664,7 @@ impl<R: Rng> Sampler<'_, R> {
             if let Some(g) = body_gates(body) {
                 let cost_plain = g.len().saturating_mul(reps);
                 let k = super::cliff::compact(&g).0.len();
-                if cost_plain > 8 * (k * k + 8) {
+                if cost_plain > 25 * (k * k + 8) {
                     if let Some(p) = power_gates(&g, reps as u64) {
                         for gate in &p {
                             self.tab.apply_gate(gate).expect("clifford");
