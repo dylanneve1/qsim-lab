@@ -1,0 +1,16 @@
+diff --git a/src/qec/surface.rs b/src/qec/surface.rs
+index 5d1f6b5..dfb1402 100644
+--- a/src/qec/surface.rs
++++ b/src/qec/surface.rs
+@@ -467,7 +467,10 @@ impl SurfaceCode {
+                 // but the measurement outcome is flipped.
+                 // If this op is a Reset, the error happened AFTER reset.
+ 
+-                for remaining_op in &ops[op_idx..] {
++                // Gate and reset errors happen *after* the op; readout errors
++                // are modelled as X just before the measurement.
++                let start = if matches!(op, Op::Measure(_)) { op_idx } else { op_idx + 1 };
++                for remaining_op in &ops[start..] {
+                     match remaining_op {
+                         Op::Gate(g) => {
+                             self.propagate_gate(&mut frame, g);

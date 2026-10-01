@@ -1,0 +1,25 @@
+[bench.sh] load at start: 11.42
+qft n=22 f32 gates=264
+base min 0.4420s  blocked min 0.0730s  speedup 6.05x  sampled max|Δamp| 0.00e0  load_end 11.42
+  base    ["0.889", "1.183", "0.514", "0.600", "0.442"]
+  blocked ["0.080", "0.073", "0.077", "0.089", "0.100"]
+[bench.sh] load at start: 11.42
+brick n=22 f32 gates=1090
+base min 3.7347s  blocked min 0.7752s  speedup 4.82x  sampled max|Δamp| 3.65e-9  load_end 10.54
+  base    ["3.875", "3.735", "3.759", "4.579", "4.806"]
+  blocked ["0.960", "0.895", "0.775", "0.841", "1.046"]
+[bench.sh] load at start: 10.54
+qft n=22 f64 gates=264
+base min 0.7364s  blocked min 0.1010s  speedup 7.29x  sampled max|Δamp| 0.00e0  load_end 10.34
+  base    ["0.736", "0.818", "0.743", "0.852", "1.383"]
+  blocked ["0.109", "0.115", "0.131", "0.102", "0.101"]
+[bench.sh] load at start: 10.34
+qft n=24 f32 gates=312
+base min 1.7240s  blocked min 0.2141s  speedup 8.05x  sampled max|Δamp| 0.00e0  load_end 9.97
+  base    ["3.929", "1.724", "2.327", "2.755", "2.076"]
+  blocked ["0.254", "0.289", "0.214", "0.282", "0.233"]
+[bench.sh] load at start: 9.97
+brick n=24 f32 gates=1190
+base min 13.9211s  blocked min 2.7985s  speedup 4.97x  sampled max|Δamp| 1.84e-9  load_end 8.26
+  base    ["19.619", "14.049", "16.160", "14.253", "13.921"]
+  blocked ["2.913", "2.799", "3.176", "2.890", "3.212"]
