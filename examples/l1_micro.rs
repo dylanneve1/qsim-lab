@@ -59,6 +59,7 @@ fn run<T: Real>(ns: &[usize], k: usize, kind: &str, reps: usize, tbits: Option<u
         let cfg = BlockConfig {
             fuse_1q: false,
             small_n: n,
+            simd: std::env::var("SIMD").map(|v| v != "0").unwrap_or(true),
             ..BlockConfig::default()
         };
         let mut best = f64::INFINITY;
