@@ -281,3 +281,252 @@ pub fn mps_random(n: usize, max_bond: usize, depths: &[usize]) {
         ]);
     }
 }
+
+// ----- hybrid Schrödinger–Feynman ------------------------------------------
+
+/// Resets the kernel's peak-RSS counter for this process (Linux; no-op
+/// elsewhere), so `VmHWM` measures the next phase only.
+fn reset_peak_rss() {
+    let _ = std::fs::write("/proc/self/clear_refs", "5");
+}
+
+fn status_kb(field: &str) -> u128 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with(field))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<u128>().ok())
+        })
+        .unwrap_or(0)
+}
+
+/// Runs `f`, returning its result, wall time and the peak RSS growth above
+/// the RSS at the start (bytes).
+fn measured<R>(f: impl FnOnce() -> R) -> (R, f64, u128) {
+    reset_peak_rss();
+    let base = status_kb("VmRSS:");
+    let t = Instant::now();
+    let r = f();
+    let dt = secs(t);
+    let peak = status_kb("VmHWM:");
+    (r, dt, peak.saturating_sub(base) * 1024)
+}
+
+fn max_diff(a: &[num_complex::Complex64], b: &[num_complex::Complex64]) -> f64 {
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).norm())
+        .fold(0.0, f64::max)
+}
+
+/// HSF vs the f64 state vector on two-block circuits with `k` crossing
+/// gates: full output and a batch of `amps` amplitudes. Interleaved,
+/// min of `reps`; also prints the accuracy of each HSF result.
+pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: usize, full: bool) {
+    use crate::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    header(&[
+        "n",
+        "k",
+        "paths",
+        "SV (s)",
+        "HSF full (s)",
+        "HSF amps (s)",
+        "SV/HSF full",
+        "SV/HSF amps",
+        "SV peak",
+        "HSF full peak",
+        "HSF amps peak",
+        "max |Δ|",
+    ]);
+    for &k in ks {
+        let mut rng = StdRng::seed_from_u64(1000 + k as u64);
+        let c = two_block_circuit(n, n / 2, depth, k, false, &mut rng);
+        let xs: Vec<usize> = (0..amps)
+            .map(|_| rng.random_range(0..1usize << n))
+            .collect();
+        let h = HybridSchrodingerFeynman::auto(&c, HsfOptions::default()).expect("plan");
+        let (mut t_sv, mut t_full, mut t_amp) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
+        let (mut m_sv, mut m_full, mut m_amp) = (0, 0, 0);
+        let mut err = 0.0f64;
+        for _ in 0..reps {
+            let (sv, dt, m) = measured(|| {
+                let mut s = StateVector::<f64>::new(n);
+                s.apply_circuit(&c).expect("valid");
+                s
+            });
+            t_sv = t_sv.min(dt);
+            m_sv = m_sv.max(m);
+            if full {
+                let (psi, dt, m) = measured(|| h.state_vector().expect("full output"));
+                t_full = t_full.min(dt);
+                m_full = m_full.max(m);
+                err = err.max(max_diff(&psi, sv.amplitudes()));
+            }
+            let (a, dt, m) = measured(|| h.amplitudes(&xs).expect("amplitudes"));
+            t_amp = t_amp.min(dt);
+            m_amp = m_amp.max(m);
+            let want: Vec<_> = xs.iter().map(|&x| sv.amplitude(x)).collect();
+            err = err.max(max_diff(&a, &want));
+        }
+        row(&[
+            n.to_string(),
+            h.num_cut_gates().to_string(),
+            h.num_paths().to_string(),
+            format!("{t_sv:.3}"),
+            if full {
+                format!("{t_full:.3}")
+            } else {
+                "-".into()
+            },
+            format!("{t_amp:.4}"),
+            if full {
+                format!("{:.2}", t_sv / t_full)
+            } else {
+                "-".into()
+            },
+            format!("{:.1}", t_sv / t_amp),
+            fmt_bytes(m_sv),
+            if full { fmt_bytes(m_full) } else { "-".into() },
+            fmt_bytes(m_amp),
+            format!("{err:.1e}"),
+        ]);
+    }
+}
+
+/// HSF amplitude batches on circuits too large for the state vector.
+pub fn hsf_big(ns: &[usize], ks: &[usize], depth: usize, amps: usize, middle: bool) {
+    use crate::hsf::{cut_bits, two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    header(&[
+        "n",
+        "blocks",
+        "planted k",
+        "auto k",
+        "paths",
+        "amps",
+        "time (s)",
+        "peak RSS growth",
+        "state vector would need",
+    ]);
+    for &n in ns {
+        for &k in ks {
+            let mut rng = StdRng::seed_from_u64(7 * n as u64 + k as u64);
+            let c = two_block_circuit(n, n / 2, depth, k, middle, &mut rng);
+            let xs: Vec<usize> = (0..amps)
+                .map(|_| rng.random_range(0..1usize << n))
+                .collect();
+            let o = HsfOptions::default();
+            let (h, t_plan, _) = measured(|| HybridSchrodingerFeynman::auto(&c, o.clone()));
+            let h = h.expect("plan");
+            let planted: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
+            let pk = cut_bits(&c, &planted, &o).expect("valid");
+            let (r, dt, m) = measured(|| h.amplitudes(&xs));
+            let (na, nb) = h.block_sizes();
+            row(&[
+                n.to_string(),
+                format!("{na}+{nb}"),
+                pk.to_string(),
+                h.num_cut_gates().to_string(),
+                h.num_paths().to_string(),
+                amps.to_string(),
+                match r {
+                    Ok(_) => format!("{:.2} (+{t_plan:.2} plan)", dt),
+                    Err(e) => format!("refused: {e}"),
+                },
+                fmt_bytes(m),
+                fmt_bytes(state_bytes::<f64>(n)),
+            ]);
+        }
+    }
+}
+
+/// A/B of the HSF design choices on one circuit (amplitude batch and full
+/// output), interleaved, min of `reps`.
+pub fn hsf_ablation(n: usize, k: usize, depth: usize, amps: usize, reps: usize, middle: bool) {
+    use crate::hsf::{
+        two_block_circuit, HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode,
+    };
+    let mut rng = StdRng::seed_from_u64(42);
+    let c = two_block_circuit(n, n / 2, depth, k, middle, &mut rng);
+    let xs: Vec<usize> = (0..amps)
+        .map(|_| rng.random_range(0..1usize << n))
+        .collect();
+    let part: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
+    let d = HsfOptions::default;
+    let variants: Vec<(&str, HsfOptions)> = vec![
+        ("default (rank-2, ASAP, auto leaf)", d()),
+        ("ASAP scheduling off", HsfOptions { asap: false, ..d() }),
+        (
+            "leaf = forward",
+            HsfOptions {
+                leaf: LeafMode::Forward,
+                ..d()
+            },
+        ),
+        (
+            "leaf = bra",
+            HsfOptions {
+                leaf: LeafMode::Bra,
+                ..d()
+            },
+        ),
+        ("1 worker", HsfOptions { threads: 1, ..d() }),
+        ("2 workers", HsfOptions { threads: 2, ..d() }),
+        (
+            "first attempt's 4-term expansion",
+            HsfOptions {
+                schmidt: SchmidtMode::MatrixUnits,
+                ..d()
+            },
+        ),
+    ];
+    header(&[
+        "variant",
+        "paths",
+        "amps (s)",
+        "vs default",
+        "full (s)",
+        "vs default",
+    ]);
+    let plans: Vec<_> = variants
+        .iter()
+        .map(|(_, o)| HybridSchrodingerFeynman::new(&c, &part, o.clone()).expect("plan"))
+        .collect();
+    let full_ok = n <= 22;
+    let mut ta = vec![f64::INFINITY; plans.len()];
+    let mut tf = vec![f64::INFINITY; plans.len()];
+    let mut reference: Option<Vec<num_complex::Complex64>> = None;
+    for _ in 0..reps {
+        for (i, h) in plans.iter().enumerate() {
+            let (a, dt, _) = measured(|| h.amplitudes(&xs).expect("amps"));
+            ta[i] = ta[i].min(dt);
+            match &reference {
+                None => reference = Some(a),
+                Some(r) => assert!(max_diff(r, &a) < 1e-12, "variant {i} disagrees"),
+            }
+            if full_ok {
+                let (_, dt, _) = measured(|| h.state_vector().expect("full"));
+                tf[i] = tf[i].min(dt);
+            }
+        }
+    }
+    for (i, (name, _)) in variants.iter().enumerate() {
+        row(&[
+            name.to_string(),
+            plans[i].num_paths().to_string(),
+            format!("{:.3}", ta[i]),
+            format!("{:.2}x", ta[i] / ta[0]),
+            if full_ok {
+                format!("{:.3}", tf[i])
+            } else {
+                "-".into()
+            },
+            if full_ok {
+                format!("{:.2}x", tf[i] / tf[0])
+            } else {
+                "-".into()
+            },
+        ]);
+    }
+}

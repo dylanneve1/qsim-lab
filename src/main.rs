@@ -84,6 +84,52 @@ enum BenchCmd {
         #[arg(long, default_value_t = 1 << 22)]
         max_terms: usize,
     },
+    /// Hybrid Schrödinger–Feynman vs the f64 state vector, as the number of
+    /// gates crossing the cut grows.
+    HsfCrossover {
+        #[arg(long, default_value_t = 20)]
+        n: usize,
+        #[arg(long, value_delimiter = ',', default_values_t = [0, 2, 4, 6, 8, 10, 12, 14])]
+        ks: Vec<usize>,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        #[arg(long, default_value_t = 3)]
+        reps: usize,
+        /// Skip the full-output measurement.
+        #[arg(long)]
+        no_full: bool,
+    },
+    /// HSF amplitude batches beyond the state vector's memory cap.
+    HsfBig {
+        #[arg(long, value_delimiter = ',', default_values_t = [32, 36, 40])]
+        ns: Vec<usize>,
+        #[arg(long, value_delimiter = ',', default_values_t = [4, 8])]
+        ks: Vec<usize>,
+        #[arg(long, default_value_t = 6)]
+        depth: usize,
+        #[arg(long, default_value_t = 64)]
+        amps: usize,
+        /// Put all crossing gates in the middle layer instead of spreading them.
+        #[arg(long)]
+        middle: bool,
+    },
+    /// A/B of HSF design choices on one circuit.
+    HsfAblation {
+        #[arg(long, default_value_t = 22)]
+        n: usize,
+        #[arg(long, default_value_t = 8)]
+        k: usize,
+        #[arg(long, default_value_t = 8)]
+        depth: usize,
+        #[arg(long, default_value_t = 1000)]
+        amps: usize,
+        #[arg(long, default_value_t = 3)]
+        reps: usize,
+        #[arg(long)]
+        middle: bool,
+    },
     /// MPS: GHZ at large n, then random circuits.
     Mps {
         #[arg(long, default_value_t = 24)]
@@ -160,6 +206,38 @@ fn main() {
                 println!("## Clifford+T, Pauli-path summation\n");
                 let ts: Vec<usize> = (0..=max_t).step_by(step.max(1)).collect();
                 bench::clifford_t(qubits, depth, &ts, max_terms);
+            }
+            BenchCmd::HsfCrossover {
+                n,
+                ks,
+                depth,
+                amps,
+                reps,
+                no_full,
+            } => {
+                println!("## HSF vs state vector, n = {n}, depth {depth}\n");
+                bench::hsf_crossover(n, &ks, depth, amps, reps, !no_full);
+            }
+            BenchCmd::HsfBig {
+                ns,
+                ks,
+                depth,
+                amps,
+                middle,
+            } => {
+                println!("## HSF beyond the state vector, depth {depth}, middle = {middle}\n");
+                bench::hsf_big(&ns, &ks, depth, amps, middle);
+            }
+            BenchCmd::HsfAblation {
+                n,
+                k,
+                depth,
+                amps,
+                reps,
+                middle,
+            } => {
+                println!("## HSF ablation, n = {n}, k = {k}, depth {depth}, middle = {middle}\n");
+                bench::hsf_ablation(n, k, depth, amps, reps, middle);
             }
             BenchCmd::Mps {
                 random_qubits,

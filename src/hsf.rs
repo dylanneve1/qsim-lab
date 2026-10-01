@@ -78,6 +78,9 @@ pub enum SchmidtMode {
     Analytic,
     /// Always use the numerical SVD (for testing the generic path).
     Svd,
+    /// The first attempt's expansion `U = Σ_ij E_ij ⊗ U_ij` (always 4
+    /// terms, even for rank-2 gates). Kept only for A/B benchmarks.
+    MatrixUnits,
 }
 
 /// How a path's final block states are turned into amplitudes.
@@ -618,7 +621,7 @@ impl HybridSchrodingerFeynman {
         // parallel gate kernel cannot steal another worker's job and grow a
         // second buffer stack: the number of live stacks is exactly `workers`.
         Ok(std::thread::scope(|sc| {
-            let hs: Vec<_> = (0..workers).map(|_| sc.spawn(&worker)).collect();
+            let hs: Vec<_> = (0..workers).map(|_| sc.spawn(worker)).collect();
             hs.into_iter()
                 .map(|h| h.join().expect("HSF worker panicked"))
                 .collect()
@@ -787,15 +790,15 @@ impl HybridSchrodingerFeynman {
         for q in 0..self.n {
             cur[pos_of_wire[self.final_wire[q]]] = q;
         }
-        let mut sv = StateVectorF64::from_amplitudes(psi);
+        let mut psi = psi;
         for b in 0..self.n {
             while cur[b] != b {
                 let t = cur[b];
-                sv.apply_gate(&Gate::Swap(b, t)).expect("valid swap");
+                swap_index_bits(&mut psi, b, t);
                 cur.swap(b, t);
             }
         }
-        Ok(sv.amplitudes().to_vec())
+        Ok(psi)
     }
 }
 
@@ -866,6 +869,27 @@ fn cut_terms(
                 Some(controlled(a, LocalOp::Gate(Gate::Phase(loc(b), th))))
             }
         }
+        (_, SchmidtMode::MatrixUnits) => {
+            let qs = g.qubits();
+            let (a, b) = (qs[0], qs[1]);
+            let m = g.matrix_2q().expect("two-qubit gate");
+            let mut terms = Vec::new();
+            for x in 0..4 {
+                let (i, j) = (x >> 1, x & 1);
+                let mut e = [[ZERO; 2]; 2];
+                e[i][j] = ONE;
+                let blk: Mat2 = [
+                    [m[2 * i][2 * j], m[2 * i][2 * j + 1]],
+                    [m[2 * i + 1][2 * j], m[2 * i + 1][2 * j + 1]],
+                ];
+                terms.push(place(
+                    a,
+                    Some(LocalOp::Mat(loc(a), e)),
+                    Some(LocalOp::Mat(loc(b), blk)),
+                ));
+            }
+            Some(terms)
+        }
         _ => {
             let qs = g.qubits();
             let (a, b) = (qs[0], qs[1]);
@@ -891,19 +915,32 @@ fn cut_terms(
 }
 
 fn is_identity_product((m, n): &(Mat2, Mat2)) -> bool {
-    // M ⊗ N == 1 ⊗ 1 exactly up to rounding of the SVD
-    let mut d = 0.0f64;
-    for i in 0..2 {
-        for j in 0..2 {
-            for k in 0..2 {
-                for l in 0..2 {
-                    let want = if i == j && k == l { ONE } else { ZERO };
-                    d = d.max((m[i][j] * n[k][l] - want).norm());
-                }
-            }
-        }
+    // M ⊗ N == 1 ⊗ 1 up to the rounding of the SVD
+    (0..16).all(|x| {
+        let (i, j, k, l) = (x >> 3, (x >> 2) & 1, (x >> 1) & 1, x & 1);
+        let want = if i == j && k == l { ONE } else { ZERO };
+        (m[i][j] * n[k][l] - want).norm() < 1e-14
+    })
+}
+
+/// Exchanges bits `i` and `j` of the index of every element, in place.
+fn swap_index_bits(v: &mut [Complex64], i: usize, j: usize) {
+    let (lo, hi) = (i.min(j), i.max(j));
+    if lo == hi {
+        return;
     }
-    d < 1e-14
+    let f = |chunk: &mut [Complex64]| {
+        let (c0, c1) = chunk.split_at_mut(1 << hi);
+        // c0: bit hi = 0; swap (bit lo = 1, hi = 0) with (lo = 0, hi = 1)
+        for x in (0..c0.len()).filter(|x| x >> lo & 1 == 1) {
+            std::mem::swap(&mut c0[x], &mut c1[x ^ (1 << lo)]);
+        }
+    };
+    if v.len() >= PAR_MIN_LEN && v.len() > 1 << (hi + 1) {
+        v.par_chunks_mut(1 << (hi + 1)).for_each(f);
+    } else {
+        v.chunks_mut(1 << (hi + 1)).for_each(f);
+    }
 }
 
 fn copy_sv(dst: &mut StateVectorF64, src: &StateVectorF64) {

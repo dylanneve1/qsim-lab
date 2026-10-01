@@ -35,7 +35,11 @@ fn option_sets() -> Vec<HsfOptions> {
     let mut v = Vec::new();
     for &elim in &[true, false] {
         for &asap in &[true, false] {
-            for &schmidt in &[SchmidtMode::Analytic, SchmidtMode::Svd] {
+            for &schmidt in &[
+                SchmidtMode::Analytic,
+                SchmidtMode::Svd,
+                SchmidtMode::MatrixUnits,
+            ] {
                 for &leaf in &[LeafMode::Forward, LeafMode::Bra] {
                     v.push(HsfOptions {
                         eliminate_swaps: elim,
