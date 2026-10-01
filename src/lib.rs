@@ -39,6 +39,7 @@ pub mod gate;
 pub mod mps;
 pub mod noise;
 pub mod pauli_path;
+pub mod qec;
 pub mod stabilizer;
 pub mod statevector;
 
@@ -46,5 +47,6 @@ pub use circuit::{Circuit, Op, SimError, Simulator};
 pub use gate::Gate;
 pub use mps::Mps;
 pub use noise::NoiseModel;
+pub use qec::{DecodingGraph, RepetitionCode, UnionFindDecoder};
 pub use stabilizer::Tableau;
 pub use statevector::{StateVector, StateVectorF32, StateVectorF64};

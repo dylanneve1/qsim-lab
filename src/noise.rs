@@ -166,18 +166,14 @@ pub fn apply_gate_noise<S: Simulator + ?Sized, R: RngCore + ?Sized>(
 ) -> Result<(), SimError> {
     let qs = g.qubits();
     match qs.len() {
-        1 => {
-            if noise.p_1q > 0.0 {
-                if let Some(err) = sample_depolarizing_1q(noise.p_1q, qs[0], rng) {
-                    sim.apply(&err)?;
-                }
+        1 if noise.p_1q > 0.0 => {
+            if let Some(err) = sample_depolarizing_1q(noise.p_1q, qs[0], rng) {
+                sim.apply(&err)?;
             }
         }
-        2 => {
-            if noise.p_2q > 0.0 {
-                for err in sample_depolarizing_2q(noise.p_2q, qs[0], qs[1], rng) {
-                    sim.apply(&err)?;
-                }
+        2 if noise.p_2q > 0.0 => {
+            for err in sample_depolarizing_2q(noise.p_2q, qs[0], qs[1], rng) {
+                sim.apply(&err)?;
             }
         }
         _ => {}
