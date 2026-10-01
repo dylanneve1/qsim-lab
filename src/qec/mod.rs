@@ -2,6 +2,8 @@
 
 pub mod decoder;
 pub mod repetition;
+pub mod surface;
 
 pub use decoder::{DecodingGraph, GraphEdge, UnionFindDecoder};
 pub use repetition::{MemoryExperimentResult, RepetitionCode};
+pub use surface::SurfaceCode;

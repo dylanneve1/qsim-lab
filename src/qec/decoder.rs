@@ -126,53 +126,66 @@ impl UnionFindDecoder {
     pub fn decode(&self, defects: &[usize]) -> bool {
         let n = self.graph.num_nodes;
         let b = self.graph.boundary_node;
+        let num_edges = self.graph.edges.len();
+
         let mut dsu = Dsu::new(n, b, defects);
 
-        // Identify initial active (odd) clusters
-        let mut active_nodes: Vec<bool> = vec![false; n];
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        for &d in defects {
-            if d != b && d < n {
-                let r = dsu.find(d);
-                if dsu.is_odd(r) && !active_nodes[d] {
-                    active_nodes[d] = true;
-                    queue.push_back(d);
-                }
-            }
-        }
+        // Track cluster members for each DSU root
+        let mut cluster_members: Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
 
-        // Tree edges added during cluster growth: (u, v, flips_logical)
+        // Edge growth: an edge is fully grown when total growth >= 2
+        let mut edge_growth = vec![0usize; num_edges];
+        let mut edge_merged = vec![false; num_edges];
+
+        // Spanning forest of merged tree edges: (neighbor, flips_logical)
         let mut spanning_forest_adj: Vec<Vec<(usize, bool)>> = vec![Vec::new(); n];
 
-        // Edge growth: grow clusters by BFS until all clusters are even
-        while let Some(u) = queue.pop_front() {
-            let root_u = dsu.find(u);
-            if !dsu.is_odd(root_u) {
-                active_nodes[u] = false;
-                continue;
+        // Edge growth phase: grow active (odd) clusters by half-edges
+        loop {
+            let mut active_roots = Vec::new();
+            for i in 0..n {
+                if dsu.parent[i] == i && dsu.is_odd(i) {
+                    active_roots.push(i);
+                }
             }
 
-            for &edge_idx in &self.graph.adj[u] {
-                let edge = self.edges(edge_idx);
-                let v = if edge.u == u { edge.v } else { edge.u };
+            if active_roots.is_empty() {
+                break;
+            }
+
+            let mut edges_to_merge = Vec::new();
+
+            for &root in &active_roots {
+                for &u in &cluster_members[root] {
+                    for &e_idx in &self.graph.adj[u] {
+                        if edge_merged[e_idx] {
+                            continue;
+                        }
+                        let edge = self.edges(e_idx);
+                        let v = if edge.u == u { edge.v } else { edge.u };
+                        let root_v = dsu.find(v);
+
+                        if root != root_v {
+                            edge_growth[e_idx] += 1;
+                            if edge_growth[e_idx] >= 2 && !edge_merged[e_idx] {
+                                edge_merged[e_idx] = true;
+                                edges_to_merge.push((edge.u, edge.v, edge.flips_logical));
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (u, v, flips_logical) in edges_to_merge {
+                let root_u = dsu.find(u);
                 let root_v = dsu.find(v);
-
                 if root_u != root_v {
-                    // Merge clusters root_u and root_v
-                    let (new_root, _) = dsu.union(root_u, root_v);
+                    let (winner, loser) = dsu.union(root_u, root_v);
+                    spanning_forest_adj[u].push((v, flips_logical));
+                    spanning_forest_adj[v].push((u, flips_logical));
 
-                    // Record edge in spanning tree
-                    spanning_forest_adj[u].push((v, edge.flips_logical));
-                    spanning_forest_adj[v].push((u, edge.flips_logical));
-
-                    if !active_nodes[v] && dsu.is_odd(new_root) {
-                        active_nodes[v] = true;
-                        queue.push_back(v);
-                    }
-
-                    if !dsu.is_odd(new_root) {
-                        break;
-                    }
+                    let mut loser_members = std::mem::take(&mut cluster_members[loser]);
+                    cluster_members[winner].append(&mut loser_members);
                 }
             }
         }

@@ -47,6 +47,6 @@ pub use circuit::{Circuit, Op, SimError, Simulator};
 pub use gate::Gate;
 pub use mps::Mps;
 pub use noise::NoiseModel;
-pub use qec::{DecodingGraph, RepetitionCode, UnionFindDecoder};
+pub use qec::{DecodingGraph, RepetitionCode, SurfaceCode, UnionFindDecoder};
 pub use stabilizer::Tableau;
 pub use statevector::{StateVector, StateVectorF32, StateVectorF64};
