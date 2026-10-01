@@ -78,6 +78,48 @@ impl DecodingGraph {
         }
         None
     }
+
+    /// Minimum number of edges that trigger no detector but flip the logical
+    /// observable, along with the multiplicity (count) of such minimum-weight
+    /// failure mechanisms.
+    pub fn min_logical_weight_and_count(&self) -> Option<(usize, usize)> {
+        let n = self.num_nodes;
+        let b = self.boundary_node;
+        let mut dist = vec![usize::MAX; 2 * n];
+        let mut count = vec![0usize; 2 * n];
+        let mut q = VecDeque::new();
+        dist[2 * b] = 0;
+        count[2 * b] = 1;
+        q.push_back((b, 0usize));
+        let mut target_dist = None;
+
+        while let Some((u, par)) = q.pop_front() {
+            let du = dist[2 * u + par];
+            if let Some(td) = target_dist {
+                if du >= td {
+                    break;
+                }
+            }
+            let cu = count[2 * u + par];
+            for &e in &self.adj[u] {
+                let edge = &self.edges[e];
+                let v = if edge.u == u { edge.v } else { edge.u };
+                let np = par ^ (edge.flips_logical as usize);
+                let nxt = 2 * v + np;
+                if dist[nxt] == usize::MAX {
+                    dist[nxt] = du + 1;
+                    count[nxt] = cu;
+                    if v == b && np == 1 && target_dist.is_none() {
+                        target_dist = Some(du + 1);
+                    }
+                    q.push_back((v, np));
+                } else if dist[nxt] == du + 1 {
+                    count[nxt] += cu;
+                }
+            }
+        }
+        target_dist.map(|d| (d, count[2 * b + 1]))
+    }
 }
 
 /// Disjoint Set Union (DSU) structure tracking parity and boundary connectivity.

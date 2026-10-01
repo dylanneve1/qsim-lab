@@ -26,7 +26,7 @@ use crate::qec::dem::{
     FaultKind, Signature,
 };
 use crate::qec::surface::SurfaceCode;
-use rand::RngCore;
+use rand::{Rng, RngCore};
 
 // ──────────────────────────────────────────────────────────
 // Permutation and Schedule types
@@ -85,15 +85,46 @@ pub struct Schedule {
     pub z_perm: Permutation,
     /// CNOT application order for X-checks (4-qubit plaquettes).
     pub x_perm: Permutation,
+    /// Whether CNOT layers are interleaved (depth-4) or sequential (depth-8).
+    pub interleaved: bool,
 }
 
 impl Schedule {
-    /// The standard hook-safe schedule from qec.md §3.
+    /// The standard hook-safe sequential schedule from qec.md §3.
     pub fn standard() -> Self {
         Self {
             z_perm: Permutation::standard_z(),
             x_perm: Permutation::standard_x(),
+            interleaved: false,
         }
+    }
+
+    /// The standard hook-safe interleaved schedule (depth-4).
+    pub fn standard_interleaved() -> Self {
+        Self {
+            z_perm: Permutation::standard_z(),
+            x_perm: Permutation::standard_x(),
+            interleaved: true,
+        }
+    }
+
+    /// Check whether the schedule has no simultaneous qubit collisions
+    /// when Z and X syndrome extraction are interleaved in 4 steps.
+    ///
+    /// Compass indices: NW=0, NE=1, SW=2, SE=3.
+    /// Diagonal 1: {0, 3} (NW, SE). Diagonal 2: {1, 2} (NE, SW).
+    /// To avoid two CNOTs touching the same data qubit at the same clock cycle,
+    /// at every step t in 0..4, z_perm[t] and x_perm[t] must either both belong
+    /// to Diagonal 1 or both belong to Diagonal 2.
+    pub fn is_collision_free(&self) -> bool {
+        for t in 0..4 {
+            let z_in_diag1 = self.z_perm.0[t] == 0 || self.z_perm.0[t] == 3;
+            let x_in_diag1 = self.x_perm.0[t] == 0 || self.x_perm.0[t] == 3;
+            if z_in_diag1 != x_in_diag1 {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -103,6 +134,7 @@ impl Schedule {
 
 /// Stabiliser face (plaquette) with its CNOT application order.
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct ScheduledFace {
     r: usize,
     c: usize,
@@ -164,7 +196,10 @@ impl ScheduledSurfaceCode {
     }
 
     /// Generate stabiliser faces with the schedule's CNOT ordering applied.
-    fn generate_stabilizers(d: usize, schedule: &Schedule) -> (Vec<ScheduledFace>, Vec<ScheduledFace>) {
+    fn generate_stabilizers(
+        d: usize,
+        schedule: &Schedule,
+    ) -> (Vec<ScheduledFace>, Vec<ScheduledFace>) {
         let mut z_stabs = Vec::new();
         let mut x_stabs = Vec::new();
 
@@ -206,13 +241,19 @@ impl ScheduledSurfaceCode {
                     continue;
                 }
 
-                let perm = if is_z { &schedule.z_perm.0 } else { &schedule.x_perm.0 };
-                let data_qubits: Vec<usize> = perm
-                    .iter()
-                    .filter_map(|&ci| compass[ci])
-                    .collect();
+                let perm = if is_z {
+                    &schedule.z_perm.0
+                } else {
+                    &schedule.x_perm.0
+                };
+                let data_qubits: Vec<usize> = perm.iter().filter_map(|&ci| compass[ci]).collect();
 
-                let face = ScheduledFace { r, c, is_z, data_qubits };
+                let face = ScheduledFace {
+                    r,
+                    c,
+                    is_z,
+                    data_qubits,
+                };
                 if is_z {
                     z_stabs.push(face);
                 } else {
@@ -247,16 +288,33 @@ impl ScheduledSurfaceCode {
             for k in 0..num_x {
                 circ.h(SurfaceCode::x_ancilla_idx(d, k));
             }
-            for (k, stab) in self.z_stabilizers.iter().enumerate() {
-                let a = SurfaceCode::z_ancilla_idx(d, k);
-                for &dq in &stab.data_qubits {
-                    circ.cnot(dq, a);
+            if self.schedule.interleaved {
+                for step in 0..4 {
+                    for (k, stab) in self.z_stabilizers.iter().enumerate() {
+                        let a = SurfaceCode::z_ancilla_idx(d, k);
+                        if step < stab.data_qubits.len() {
+                            circ.cnot(stab.data_qubits[step], a);
+                        }
+                    }
+                    for (k, stab) in self.x_stabilizers.iter().enumerate() {
+                        let a = SurfaceCode::x_ancilla_idx(d, k);
+                        if step < stab.data_qubits.len() {
+                            circ.cnot(a, stab.data_qubits[step]);
+                        }
+                    }
                 }
-            }
-            for (k, stab) in self.x_stabilizers.iter().enumerate() {
-                let a = SurfaceCode::x_ancilla_idx(d, k);
-                for &dq in &stab.data_qubits {
-                    circ.cnot(a, dq);
+            } else {
+                for (k, stab) in self.z_stabilizers.iter().enumerate() {
+                    let a = SurfaceCode::z_ancilla_idx(d, k);
+                    for &dq in &stab.data_qubits {
+                        circ.cnot(dq, a);
+                    }
+                }
+                for (k, stab) in self.x_stabilizers.iter().enumerate() {
+                    let a = SurfaceCode::x_ancilla_idx(d, k);
+                    for &dq in &stab.data_qubits {
+                        circ.cnot(a, dq);
+                    }
                 }
             }
             for k in 0..num_x {
@@ -311,6 +369,11 @@ impl ScheduledSurfaceCode {
     /// Graph-like circuit distance (BFS on the decoding graph).
     pub fn circuit_distance(&self) -> Option<usize> {
         self.decoder.graph.min_logical_weight()
+    }
+
+    /// Graph-like circuit distance and multiplicity of minimum-weight logical paths.
+    pub fn circuit_distance_and_mechanisms(&self) -> Option<(usize, usize)> {
+        self.decoder.graph.min_logical_weight_and_count()
     }
 
     /// Logical error rate under uniform depolarizing noise using the DEM sampler.
@@ -389,17 +452,22 @@ impl BiasedDemSamplerV2 {
             // Per-outcome probabilities (before normalisation).
             let probs: Vec<f64> = match loc.kind {
                 FaultKind::Gate2q => {
-                    // 15 two-qubit Paulis. Outcome k (1-indexed) encodes:
-                    //   a_idx = (k-1) % 4   (0=I, 1=X, 2=Y, 3=Z on qubit a)
-                    //   b_idx = (k-1) / 4   (0=I, 1=X, 2=Y, 3=Z on qubit b)
+                    // 15 two-qubit Paulis. Outcome k in 1..=15 matches two_qubit_outcome(k, a, b):
+                    //   a_idx = k / 4   (0=I, 1=X, 2=Y, 3=Z on qubit a)
+                    //   b_idx = k % 4   (0=I, 1=X, 2=Y, 3=Z on qubit b)
                     // Z-containing: a_idx==3 or b_idx==3 → weight η.
+                    // Exactly 7 outcomes contain Z, 8 contain only X/Y.
                     let p_x = noise.p_2q / (8.0 + 7.0 * eta);
                     let p_z = eta * p_x;
                     (1usize..=15)
                         .map(|k| {
-                            let a_idx = (k - 1) % 4;
-                            let b_idx = (k - 1) / 4;
-                            if a_idx == 3 || b_idx == 3 { p_z } else { p_x }
+                            let a_idx = k / 4;
+                            let b_idx = k % 4;
+                            if a_idx == 3 || b_idx == 3 {
+                                p_z
+                            } else {
+                                p_x
+                            }
                         })
                         .collect()
                 }
@@ -509,6 +577,8 @@ pub struct ScheduleResult {
     pub schedule: Schedule,
     /// Graph-like circuit distance.
     pub circuit_distance: usize,
+    /// Number of minimum-weight logical failure mechanisms in the decoding graph.
+    pub min_weight_mechanisms: usize,
     /// Logical error rate under unbiased noise (η = 1).
     pub p_l_eta1: f64,
     /// Logical error rate under Z-biased noise (η = 10).
@@ -519,53 +589,86 @@ pub struct ScheduleResult {
     pub p_phys: f64,
 }
 
-/// Search all 576 (Z-perm, X-perm) combinations for code distance `d`.
-///
-/// Builds a fresh `ScheduledSurfaceCode` for each combination, filters by
-/// circuit distance (must equal `d`), then scores survivors by logical error
-/// rate at η = 1, 10, 100 using `shots_per_condition` shots each.
-pub fn exhaustive_search<R: RngCore>(
+/// Wilson score interval (95% confidence): returns `(center, lower, upper)`.
+pub fn wilson_score_interval(successes: usize, total: usize) -> (f64, f64, f64) {
+    if total == 0 {
+        return (0.0, 0.0, 0.0);
+    }
+    let z = 1.959964f64; // 95% confidence
+    let z2 = z * z;
+    let n = total as f64;
+    let p_hat = successes as f64 / n;
+    let denom = 1.0 + z2 / n;
+    let center = (p_hat + z2 / (2.0 * n)) / denom;
+    let half_width = (z / denom)
+        * ((p_hat * (1.0 - p_hat) / n + z2 / (4.0 * n * n))
+            .max(0.0)
+            .sqrt());
+    let lower = (center - half_width).max(0.0);
+    let upper = (center + half_width).min(1.0);
+    (center, lower, upper)
+}
+
+/// Filter all 576 schedule pairs, keeping only those whose circuit distance equals `d`.
+/// Returns `(schedule, distance, min_weight_mechanisms)`.
+pub fn filter_schedules_by_distance(
     d: usize,
     rounds: usize,
-    p_phys: f64,
-    shots_per_condition: usize,
-    rng: &mut R,
-) -> Vec<ScheduleResult> {
+    interleaved: bool,
+) -> Vec<(Schedule, usize, usize)> {
     let all_perms = Permutation::all();
-    let noise = NoiseModel::circuit_level(p_phys, p_phys);
-    let mut results = Vec::new();
+    let mut survivors = Vec::new();
 
     for z_perm in &all_perms {
         for x_perm in &all_perms {
             let schedule = Schedule {
                 z_perm: *z_perm,
                 x_perm: *x_perm,
+                interleaved,
             };
             let sc = ScheduledSurfaceCode::new(d, rounds, schedule.clone());
-
-            let dist = match sc.circuit_distance() {
-                Some(w) => w,
-                None => continue,
-            };
-
-            if dist != d {
-                continue;
+            if let Some((dist, count)) = sc.circuit_distance_and_mechanisms() {
+                if dist == d {
+                    survivors.push((schedule, dist, count));
+                }
             }
-
-            let p_l_eta1 = score_biased(&sc, &noise, 1.0, shots_per_condition, rng);
-            let p_l_eta10 = score_biased(&sc, &noise, 10.0, shots_per_condition, rng);
-            let p_l_eta100 = score_biased(&sc, &noise, 100.0, shots_per_condition, rng);
-
-            results.push(ScheduleResult {
-                schedule,
-                circuit_distance: dist,
-                p_l_eta1,
-                p_l_eta10,
-                p_l_eta100,
-                shots_per_condition,
-                p_phys,
-            });
         }
+    }
+    survivors
+}
+
+/// Search all schedule combinations for code distance `d`.
+///
+/// Filters by circuit distance (must equal `d`), then scores survivors by
+/// logical error rate at η = 1, 10, 100 using `shots_per_condition` shots each.
+pub fn exhaustive_search<R: RngCore>(
+    d: usize,
+    rounds: usize,
+    p_phys: f64,
+    shots_per_condition: usize,
+    interleaved: bool,
+    rng: &mut R,
+) -> Vec<ScheduleResult> {
+    let survivors = filter_schedules_by_distance(d, rounds, interleaved);
+    let noise = NoiseModel::circuit_level(p_phys, p_phys);
+    let mut results = Vec::with_capacity(survivors.len());
+
+    for (schedule, dist, count) in survivors {
+        let sc = ScheduledSurfaceCode::new(d, rounds, schedule.clone());
+        let p_l_eta1 = score_biased(&sc, &noise, 1.0, shots_per_condition, rng);
+        let p_l_eta10 = score_biased(&sc, &noise, 10.0, shots_per_condition, rng);
+        let p_l_eta100 = score_biased(&sc, &noise, 100.0, shots_per_condition, rng);
+
+        results.push(ScheduleResult {
+            schedule,
+            circuit_distance: dist,
+            min_weight_mechanisms: count,
+            p_l_eta1,
+            p_l_eta10,
+            p_l_eta100,
+            shots_per_condition,
+            p_phys,
+        });
     }
 
     results
@@ -617,4 +720,91 @@ pub fn fault_injection_distance_ok(sc: &ScheduledSurfaceCode) -> bool {
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+
+    #[test]
+    fn permutation_all_24_distinct() {
+        let all = Permutation::all();
+        assert_eq!(all.len(), 24);
+        let mut set = std::collections::HashSet::new();
+        for p in &all {
+            assert!(set.insert(*p), "duplicate permutation: {:?}", p);
+            let mut sorted = p.0;
+            sorted.sort();
+            assert_eq!(sorted, [0, 1, 2, 3]);
+        }
+    }
+
+    #[test]
+    fn collision_free_schedule_count() {
+        let all = Permutation::all();
+        let mut count = 0;
+        for z in &all {
+            for x in &all {
+                let s = Schedule {
+                    z_perm: *z,
+                    x_perm: *x,
+                    interleaved: true,
+                };
+                if s.is_collision_free() {
+                    count += 1;
+                }
+            }
+        }
+        // Each of the 24 z permutations has exactly 2! * 2! = 4 compatible x permutations = 96
+        assert_eq!(count, 96);
+        assert!(Schedule::standard().is_collision_free());
+        assert!(Schedule::standard_interleaved().is_collision_free());
+    }
+
+    #[test]
+    fn standard_schedule_d3_has_distance_3() {
+        let sc = ScheduledSurfaceCode::new(3, 3, Schedule::standard());
+        let (dist, count) = sc.circuit_distance_and_mechanisms().unwrap();
+        assert_eq!(dist, 3);
+        assert!(count > 0);
+        assert!(fault_injection_distance_ok(&sc));
+    }
+
+    #[test]
+    fn unswapped_x_schedule_fails_fault_injection() {
+        // [0,1,2,3] for both Z and X was the bug found in qec.md §3 where
+        // hook errors reduced distance because the hook pair is horizontal.
+        let bad_schedule = Schedule {
+            z_perm: Permutation([0, 1, 2, 3]),
+            x_perm: Permutation([0, 1, 2, 3]),
+            interleaved: false,
+        };
+        let sc = ScheduledSurfaceCode::new(3, 3, bad_schedule);
+        assert!(!fault_injection_distance_ok(&sc));
+    }
+
+    #[test]
+    fn filter_schedules_finds_survivors() {
+        let survivors = filter_schedules_by_distance(3, 3, false);
+        assert!(!survivors.is_empty());
+        // Verify standard schedule is among the survivors
+        assert!(survivors.iter().any(|(s, d, _)| {
+            *d == 3
+                && s.z_perm == Permutation::standard_z()
+                && s.x_perm == Permutation::standard_x()
+        }));
+    }
+
+    #[test]
+    fn biased_dem_sampler_eta1_matches_order_of_magnitude() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let sc = ScheduledSurfaceCode::new(3, 3, Schedule::standard());
+        let noise = NoiseModel::circuit_level(0.005, 0.005);
+        let p_dem = sc.logical_error_rate(&noise, 2000, &mut rng);
+        let p_biased_1 = sc.logical_error_rate_biased(&noise, 1.0, 2000, &mut rng);
+        assert!(p_dem > 0.0 && p_biased_1 > 0.0);
+        assert!((p_dem - p_biased_1).abs() < 0.03);
+    }
 }
