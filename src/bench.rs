@@ -207,6 +207,37 @@ pub fn skeleton_stabilizer(c: &Circuit, zs: &[usize]) -> PauliSum {
     o
 }
 
+/// The benchmark's nested circuit family: returns `build(t)` for
+/// `t <= max_t`, the circuit with `t` rounds of (random Clifford block of
+/// `depth` layers, T on a random qubit) followed by a final Clifford block.
+/// `build(t + 1)` is `build(t)` with one more round at the start.
+pub fn clifford_t_family(
+    n: usize,
+    depth: usize,
+    max_t: usize,
+    seed: u64,
+) -> impl Fn(usize) -> Circuit {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let final_block = Circuit::random_clifford(n, depth, &mut rng);
+    let rounds: Vec<(Circuit, usize)> = (0..max_t)
+        .map(|_| {
+            (
+                Circuit::random_clifford(n, depth, &mut rng),
+                rng.random_range(0..n),
+            )
+        })
+        .collect();
+    move |t: usize| {
+        let mut c = Circuit::new(n);
+        for (block, q) in rounds[..t].iter().rev() {
+            c.append(block);
+            c.t(*q);
+        }
+        c.append(&final_block);
+        c
+    }
+}
+
 /// Pauli-path engine selected by name in [`clifford_t_with`].
 pub fn path_engine(
     engine: &str,
@@ -255,25 +286,7 @@ pub fn clifford_t_with(
 ) {
     let eval = path_engine(engine, max_terms);
     let max_t = ts.iter().copied().max().unwrap_or(0);
-    let mut rng = StdRng::seed_from_u64(3);
-    let final_block = Circuit::random_clifford(n, depth, &mut rng);
-    let rounds: Vec<(Circuit, usize)> = (0..max_t)
-        .map(|_| {
-            (
-                Circuit::random_clifford(n, depth, &mut rng),
-                rng.random_range(0..n),
-            )
-        })
-        .collect();
-    let build = |t: usize| {
-        let mut c = Circuit::new(n);
-        for (block, q) in rounds[..t].iter().rev() {
-            c.append(block);
-            c.t(*q);
-        }
-        c.append(&final_block);
-        c
-    };
+    let build = clifford_t_family(n, depth, max_t, 3);
     println!(
         "n = {n} qubits (a state vector would need {}); each round is a random \
          Clifford block of depth {depth} followed by one T gate.\n",

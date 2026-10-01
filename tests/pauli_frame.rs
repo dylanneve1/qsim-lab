@@ -432,3 +432,36 @@ fn pruned_observable_has_exactly_zero_value() {
     }
     assert!(dropped > 10, "rule should fire often here: {dropped}");
 }
+
+#[test]
+fn benchmark_family_matches_statevector() {
+    // The exact circuit family of `qsim bench clifford-t`, at sizes the
+    // state vector can check, with both benchmark observables (`z0` and
+    // `stab`) and T counts on both sides of n.
+    let (mut z0_nonzero, mut stab_nonzero, mut total) = (0, 0, 0);
+    for n in [8, 10, 12, 14] {
+        let build = qsim_lab::bench::clifford_t_family(n, 3, 3 * n, 3);
+        for t in [n / 2, n, 2 * n, 3 * n] {
+            let c = build(t);
+            let sv = sv_of(&c);
+            let mut z0 = vec!['I'; n];
+            z0[0] = 'Z';
+            let z0: String = z0.into_iter().collect();
+            let want_z0 = sv_pauli(&sv, &z0);
+            let want_stab = sv_skeleton_stabilizer(&c, &[0]);
+            let obs_z0 = PauliSum::from_str_single(&z0);
+            let obs_stab = qsim_lab::bench::skeleton_stabilizer(&c, &[0]);
+            for (obs, want) in [(&obs_z0, want_z0), (&obs_stab, want_stab)] {
+                let (v, _) = pauli_path::expectation(&c, obs, DEFAULT_MAX_TERMS).unwrap();
+                assert!((v - want).abs() < 1e-9, "n={n} t={t}: {v} vs sv {want}");
+            }
+            total += 1;
+            z0_nonzero += (want_z0.abs() > 1e-9) as usize;
+            stab_nonzero += (want_stab.abs() > 1e-9) as usize;
+        }
+    }
+    eprintln!(
+        "bench family: <Z_0> non-zero {z0_nonzero}/{total}, stab non-zero {stab_nonzero}/{total}"
+    );
+    assert!(stab_nonzero * 10 >= total * 8);
+}
