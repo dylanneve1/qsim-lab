@@ -1,0 +1,28 @@
+[bench.sh] load at start: 13.84
+
+running 1 test
+det  tableau_rate  fast_rate  z
+  0  0.02062  0.02098  -0.4
+  1  0.03480  0.03520  -0.3
+  2  0.03520  0.03466  +0.5
+  3  0.02698  0.02646  +0.5
+  4  0.06760  0.06928  -1.1
+  5  0.10804  0.10896  -0.5
+  6  0.10714  0.10836  -0.6
+  7  0.06960  0.06708  +1.6
+  8  0.07784  0.07762  +0.1
+  9  0.11516  0.11724  -1.0
+ 10  0.11474  0.11626  -0.8
+ 11  0.07876  0.07928  -0.3
+ 12  0.06670  0.06814  -0.9
+ 13  0.11110  0.11054  +0.3
+ 14  0.11280  0.11256  +0.1
+ 15  0.06430  0.06534  -0.7
+ 16  0.00000  0.00000  +0.0
+mean detection events/shot: tableau 1.21138 fast 1.21796 z=-0.8
+raw logical flip: tableau 0.12652 fast 0.12374 z=+1.3
+decoded logical error: tableau 0.04234 fast 0.04104 z=+1.0
+test fast_detector_sampler_matches_tableau_d3 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 42.61s
+

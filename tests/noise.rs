@@ -219,90 +219,170 @@ impl DensityMatrix2x2 {
     }
 }
 
-#[test]
-fn single_qubit_depolarizing_and_readout_matches_density_matrix() {
-    let mut rng = StdRng::seed_from_u64(2026);
-    let p_depol = 0.18;
-    let p_meas = 0.04;
-
-    // Ideal circuit: H on |0> -> |+>, then depolarize, then measure
-    let mut c = Circuit::new(1);
-    c.h(0).measure(0);
-
-    let noise = NoiseModel::none().with_p1(p_depol).with_meas(p_meas);
-
-    // Exact density-matrix expectation:
-    let mut dm = DensityMatrix2x2::zero();
-    dm.apply_gate(&Gate::H(0));
-    dm.depolarize(p_depol);
-    let expected_p1 = dm.prob_one_with_readout(p_meas);
-
-    let shots = 15000;
-
-    // 1. Test on Tableau
-    let mut ones_tab = 0;
+/// Fraction of shots (over `shots` fresh simulators from `make`) in which
+/// `pred(bits)` holds.
+fn frequency<S: qsim_lab::circuit::Simulator>(
+    c: &Circuit,
+    noise: &NoiseModel,
+    shots: usize,
+    rng: &mut StdRng,
+    mut make: impl FnMut() -> S,
+    pred: impl Fn(&[bool]) -> bool,
+) -> f64 {
+    let mut hits = 0;
     for _ in 0..shots {
-        let mut tab = Tableau::new(1);
-        let bits = c.run_noisy(&mut tab, &noise, &mut rng).unwrap();
-        if bits[0] {
-            ones_tab += 1;
-        }
+        let mut sim = make();
+        let bits = c.run_noisy(&mut sim, noise, rng).unwrap();
+        hits += pred(&bits) as usize;
     }
-    let p_tab = ones_tab as f64 / shots as f64;
-    assert!(
-        (p_tab - expected_p1).abs() < 0.015,
-        "Tableau: observed {p_tab}, expected {expected_p1}"
-    );
-
-    // 2. Test on StateVector
-    let mut ones_sv = 0;
-    for _ in 0..shots {
-        let mut sv = StateVectorF64::new(1);
-        let bits = c.run_noisy(&mut sv, &noise, &mut rng).unwrap();
-        if bits[0] {
-            ones_sv += 1;
-        }
-    }
-    let p_sv = ones_sv as f64 / shots as f64;
-    assert!(
-        (p_sv - expected_p1).abs() < 0.015,
-        "StateVector: observed {p_sv}, expected {expected_p1}"
-    );
+    hits as f64 / shots as f64
 }
 
-#[test]
-fn two_qubit_depolarizing_noise_after_cnot() {
-    let mut rng = StdRng::seed_from_u64(999);
-    let p_2q = 0.15;
-
-    // Prepare Bell state: H(0), CNOT(0, 1)
-    // Then measure Z_0 and Z_1: outcomes should agree unless error occurs
-    let mut c = Circuit::new(2);
-    c.h(0).cnot(0, 1).measure(0).measure(1);
-
-    let noise = NoiseModel::none().with_p2(p_2q);
-
-    // Analytical expectation for <Z_0 Z_1>:
-    // In ideal Bell state, Z_0 Z_1 = +1.
-    // Of the 15 Pauli pairs, 7 commute with Z_0 Z_1 and 8 anticommute.
-    // So <Z_0 Z_1> = (1 - p) + (7/15)p - (8/15)p = 1 - (16/15)p.
-    // P(outcomes differ) = (1 - <Z_0 Z_1>) / 2 = (8/15) * p.
-    let expected_diff_p = (8.0 / 15.0) * p_2q;
-
-    let shots = 15000;
-    let mut diff_count = 0;
-    for _ in 0..shots {
-        let mut tab = Tableau::new(2);
-        let bits = c.run_noisy(&mut tab, &noise, &mut rng).unwrap();
-        if bits[0] != bits[1] {
-            diff_count += 1;
-        }
-    }
-    let p_obs = diff_count as f64 / shots as f64;
+/// Asserts `observed` is within 5 binomial standard errors of `expected`,
+/// and that every value in `alternatives` (what a broken implementation
+/// would produce) is more than 8 standard errors away from `expected`, so
+/// the check is discriminating.
+fn assert_binomial(
+    label: &str,
+    observed: f64,
+    expected: f64,
+    shots: usize,
+    alternatives: &[(&str, f64)],
+) {
+    let se = (expected * (1.0 - expected) / shots as f64).sqrt();
     assert!(
-        (p_obs - expected_diff_p).abs() < 0.015,
-        "observed difference prob {p_obs}, expected {expected_diff_p}"
+        (observed - expected).abs() < 5.0 * se,
+        "{label}: observed {observed:.5}, expected {expected:.5} (5σ = {:.5})",
+        5.0 * se
     );
+    for (what, alt) in alternatives {
+        assert!(
+            (alt - expected).abs() > 8.0 * se,
+            "{label}: test cannot tell the correct model from '{what}' ({alt:.5} vs {expected:.5})"
+        );
+    }
+}
+
+/// Single-qubit depolarizing + readout noise, starting from |0>, checked in
+/// the Z basis AND the X basis on the tableau, the state vector and the MPS
+/// against an exact density-matrix calculation.
+///
+/// * Z basis: `Z(0)` (acts trivially on |0>, but carries 1q noise) then
+///   measure. Only the X and Y components of the depolarizing channel and
+///   the readout flip can produce a 1.
+/// * X basis: `H, H`, measure (noise after both H). The Z and Y components
+///   after the first H and the X and Y components after the second H flip
+///   the outcome.
+///
+/// Each check also asserts that ignoring the gate noise, ignoring the
+/// readout noise, or ignoring all noise would give a value more than 8σ
+/// away, so a backend that skipped any of them would fail.
+#[test]
+fn single_qubit_depolarizing_and_readout_from_zero_in_z_and_x_basis() {
+    let mut rng = StdRng::seed_from_u64(2026);
+    let p = 0.18;
+    let pm = 0.06;
+    let noise = NoiseModel::none().with_p1(p).with_meas(pm);
+    let shots = 20_000;
+
+    let mut cz = Circuit::new(1);
+    cz.gate(Gate::Z(0)).measure(0);
+    let mut cx = Circuit::new(1);
+    cx.h(0).h(0).measure(0);
+
+    let exact = |gates: &[Gate], p: f64, pm: f64| {
+        let mut dm = DensityMatrix2x2::zero();
+        for g in gates {
+            dm.apply_gate(g);
+            dm.depolarize(p);
+        }
+        dm.prob_one_with_readout(pm)
+    };
+    for (label, c, gates) in [
+        ("Z basis", &cz, vec![Gate::Z(0)]),
+        ("X basis", &cx, vec![Gate::H(0), Gate::H(0)]),
+    ] {
+        let expected = exact(&gates, p, pm);
+        let alternatives = [
+            ("no noise", exact(&gates, 0.0, 0.0)),
+            ("no gate noise", exact(&gates, 0.0, pm)),
+            ("no readout noise", exact(&gates, p, 0.0)),
+        ];
+        let one = |b: &[bool]| b[0];
+        let f_tab = frequency(c, &noise, shots, &mut rng, || Tableau::new(1), one);
+        assert_binomial(
+            &format!("tableau {label}"),
+            f_tab,
+            expected,
+            shots,
+            &alternatives,
+        );
+        let f_sv = frequency(c, &noise, shots, &mut rng, || StateVectorF64::new(1), one);
+        assert_binomial(
+            &format!("statevector {label}"),
+            f_sv,
+            expected,
+            shots,
+            &alternatives,
+        );
+        let f_mps = frequency(c, &noise, shots, &mut rng, || Mps::new(1, 4), one);
+        assert_binomial(
+            &format!("mps {label}"),
+            f_mps,
+            expected,
+            shots,
+            &alternatives,
+        );
+    }
+}
+
+/// Two-qubit depolarizing noise after a CNOT that prepares a Bell state,
+/// checked through both stabilizers ZZ and XX on the tableau and the state
+/// vector. Of the 15 non-identity Paulis, 8 anticommute with ZZ and 8 with
+/// XX (different subsets), so P(parity flips) = 8p/15 in both bases; a
+/// channel that only inserted X-type (or only Z-type) errors would leave
+/// one of the two parities untouched and fail.
+#[test]
+fn two_qubit_depolarizing_after_cnot_zz_and_xx_parity() {
+    let mut rng = StdRng::seed_from_u64(999);
+    let p2 = 0.15;
+    // p_1q = 0: the H gates are noiseless, so only the CNOT's channel acts.
+    let noise = NoiseModel::none().with_p2(p2);
+    let shots = 15_000;
+    let expected = 8.0 / 15.0 * p2;
+
+    let mut czz = Circuit::new(2);
+    czz.h(0).cnot(0, 1).measure(0).measure(1);
+    let mut cxx = Circuit::new(2);
+    cxx.h(0).cnot(0, 1).h(0).h(1).measure(0).measure(1);
+
+    let differ = |b: &[bool]| b[0] != b[1];
+    for (label, c) in [("ZZ", &czz), ("XX", &cxx)] {
+        let alternatives = [("no noise", 0.0)];
+        let f_tab = frequency(c, &noise, shots, &mut rng, || Tableau::new(2), differ);
+        assert_binomial(
+            &format!("tableau {label}"),
+            f_tab,
+            expected,
+            shots,
+            &alternatives,
+        );
+        let f_sv = frequency(
+            c,
+            &noise,
+            shots,
+            &mut rng,
+            || StateVectorF64::new(2),
+            differ,
+        );
+        assert_binomial(
+            &format!("statevector {label}"),
+            f_sv,
+            expected,
+            shots,
+            &alternatives,
+        );
+    }
 }
 
 #[test]
