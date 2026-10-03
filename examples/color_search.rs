@@ -197,8 +197,17 @@ fn main() {
                     eprintln!("plaquettes {:?} :: {}", pl, desc.join(" "));
                 }
             }
+            let mut involved: Vec<usize> = r
+                .all
+                .iter()
+                .flat_map(|sol| sol.iter().flat_map(|&j| keys[j].0.iter().map(|&z| zinfo[z as usize].0)))
+                .collect();
+            involved.sort_unstable();
+            involved.dedup();
+            let involved: Vec<String> = involved.iter().map(|x| x.to_string()).collect();
             println!(
-                "{{\"d\":{d},\"rounds\":{rounds},\"schedule\":\"{}\",\"noise\":\"{noise_kind}\",\"distance\":{},\"count\":{},\"count_capped\":{},\"certified\":{certified},\"mechanisms\":{},\"z_detectors\":{nz},\"nodes\":{},\"seconds\":{:.3},\"example\":\"{}\"}}",
+                "{{\"d\":{d},\"rounds\":{rounds},\"involved\":[{}],\"schedule\":\"{}\",\"noise\":\"{noise_kind}\",\"distance\":{},\"count\":{},\"count_capped\":{},\"certified\":{certified},\"mechanisms\":{},\"z_detectors\":{nz},\"nodes\":{},\"seconds\":{:.3},\"example\":\"{}\"}}",
+                involved.join(","),
                 a[4],
                 r.weight.map_or("null".to_string(), |w| w.to_string()),
                 r.count,

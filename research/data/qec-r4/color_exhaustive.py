@@ -47,21 +47,9 @@ def evaluate(args):
                 certified=r["certified"], seconds=r["seconds"])
 
 
-def main():
-    cs, d, rounds = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-    group = [int(x) for x in sys.argv[4].split(",")]
-    workers, outp = int(sys.argv[5]), sys.argv[6]
-    cap = int(sys.argv[7]) if len(sys.argv) > 7 and not sys.argv[7].startswith("--") else 1_000_000
-    P = layout(cs, d)
-    if "--base" in sys.argv:
-        sched = [[int(t) for t in l.split()] for l in open(sys.argv[sys.argv.index("--base") + 1]) if l.strip()]
-    else:
-        sched = [list(KF[p["color"]]) for p in P]
-    dq = {}
-    for p in P:
-        for k, q in enumerate(p["data"]):
-            if q >= 0:
-                dq.setdefault(q, []).append((p["i"], k))
+def enumerate_classes(P, sched, dq, group):
+    """One representative assignment {plaquette: steps} per DEM-equivalence class of the
+    collision-free joint schedules of `group` (others fixed at `sched`). Returns (reps, raw)."""
     gset = set(group)
 
     def raw_options(pi, assigned):
@@ -114,6 +102,25 @@ def main():
             del assigned[pi]
 
     rec(0, {})
+    return reps, n_raw
+
+
+def main():
+    cs, d, rounds = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+    group = [int(x) for x in sys.argv[4].split(",")]
+    workers, outp = int(sys.argv[5]), sys.argv[6]
+    cap = int(sys.argv[7]) if len(sys.argv) > 7 and not sys.argv[7].startswith("--") else 1_000_000
+    P = layout(cs, d)
+    if "--base" in sys.argv:
+        sched = [[int(t) for t in l.split()] for l in open(sys.argv[sys.argv.index("--base") + 1]) if l.strip()]
+    else:
+        sched = [list(KF[p["color"]]) for p in P]
+    dq = {}
+    for p in P:
+        for k, q in enumerate(p["data"]):
+            if q >= 0:
+                dq.setdefault(q, []).append((p["i"], k))
+    reps, n_raw = enumerate_classes(P, sched, dq, group)
     keys = list(reps)
     if os.environ.get("COUNT_ONLY"):
         print(json.dumps(dict(group=group, raw=n_raw, classes=len(keys))))
