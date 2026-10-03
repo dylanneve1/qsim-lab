@@ -326,3 +326,13 @@ times after a non-Clifford repeated block), where `simulate` succeeds.
 Note: §2(b) recommends the `2^k` power only for `r <= 1e4`; the code does
 not enforce a bound on `r` (the cost model decides). The error grows ~linearly
 in `r` like gate-by-gate does, so this is a documentation caveat, not a bug.
+
+**Fallback fix (1ba0970, 0d2b983).** A repeat with no fast path ran through
+per-copy plan reuse, which loses cross-copy fusion on wide registers:
+Trotter n=14 r=1e3 took 0.376 s against 0.246 s for the plain batched
+executor (Mac M1 Pro; the VPS table in §2(b) shows the same, 414 vs 343 ms).
+Plan reuse is now used only for registers <= 12 qubits
+(`ExecOptions::reuse_max_qubits`), where it beats one batch (n=6 r=1e3:
+2.0 ms vs 6.5 ms batch); wider registers send all copies as one batch.
+Re-timed on the Mac under the swarm bench lock (load 6–9): n=14 r=1e3
+0.244 s vs 0.243 s batch (parity), n=10 r=1e4 0.225 s vs 0.248 s batch.
