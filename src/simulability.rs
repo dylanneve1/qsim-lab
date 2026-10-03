@@ -36,8 +36,14 @@ use std::f64::consts::PI;
 use std::time::Instant;
 
 /// Engines [`run_engine`] knows, in a fixed order.
-pub const ENGINES: [&str; 8] = [
-    "sv", "sparse", "mps", "hsf", "tableau", "frame", "dense", "auto",
+///
+/// `cstate` is the compressed Schrödinger state ([`adaptive::CompressedState`]:
+/// Clifford frame + dense register of the `d` active qubits), always evolved
+/// in full. `dense`, `frame` and `auto` are the three policies of
+/// [`adaptive::expectation`], which start in the Heisenberg picture and can
+/// finish early when the observable is pruned away (observable engines).
+pub const ENGINES: [&str; 9] = [
+    "sv", "sparse", "mps", "hsf", "tableau", "cstate", "frame", "dense", "auto",
 ];
 
 /// Parsed `family:key=value,key=value` specification.
@@ -812,6 +818,12 @@ pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRu
             let mut p = PauliSum::z_product(n, &all);
             p.conjugate_by_clifford(c)?;
             run.value = p.expectation_zero_state();
+        }
+        "cstate" => {
+            let max_d = ((mem_bytes / 16).max(1).ilog2() as usize).min(30);
+            let st = adaptive::CompressedState::new(c, max_d)?;
+            run.value = st.expectation(&PauliSum::z_product(n, &all));
+            run.size = st.active_qubits() as f64;
         }
         "frame" | "dense" | "auto" => {
             let max_d = ((mem_bytes / 16).max(1).ilog2() as usize).min(30);

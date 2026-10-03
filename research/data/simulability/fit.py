@@ -5,13 +5,13 @@ diagrams.  Usage: fit.py OUTDIR CSV [CSV ...]"""
 import csv, json, math, sys, os, collections, itertools
 import numpy as np
 
-ALL_ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "frame", "dense", "auto"]
+ALL_ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "cstate", "frame", "dense", "auto"]
 # State engines build an exact representation of U|0>; frame/auto are
 # Heisenberg (observable-specific) engines and are analysed separately.
-STATE_ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "dense"]
+STATE_ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "cstate"]
 ENGINES = list(STATE_ENGINES)
 COLORS = dict(zip(ALL_ENGINES, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4",
-                            "#008300", "#4a3aa7", "#e34948"]))
+                                "#4a3aa7", "#008300", "#8a8986", "#e34948"]))
 FAMILIES = ["ct", "brick", "arith", "qaoa"]
 PENALTY = 2.0
 T_FLOOR = 2e-4   # s: below this, run times are process/allocation overhead
@@ -37,7 +37,7 @@ def resource(e, f):
         return f["hsf_l"]
     if e == "frame":
         return f["frame_l"]
-    if e == "dense":
+    if e in ("dense", "cstate"):
         return f["dense_l"]
     if e == "auto":
         return min(f["frame_l"], f["dense_l"])
@@ -53,7 +53,7 @@ def applicable(e, f, mem_bytes=1 << 30):
         return f["rotations"] == 0
     if e == "sv":
         return f["n"] <= cap
-    if e == "dense":
+    if e in ("dense", "cstate"):
         return f["d"] <= cap
     if e == "hsf":
         return f["n"] <= cap
@@ -131,7 +131,7 @@ class Model:
         if e == "tableau":
             # polynomial engine: a prior, not a fit (it only runs on
             # Clifford circuits, which a held-out family may not contain)
-            return math.log2(T_FLOOR) - 4.0
+            return -1e9  # polynomial vs exponential: always first
         if e not in self.p:
             return math.inf
         return float(np.dot(self.p[e][1], self.x(e, f)))
@@ -170,7 +170,7 @@ def evaluate(model_choose, data, predict=None):
             errs = []
             for d in data:
                 st, t, _ = d["runs"].get(e, ("", None, None))
-                if st == "ok":
+                if st == "ok" and t >= T_FLOOR:
                     p = predict(e, d["f"])
                     if math.isfinite(p):
                         errs.append((p - math.log2(t)) * math.log10(2))

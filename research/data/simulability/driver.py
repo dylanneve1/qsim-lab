@@ -11,7 +11,7 @@ on the Mac as well as the VPS.
 """
 import argparse, csv, json, os, signal, subprocess, sys, time, itertools
 
-ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "frame", "dense", "auto"]
+ENGINES = ["sv", "sparse", "mps", "hsf", "tableau", "cstate", "frame", "dense", "auto"]
 MONOTONE = {"ct": ["n", "L", "t"], "brick": ["n", "D"], "arith": ["bits", "h", "reps"],
             "qaoa": ["n", "p", "deg"]}
 # Monotone in difficulty for *every* engine? Not quite (t for mps, n for
@@ -22,6 +22,7 @@ ENGINE_MONO = {
     "mps": {"ct": ["n", "L", "t"], "brick": ["n", "D"], "arith": ["bits", "h", "reps"], "qaoa": ["n", "p", "deg"]},
     "hsf": {"ct": ["n", "L"], "brick": ["n", "D"], "arith": ["bits", "reps"], "qaoa": ["n", "p", "deg"]},
     "frame": {"ct": ["t"], "brick": ["n", "D"], "arith": ["h", "reps"], "qaoa": ["n", "p"]},
+    "cstate": {"ct": ["t"], "brick": ["n", "D"], "arith": ["h", "reps"], "qaoa": ["n", "p"]},
     "dense": {"ct": ["t"], "brick": ["n", "D"], "arith": ["h", "reps"], "qaoa": ["n", "p"]},
     "auto": {"ct": ["t"], "brick": ["n", "D"], "arith": ["h", "reps"], "qaoa": ["n", "p"]},
     "tableau": {},
