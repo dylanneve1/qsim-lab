@@ -83,6 +83,13 @@ enum Cmd {
         /// shor: maximum number of order-finding runs.
         #[arg(long, default_value_t = 20)]
         tries: usize,
+        /// shor (ripple / windowed oracle): bit-sliced branch tracking of the
+        /// gate-level circuit (exact; `--f32` for f32 amplitudes).
+        #[arg(long)]
+        sliced: bool,
+        /// shor (windowed oracle): lookup window size in bits.
+        #[arg(long, default_value_t = 4)]
+        window: usize,
     },
 }
 
@@ -91,6 +98,7 @@ enum OracleArg {
     Permutation,
     Beauregard,
     Ripple,
+    Windowed,
 }
 
 /// Peak resident set size of this process in MiB (Linux `VmHWM`).
@@ -532,6 +540,8 @@ fn main() {
             tries,
             no_blocked,
             gate_by_gate,
+            sliced,
+            window,
         } => {
             let mut rng = StdRng::seed_from_u64(seed);
             match example {
@@ -586,6 +596,7 @@ fn main() {
                         OracleArg::Permutation => shor::Oracle::Permutation,
                         OracleArg::Beauregard => shor::Oracle::Beauregard,
                         OracleArg::Ripple => shor::Oracle::Ripple,
+                        OracleArg::Windowed => shor::Oracle::Windowed(window),
                     };
                     let path = qsim_lab::pipeline::choose_shor_path(
                         n,
@@ -619,7 +630,9 @@ fn main() {
                         }
                     } else {
                         let oracle = oracle_kind;
-                        let backend = match (fused, sparse, f32) {
+                        let backend = match (fused || sliced, sparse && !sliced, f32) {
+                            _ if sliced && f32 => shor::Backend::SlicedF32,
+                            _ if sliced => shor::Backend::SlicedF64,
                             (false, true, _) => shor::Backend::Sparse,
                             (false, false, true) => shor::Backend::DenseF32,
                             (false, false, false) => shor::Backend::DenseF64,
@@ -648,8 +661,8 @@ fn main() {
                         };
                         for r in &runs {
                             println!(
-                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}",
-                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates
+                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}  gate_branch_ops={:.3e}",
+                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates, r.work_ops as f64
                             );
                         }
                         match f {

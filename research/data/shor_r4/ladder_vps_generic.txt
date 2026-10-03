@@ -1,0 +1,34 @@
+[bench.sh] load at start: 19.68
+== N=2306833 windowed w=4 sliced f64 seed 1 random base; load=19.68
+[sliced profile] build 0.023s  eval c=1 0.527s  eval c=0 0.476s  sort 0.368s  p1 0.215s  collapse 0.341s  peak support 575932
+a=2247418  qubits=96  measured=11613740955438  order=Some(575932)  factor=Some(1877)  peak_amplitudes=575932  peak_amp_bytes=11518640  total_gates=652569  toffoli_gates=224840  gate_branch_ops=1.230e11
+2306833 = 1229 x 1877
+time 1.984 s  peak RSS 36.7 MiB
+== N=4297567 windowed w=4 sliced f64 seed 1 random base; load=19.68
+[sliced profile] build 0.024s  eval c=1 0.903s  eval c=0 0.838s  sort 0.517s  p1 0.364s  collapse 0.630s  peak support 2146568
+a=4186881  qubits=100  measured=14145783953198  order=Some(2146568)  factor=Some(1433)  peak_amplitudes=2146568  peak_amp_bytes=42931360  total_gates=728280  toffoli_gates=246146  gate_branch_ops=2.798e11
+4297567 = 1433 x 2999
+time 3.328 s  peak RSS 127.4 MiB
+== N=10161323 windowed w=4 sliced f64 seed 1 random base; load=18.83
+[sliced profile] build 0.057s  eval c=1 0.512s  eval c=0 0.473s  sort 0.269s  p1 0.181s  collapse 0.327s  peak support 2538720
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=2538720  peak_amp_bytes=50774400  total_gates=819272  toffoli_gates=277632  gate_branch_ops=1.589e11
+10161323 = 2753 x 3691
+time 1.868 s  peak RSS 137.5 MiB
+== N=18942389 windowed w=4 sliced f64 seed 1 random base; load=18.83
+[sliced profile] build 0.048s  eval c=1 0.039s  eval c=0 0.036s  sort 0.015s  p1 0.007s  collapse 0.013s  peak support 157776
+a=18454521  qubits=108  measured=753932480591662  order=Some(157776)  factor=Some(3041)  peak_amplitudes=157776  peak_amp_bytes=3155520  total_gates=958763  toffoli_gates=320650  gate_branch_ops=1.841e10
+18942389 = 3041 x 6229
+time 0.205 s  peak RSS 17.7 MiB
+== N=43584217 windowed w=4 sliced f64 seed 1 random base; load=18.83
+[sliced profile] build 0.032s  eval c=1 19.756s  eval c=0 18.650s  sort 7.325s  p1 5.918s  collapse 18.134s  peak support 10892749
+[sliced profile] build 0.019s  eval c=1 3.179s  eval c=0 3.024s  sort 1.214s  p1 0.885s  collapse 2.339s  peak support 1556107
+[sliced profile] build 0.022s  eval c=1 20.517s  eval c=0 19.700s  sort 7.324s  p1 6.237s  collapse 18.047s  peak support 21785498
+[sliced profile] build 0.019s  eval c=1 18.425s  eval c=0 17.237s  sort 6.281s  p1 5.519s  collapse 16.368s  peak support 21785498
+[sliced profile] build 0.017s  eval c=1 15.855s  eval c=0 15.215s  sort 5.632s  p1 4.975s  collapse 14.130s  peak support 21785498
+a=42461693  qubits=112  measured=1502877928748846  order=Some(10892749)  factor=None  peak_amplitudes=10892749  peak_amp_bytes=435709960  total_gates=1043208  toffoli_gates=342888  gate_branch_ops=1.292e13
+a=27965745  qubits=112  measured=1184119255514722  order=Some(1556107)  factor=None  peak_amplitudes=1556107  peak_amp_bytes=62244280  total_gates=1044118  toffoli_gates=342888  gate_branch_ops=2.022e12
+a=35395680  qubits=112  measured=1252069030485108  order=Some(21785498)  factor=None  peak_amplitudes=21785498  peak_amp_bytes=435709960  total_gates=1043448  toffoli_gates=342888  gate_branch_ops=1.291e13
+a=17855846  qubits=112  measured=2979276496031185  order=Some(21785498)  factor=None  peak_amplitudes=21785498  peak_amp_bytes=435709960  total_gates=1043146  toffoli_gates=342888  gate_branch_ops=1.290e13
+a=38418038  qubits=112  measured=3326755012577193  order=Some(21785498)  factor=None  peak_amplitudes=21785498  peak_amp_bytes=435709960  total_gates=1041857  toffoli_gates=342888  gate_branch_ops=1.289e13
+no factor found
+time 272.356 s  peak RSS 1087.8 MiB

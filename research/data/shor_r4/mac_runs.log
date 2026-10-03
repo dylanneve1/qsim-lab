@@ -1,0 +1,243 @@
+# Mac: Apple M1 Pro, 8 cores, 16 GB; binary ~/qsim-shor-r4-target/release/qsim (commits noted per lock); times under /tmp/qsim-mac-bench.lock; load avg includes the run itself and the peer's tail
+##### shor-A.log
+lock acquired Sat Oct  3 22:24:59 IST 2026 load { 36.69 20.25 13.40 }
+rep=1 L=8 eval c=1 0.457s sort 0.291s collapse 0.114s time 1.357 
+rep=1 L=16 eval c=1 0.335s sort 0.195s collapse 0.113s time 1.000 
+rep=1 L=32 eval c=1 0.377s sort 0.273s collapse 0.116s time 1.244 
+rep=2 L=8 eval c=1 0.399s sort 0.188s collapse 0.112s time 1.163 
+rep=2 L=16 eval c=1 0.296s sort 0.194s collapse 0.135s time 0.998 
+rep=2 L=32 eval c=1 0.342s sort 0.231s collapse 0.116s time 1.053 
+== 10161323 generic, random base, seed 1 (load { 35.25 20.47 13.56 })
+[sliced profile] build 0.026s  eval c=1 0.272s  eval c=0 0.203s  sort 0.285s  p1 0.043s  collapse 0.092s  peak support 2538720
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=2538720  peak_amp_bytes=60929280  total_gates=819272  toffoli_gates=277632  gate_branch_ops=1.589e11
+10161323 = 2753 x 3691
+time 0.948 s  peak RSS NaN MiB
+           132726784  maximum resident set size
+== 18942389 generic, random base, seed 1 (load { 35.25 20.47 13.56 })
+[sliced profile] build 0.023s  eval c=1 0.068s  eval c=0 0.074s  sort 0.042s  p1 0.005s  collapse 0.039s  peak support 157776
+a=18454521  qubits=108  measured=753932480591662  order=Some(157776)  factor=Some(3041)  peak_amplitudes=157776  peak_amp_bytes=3786624  total_gates=958763  toffoli_gates=320650  gate_branch_ops=1.841e10
+18942389 = 3041 x 6229
+time 0.272 s  peak RSS NaN MiB
+            21069824  maximum resident set size
+done Sat Oct 3 22:25:07 IST 2026
+##### shor-B.log
+lock (build) Sat Oct  3 22:37:20 IST 2026
+66e127f sliced: skip the final (unused) collapse by default (keep_final opt-in)
+    Finished `release` profile [optimized] target(s) in 21.34s
+lock B1 Sat Oct  3 22:37:44 IST 2026
+== --modulus 82337219 --seed 1 --tries 3 (load { 8.66 10.41 11.29 })
+[sliced profile] build 0.024s  eval c=1 0.049s  eval c=0 0.047s  sort 0.031s  p1 0.006s  collapse 0.020s  peak support 685984
+a=80216601  qubits=116  measured=2898915210065710  order=Some(1371968)  factor=Some(6529)  peak_amplitudes=685984  peak_amp_bytes=32927232  total_gates=1140611  toffoli_gates=370170  gate_branch_ops=8.808e10
+82337219 = 6529 x 12611
+time 0.202 s  peak RSS NaN MiB
+            75628544  maximum resident set size
+== --modulus 43584217 --seed 2 --tries 3 (load { 8.66 10.41 11.29 })
+[sliced profile] build 0.021s  eval c=1 7.297s  eval c=0 7.424s  sort 4.044s  p1 0.376s  collapse 1.401s  peak support 10892749
+[sliced profile] build 0.021s  eval c=1 5.911s  eval c=0 5.739s  sort 3.339s  p1 0.275s  collapse 1.219s  peak support 10892749
+a=12958714  qubits=112  measured=2982904100332959  order=Some(10892749)  factor=None  peak_amplitudes=10892749  peak_amp_bytes=522851952  total_gates=1043640  toffoli_gates=342888  gate_branch_ops=1.294e13
+a=42001717  qubits=112  measured=2123819058500788  order=Some(21785498)  factor=Some(6959)  peak_amplitudes=10892749  peak_amp_bytes=522851952  total_gates=1042834  toffoli_gates=342888  gate_branch_ops=1.290e13
+43584217 = 6263 x 6959
+time 37.122 s  peak RSS NaN MiB
+           957120512  maximum resident set size
+lock B2 Sat Oct  3 22:41:05 IST 2026
+== --modulus 8795579227471 --seed 1 --tries 2 (load { 13.07 11.79 11.67 })
+[sliced profile] build 0.075s  eval c=1 0.991s  eval c=0 0.996s  sort 0.245s  p1 0.026s  collapse 0.132s  peak support 699030
+a=8569046773502  qubits=180  measured=11651289567814908042901294  order=Some(1398060)  factor=Some(4194181)  peak_amplitudes=699030  peak_amp_bytes=33553440  total_gates=4354178  toffoli_gates=1244506  gate_branch_ops=2.459e12
+8795579227471 = 2097091 x 4194181
+time 2.544 s  peak RSS NaN MiB
+            78135296  maximum resident set size
+done Sat Oct 3 22:41:08 IST 2026
+##### shor-C.log
+lock C1 Sat Oct  3 22:44:40 IST 2026
+== --modulus 221643407 --seed 1 --tries 3 (load { 6.85 10.16 11.05 }) 22:44:40
+[sliced profile] build 0.023s  eval c=1 5.888s  eval c=0 5.674s  sort 3.036s  p1 0.316s  collapse 1.150s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+221643407 = 14207 x 15601
+time 16.133 s  peak RSS NaN MiB
+          3712647168  maximum resident set size
+lock C2 Sat Oct  3 22:44:58 IST 2026
+== --modulus 282304153 --seed 1 --tries 3 (load { 8.78 10.39 11.11 }) 22:44:58
+[sliced profile] build 0.025s  eval c=1 16.923s  eval c=0 16.455s  sort 8.132s  p1 0.635s  collapse 2.939s  peak support 23522415
+[sliced profile] build 0.026s  eval c=1 16.908s  eval c=0 16.443s  sort 8.179s  p1 0.639s  collapse 2.949s  peak support 23522415
+[sliced profile] build 0.026s  eval c=1 16.930s  eval c=0 16.479s  sort 8.191s  p1 0.618s  collapse 2.952s  peak support 23522415
+a=275033334  qubits=124  measured=81125438987269934  order=Some(47044830)  factor=None  peak_amplitudes=23522415  peak_amp_bytes=1129075920  total_gates=1458562  toffoli_gates=466146  gate_branch_ops=4.073e13
+a=15804672  qubits=124  measured=150123721047401209  order=Some(47044830)  factor=None  peak_amplitudes=23522415  peak_amp_bytes=1129075920  total_gates=1459173  toffoli_gates=466146  gate_branch_ops=4.073e13
+a=8244464  qubits=124  measured=215853564823096509  order=Some(23522415)  factor=None  peak_amplitudes=23522415  peak_amp_bytes=1129075920  total_gates=1461338  toffoli_gates=466146  gate_branch_ops=4.075e13
+time 135.555 s  peak RSS NaN MiB
+          1864613888  maximum resident set size
+done Sat Oct 3 22:47:13 IST 2026
+##### shor-D.log
+lock (build) Sat Oct  3 22:49:18 IST 2026
+1f934ca sliced: join on sorted (Ux, psi_x) tuples written in place by the block evaluator (lower peak memory)
+    Finished `release` profile [optimized] target(s) in 23.18s
+lock D1 Sat Oct  3 22:49:42 IST 2026
+== --modulus 221643407 --seed 1 --tries 1 (load { 6.32 9.71 10.80 }) 22:49:42
+[sliced profile] build 0.027s  eval c=1 6.294s  eval c=0 5.712s  sort 2.333s  p1 0.318s  collapse 1.369s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+221643407 = 14207 x 15601
+time 16.113 s  peak RSS NaN MiB
+          2818686976  maximum resident set size
+== --modulus 221643407 --seed 1 --tries 1 --f32 (load { 6.62 9.60 10.74 }) 22:49:59
+[sliced profile] build 0.023s  eval c=1 6.165s  eval c=0 5.709s  sort 2.023s  p1 0.299s  collapse 0.913s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=1772908800  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+221643407 = 14207 x 15601
+time 15.179 s  peak RSS NaN MiB
+          2023211008  maximum resident set size
+== --modulus 282304153 --seed 2 --tries 2 (load { 7.90 9.75 10.77 }) 22:50:14
+[sliced profile] build 0.026s  eval c=1 17.538s  eval c=0 16.427s  sort 6.184s  p1 0.472s  collapse 3.505s  peak support 23522415
+a=83936318  qubits=124  measured=155112988813862303  order=Some(47044830)  factor=Some(22783)  peak_amplitudes=23522415  peak_amp_bytes=1129075920  total_gates=1460937  toffoli_gates=466146  gate_branch_ops=4.078e13
+282304153 = 12391 x 22783
+time 44.195 s  peak RSS NaN MiB
+          1862582272  maximum resident set size
+lock D2 Sat Oct  3 22:51:01 IST 2026
+== --modulus 1537596787 --seed 1 --tries 1 --f32 (load { 9.85 9.99 10.80 }) 22:51:01
+[sliced profile] build 0.030s  eval c=1 18.922s  eval c=0 18.105s  sort 5.403s  p1 0.467s  collapse 2.498s  peak support 21354375
+a=1497995576  qubits=132  measured=2067576965108692782  order=Some(42708750)  factor=None  peak_amplitudes=21354375  peak_amp_bytes=683340000  total_gates=1706253  toffoli_gates=528178  gate_branch_ops=4.533e13
+time 45.467 s  peak RSS NaN MiB
+          1203470336  maximum resident set size
+done Sat Oct 3 22:51:47 IST 2026
+##### shor-E.log
+lock E1 Sat Oct  3 22:56:21 IST 2026
+== --modulus 1537596787 --seed 2 --tries 1 --f32 (load { 10.48 10.44 10.83 }) 22:56:21
+[sliced profile] build 0.031s  eval c=1 55.357s  eval c=0 53.383s  sort 16.607s  p1 1.463s  collapse 7.437s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+1537596787 = 29287 x 52501
+time 134.370 s  peak RSS NaN MiB
+          4280582144  maximum resident set size
+lock E2 Sat Oct  3 23:01:00 IST 2026
+== --modulus 248376613912741 --seed 1 --tries 1 (load { 6.56 9.43 10.40 }) 23:01:00
+[sliced profile] build 0.097s  eval c=1 11.266s  eval c=0 10.671s  sort 1.610s  p1 0.159s  collapse 0.926s  peak support 11143980
+a=241979608962549  qubits=200  measured=54814288167726820086456350510  order=Some(22287960)  factor=Some(22287961)  peak_amplitudes=11143980  peak_amp_bytes=534911040  total_gates=5929597  toffoli_gates=1663488  gate_branch_ops=2.737e13
+248376613912741 = 11143981 x 22287961
+time 24.845 s  peak RSS NaN MiB
+           703856640  maximum resident set size
+== --modulus 3384163410217561 --seed 1 --tries 1 (load { 8.92 9.77 10.50 }) 23:01:25
+[sliced profile] build 0.144s  eval c=1 27.661s  eval c=0 26.471s  sort 3.584s  p1 0.381s  collapse 2.129s  peak support 41134920
+a=3297003392426907  qubits=216  measured=7612619959208801919682070542126  order=Some(82269840)  factor=Some(82269841)  peak_amplitudes=41134920  peak_amp_bytes=1974476160  total_gates=7413217  toffoli_gates=2060448  gate_branch_ops=6.860e13
+3384163410217561 = 41134921 x 82269841
+time 60.549 s  peak RSS NaN MiB
+          2400075776  maximum resident set size
+done Sat Oct 3 23:02:26 IST 2026
+##### shor-F.log
+lock F Sat Oct  3 23:04:07 IST 2026 load { 5.38 8.47 9.88 }
+rep=1 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.499 s 15482880  maximum resident 
+rep=1 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.079 s 11698176  maximum resident 
+rep=1 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.050 s 8585216  maximum resident 
+rep=2 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.475 s 15466496  maximum resident 
+rep=2 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.080 s 11632640  maximum resident 
+rep=2 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.052 s 8552448  maximum resident 
+rep=3 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.468 s 15482880  maximum resident 
+rep=3 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.078 s 11616256  maximum resident 
+rep=3 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.052 s 8536064  maximum resident 
+done Sat Oct 3 23:04:15 IST 2026
+##### scripts
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 5; done
+echo "lock acquired $(date) load $(sysctl -n vm.loadavg)"
+for rep in 1 2; do for L in 8 16 32; do
+ echo "rep=$rep L=$L $(QSIM_SLICE_PROFILE=1 QSIM_SLICE_LANES=$L $Q run shor --modulus 4297567 --semiclassical --oracle windowed --sliced --base 3 --seed 1 2>&1 | grep -o 'time [0-9.]*\|eval c=1 [0-9.]*s\|sort [0-9.]*s\|collapse [0-9.]*s' | tr '\n' ' ')"
+done; done
+for N in 10161323 18942389; do
+echo "== $N generic, random base, seed 1 (load $(sysctl -n vm.loadavg))"
+QSIM_SLICE_PROFILE=1 /usr/bin/time -l $Q run shor --modulus $N --semiclassical --oracle windowed --sliced --seed 1 --tries 5 2>&1 | grep -v "^note" | grep -E "profile|a=|=|time |maximum resident"
+done
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+run() { echo "== $* (load $(sysctl -n vm.loadavg))"; QSIM_SLICE_PROFILE=1 /usr/bin/time -l $Q run shor --semiclassical --oracle windowed --window 4 --sliced "$@" 2>&1 | grep -v "^note" | grep -E "profile|a=|=|time |maximum resident"; }
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock (build) $(date)"
+cd ~/qsim-shor-r4 && git fetch -q origin exp/shor-r4 && git checkout -q --detach FETCH_HEAD && git log --oneline -1
+CARGO_TARGET_DIR=~/qsim-shor-r4-target /opt/homebrew/bin/cargo build --release --bin qsim 2>&1 | tail -1
+rmdir /tmp/qsim-mac-bench.lock
+sleep 2
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock B1 $(date)"
+run --modulus 82337219 --seed 1 --tries 3
+run --modulus 43584217 --seed 2 --tries 3
+rmdir /tmp/qsim-mac-bench.lock
+sleep 2
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock B2 $(date)"
+run --modulus 8795579227471 --seed 1 --tries 2
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+run() { echo "== $* (load $(sysctl -n vm.loadavg)) $(date +%T)"; QSIM_SLICE_PROFILE=1 /usr/bin/time -l $Q run shor --semiclassical --oracle windowed --window 4 --sliced "$@" 2>&1 | grep -v "^note" | grep -E "profile|a=|=|time |maximum resident"; }
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock C1 $(date)"
+run --modulus 221643407 --seed 1 --tries 3
+rmdir /tmp/qsim-mac-bench.lock
+sleep 2
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock C2 $(date)"
+run --modulus 282304153 --seed 1 --tries 3
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+run() { echo "== $* (load $(sysctl -n vm.loadavg)) $(date +%T)"; QSIM_SLICE_PROFILE=1 /usr/bin/time -l $Q run shor --semiclassical --oracle windowed --window 4 --sliced "$@" 2>&1 | grep -v "^note" | grep -E "profile|a=|=|time |maximum resident"; }
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock (build) $(date)"
+cd ~/qsim-shor-r4 && git fetch -q origin exp/shor-r4 && git checkout -q --detach FETCH_HEAD && git log --oneline -1
+CARGO_TARGET_DIR=~/qsim-shor-r4-target /opt/homebrew/bin/cargo build --release --bin qsim 2>&1 | tail -1
+echo "lock D1 $(date)"
+run --modulus 221643407 --seed 1 --tries 1
+run --modulus 221643407 --seed 1 --tries 1 --f32
+run --modulus 282304153 --seed 2 --tries 2
+rmdir /tmp/qsim-mac-bench.lock
+sleep 3
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock D2 $(date)"
+run --modulus 1537596787 --seed 1 --tries 1 --f32
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+run() { echo "== $* (load $(sysctl -n vm.loadavg)) $(date +%T)"; QSIM_SLICE_PROFILE=1 /usr/bin/time -l $Q run shor --semiclassical --oracle windowed --window 4 --sliced "$@" 2>&1 | grep -v "^note" | grep -E "profile|a=|=|time |maximum resident"; }
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock E1 $(date)"
+run --modulus 1537596787 --seed 2 --tries 1 --f32
+rmdir /tmp/qsim-mac-bench.lock
+sleep 3
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock E2 $(date)"
+run --modulus 248376613912741 --seed 1 --tries 1
+run --modulus 3384163410217561 --seed 1 --tries 1
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+#!/bin/bash
+Q=~/qsim-shor-r4-target/release/qsim
+until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 3; done
+echo "lock F $(date) load $(sysctl -n vm.loadavg)"
+for rep in 1 2 3; do
+ for mode in "--oracle ripple --sparse" "--oracle ripple --sliced" "--oracle windowed --window 4 --sliced"; do
+  echo "rep=$rep [$mode] $( /usr/bin/time -l $Q run shor --modulus 1005973 --semiclassical $mode --base 980062 --seed 1 2>&1 | grep -oE 'measured=[0-9]+|total_gates=[0-9]+|time [0-9.]+ s|[0-9]+  maximum resident' | tr '\n' ' ')"
+ done
+done
+rmdir /tmp/qsim-mac-bench.lock
+echo done $(date)
+##### shor-G.log (after rebase onto main 643b6bd; branch 7ccb497)
+lock G (build) Sat Oct  3 23:08:41 IST 2026
+7ccb497 drop stray pycache
+    Finished `release` profile [optimized] target(s) in 23.01s
+lock G run Sat Oct  3 23:09:04 IST 2026
+== --oracle windowed --window 4 --sliced --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 5.87 7.32 8.90 }) 23:09:04
+[sliced profile] build 0.034s  eval c=1 55.404s  eval c=0 53.241s  sort 16.050s  p1 1.469s  collapse 7.093s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+1537596787 = 29287 x 52501
+time 133.381 s  peak RSS NaN MiB
+          4277960704  maximum resident set size
+rep=1 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.516 s 15482880  maximum resident
+rep=1 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.076 s 11730944  maximum resident
+rep=1 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.049 s 8585216  maximum resident
+rep=2 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.492 s 15450112  maximum resident
+rep=2 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.077 s 11780096  maximum resident
+rep=2 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.050 s 8552448  maximum resident
+rep=3 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.496 s 15351808  maximum resident
+rep=3 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.077 s 11698176  maximum resident
+rep=3 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.052 s 8650752  maximum resident
+done Sat Oct 3 23:11:26 IST 2026

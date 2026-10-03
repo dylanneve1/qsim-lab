@@ -377,3 +377,137 @@ fn ripple_circuit_runs_through_classic_control() {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Round 4: bit-sliced branch tracking (src/shor/sliced.rs) and the windowed
+// table-lookup oracle (src/shor_window.rs).
+
+fn dist<S: shor::OrderFindingState>(inst: &Instance, s: S) -> Vec<f64> {
+    shor::semiclassical_distribution(inst, s, 1e-15)
+}
+
+/// Sliced branch tracking of the ripple circuit = the gate-by-gate sparse
+/// state vector of the same circuit = the permutation oracle (exact
+/// distributions of the measured integer).
+#[test]
+fn sliced_ripple_distribution_matches_gate_by_gate_and_permutation() {
+    for (n, count) in [(15u64, 7), (21, 4), (33, 2), (35, 2)] {
+        for a in bases(n, count) {
+            let perm = Instance::new(n, a, Oracle::Permutation);
+            let rip = Instance::new(n, a, Oracle::Ripple);
+            let mut rip_gbg = rip.clone();
+            rip_gbg.gate_by_gate = true;
+            let d_perm = dist(&perm, shor::sparse_initial(&perm));
+            let d_sl = dist(&rip, shor::sliced::SlicedState::<f64>::new(&rip));
+            let d = max_diff(&d_perm, &d_sl);
+            assert!(d < 1e-12, "N={n} a={a}: sliced vs permutation {d:e}");
+            if n <= 21 {
+                let d_gbg = dist(&rip_gbg, shor::sparse_initial(&rip_gbg));
+                let d = max_diff(&d_gbg, &d_sl);
+                assert!(
+                    d < 1e-12,
+                    "N={n} a={a}: sliced vs gate-by-gate sparse {d:e}"
+                );
+            }
+        }
+    }
+}
+
+/// The windowed oracle, simulated gate by gate on the sparse state vector
+/// (every gate through `SparseState::apply_gate`) and by sliced branch
+/// tracking, gives the permutation oracle's exact distribution.
+#[test]
+fn windowed_distribution_matches_permutation() {
+    for (n, count) in [(15u64, 4), (21, 3), (35, 1)] {
+        for w in [1usize, 2, 3, 4] {
+            for a in bases(n, count) {
+                let perm = Instance::new(n, a, Oracle::Permutation);
+                let win = Instance::new(n, a, Oracle::Windowed(w));
+                let d_perm = dist(&perm, shor::sparse_initial(&perm));
+                let d_sl = dist(&win, shor::sliced::SlicedState::<f64>::new(&win));
+                let d = max_diff(&d_perm, &d_sl);
+                assert!(
+                    d < 1e-12,
+                    "N={n} w={w} a={a}: sliced windowed vs perm {d:e}"
+                );
+                if n <= 21 && win.qubits() <= 64 {
+                    let d_gbg = dist(&win, shor::sparse_initial(&win));
+                    let d = max_diff(&d_perm, &d_gbg);
+                    assert!(
+                        d < 1e-12,
+                        "N={n} w={w} a={a}: gate-by-gate windowed vs perm {d:e}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// f32 amplitudes in the sliced state: distribution within 1e-5 of f64.
+#[test]
+fn sliced_f32_close_to_f64() {
+    for (n, a) in [(21u64, 2u64), (35, 2), (55, 7)] {
+        let inst = Instance::new(n, a, Oracle::Ripple);
+        let d64 = dist(&inst, shor::sliced::SlicedState::<f64>::new(&inst));
+        let d32 = dist(&inst, shor::sliced::SlicedState::<f32>::new(&inst));
+        let d = max_diff(&d64, &d32);
+        assert!(d < 1e-5, "N={n} a={a}: f32 vs f64 {d:e}");
+    }
+}
+
+/// Same seed, same measured integer: sliced ripple / sliced windowed vs the
+/// existing sparse ripple path and the fused permutation path, up to N ≈ 1e6
+/// (64 qubits for ripple, 88 for windowed w=4).
+#[test]
+fn sliced_runs_measure_the_same_bits() {
+    for (n, count) in [(15u64, 3), (143, 2), (1003, 1), (1_005_973, 1)] {
+        for a in bases(n, count) {
+            let perm = Instance::new(n, a, Oracle::Permutation);
+            let rip = Instance::new(n, a, Oracle::Ripple);
+            let win = Instance::new(n, a, Oracle::Windowed(4));
+            for seed in 0..2 {
+                let r = |inst: &Instance, b: Backend| {
+                    shor::order_finding(inst, b, &mut StdRng::seed_from_u64(seed)).measured
+                };
+                let base = r(&perm, Backend::FusedSparse);
+                assert_eq!(
+                    base,
+                    r(&rip, Backend::SlicedF64),
+                    "ripple N={n} a={a} seed={seed}"
+                );
+                assert_eq!(
+                    base,
+                    r(&win, Backend::SlicedF64),
+                    "windowed N={n} a={a} seed={seed}"
+                );
+                if n <= 1003 {
+                    assert_eq!(base, r(&rip, Backend::Sparse), "sparse ripple N={n} a={a}");
+                }
+            }
+        }
+    }
+}
+
+/// Beyond the 64-qubit u64-key limit of the sparse state: a 24-bit modulus
+/// (ripple: 76 qubits, windowed: 104) with a base of small order.
+#[test]
+fn sliced_beyond_64_qubits_matches_permutation() {
+    // N = 4093 * 4099, λ = 4·3·11·31·683; a = g^(4·683) has order dividing 1023
+    let n = 4093u64 * 4099;
+    let a = (2..1000u64)
+        .map(|g| qsim_lab::algorithms::pow_mod(g, 4 * 683, n))
+        .find(|&a| a > 1 && gcd(a, n) == 1)
+        .unwrap();
+    let perm = Instance::new(n, a, Oracle::Permutation);
+    let rip = Instance::new(n, a, Oracle::Ripple);
+    let win = Instance::new(n, a, Oracle::Windowed(3));
+    assert!(rip.qubits() > 64 && win.qubits() > 64);
+    for seed in 0..2 {
+        let r = |inst: &Instance, b: Backend| {
+            shor::order_finding(inst, b, &mut StdRng::seed_from_u64(seed)).measured
+        };
+        let base = r(&perm, Backend::FusedSparse);
+        assert_eq!(base, r(&rip, Backend::SlicedF64), "seed={seed}");
+        assert_eq!(base, r(&win, Backend::SlicedF64), "seed={seed}");
+    }
+}

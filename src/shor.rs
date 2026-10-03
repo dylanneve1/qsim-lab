@@ -23,6 +23,7 @@
 //! for the Fourier-space accumulator `b` and one ancilla.
 
 pub mod fused;
+pub mod sliced;
 
 use crate::algorithms::{gcd, pow_mod};
 use crate::blocked::BlockConfig;
@@ -47,6 +48,9 @@ pub enum Oracle {
     /// Cuccaro ripple-carry gate-level circuit (X, CNOT, CCX only),
     /// `3n + 4` qubits.
     Ripple,
+    /// Windowed (table-lookup) ripple-carry circuit, window `w`
+    /// ([`crate::shor_window`]), `4n + 4 + w` qubits; X, CNOT, CCX only.
+    Windowed(usize),
 }
 
 /// A simulator state that can run semiclassical order finding.
@@ -84,6 +88,11 @@ pub trait OrderFindingState: Clone {
         Self: Sized,
     {
         inst.round(self, i, y_low);
+    }
+    /// Gate applications × basis-state branches performed so far (0 if the
+    /// backend does not count them).
+    fn work_ops(&self) -> u128 {
+        0
     }
     /// Recycles the control after it was measured as `bit`.
     fn reset_control(&mut self, bit: bool) {
@@ -290,7 +299,13 @@ impl Instance {
             m <= 63,
             "the work register plus control must fit in a u64 key"
         );
-        let mults = (0..t).map(|k| pow_mod(a, 1 << k, n_mod)).collect();
+        // a^(2^k) by repeated squaring (2^k overflows u64 for k >= 64)
+        let mut mults = Vec::with_capacity(t);
+        let mut cur = a % n_mod;
+        for _ in 0..t {
+            mults.push(cur);
+            cur = pow_mod(cur, 2, n_mod);
+        }
         Self {
             n_mod,
             a,
@@ -309,6 +324,7 @@ impl Instance {
             Oracle::Permutation => self.m + 1,
             Oracle::Beauregard => 2 * self.m + 3,
             Oracle::Ripple => 3 * self.m + 4,
+            Oracle::Windowed(w) => 4 * self.m + 4 + w.min(self.m),
         }
     }
 
@@ -372,6 +388,17 @@ impl Instance {
                 }
                 s.gate(&Gate::H(0));
             }
+            Oracle::Windowed(_) => {
+                let (c, _) = sliced::oracle_block(self, mult);
+                s.gate(&Gate::H(0));
+                for g in c.gates() {
+                    s.gate(g);
+                }
+                if let Some(g) = corr {
+                    s.gate(&g);
+                }
+                s.gate(&Gate::H(0));
+            }
         }
     }
 }
@@ -391,6 +418,8 @@ pub struct SemiRun {
     pub peak_bytes: usize,
     pub total_gates: usize,
     pub toffoli_gates: usize,
+    /// Gate × branch applications (sliced backend only, else 0).
+    pub work_ops: u128,
 }
 
 /// One semiclassical order-finding run on the state `s` (which must be the
@@ -414,9 +443,8 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
                 let c = shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
                 total_gates += c.ops.len() + 2 + usize::from(y != 0);
             }
-            Oracle::Ripple => {
-                let lay = inst.ripple_layout();
-                let c = crate::shor_ripple::controlled_ua(&lay, 0, mult, inst.n_mod);
+            Oracle::Ripple | Oracle::Windowed(_) => {
+                let (c, _) = sliced::oracle_block(inst, mult);
                 let (g_tot, g_tof) = crate::shor_ripple::gate_counts(&c);
                 total_gates += g_tot + 2 + usize::from(y != 0);
                 toffoli_gates += g_tof;
@@ -432,11 +460,16 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         s.reset_control(bit); // recycle the control qubit
         if bit {
             y |= 1 << i;
-            if matches!(inst.oracle, Oracle::Beauregard | Oracle::Ripple) {
+            if matches!(
+                inst.oracle,
+                Oracle::Beauregard | Oracle::Ripple | Oracle::Windowed(_)
+            ) {
                 total_gates += 1;
             }
         }
     }
+    // the last collapse can grow the support; sample once more
+    peak_stored = peak_stored.max(s.stored());
     let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
     SemiRun {
         a: inst.a,
@@ -448,6 +481,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         peak_bytes,
         total_gates,
         toffoli_gates,
+        work_ops: s.work_ops(),
     }
 }
 
@@ -591,6 +625,10 @@ pub enum Backend {
     FusedF32,
     /// [`fused::FusedSparse`] (permutation oracle only).
     FusedSparse,
+    /// [`sliced::SlicedState`] f64 amplitudes (reversible gate-level oracles).
+    SlicedF64,
+    /// [`sliced::SlicedState`] f32 amplitudes.
+    SlicedF32,
 }
 
 /// Runs one semiclassical order finding with the given backend.
@@ -602,6 +640,8 @@ pub fn order_finding<R: Rng + ?Sized>(inst: &Instance, backend: Backend, rng: &m
         Backend::FusedF64 => run_semiclassical(inst, fused::FusedDense::<f64>::new(inst), rng),
         Backend::FusedF32 => run_semiclassical(inst, fused::FusedDense::<f32>::new(inst), rng),
         Backend::FusedSparse => run_semiclassical(inst, fused::FusedSparse::new(inst), rng),
+        Backend::SlicedF64 => run_semiclassical(inst, sliced::SlicedState::<f64>::new(inst), rng),
+        Backend::SlicedF32 => run_semiclassical(inst, sliced::SlicedState::<f32>::new(inst), rng),
     }
 }
 

@@ -1,0 +1,6 @@
+N=15 a=7 w=2: sliced vs my dense full-register SV max|dp|=1.721e-15; dense vs textbook 1.776e-15
+N=15 a=2 w=1: sliced vs my dense full-register SV max|dp|=1.721e-15; dense vs textbook 1.776e-15
+N=15 a=11 w=3: sliced vs my dense full-register SV max|dp|=1.221e-15; dense vs textbook 1.221e-15
+N=15 a=13 w=3: sliced vs my dense full-register SV max|dp|=1.721e-15; dense vs textbook 1.776e-15
+N=15 a=4 w=2: sliced vs my dense full-register SV max|dp|=1.221e-15; dense vs textbook 1.221e-15
+WORST sliced vs dense: 1.7208456881689926e-15

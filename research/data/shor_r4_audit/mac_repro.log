@@ -1,0 +1,21 @@
+# Audit reproduction on the Mac (M1 Pro, 8 cores, 16 GB), binary built from exp/shor-r4 66acd8b
+# (CARGO_TARGET_DIR=~/qsim-audit-shor-target, deleted afterwards), every run under /tmp/qsim-mac-bench.lock.
+# run() = QSIM_SLICE_PROFILE=1 /usr/bin/time -l qsim run shor --semiclassical --oracle windowed --window 4 --sliced "$@"
+lock A Sat Oct  3 23:37:10 IST 2026
+== --modulus 10161323 --seed 1 --tries 5 (load { 1.37 1.95 3.82 })
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  total_gates=819272  gate_branch_ops=1.589e11
+time 0.293 s   104808448 maximum resident set size
+== --modulus 10161323 --seed 1 --tries 5
+time 0.277 s   104431616 maximum resident set size  (same a, measured, order)
+== --modulus 221643407 --seed 1 --tries 1 (load { 1.37 1.95 3.82 })
+[sliced profile] build 0.024s  eval c=1 6.298s  eval c=0 5.698s  sort 2.282s  p1 0.323s  collapse 1.351s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  total_gates=1264500  gate_branch_ops=1.413e13
+time 16.035 s   2823356416 maximum resident set size
+== --modulus 221643407 --seed 1 --tries 1 --f32 (load { 3.62 2.42 3.94 })
+same a / measured / order / factor;  time 14.986 s   2022195200 maximum resident set size
+lock B Sat Oct  3 23:37:45 IST 2026
+== --modulus 1537596787 --seed 2 --tries 1 --f32 (load { 5.87 2.97 4.11 })
+[sliced profile] build 0.030s  eval c=1 55.908s  eval c=0 53.496s  sort 16.007s  p1 1.459s  collapse 7.102s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+1537596787 = 29287 x 52501
+time 134.088 s   4283056128 maximum resident set size

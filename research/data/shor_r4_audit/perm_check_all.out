@@ -1,0 +1,16 @@
+OK N=15 a=2 w=1 mode=all qubits=21 gates=1220
+OK N=15 a=2 w=2 mode=all qubits=22 gates=752
+OK N=15 a=2 w=3 mode=all qubits=23 gates=868
+OK N=15 a=2 w=4 mode=all qubits=24 gates=974
+OK N=15 a=7 w=1 mode=all qubits=21 gates=1252
+OK N=15 a=7 w=2 mode=all qubits=22 gates=784
+OK N=15 a=7 w=3 mode=all qubits=23 gates=892
+OK N=15 a=7 w=4 mode=all qubits=24 gates=974
+OK N=15 a=11 w=1 mode=all qubits=21 gates=1252
+OK N=15 a=11 w=2 mode=all qubits=22 gates=784
+OK N=15 a=11 w=3 mode=all qubits=23 gates=892
+OK N=15 a=11 w=4 mode=all qubits=24 gates=974
+OK N=15 a=13 w=1 mode=all qubits=21 gates=1252
+OK N=15 a=13 w=2 mode=all qubits=22 gates=784
+OK N=15 a=13 w=3 mode=all qubits=23 gates=892
+OK N=15 a=13 w=4 mode=all qubits=24 gates=974

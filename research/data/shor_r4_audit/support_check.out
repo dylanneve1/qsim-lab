@@ -1,0 +1,16 @@
+N=2491 (12 b) a=2463 [random base] r=598 nu2=1 t=24 |S_i|=B_i in 24/24 rounds; exceed=0; W_counter=51983360 sum2SG=51983360 match=True; W(B)/W=1.0000; peak=299 vs max(r_odd,r/2)=299
+N=2491 (12 b) a=1606 [odd r] r=299 nu2=0 t=24 |S_i|=B_i in 24/24 rounds; exceed=0; W_counter=51595880 sum2SG=51595880 match=True; W(B)/W=1.0000; peak=299 vs max(r_odd,r/2)=299
+N=10033 (14 b) a=4708 [random base] r=1638 nu2=1 t=28 |S_i|=B_i in 28/28 rounds; exceed=0; W_counter=213521792 sum2SG=213521792 match=True; W(B)/W=1.0000; peak=819 vs max(r_odd,r/2)=819
+N=10033 (14 b) a=7183 [odd r] r=819 nu2=0 t=28 |S_i|=B_i in 28/28 rounds; exceed=0; W_counter=212917296 sum2SG=212917296 match=True; W(B)/W=1.0000; peak=819 vs max(r_odd,r/2)=819
+N=23711 (15 b) a=13018 [random base] r=1170 nu2=1 t=30 |S_i|=B_i in 30/30 rounds; exceed=0; W_counter=190433158 sum2SG=190433158 match=True; W(B)/W=1.0000; peak=585 vs max(r_odd,r/2)=585
+N=23711 (15 b) a=7904 [odd r] r=585 nu2=0 t=30 |S_i|=B_i in 30/30 rounds; exceed=0; W_counter=188756794 sum2SG=188756794 match=True; W(B)/W=1.0000; peak=585 vs max(r_odd,r/2)=585
+N=197111 (18 b) a=195553 [random base] r=98112 nu2=6 t=36 |S_i|=B_i in 36/36 rounds; exceed=0; W_counter=2696590080 sum2SG=2696590080 match=True; W(B)/W=1.0000; peak=49056 vs max(r_odd,r/2)=49056
+N=197111 (18 b) a=30407 [odd r] r=1533 nu2=0 t=36 |S_i|=B_i in 36/36 rounds; exceed=0; W_counter=853554464 sum2SG=853554464 match=True; W(B)/W=1.0000; peak=1533 vs max(r_odd,r/2)=1533
+N=672319 (20 b) a=25943 [random base] r=18630 nu2=1 t=40 |S_i|=B_i in 40/40 rounds; exceed=0; W_counter=6389522612 sum2SG=6389522612 match=True; W(B)/W=1.0000; peak=9315 vs max(r_odd,r/2)=9315
+N=672319 (20 b) a=343710 [odd r] r=1863 nu2=0 t=40 |S_i|=B_i in 40/40 rounds; exceed=0; W_counter=1382296156 sum2SG=1382296156 match=True; W(B)/W=1.0000; peak=1863 vs max(r_odd,r/2)=1863
+N=3832781 (22 b) a=1669957 [random base] r=239304 nu2=3 t=44 |S_i|=B_i in 44/44 rounds; exceed=0; W_counter=31011897592 sum2SG=31011897592 match=True; W(B)/W=1.0000; peak=119652 vs max(r_odd,r/2)=119652
+N=3832781 (22 b) a=535306 [odd r] r=9971 nu2=0 t=44 |S_i|=B_i in 44/44 rounds; exceed=0; W_counter=9600749592 sum2SG=9600749592 match=True; W(B)/W=1.0000; peak=9971 vs max(r_odd,r/2)=9971
+N=8633 (14 b) a=4825 [high nu2] r=528 nu2=4 t=28 |S_i|=B_i in 28/28 rounds; exceed=0; W_counter=15642312 sum2SG=15642312 match=True; W(B)/W=1.0000; peak=264 vs max(r_odd,r/2)=264
+N=115393 (17 b) a=1854 [high nu2] r=256 nu2=8 t=34 |S_i|=B_i in 34/34 rounds; exceed=0; W_counter=5505434 sum2SG=5505434 match=True; W(B)/W=1.0000; peak=128 vs max(r_odd,r/2)=128
+N=1624577 (21 b) a=331969 [high nu2] r=4224 nu2=7 t=42 |S_i|=B_i in 42/42 rounds; exceed=0; W_counter=147546138 sum2SG=147546138 match=True; W(B)/W=1.0000; peak=2112 vs max(r_odd,r/2)=2112
+TOTAL |S_i|=B_i in 508/508 rounds; rounds exceeding the bound: []
