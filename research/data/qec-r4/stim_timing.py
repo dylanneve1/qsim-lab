@@ -40,6 +40,9 @@ for name, path in [("A_ours_circuit", pa), ("B_stim_circuit", pb)]:
     t = time.perf_counter(); s = c.compile_detector_sampler(seed=1); tc = time.perf_counter() - t
     s.sample_write(1024, filepath=os.devnull, format="ptb64", append_observables=True)  # warm
     rs = {"stim_write": [], "stim_mem": [], "ours": []}
+    cli = os.environ.get("STIM_CLI")  # optional natively compiled stim (e.g. -DSIMD_WIDTH=256)
+    if cli:
+        rs["stim_cli_native"] = []
     oc = None
     for r in range(reps):
         order = ["stim", "ours"] if r % 2 == 0 else ["ours", "stim"]
@@ -52,6 +55,11 @@ for name, path in [("A_ours_circuit", pa), ("B_stim_circuit", pb)]:
                 _ = s.sample(shots, append_observables=True, bit_packed=True)
                 rs["stim_mem"].append(time.perf_counter() - t)
                 del _
+                if cli:
+                    t = time.perf_counter()
+                    subprocess.run([cli, "detect", "--shots", str(shots), "--in", path, "--out", os.devnull,
+                                    "--out_format", "ptb64", "--append_observables"], check=True)
+                    rs["stim_cli_native"].append(time.perf_counter() - t)
             else:
                 ts, oc = ours(path)
                 rs["ours"].append(ts)
@@ -62,4 +70,7 @@ for name, path in [("A_ours_circuit", pa), ("B_stim_circuit", pb)]:
                **{k + "_all_s": v for k, v in rs.items()})
     res["ratio_write"] = res["stim_write_min_s"] / res["ours_min_s"]
     res["ratio_mem"] = res["stim_mem_min_s"] / res["ours_min_s"]
+    if cli:
+        res["ratio_cli_native"] = res["stim_cli_native_min_s"] / res["ours_min_s"]
+    res["load1"] = os.getloadavg()[0]
     print(json.dumps(res), flush=True)

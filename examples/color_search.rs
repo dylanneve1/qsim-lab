@@ -123,10 +123,14 @@ fn main() {
             let mut pure = std::collections::HashSet::new();
             let mut seen = std::collections::HashSet::new();
             for e in &dem {
-                let zs: Vec<u32> = e.detectors.iter().filter_map(|&i| {
-                    let z = zmap[i as usize];
-                    (z != u32::MAX).then_some(z)
-                }).collect();
+                let zs: Vec<u32> = e
+                    .detectors
+                    .iter()
+                    .filter_map(|&i| {
+                        let z = zmap[i as usize];
+                        (z != u32::MAX).then_some(z)
+                    })
+                    .collect();
                 let ob = e.observables & 1 == 1;
                 if zs.is_empty() && !ob {
                     continue;
@@ -141,14 +145,58 @@ fn main() {
             }
             let dets: Vec<Vec<u32>> = keys.iter().map(|k| k.0.clone()).collect();
             let obs: Vec<bool> = keys.iter().map(|k| k.1).collect();
-            let r = qsim_lab::qec::distance::min_logical(nz as usize, &dets, &obs, 4 * d, cap, node_limit);
+            let r = qsim_lab::qec::distance::min_logical(
+                nz as usize,
+                &dets,
+                &obs,
+                4 * d,
+                cap,
+                node_limit,
+            );
             let certified = r.example.iter().all(|&j| pure.contains(&keys[j]));
             // describe the example: per mechanism, the plaquettes (and rounds) of its Z detectors
-            let zinfo: Vec<(usize, usize)> = m.detector_info.iter().filter(|i| !i.1).map(|i| (i.0, i.2)).collect();
-            let ex: Vec<String> = r.example.iter().map(|&j| {
-                let v: Vec<String> = keys[j].0.iter().map(|&z| format!("{}@{}", zinfo[z as usize].0, zinfo[z as usize].1)).collect();
-                format!("[{}{}]", v.join(" "), if keys[j].1 { " L" } else { "" })
-            }).collect();
+            let zinfo: Vec<(usize, usize)> = m
+                .detector_info
+                .iter()
+                .filter(|i| !i.1)
+                .map(|i| (i.0, i.2))
+                .collect();
+            let ex: Vec<String> = r
+                .example
+                .iter()
+                .map(|&j| {
+                    let v: Vec<String> = keys[j]
+                        .0
+                        .iter()
+                        .map(|&z| format!("{}@{}", zinfo[z as usize].0, zinfo[z as usize].1))
+                        .collect();
+                    format!("[{}{}]", v.join(" "), if keys[j].1 { " L" } else { "" })
+                })
+                .collect();
+            if std::env::var("DUMP_ALL").is_ok() {
+                for sol in &r.all {
+                    let mut pl: Vec<usize> = sol
+                        .iter()
+                        .flat_map(|&j| keys[j].0.iter().map(|&z| zinfo[z as usize].0))
+                        .collect();
+                    pl.sort_unstable();
+                    pl.dedup();
+                    let desc: Vec<String> = sol
+                        .iter()
+                        .map(|&j| {
+                            let v: Vec<String> = keys[j]
+                                .0
+                                .iter()
+                                .map(|&z| {
+                                    format!("{}@{}", zinfo[z as usize].0, zinfo[z as usize].1)
+                                })
+                                .collect();
+                            format!("[{}{}]", v.join(" "), if keys[j].1 { " L" } else { "" })
+                        })
+                        .collect();
+                    eprintln!("plaquettes {:?} :: {}", pl, desc.join(" "));
+                }
+            }
             println!(
                 "{{\"d\":{d},\"rounds\":{rounds},\"schedule\":\"{}\",\"noise\":\"{noise_kind}\",\"distance\":{},\"count\":{},\"count_capped\":{},\"certified\":{certified},\"mechanisms\":{},\"z_detectors\":{nz},\"nodes\":{},\"seconds\":{:.3},\"example\":\"{}\"}}",
                 a[4],
