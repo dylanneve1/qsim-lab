@@ -29,6 +29,8 @@ for line in open(demf):
     lines.append(f"error({pp}) {t}")
 dem_text = "\n".join(lines)
 shots = (shots // 64) * 64
+ORDERS = int(os.environ.get("TESS_ORDERS", "16"))
+BEAM = int(os.environ.get("TESS_BEAM", "15"))
 t0 = time.time()
 subprocess.run([SC, "sample", stimf, str(shots), samp, str(seed)], check=True)
 a = np.fromfile(samp, dtype="<u8").reshape(-1, nd + 1)
@@ -41,8 +43,8 @@ t_sample = time.time() - t0
 
 def make():
     dem = stim.DetectorErrorModel(dem_text)
-    cfg = tesseract.TesseractConfig(dem=dem, pqlimit=200_000, det_beam=15, beam_climbing=True,
-                                    det_orders=tu.build_det_orders(dem=dem, num_det_orders=16,
+    cfg = tesseract.TesseractConfig(dem=dem, pqlimit=200_000, det_beam=BEAM, beam_climbing=True,
+                                    det_orders=tu.build_det_orders(dem=dem, num_det_orders=ORDERS,
                                                                    method=tu.DetOrder.DetIndex),
                                     no_revisit_dets=True)
     return tesseract.TesseractDecoder(cfg)
@@ -67,7 +69,7 @@ den = 1 + z * z / n
 c = (pl + z * z / (2 * n)) / den
 h = z * math.sqrt(pl * (1 - pl) / n + z * z / (4 * n * n)) / den
 pr = lambda x: (1 - max(0.0, 1 - 2 * x) ** (1 / rounds)) / 2
-print(json.dumps(dict(decoder="tesseract", d=d, rounds=rounds, noise=noise, p=float(p), schedule=sched,
+print(json.dumps(dict(decoder="tesseract", det_orders=ORDERS, det_beam=BEAM, d=d, rounds=rounds, noise=noise, p=float(p), schedule=sched,
                       shots=n, fails=fails, p_L=pl, ci95=[c - h, c + h], p_L_round=pr(pl),
                       ci95_round=[pr(c - h), pr(c + h)], sample_s=round(t_sample, 2),
                       decode_s=round(time.time() - t1, 1), workers=workers)))

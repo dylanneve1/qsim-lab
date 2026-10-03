@@ -140,3 +140,39 @@ fn noisy_dem_has_no_undetectable_single_logical_fault() {
             .all(|e| !e.detectors.is_empty() || e.observables == 0));
     }
 }
+
+/// Exact circuit distances of the Kishony-Fowler schedule reproduce their
+/// d_circ = d - floor((d+3)/6) (noisy-CNOT model), with exact counts of
+/// minimum-weight logicals; cross-checked against MaxSAT/ILP in
+/// research/qec-r4.md.
+#[test]
+fn kf_circuit_distance_matches_published_formula() {
+    for (d, rounds, count) in [
+        (3usize, 3usize, None),
+        (5, 1, Some(55u64)),
+        (5, 5, Some(388)),
+        (7, 1, Some(883)),
+    ] {
+        let cc = ColorCode::new(d);
+        let m = cc.memory(
+            &cc.uniform_schedule(KF_SCHEDULE),
+            rounds,
+            ColorNoise::Cnot(0.001),
+        );
+        let (r, cert) = m.z_distance(u64::MAX, u64::MAX);
+        assert!(cert);
+        assert_eq!(r.weight, Some(d - (d + 3) / 6), "d={d} rounds={rounds}");
+        if let Some(c) = count {
+            assert_eq!(r.count, c);
+        }
+    }
+    // a uniform schedule is hook-limited: Lee et al.'s tri-optimal at d=5
+    let cc = ColorCode::new(5);
+    let m = cc.memory(
+        &cc.uniform_schedule([TRI_OPTIMAL; 3]),
+        1,
+        ColorNoise::Cnot(0.001),
+    );
+    let (r, _) = m.z_distance(u64::MAX, u64::MAX);
+    assert!(r.weight.unwrap() < 4);
+}

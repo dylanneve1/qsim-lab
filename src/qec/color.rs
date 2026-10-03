@@ -433,3 +433,90 @@ pub const KF_SCHEDULE: [[u8; 6]; 3] = [
 
 /// Lee et al.'s uniform "tri-optimal" schedule (same for every colour).
 pub const TRI_OPTIMAL: [u8; 6] = [2, 3, 6, 5, 4, 1];
+
+/// The Z sector of a memory experiment's DEM (Z-type detectors and the
+/// observable; mechanisms merged by Z-sector signature).
+#[derive(Clone, Debug)]
+pub struct ZSector {
+    pub num_detectors: usize,
+    pub dets: Vec<Vec<u32>>,
+    pub obs: Vec<bool>,
+    /// Whether some fault with exactly this Z-sector signature flips no
+    /// X-type detector (needed to certify that a Z-sector logical is a
+    /// full-DEM logical of the same weight).
+    pub pure: Vec<bool>,
+    /// Plaquette of each Z-sector detector.
+    pub plaquette: Vec<usize>,
+}
+
+impl ColorMemory {
+    pub fn z_sector(&self) -> ZSector {
+        let dem = circuit_dem(
+            &self.circuit,
+            &self.noise,
+            &self.detectors,
+            &self.observables,
+        );
+        let mut zmap = vec![u32::MAX; self.detectors.len()];
+        let mut plaquette = Vec::new();
+        for (i, inf) in self.detector_info.iter().enumerate() {
+            if !inf.1 {
+                zmap[i] = plaquette.len() as u32;
+                plaquette.push(inf.0);
+            }
+        }
+        let mut index = std::collections::HashMap::new();
+        let (mut dets, mut obs, mut pure) = (Vec::new(), Vec::new(), Vec::new());
+        for e in &dem {
+            let zs: Vec<u32> = e
+                .detectors
+                .iter()
+                .filter_map(|&i| {
+                    let z = zmap[i as usize];
+                    (z != u32::MAX).then_some(z)
+                })
+                .collect();
+            let ob = e.observables & 1 == 1;
+            if zs.is_empty() && !ob {
+                continue;
+            }
+            let is_pure = zs.len() == e.detectors.len();
+            let k = *index.entry((zs.clone(), ob)).or_insert_with(|| {
+                dets.push(zs);
+                obs.push(ob);
+                pure.push(false);
+                dets.len() - 1
+            });
+            pure[k] |= is_pure;
+        }
+        ZSector {
+            num_detectors: plaquette.len(),
+            dets,
+            obs,
+            pure,
+            plaquette,
+        }
+    }
+
+    /// Exact Z-memory circuit distance and number of minimum-weight logicals
+    /// (see [`crate::qec::distance`]); `certified` is true if the example
+    /// logical lifts to the full DEM (it then equals the full-DEM distance,
+    /// since dropping X detectors can only lower the minimum).
+    pub fn z_distance(
+        &self,
+        count_cap: u64,
+        node_limit: u64,
+    ) -> (crate::qec::distance::MinLogical, bool) {
+        let z = self.z_sector();
+        let r = crate::qec::distance::min_logical(
+            z.num_detectors,
+            &z.dets,
+            &z.obs,
+            64,
+            count_cap,
+            node_limit,
+        );
+        let cert = !r.example.is_empty() && r.example.iter().all(|&j| z.pure[j]);
+        (r, cert)
+    }
+}
