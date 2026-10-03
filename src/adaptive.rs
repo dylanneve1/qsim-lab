@@ -532,6 +532,23 @@ pub fn active_dimension(circuit: &Circuit) -> Result<usize, SimError> {
     Ok(frame.basis.len())
 }
 
+/// The active-dimension profile `d_1 ≤ d_2 ≤ … ≤ d_m` (one entry per
+/// non-Clifford rotation, after Clifford absorption and merging of
+/// half-π multiples), i.e. the `d_profile` [`CompressedState::new`] would
+/// record, without touching any amplitudes. `Σ_j 2^{d_j}` is the exact
+/// number of amplitude updates of the compressed Schrödinger evolution, so
+/// this is an O(gates · n) cost oracle for that engine.
+pub fn active_dimension_profile(circuit: &Circuit) -> Result<Vec<usize>, SimError> {
+    let comp = compile_state(circuit)?;
+    let mut frame = Gf2Frame::new(comp.n, comp.w);
+    let mut prof = Vec::with_capacity(comp.rots.len());
+    for (q, _) in &comp.rots {
+        frame.push(&q[..comp.w]);
+        prof.push(frame.basis.len());
+    }
+    Ok(prof)
+}
+
 /// Statistics of a compressed-state run.
 #[derive(Clone, Debug, Default)]
 pub struct CompressedStats {

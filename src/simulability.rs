@@ -1,0 +1,765 @@
+//! Phase diagram of exact simulability (research/simulability.md).
+//!
+//! Three pieces, used by `examples/simulability.rs` and the Python driver in
+//! `research/data/simulability/`:
+//!
+//! * [`build`]: four parameterised circuit families that sweep across the
+//!   regimes of the exact engines (Clifford+T, generic brickwork,
+//!   reversible arithmetic, QAOA).
+//! * [`features`]: cheap statistics, computed in about O(gates · n) without
+//!   simulating, one "resource" per engine: the active-dimension profile of
+//!   the rotation frame (compressed state), a crossing-count bound on the MPS
+//!   bond, the KL cut of the HSF partition, an affine bound on the support
+//!   size (sparse state), and the plain `n` / gate count (state vector).
+//! * [`run_engine`]: every exact engine, all answering the same request,
+//!   `<ψ| Z^{⊗n} |ψ>` for `|ψ> = U|0^n>` (a global observable, so no engine
+//!   gets a light-cone shortcut), under a common memory budget.
+//!
+//! Everything here is exact; an engine that would have to truncate reports
+//! an error instead of a value.
+
+use crate::adaptive::{self, AdaptiveOptions, Strategy};
+use crate::blocked::BlockConfig;
+use crate::circuit::{Circuit, Op, SimError};
+use crate::gate::Gate;
+use crate::hsf::{self, HsfOptions, HybridSchrodingerFeynman};
+use crate::mps::Mps;
+use crate::pauli_frame::FrameOptions;
+use crate::pauli_path::PauliSum;
+use crate::sparse::SparseState;
+use crate::statevector::StateVectorF64;
+use num_complex::Complex64;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use std::collections::BTreeMap;
+use std::f64::consts::PI;
+use std::time::Instant;
+
+/// Engines [`run_engine`] knows, in a fixed order.
+pub const ENGINES: [&str; 8] = [
+    "sv", "sparse", "mps", "hsf", "tableau", "frame", "dense", "auto",
+];
+
+/// Parsed `family:key=value,key=value` specification.
+#[derive(Clone, Debug)]
+pub struct Spec {
+    pub family: String,
+    pub params: BTreeMap<String, f64>,
+}
+
+impl Spec {
+    pub fn parse(s: &str) -> Result<Spec, String> {
+        let (family, rest) = s.split_once(':').unwrap_or((s, ""));
+        let mut params = BTreeMap::new();
+        for kv in rest.split(',').filter(|x| !x.is_empty()) {
+            let (k, v) = kv
+                .split_once('=')
+                .ok_or_else(|| format!("bad parameter {kv:?}"))?;
+            let v: f64 = v.parse().map_err(|_| format!("bad value in {kv:?}"))?;
+            params.insert(k.to_string(), v);
+        }
+        Ok(Spec {
+            family: family.to_string(),
+            params,
+        })
+    }
+
+    fn get(&self, k: &str, default: f64) -> f64 {
+        *self.params.get(k).unwrap_or(&default)
+    }
+
+    fn geti(&self, k: &str, default: usize) -> usize {
+        self.get(k, default as f64).round() as usize
+    }
+}
+
+/// Builds the circuit for a [`Spec`] (deterministic in `seed`).
+///
+/// * `ct:n,L,t,nn` — `L` layers of random single-qubit Cliffords
+///   (`I, H, S, HS`) and a CNOT layer (nearest-neighbour brickwork if
+///   `nn=1`, else a random perfect matching), with `t` T gates at random
+///   (layer, qubit) slots.
+/// * `brick:n,D,nn` — `D` layers of Haar-ish random `U` on every qubit and
+///   a CZ layer (`nn=1` brickwork, else random matching), then a final `U`
+///   layer.
+/// * `arith:bits,h,reps` — Cuccaro ripple-carry adders on two `bits`-bit
+///   registers: `h` qubits of each register in `|+>`, the rest a random
+///   classical value; `reps` additions alternating `b += a` / `a += b`.
+///   Pure permutation after the Hadamards.
+/// * `qaoa:n,p,deg,nn` — QAOA on a graph with `n·deg/2` edges (ring
+///   neighbourhood if `nn=1`, else uniformly random), `p` rounds of
+///   `exp(-iγ ZZ)` per edge (CNOT·Rz·CNOT) and `Rx(2β)` mixers.
+pub fn build(spec: &Spec, seed: u64) -> Result<Circuit, String> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    match spec.family.as_str() {
+        "ct" => {
+            let n = spec.geti("n", 16);
+            let layers = spec.geti("L", 4).max(1);
+            let t = spec.geti("t", 0);
+            let nn = spec.geti("nn", 1) == 1;
+            Ok(clifford_t(n, layers, t, nn, &mut rng))
+        }
+        "brick" => {
+            let n = spec.geti("n", 16);
+            let depth = spec.geti("D", 4);
+            let nn = spec.geti("nn", 1) == 1;
+            Ok(brick(n, depth, nn, &mut rng))
+        }
+        "arith" => {
+            let bits = spec.geti("bits", 8).max(1);
+            let h = spec.geti("h", 2).min(bits);
+            let reps = spec.geti("reps", 1);
+            Ok(arith(bits, h, reps, &mut rng))
+        }
+        "qaoa" => {
+            let n = spec.geti("n", 16);
+            let p = spec.geti("p", 1);
+            let deg = spec.geti("deg", 3);
+            let nn = spec.geti("nn", 0) == 1;
+            Ok(qaoa(n, p, deg, nn, &mut rng))
+        }
+        f => Err(format!("unknown family {f:?}")),
+    }
+}
+
+fn matching<R: Rng>(n: usize, layer: usize, nn: bool, rng: &mut R) -> Vec<(usize, usize)> {
+    if nn {
+        (layer % 2..n.saturating_sub(1))
+            .step_by(2)
+            .map(|i| (i, i + 1))
+            .collect()
+    } else {
+        let mut perm: Vec<usize> = (0..n).collect();
+        for i in (1..n).rev() {
+            let j = rng.random_range(0..=i);
+            perm.swap(i, j);
+        }
+        perm.chunks_exact(2).map(|c| (c[0], c[1])).collect()
+    }
+}
+
+fn clifford_t<R: Rng>(n: usize, layers: usize, t: usize, nn: bool, rng: &mut R) -> Circuit {
+    // T slots: distinct (layer, qubit) pairs while possible.
+    let slots = layers * n;
+    let mut chosen = vec![0usize; slots];
+    if t <= slots {
+        let mut idx: Vec<usize> = (0..slots).collect();
+        for i in 0..t {
+            let j = rng.random_range(i..slots);
+            idx.swap(i, j);
+            chosen[idx[i]] += 1;
+        }
+    } else {
+        for _ in 0..t {
+            chosen[rng.random_range(0..slots)] += 1;
+        }
+    }
+    let mut c = Circuit::new(n);
+    for l in 0..layers {
+        for q in 0..n {
+            match rng.random_range(0..4) {
+                0 => {}
+                1 => {
+                    c.h(q);
+                }
+                2 => {
+                    c.s(q);
+                }
+                _ => {
+                    c.h(q).s(q);
+                }
+            }
+            for _ in 0..chosen[l * n + q] {
+                // H T keeps consecutive T gates on a wire from fusing to S.
+                c.t(q).h(q);
+            }
+        }
+        for (a, b) in matching(n, l, nn, rng) {
+            if rng.random_bool(0.5) {
+                c.cnot(a, b);
+            } else {
+                c.cnot(b, a);
+            }
+        }
+    }
+    c
+}
+
+fn random_u<R: Rng>(c: &mut Circuit, q: usize, rng: &mut R) {
+    // Haar measure on SU(2): θ with density sin θ / 2.
+    let th = (1.0 - 2.0 * rng.random::<f64>()).acos();
+    c.u(q, th, rng.random_range(0.0..2.0 * PI), rng.random_range(0.0..2.0 * PI));
+}
+
+fn brick<R: Rng>(n: usize, depth: usize, nn: bool, rng: &mut R) -> Circuit {
+    let mut c = Circuit::new(n);
+    for l in 0..depth {
+        for q in 0..n {
+            random_u(&mut c, q, rng);
+        }
+        for (a, b) in matching(n, l, nn, rng) {
+            c.cz(a, b);
+        }
+    }
+    for q in 0..n {
+        random_u(&mut c, q, rng);
+    }
+    c
+}
+
+/// Cuccaro adder `y += x` (mod 2^bits) with carry-in ancilla `anc`.
+fn cuccaro(c: &mut Circuit, x: &[usize], y: &[usize], anc: usize) {
+    let bits = x.len();
+    let carry = |i: usize| if i == 0 { anc } else { x[i - 1] };
+    for i in 0..bits {
+        // MAJ(carry, y_i, x_i)
+        let (p, q, r) = (carry(i), y[i], x[i]);
+        c.cnot(r, q).cnot(r, p).ccx(p, q, r);
+    }
+    for i in (0..bits).rev() {
+        // UMA(carry, y_i, x_i)
+        let (p, q, r) = (carry(i), y[i], x[i]);
+        c.ccx(p, q, r).cnot(r, p).cnot(p, q);
+    }
+}
+
+fn arith<R: Rng>(bits: usize, h: usize, reps: usize, rng: &mut R) -> Circuit {
+    let n = 2 * bits + 1;
+    let a: Vec<usize> = (0..bits).map(|i| 1 + 2 * i).collect();
+    let b: Vec<usize> = (0..bits).map(|i| 2 + 2 * i).collect();
+    let mut c = Circuit::new(n);
+    for reg in [&a, &b] {
+        for (i, &q) in reg.iter().enumerate() {
+            if i < h {
+                c.h(q);
+            } else if rng.random_bool(0.5) {
+                c.x(q);
+            }
+        }
+    }
+    for r in 0..reps {
+        if r % 2 == 0 {
+            cuccaro(&mut c, &a, &b, 0);
+        } else {
+            cuccaro(&mut c, &b, &a, 0);
+        }
+    }
+    c
+}
+
+fn qaoa<R: Rng>(n: usize, p: usize, deg: usize, nn: bool, rng: &mut R) -> Circuit {
+    let mut edges = Vec::new();
+    if nn {
+        for i in 0..n {
+            for k in 1..=deg.div_ceil(2) {
+                if i + k < n || n > 2 * k {
+                    let j = (i + k) % n;
+                    if i != j {
+                        edges.push((i.min(j), i.max(j)));
+                    }
+                }
+            }
+        }
+        edges.sort();
+        edges.dedup();
+    } else {
+        let m = n * deg / 2;
+        let mut seen = std::collections::BTreeSet::new();
+        while seen.len() < m.min(n * (n - 1) / 2) {
+            let a = rng.random_range(0..n);
+            let b = rng.random_range(0..n);
+            if a != b {
+                seen.insert((a.min(b), a.max(b)));
+            }
+        }
+        edges = seen.into_iter().collect();
+    }
+    let mut c = Circuit::new(n);
+    for q in 0..n {
+        c.h(q);
+    }
+    for _ in 0..p {
+        let gamma = rng.random_range(0.1..1.4);
+        let beta = rng.random_range(0.1..1.4);
+        for &(a, b) in &edges {
+            c.cnot(a, b).rz(b, 2.0 * gamma).cnot(a, b);
+        }
+        for q in 0..n {
+            c.rx(q, 2.0 * beta);
+        }
+    }
+    c
+}
+
+// ---------------------------------------------------------------------------
+// Features.
+
+/// Cheap circuit statistics. Every `*_l` field is a log2 work estimate for
+/// one engine; the remaining fields are the raw ingredients.
+#[derive(Clone, Debug, Default)]
+pub struct Features {
+    pub n: usize,
+    pub gates: usize,
+    pub g2: usize,
+    pub g3: usize,
+    /// Two-qubit-gate depth (ASAP layers counting only multi-qubit gates).
+    pub depth2: usize,
+    /// T/T† count after decomposition (Toffoli = 7).
+    pub t_count: usize,
+    /// Non-Clifford rotations seen by the rotation frame (after merging
+    /// half-π multiples).
+    pub rotations: usize,
+    /// Final active dimension `d_m`.
+    pub d: usize,
+    /// `log2 Σ_j 2^{d_j}`: exact amplitude updates of the compressed state.
+    pub dense_l: f64,
+    /// Rotations that do not grow the x-span (each can double the
+    /// Heisenberg term count).
+    pub redundant: usize,
+    /// Pauli-path proxy: `log2 m + min(redundant, 2 d)`... see code.
+    pub frame_l: f64,
+    /// Max over line cuts of the crossing-count bound on log2 χ.
+    pub chi_bits: usize,
+    /// log2 Σ_gates Σ_{cuts swept} χ_cut(t)^3 with the time-resolved bound.
+    pub mps_l: f64,
+    /// HSF: log2 paths of the KL partition and block sizes.
+    pub hsf_k: u32,
+    pub hsf_na: usize,
+    pub hsf_nb: usize,
+    pub hsf_l: f64,
+    /// Affine upper bound on log2 of the support size of the final state.
+    pub sup: usize,
+    pub sparse_l: f64,
+    pub sv_l: f64,
+    /// Seconds spent computing these features.
+    pub secs: f64,
+    pub secs_frame: f64,
+    pub secs_hsf: f64,
+}
+
+fn log2sum(xs: impl Iterator<Item = f64>) -> f64 {
+    // log2 Σ 2^x, stable.
+    let v: Vec<f64> = xs.collect();
+    if v.is_empty() {
+        return 0.0;
+    }
+    let m = v.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    m + v.iter().map(|x| (x - m).exp2()).sum::<f64>().log2()
+}
+
+fn gate_list(c: &Circuit) -> Vec<Gate> {
+    c.ops
+        .iter()
+        .filter_map(|op| match op {
+            Op::Gate(g) => Some(*g),
+            _ => None,
+        })
+        .collect()
+}
+
+/// log2 of the operator-Schmidt rank of a two-qubit gate (across its two
+/// qubits).
+fn schmidt_bits(g: &Gate) -> usize {
+    match g {
+        Gate::Cnot(..) | Gate::Cz(..) | Gate::CPhase(..) => 1,
+        Gate::Swap(..) | Gate::ISwap(..) | Gate::ISwapdg(..) => 2,
+        _ => 2,
+    }
+}
+
+/// Computes [`Features`]. `with_hsf=false` skips the KL partition (the
+/// most expensive feature on large circuits).
+pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
+    let t0 = Instant::now();
+    let n = c.num_qubits;
+    let gates = gate_list(c);
+    let mut f = Features {
+        n,
+        gates: gates.len(),
+        ..Default::default()
+    };
+    // Gate classes, T count, 2q depth.
+    let mut level = vec![0usize; n];
+    for g in &gates {
+        let qs = g.qubits();
+        match qs.len() {
+            2 => f.g2 += 1,
+            3 => f.g3 += 1,
+            _ => {}
+        }
+        if qs.len() >= 2 {
+            let l = qs.iter().map(|&q| level[q]).max().unwrap_or(0) + 1;
+            for &q in &qs {
+                level[q] = l;
+            }
+        }
+        for h in g.decompose_to_clifford_rz() {
+            if matches!(h, Gate::T(_) | Gate::Tdg(_)) {
+                f.t_count += 1;
+            }
+        }
+    }
+    f.depth2 = level.iter().copied().max().unwrap_or(0);
+
+    // Rotation frame: active-dimension profile.
+    let tf = Instant::now();
+    let prof = adaptive::active_dimension_profile(c)?;
+    f.rotations = prof.len();
+    f.d = prof.last().copied().unwrap_or(0);
+    f.dense_l = log2sum(prof.iter().map(|&d| d as f64));
+    let mut prev = 0;
+    for &d in &prof {
+        if d == prev {
+            f.redundant += 1;
+        }
+        prev = d;
+    }
+    // Heisenberg term count: span-growing rotations are free (pruned), each
+    // redundant one can double the count, capped by 4^d strings. Cost is
+    // ~ Σ_j terms_j; use m · 2^{min(redundant/2, 2d)} (growth prior 0.5 per
+    // redundant rotation, as in adaptive::AdaptiveOptions).
+    f.frame_l = (prof.len().max(1) as f64).log2()
+        + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
+    f.secs_frame = tf.elapsed().as_secs_f64();
+
+    // MPS: crossing-count bound per line cut, time resolved.
+    let mut bits = vec![0usize; n.saturating_sub(1)];
+    let cap: Vec<usize> = (0..n.saturating_sub(1))
+        .map(|i| (i + 1).min(n - 1 - i))
+        .collect();
+    let mut mps_terms: Vec<f64> = Vec::new();
+    for g in &gates {
+        let parts = if g.arity() == 3 {
+            g.decompose_to_clifford_rz()
+        } else {
+            vec![*g]
+        };
+        for h in parts {
+            let qs = h.qubits();
+            if qs.len() == 1 {
+                // single-site update ~ χ^2
+                let q = qs[0];
+                let b = [q.checked_sub(1), (q + 1 < n).then_some(q)]
+                    .iter()
+                    .flatten()
+                    .map(|&i| bits[i])
+                    .max()
+                    .unwrap_or(0);
+                mps_terms.push(2.0 * b as f64);
+                continue;
+            }
+            let (lo, hi) = (qs[0].min(qs[1]), qs[0].max(qs[1]));
+            let r = schmidt_bits(&h);
+            for i in lo..hi {
+                bits[i] = (bits[i] + r).min(cap[i]);
+            }
+            // each adjacent application on cut i costs ~ χ_i^3 (SVD of 2χ×2χ)
+            for i in lo..hi {
+                // non-adjacent gates also pay a SWAP there and back
+                let swaps: f64 = if hi - lo > 1 { 1.0 } else { 0.0 };
+                mps_terms.push(3.0 * bits[i] as f64 + swaps);
+            }
+        }
+    }
+    f.chi_bits = bits.iter().copied().max().unwrap_or(0);
+    f.mps_l = log2sum(mps_terms.into_iter());
+
+    // HSF: KL partition + its path count.
+    if with_hsf && n >= 2 {
+        let th = Instant::now();
+        let opts = HsfOptions::default();
+        let in_a = hsf::auto_partition(c, &opts)?;
+        f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
+        f.hsf_na = in_a.iter().filter(|&&x| x).count();
+        f.hsf_nb = n - f.hsf_na;
+        let g = f.gates.max(1) as f64;
+        let k = f.hsf_k as f64;
+        // paths × (block evolutions) + GEMM accumulation of the 2^n output
+        f.hsf_l = log2sum(
+            [
+                k + g.log2() + f.hsf_na.max(f.hsf_nb) as f64,
+                k + n as f64,
+            ]
+            .into_iter(),
+        );
+        f.secs_hsf = th.elapsed().as_secs_f64();
+    }
+
+    // Sparse: affine support bound. Each wire is a constant, an affine
+    // function of the free variables, or an opaque (non-affine) function
+    // of them; only branching (non-monomial) one-qubit gates create
+    // variables.
+    f.sup = support_bound(n, &gates);
+    f.sparse_l = (f.gates.max(1) as f64).log2() + f.sup as f64;
+    f.sv_l = (f.gates.max(1) as f64).log2() + n as f64;
+    f.secs = t0.elapsed().as_secs_f64();
+    Ok(f)
+}
+
+#[derive(Clone)]
+enum Wire {
+    Const,
+    Affine(Vec<u64>),
+    Opaque,
+}
+
+fn is_branching(g: &Gate) -> bool {
+    g.arity() == 1
+        && g.diagonal_1q().is_none()
+        && !matches!(g, Gate::X(_) | Gate::Y(_) | Gate::I(_))
+}
+
+/// Upper bound on log2 |supp U|0^n>| (see [`features`]).
+pub fn support_bound(n: usize, gates: &[Gate]) -> usize {
+    let nvars = gates.iter().filter(|g| is_branching(g)).count();
+    let w = nvars.div_ceil(64).max(1);
+    let mut wire = vec![Wire::Const; n];
+    let mut next = 0usize;
+    let xor = |a: &Wire, b: &Wire| -> Wire {
+        match (a, b) {
+            (Wire::Const, x) | (x, Wire::Const) => x.clone(),
+            (Wire::Affine(u), Wire::Affine(v)) => {
+                let s: Vec<u64> = u.iter().zip(v).map(|(x, y)| x ^ y).collect();
+                if s.iter().all(|&x| x == 0) {
+                    Wire::Const
+                } else {
+                    Wire::Affine(s)
+                }
+            }
+            _ => Wire::Opaque,
+        }
+    };
+    for g in gates {
+        match *g {
+            Gate::Cnot(c, t) => wire[t] = xor(&wire[t], &wire[c]),
+            Gate::Swap(a, b) | Gate::ISwap(a, b) | Gate::ISwapdg(a, b) => wire.swap(a, b),
+            Gate::Ccx(a, b, t) => {
+                let ca = matches!(wire[a], Wire::Const);
+                let cb = matches!(wire[b], Wire::Const);
+                if ca && cb {
+                    // X or nothing
+                } else if ca {
+                    // CNOT(b, t) or nothing: stays within affine closure only
+                    // if we knew the constant; be conservative.
+                    wire[t] = xor(&wire[t], &wire[b]);
+                    if !matches!(wire[t], Wire::Const) {
+                        wire[t] = Wire::Opaque;
+                    }
+                } else if cb {
+                    wire[t] = xor(&wire[t], &wire[a]);
+                    if !matches!(wire[t], Wire::Const) {
+                        wire[t] = Wire::Opaque;
+                    }
+                } else {
+                    wire[t] = Wire::Opaque;
+                }
+            }
+            ref h if is_branching(h) => {
+                let q = h.qubits()[0];
+                let mut v = vec![0u64; w];
+                v[next / 64] |= 1 << (next % 64);
+                next += 1;
+                wire[q] = Wire::Affine(v);
+            }
+            _ => {} // diagonal or X/Y: support unchanged
+        }
+    }
+    // rank of the affine wires + opaque wires (opaque wires are functions of
+    // the variables, so the total is also capped by the variable count).
+    let mut basis: Vec<Vec<u64>> = Vec::new();
+    let mut opaque = 0usize;
+    for wv in &wire {
+        match wv {
+            Wire::Const => {}
+            Wire::Opaque => opaque += 1,
+            Wire::Affine(v) => {
+                let mut v = v.clone();
+                for b in &basis {
+                    let p = lead(b);
+                    if v[p / 64] >> (p % 64) & 1 == 1 {
+                        for (x, y) in v.iter_mut().zip(b) {
+                            *x ^= y;
+                        }
+                    }
+                }
+                if v.iter().any(|&x| x != 0) {
+                    basis.push(v);
+                }
+            }
+        }
+    }
+    (basis.len() + opaque).min(nvars).min(n)
+}
+
+fn lead(v: &[u64]) -> usize {
+    for (i, &x) in v.iter().enumerate() {
+        if x != 0 {
+            return i * 64 + x.trailing_zeros() as usize;
+        }
+    }
+    usize::MAX
+}
+
+// ---------------------------------------------------------------------------
+// Engines.
+
+/// Outcome of one engine run.
+#[derive(Clone, Debug, Default)]
+pub struct EngineRun {
+    pub value: f64,
+    /// Seconds in the engine (circuit construction excluded).
+    pub secs: f64,
+    /// Engine-specific size: SV amplitudes, sparse peak nnz, MPS max bond,
+    /// HSF paths, frame peak terms, dense active qubits.
+    pub size: f64,
+    pub note: String,
+}
+
+fn parity_dense(amps: &[Complex64]) -> f64 {
+    amps.iter()
+        .enumerate()
+        .map(|(x, a)| {
+            if x.count_ones() & 1 == 1 {
+                -a.norm_sqr()
+            } else {
+                a.norm_sqr()
+            }
+        })
+        .sum()
+}
+
+/// Runs `engine` on `<Z^{⊗n}>` of `c|0^n>` within `mem_bytes`.
+pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRun, SimError> {
+    let n = c.num_qubits;
+    let too_large = |what: &'static str, bytes: u128| SimError::TooLarge {
+        what,
+        bytes,
+        limit: mem_bytes,
+    };
+    let all: Vec<usize> = (0..n).collect();
+    let t0 = Instant::now();
+    let mut run = EngineRun::default();
+    match engine {
+        "sv" => {
+            let bytes = 16u128 << n;
+            if bytes > mem_bytes {
+                return Err(too_large("state vector", bytes));
+            }
+            let mut sv = StateVectorF64::try_new(n)?;
+            sv.apply_circuit_blocked(c, &BlockConfig::default())?;
+            run.value = parity_dense(sv.amplitudes());
+            run.size = (1u128 << n) as f64;
+        }
+        "sparse" => {
+            if n > 64 {
+                return Err(too_large("sparse (n > 64)", 0));
+            }
+            // ~48 bytes per entry in the hash map (key, value, control, load)
+            let max_nnz = (mem_bytes / 48) as usize;
+            let mut s = SparseState::new(n);
+            for g in c.gates() {
+                s.apply_gate(g)?;
+                if s.nnz() > max_nnz {
+                    return Err(too_large("sparse state", s.nnz() as u128 * 48));
+                }
+            }
+            run.value = s
+                .iter()
+                .map(|(x, a)| {
+                    if x.count_ones() & 1 == 1 {
+                        -a.norm_sqr()
+                    } else {
+                        a.norm_sqr()
+                    }
+                })
+                .sum();
+            run.size = s.peak_nnz() as f64;
+        }
+        "mps" => {
+            let mut m = Mps::new(n, 1 << 20);
+            for g in c.gates() {
+                m.apply_gate(g)?;
+                if m.bytes() as u128 > mem_bytes / 4 {
+                    return Err(too_large("mps", m.bytes() as u128));
+                }
+            }
+            if m.truncation_count() > 0 {
+                return Err(SimError::TooLarge {
+                    what: "mps (truncated)",
+                    bytes: 0,
+                    limit: 0,
+                });
+            }
+            run.value = m.expectation_z_product(&all);
+            run.size = m.max_bond_dim() as f64;
+        }
+        "hsf" => {
+            let opts = HsfOptions {
+                max_bytes: mem_bytes,
+                ..HsfOptions::default()
+            };
+            let h = HybridSchrodingerFeynman::auto(c, opts)?;
+            let out = 16u128 << n;
+            if out > mem_bytes {
+                return Err(too_large("hsf full output", out));
+            }
+            let amps = h.state_vector()?;
+            run.value = parity_dense(&amps);
+            run.size = h.num_paths() as f64;
+        }
+        "tableau" => {
+            if !c.gates().all(|g| g.is_clifford()) {
+                return Err(SimError::TooLarge {
+                    what: "tableau (non-Clifford circuit)",
+                    bytes: 0,
+                    limit: 0,
+                });
+            }
+            let mut p = PauliSum::z_product(n, &all);
+            p.conjugate_by_clifford(c)?;
+            run.value = p.expectation_zero_state();
+        }
+        "frame" | "dense" | "auto" => {
+            let max_d = ((mem_bytes / 16).max(1).ilog2() as usize).min(30);
+            let strategy = match engine {
+                "frame" => Strategy::Frame,
+                "dense" => Strategy::Dense,
+                _ => Strategy::Auto,
+            };
+            let opt = AdaptiveOptions {
+                strategy,
+                max_dense_qubits: max_d,
+                frame: FrameOptions {
+                    // ~ (2 W words + coefficient + hash overhead) per term
+                    max_terms: (mem_bytes / 64) as usize,
+                    ..FrameOptions::default()
+                },
+                ..AdaptiveOptions::default()
+            };
+            let obs = PauliSum::z_product(n, &all);
+            let r = adaptive::expectation(c, &obs, &opt)?;
+            run.value = r.value;
+            run.size = match engine {
+                "frame" => r.frame_stats.peak_terms as f64,
+                _ => r.dense_qubits as f64,
+            };
+            run.note = format!(
+                "switched_at={:?} dense_qubits={} peak_terms={} term_visits={} dense_ops={}",
+                r.switched_at,
+                r.dense_qubits,
+                r.frame_stats.peak_terms,
+                r.frame_stats.term_visits,
+                r.dense_ops
+            );
+        }
+        e => {
+            return Err(SimError::TooLarge {
+                what: "unknown engine",
+                bytes: e.len() as u128,
+                limit: 0,
+            })
+        }
+    }
+    run.secs = t0.elapsed().as_secs_f64();
+    Ok(run)
+}

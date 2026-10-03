@@ -327,6 +327,35 @@ impl Mps {
         e[(0, 0)].re
     }
 
+    /// `<ψ| Π_{q ∈ qubits} Z_q |ψ> / <ψ|ψ>`, by contracting the chain with
+    /// its conjugate (`O(n χ^3)`), in any gauge.
+    pub fn expectation_z_product(&self, qubits: &[usize]) -> f64 {
+        let mut zq = vec![false; self.n];
+        for &q in qubits {
+            assert!(q < self.n, "qubit {q} out of range");
+            zq[q] ^= true;
+        }
+        let mut e = Mat::<C>::from_fn(1, 1, |_, _| C::new(1.0, 0.0));
+        let mut norm = Mat::<C>::from_fn(1, 1, |_, _| C::new(1.0, 0.0));
+        for (q, s) in self.sites.iter().enumerate() {
+            let mut ne = Mat::<C>::zeros(s.dr, s.dr);
+            let mut nn = Mat::<C>::zeros(s.dr, s.dr);
+            for p in 0..2 {
+                let a = Mat::from_fn(s.dl, s.dr, |l, r| s.at(l, p, r));
+                let t = a.adjoint() * &e * &a;
+                if zq[q] && p == 1 {
+                    ne -= t;
+                } else {
+                    ne += t;
+                }
+                nn += a.adjoint() * &norm * &a;
+            }
+            e = ne;
+            norm = nn;
+        }
+        e[(0, 0)].re / norm[(0, 0)].re
+    }
+
     /// Probability that qubit `q` reads 1.
     pub fn prob_one(&mut self, q: usize) -> f64 {
         self.move_center(q);

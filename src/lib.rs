@@ -52,6 +52,7 @@ pub mod pipeline;
 pub mod qasm;
 pub mod qec;
 pub mod shor;
+pub mod simulability;
 pub mod shor_arith;
 pub mod shor_ripple;
 pub mod shor_window;
