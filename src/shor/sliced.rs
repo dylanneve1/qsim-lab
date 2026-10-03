@@ -650,6 +650,7 @@ mod tests {
     use crate::shor_ripple::{controlled_ua, eval_circuit_on_key, RippleLayout};
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn transpose64_is_a_transpose() {
         let mut s: u64 = 0x9E37_79B9_7F4A_7C15;
         let mut a = [0u64; 64];
