@@ -145,6 +145,20 @@ qsimcirq 0.22.1 and qiskit-aer 0.17.2 from `~/qsim-bench-venv` (already installe
 
 (At 6 threads qsim-lab with FMA + 1 MiB runs QFT-22/24/26 in 0.0153/0.0616/0.2240 s and brickwork-22/24 in 0.1762/0.6746 s. Tiling on top gives brickwork 0.161/0.644 s.) This is a second machine for the SOTA claim, with the same caveat RESULTS.md already states: qsim's SIMD kernels target x86 SSE/AVX, so on ARM it runs its portable path. On the x86 VPS a clean run still has **qsim ahead on brickwork** (0.173 s vs qsim-lab 0.30 s at 22 qubits), so the brickwork lead here is a statement about ARM only. The QFT lead (17-30x) comes from diagonal aggregation and holds on both machines. The first qsim QFT pass overlapped another agent's build (`sota.out`, marked `contam=YES`), so the numbers above come from the clean re-run in `sota2.out`.
 
+## 6. Confirmation: exp/neon-fma-r4 defaults vs main (Mac, interleaved, min of 3)
+
+`exp/neon-fma-r4` (47c34fd) built in its own target dir, with `BlockConfig::default()` and no keys, against main fb30f56. The full `cargo test --release` on aarch64 is green (24 test binaries + doc-tests, 0 failures).
+
+| workload | prec | n | thr | main s | neon-fma-r4 default s | reps | speedup |
+|---|---|---|---|---|---|---|---|
+| brick | f32 | 24 | 6 | 0.8781 | 0.6798 | 3 | 1.29x |
+| brick | f64 | 26 | 8 | 6.3810 | 4.8532 | 3 | 1.31x |
+| qft | f32 | 22 | 8 | 0.0201 | 0.0151 | 3 | 1.33x |
+| qft | f32 | 24 | 8 | 0.0672 | 0.0642 | 3 | 1.05x |
+| qft | f32 | 26 | 8 | 0.2565 | 0.2242 | 3 | 1.14x |
+
+This is what merging exp/neon-fma-r4 gives on Apple silicon: **1.29-1.31x on brickwork and 1.05-1.33x on QFT**. x86_64 code is unchanged.
+
 ## Files
 - Mac raw data, logs, and harness: `research/data/mac-m1/`. `*.raw` lines are `threads binary | workload | n | prec | config | seconds | ...`. Summarise with `scripts/parse.py` (A/B) and `scripts/sweep.py` (sweep); the drivers are `scripts/cell.sh` and `phase1-5.sh`.
 - Earlier Mac sweeps by the round-3 agent (`research/data/l1/e*`, 6 threads, with Logic Pro not running) agree: tiling gave 1.03-1.06x at a fixed block, and the best config was b1024 + t32/t64.
