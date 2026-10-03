@@ -41,6 +41,43 @@ impl Site {
     }
 }
 
+/// Thin SVD `m = U diag(s) V†` with singular values non-increasing.
+///
+/// faer's SVD occasionally fails to converge on the highly degenerate,
+/// exactly structured matrices Clifford+T circuits produce (found by the
+/// simulability sweep: `ct:n=24,L=32,t=16,nn=1`, seed 1). The fallbacks are
+/// exact reformulations that only change rounding: the SVD of `m†` (roles of
+/// `U` and `V` swapped), then of `D m` for a fixed diagonal unitary `D`
+/// (`U = D† U'`).
+fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
+    let unpack = |svd: &faer::linalg::solvers::Svd<C>| -> (Mat<C>, Vec<f64>, Mat<C>) {
+        let k = svd.S().column_vector().nrows();
+        let s = (0..k).map(|i| svd.S().column_vector()[i].re).collect();
+        (svd.U().to_owned(), s, svd.V().to_owned())
+    };
+    if let Ok(svd) = m.thin_svd() {
+        return unpack(&svd);
+    }
+    let adj = m.adjoint().to_owned();
+    if let Ok(svd) = adj.thin_svd() {
+        let (u, s, v) = unpack(&svd);
+        return (v, s, u);
+    }
+    for salt in 1..=3u64 {
+        let phase = |r: usize| {
+            let x = ((r as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15 ^ salt)) >> 11;
+            C::from_polar(1.0, (x as f64 / (1u64 << 53) as f64) * std::f64::consts::TAU)
+        };
+        let dm = Mat::from_fn(m.nrows(), m.ncols(), |r, c| phase(r) * m[(r, c)]);
+        if let Ok(svd) = dm.thin_svd() {
+            let (u, s, v) = unpack(&svd);
+            let u = Mat::from_fn(u.nrows(), u.ncols(), |r, c| phase(r).conj() * u[(r, c)]);
+            return (u, s, v);
+        }
+    }
+    panic!("SVD did not converge (after adjoint and phase-scrambled retries)");
+}
+
 /// A matrix product state.
 #[derive(Clone, Debug)]
 pub struct Mps {
@@ -226,12 +263,7 @@ impl Mps {
                 }
             }
         }
-        // faer returns singular values sorted in non-increasing order
-        let svd = t2.thin_svd().expect("SVD did not converge");
-        let (u, v) = (svd.U(), svd.V());
-        let sv: Vec<f64> = (0..u.ncols())
-            .map(|k| svd.S().column_vector()[k].re)
-            .collect();
+        let (u, sv, v) = robust_thin_svd(&t2);
         let total: f64 = sv.iter().map(|s| s * s).sum();
         let mut keep = 0;
         let mut kept_w = 0.0;

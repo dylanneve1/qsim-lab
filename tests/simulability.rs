@@ -123,3 +123,12 @@ fn support_bound_basic_cases() {
     // Diagonal gates do not branch.
     assert_eq!(support_bound(2, &[T(0), Cz(0, 1), Rz(1, 0.3)]), 0);
 }
+
+#[test]
+fn mps_svd_nonconvergence_regression() {
+    // faer's thin SVD failed to converge on this circuit (the MPS engine
+    // panicked); exact <Z^n> is 0 (state vector, frame and dense agree).
+    let c = build(&Spec::parse("ct:n=24,L=32,t=16,nn=1").unwrap(), 1).unwrap();
+    let r = run_engine("mps", &c, 1 << 30).expect("mps runs");
+    assert!(r.value.abs() < 1e-9, "{}", r.value);
+}
