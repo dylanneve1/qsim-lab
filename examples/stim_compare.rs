@@ -56,6 +56,31 @@ fn sample_to<W: Write>(s: &SymPhaseSampler, shots: usize, seed: u64, w: &mut W) 
     w.flush().unwrap();
 }
 
+/// Sparse path (only touched variable words cleared, column-wise evaluation),
+/// generic RNG.
+fn sample_to_sparse<W: Write, R: rand::Rng>(
+    s: &SymPhaseSampler,
+    cv: &qsim_lab::stabilizer::symphase::ColumnView,
+    shots: usize,
+    rng: &mut R,
+    w: &mut W,
+) {
+    let rows = s.num_measurements();
+    let mut vals = vec![0u64; s.num_vars()];
+    let mut touched = Vec::new();
+    let mut out = vec![0u64; rows];
+    let mut bytes = vec![0u8; rows * 8];
+    for _ in 0..shots.div_ceil(64) {
+        s.sample_vars_sparse(rng, &mut vals, &mut touched);
+        s.eval_sparse(cv, &vals, &touched, &mut out);
+        for (k, word) in out.iter().enumerate() {
+            bytes[8 * k..8 * k + 8].copy_from_slice(&word.to_le_bytes());
+        }
+        w.write_all(&bytes).unwrap();
+    }
+    w.flush().unwrap();
+}
+
 fn load(path: &str) -> qsim_lab::stim_io::StimProgram {
     parse_stim(&std::fs::read_to_string(path).expect("read")).expect("parse")
 }
@@ -119,23 +144,97 @@ fn main() {
                 &prog.observables,
             );
             let t_compile = t1.elapsed().as_secs_f64();
-            let mut best = f64::INFINITY;
+            let devnull = || {
+                BufWriter::with_capacity(
+                    1 << 20,
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .open("/dev/null")
+                        .unwrap(),
+                )
+            };
+            let t2 = Instant::now();
+            let cv = s.column_view();
+            let t_cv = t2.elapsed().as_secs_f64();
+            let (mut best, mut best_sp, mut best_sp_small) =
+                (f64::INFINITY, f64::INFINITY, f64::INFINITY);
             for r in 0..reps {
-                let f = std::fs::OpenOptions::new()
-                    .write(true)
-                    .open("/dev/null")
-                    .unwrap();
-                let mut w = BufWriter::with_capacity(1 << 20, f);
+                let mut w = devnull();
                 let t = Instant::now();
                 sample_to(&s, shots, 1000 + r as u64, &mut w);
                 best = best.min(t.elapsed().as_secs_f64());
+                let mut w = devnull();
+                let mut rng = StdRng::seed_from_u64(2000 + r as u64);
+                let t = Instant::now();
+                sample_to_sparse(&s, &cv, shots, &mut rng, &mut w);
+                best_sp = best_sp.min(t.elapsed().as_secs_f64());
+                let mut w = devnull();
+                let mut rng = rand::rngs::SmallRng::seed_from_u64(3000 + r as u64);
+                let t = Instant::now();
+                sample_to_sparse(&s, &cv, shots, &mut rng, &mut w);
+                best_sp_small = best_sp_small.min(t.elapsed().as_secs_f64());
             }
+            // sample_min: original dense path, StdRng (ChaCha12); sparse_*: sparse
+            // draw + column-wise evaluation (bit-identical output for the same RNG stream)
             println!(
-                "parse={t_parse:.6} compile={t_compile:.6} sample_min={best:.6} shots={} dets={} vars={} nnz={}",
+                "parse={t_parse:.6} compile={t_compile:.6} colview={t_cv:.6} sample_min={best:.6} sparse_min={best_sp:.6} sparse_smallrng_min={best_sp_small:.6} shots={} dets={} vars={} nnz={}",
                 shots.div_ceil(64) * 64,
                 s.num_measurements(),
                 s.num_vars(),
                 s.nnz()
+            );
+        }
+        "profile" => {
+            // split sampling time: drawing the variables vs the sparse GF(2) evaluation
+            let prog = load(&a[2]);
+            let shots: usize = a[3].parse().unwrap();
+            let s = compile(
+                &prog.circuit,
+                &prog.noise,
+                &prog.detectors,
+                &prog.observables,
+            );
+            let mut rng = StdRng::seed_from_u64(5);
+            let mut vals = vec![0u64; s.num_vars()];
+            let mut out = vec![0u64; s.num_measurements()];
+            let batches = shots.div_ceil(64);
+            let coins = s
+                .groups()
+                .iter()
+                .filter(|g| matches!(g.dist, qsim_lab::stabilizer::symphase::VarDist::Coin))
+                .count();
+            let t = Instant::now();
+            for _ in 0..batches {
+                s.sample_vars(&mut rng, &mut vals);
+            }
+            let tv = t.elapsed().as_secs_f64();
+            let mut acc = 0u64;
+            let t = Instant::now();
+            for _ in 0..batches {
+                s.eval(&vals, &mut out);
+                acc ^= out[0];
+            }
+            let te = t.elapsed().as_secs_f64();
+            let gate_ops = prog
+                .circuit
+                .ops
+                .iter()
+                .filter(|o| {
+                    matches!(
+                        o,
+                        qsim_lab::Op::Gate(_) | qsim_lab::Op::Measure(_) | qsim_lab::Op::Reset(_)
+                    )
+                })
+                .count();
+            let noise_ops = prog.circuit.ops.len() - gate_ops;
+            println!(
+                "sample_vars={tv:.4} eval={te:.4} vars={} groups={} coin_groups={coins} nnz={} rows={} circuit_ops={} noise_ops={} ({acc})",
+                s.num_vars(),
+                s.groups().len(),
+                s.nnz(),
+                s.num_measurements(),
+                gate_ops,
+                noise_ops
             );
         }
         "dem-support" => {
