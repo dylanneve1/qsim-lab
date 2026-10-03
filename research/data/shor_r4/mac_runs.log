@@ -220,3 +220,24 @@ for rep in 1 2 3; do
 done
 rmdir /tmp/qsim-mac-bench.lock
 echo done $(date)
+##### shor-G.log (after rebase onto main 643b6bd; branch 7ccb497)
+lock G (build) Sat Oct  3 23:08:41 IST 2026
+7ccb497 drop stray pycache
+    Finished `release` profile [optimized] target(s) in 23.01s
+lock G run Sat Oct  3 23:09:04 IST 2026
+== --oracle windowed --window 4 --sliced --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 5.87 7.32 8.90 }) 23:09:04
+[sliced profile] build 0.034s  eval c=1 55.404s  eval c=0 53.241s  sort 16.050s  p1 1.469s  collapse 7.093s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+1537596787 = 29287 x 52501
+time 133.381 s  peak RSS NaN MiB
+          4277960704  maximum resident set size
+rep=1 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.516 s 15482880  maximum resident
+rep=1 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.076 s 11730944  maximum resident
+rep=1 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.049 s 8585216  maximum resident
+rep=2 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.492 s 15450112  maximum resident
+rep=2 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.077 s 11780096  maximum resident
+rep=2 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.050 s 8552448  maximum resident
+rep=3 [--oracle ripple --sparse] measured=475634978396 total_gates=1148438 time 2.496 s 15351808  maximum resident
+rep=3 [--oracle ripple --sliced] measured=475634978396 total_gates=1148438 time 0.077 s 11698176  maximum resident
+rep=3 [--oracle windowed --window 4 --sliced] measured=475634978396 total_gates=501948 time 0.052 s 8650752  maximum resident
+done Sat Oct 3 23:11:26 IST 2026

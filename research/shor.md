@@ -363,6 +363,11 @@ selected on their orders):
 | 282 304 153 | 29 | 124 | 1.46 M | 83 936 318 | 47 044 830 = λ | 1 | 44.2 s | 1.86 GB | factored (seed 2, run 1; seed 1: 3 runs found r, a^(r/2) = −1) |
 | **1 537 596 787** | **31** | **132** | **1.70 M** | 457 167 243 | **256 252 500 = λ** | 2 | **134.4 s (f32)** | **4.28 GB** | **factored** (seed 2, run 1; seed 1: r = 42 708 750 found, a^(r/2) = −1) |
 
+Re-confirmed after rebasing onto main 643b6bd (branch head 7ccb497, same
+machine, one lock): the 31-bit record run took **133.4 s**, same base, same
+measured integer 2 059 039 373 337 077 151, 4.28 GB; the 1 005 973 A/B gave
+2.492 / 0.076 / 0.049 s (min of 3).
+
 Every run's order is the true multiplicative order (checked classically
 afterwards); the failures are the classical part of Shor (odd r or
 a^(r/2) ≡ −1). For 43 584 217 and 282 304 153 both p − 1 and q − 1 have
