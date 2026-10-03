@@ -700,6 +700,9 @@ pub struct Trajectory {
     pub capped: Option<Capped>,
     pub dirty_from: Option<usize>,
     pub work_ops: u128,
+    /// Support at the start of every round that ran (plus the support
+    /// that exceeded the cap, if capped).
+    pub support_trace: Vec<usize>,
 }
 
 /// Runs one trajectory with the given faults (any order). Gives up with
@@ -729,7 +732,10 @@ pub fn run_trajectory<T: Real, R: Rng + ?Sized>(
                 }
             }
             Err(c) => {
+                let mut st = std::mem::take(&mut s.support_trace);
+                st.push(c.support);
                 return Trajectory {
+                    support_trace: st,
                     measured: None,
                     order: None,
                     factor: None,
@@ -743,6 +749,7 @@ pub fn run_trajectory<T: Real, R: Rng + ?Sized>(
     }
     let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
     Trajectory {
+        support_trace: std::mem::take(&mut s.support_trace),
         measured: Some(y),
         order,
         factor,

@@ -97,7 +97,7 @@ fn main() {
             p
         )
         .unwrap();
-        writeln!(o, "n,N,a,r,kind,k,traj,measured,order_strict,order_ok,factor_ok,capped_round,peak,dirty_from,work_ops,secs,faults").unwrap();
+        writeln!(o, "n,N,a,r,kind,k,traj,measured,order_strict,order_ok,factor_ok,capped_round,peak,dirty_from,work_ops,secs,support,faults").unwrap();
     }
     let t_all = std::time::Instant::now();
     // at most `conc` trajectories at a time (memory: a capped trajectory
@@ -156,7 +156,7 @@ fn main() {
             qsim_lab::shor::convergents(y, inst.t as u32).contains(&u128::from(r))
         });
         let line = format!(
-            "{},{n_mod},{a},{r},{},{kk},{j},{},{},{},{},{},{},{},{},{secs:.4},{}",
+            "{},{n_mod},{a},{r},{},{kk},{j},{},{},{},{},{},{},{},{},{secs:.4},{},{}",
             inst.m,
             kind.name(),
             tr.measured.map_or(-1i128, |y| y as i128),
@@ -167,6 +167,11 @@ fn main() {
             tr.peak,
             tr.dirty_from.map_or(-1i64, |d| d as i64),
             tr.work_ops,
+            tr.support_trace
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(";"),
             fdesc.join("|")
         );
         let mut o = stdout.lock();
