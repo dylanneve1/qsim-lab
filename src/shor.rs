@@ -23,6 +23,7 @@
 //! for the Fourier-space accumulator `b` and one ancilla.
 
 pub mod fused;
+pub mod noisy;
 pub mod sliced;
 
 use crate::algorithms::{gcd, pow_mod};
