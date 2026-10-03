@@ -69,6 +69,25 @@ fn has_avx2() -> bool {
     })
 }
 
+/// In-place 64×64 bit-matrix transpose: afterwards bit `i` of `a[j]` is
+/// bit `j` of the old `a[i]`.
+#[inline]
+pub fn transpose64(a: &mut [u64; 64]) {
+    let mut j = 32usize;
+    let mut m: u64 = 0x0000_0000_FFFF_FFFF;
+    while j != 0 {
+        let mut k = 0usize;
+        while k < 64 {
+            let t = ((a[k] >> j) ^ a[k + j]) & m;
+            a[k + j] ^= t;
+            a[k] ^= t << j;
+            k = (k + j + 1) & !j;
+        }
+        j >>= 1;
+        m ^= m << j;
+    }
+}
+
 /// A reversible circuit compiled to `w[t] ^= w[c1] & w[c2]` steps.
 #[derive(Clone, Debug)]
 pub struct SlicedProgram {
@@ -232,11 +251,14 @@ fn eval_block_l<const L: usize>(
         if ctrl {
             w[io.ctrl] = valid;
         }
-        // transpose in
-        for (j, &q) in io.x.iter().enumerate() {
-            let wq = &mut w[q];
-            for (i, &x) in inp.iter().enumerate() {
-                wq[i >> 6] |= ((x >> j) & 1) << (i & 63);
+        // transpose in (64x64 bit blocks)
+        let mut blk = [0u64; 64];
+        for (l, c) in inp.chunks(64).enumerate() {
+            blk[..c.len()].copy_from_slice(c);
+            blk[c.len()..].fill(0);
+            transpose64(&mut blk);
+            for (j, &q) in io.x.iter().enumerate() {
+                w[q][l] = blk[j];
             }
         }
         prog.eval(w);
@@ -260,11 +282,13 @@ fn eval_block_l<const L: usize>(
         }
         // transpose out
         let mut o = vec![0u64; inp.len()];
-        for (j, &q) in io.x.iter().enumerate() {
-            let wq = &w[q];
-            for (i, o) in o.iter_mut().enumerate() {
-                *o |= ((wq[i >> 6] >> (i & 63)) & 1) << j;
+        for (l, oc) in o.chunks_mut(64).enumerate() {
+            blk.fill(0);
+            for (j, &q) in io.x.iter().enumerate() {
+                blk[j] = w[q][l];
             }
+            transpose64(&mut blk);
+            oc.copy_from_slice(&blk[..oc.len()]);
         }
         o
     };
@@ -334,7 +358,9 @@ pub struct SlicedState<T: Real> {
     keys: Vec<u64>,
     amps: Vec<Complex<T>>,
     /// Output keys of the control-1 branches, sorted, with source index.
-    ukeys: Vec<(u64, u32)>,
+    ukeys: Vec<u64>,
+    /// `e^{0}·ψ` amplitudes gathered in `ukeys` order (sequential merges).
+    uamps: Vec<Complex<T>>,
     ph: Complex64,
     p1: f64,
     peak: usize,
@@ -346,6 +372,8 @@ pub struct SlicedState<T: Real> {
     /// Seconds spent in: building+compiling the circuit, control-1 gate
     /// evaluation, control-0 gate evaluation, sort, P(1) merge, collapse.
     pub prof: [f64; 6],
+    /// `P(control = 1)` of every round, in order.
+    pub p1_trace: Vec<f64>,
 }
 
 impl<T: Real> Drop for SlicedState<T> {
@@ -356,6 +384,10 @@ impl<T: Real> Drop for SlicedState<T> {
                 "[sliced profile] build {:.3}s  eval c=1 {:.3}s  eval c=0 {:.3}s  sort {:.3}s  p1 {:.3}s  collapse {:.3}s  peak support {}",
                 p[0], p[1], p[2], p[3], p[4], p[5], self.peak
             );
+        }
+        if std::env::var_os("QSIM_SLICE_TRACE").is_some() && self.gate_branch_ops > 0 {
+            let t: Vec<String> = self.p1_trace.iter().map(|p| format!("{p:.17e}")).collect();
+            eprintln!("[sliced p1] {}", t.join(" "));
         }
     }
 }
@@ -374,12 +406,14 @@ impl<T: Real> SlicedState<T> {
             keys: vec![1],
             amps: vec![Complex::new(T::one(), T::zero())],
             ukeys: Vec::new(),
+            uamps: Vec::new(),
             ph: Complex64::new(1.0, 0.0),
             p1: 0.0,
             peak: 1,
             gate_branch_ops: 0,
             skip_ctrl0: false,
             prof: [0.0; 6],
+            p1_trace: Vec::new(),
         }
     }
 
@@ -403,7 +437,7 @@ impl<T: Real> SlicedState<T> {
         let (mut a0, mut b0) = (0, 0);
         for &k in &bounds {
             let a1 = self.keys.partition_point(|&x| x < k);
-            let b1 = self.ukeys.partition_point(|e| e.0 < k);
+            let b1 = self.ukeys.partition_point(|&e| e < k);
             out.push((a0, a1, b0, b1));
             (a0, b0) = (a1, b1);
         }
@@ -422,19 +456,15 @@ impl<T: Real> SlicedState<T> {
         let (mut i, mut j) = (a0, b0);
         while i < a1 || j < b1 {
             let ka = if i < a1 { self.keys[i] } else { u64::MAX };
-            let kb = if j < b1 { self.ukeys[j].0 } else { u64::MAX };
+            let kb = if j < b1 { self.ukeys[j] } else { u64::MAX };
             if i < a1 && (j >= b1 || ka < kb) {
                 f(ka, c64(self.amps[i]), z);
                 i += 1;
             } else if j < b1 && (i >= a1 || kb < ka) {
-                f(kb, z, c64(self.amps[self.ukeys[j].1 as usize]));
+                f(kb, z, c64(self.uamps[j]));
                 j += 1;
             } else {
-                f(
-                    ka,
-                    c64(self.amps[i]),
-                    c64(self.amps[self.ukeys[j].1 as usize]),
-                );
+                f(ka, c64(self.amps[i]), c64(self.uamps[j]));
                 i += 1;
                 j += 1;
             }
@@ -476,7 +506,9 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             uk.par_windows(2).all(|w| w[0].0 != w[1].0),
             "oracle block is not injective on the support"
         );
-        self.ukeys = uk;
+        self.ukeys = uk.par_iter().map(|e| e.0).collect();
+        self.uamps = uk.par_iter().map(|e| self.amps[e.1 as usize]).collect();
+        drop(uk);
         let t4 = std::time::Instant::now();
         let phi = if y_low != 0 {
             Instance::correction(i, y_low)
@@ -495,6 +527,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             })
             .sum();
         self.p1 = s / 4.0;
+        self.p1_trace.push(self.p1);
         self.peak = self.peak.max(self.keys.len());
         let t5 = std::time::Instant::now();
         let d = |a: std::time::Instant, b: std::time::Instant| (b - a).as_secs_f64();
@@ -536,6 +569,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         self.keys = Vec::new();
         self.amps = Vec::new();
         self.ukeys = Vec::new();
+        self.uamps = Vec::new();
         let total: usize = parts.iter().map(|p| p.0.len()).sum();
         // parallel concatenation into exact-size buffers
         let mut keys = vec![0u64; total];
@@ -564,7 +598,8 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
     }
     fn reset_control(&mut self, _bit: bool) {}
     fn bytes(&self) -> usize {
-        self.keys.capacity() * (8 + std::mem::size_of::<Complex<T>>()) + self.ukeys.capacity() * 16
+        self.keys.capacity() * (8 + std::mem::size_of::<Complex<T>>())
+            + self.ukeys.capacity() * (8 + std::mem::size_of::<Complex<T>>())
     }
     /// Peak support size `|supp ψ|` (work-register values); each round
     /// evaluates the circuit on `2 |supp ψ|` basis states.
@@ -580,6 +615,25 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
 mod tests {
     use super::*;
     use crate::shor_ripple::{controlled_ua, eval_circuit_on_key, RippleLayout};
+
+    #[test]
+    fn transpose64_is_a_transpose() {
+        let mut s: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut a = [0u64; 64];
+        for x in a.iter_mut() {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            *x = s;
+        }
+        let orig = a;
+        transpose64(&mut a);
+        for i in 0..64 {
+            for j in 0..64 {
+                assert_eq!((a[j] >> i) & 1, (orig[i] >> j) & 1);
+            }
+        }
+    }
 
     #[test]
     fn sliced_eval_matches_per_key_eval() {
