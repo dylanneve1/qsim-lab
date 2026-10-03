@@ -268,10 +268,20 @@ pub struct BlockConfig {
     pub simd: bool,
 }
 
+/// Default block size. 256 KiB on x86_64 (half of a typical 512 KiB L2).
+/// On aarch64 1 MiB: on an Apple M1 Pro (12 MiB L2 per performance
+/// cluster) a sweep of 256 KiB..4 MiB put 1 MiB best or within 7% of best
+/// for every QFT and brickwork case at 22-28 qubits, and never slower than
+/// 256 KiB (1.01-1.31x faster; `research/mac-m1.md`).
+#[cfg(target_arch = "aarch64")]
+const DEFAULT_BLOCK_BYTES: usize = 1 << 20;
+#[cfg(not(target_arch = "aarch64"))]
+const DEFAULT_BLOCK_BYTES: usize = 256 << 10;
+
 impl Default for BlockConfig {
     fn default() -> Self {
         BlockConfig {
-            block_bytes: 256 << 10,
+            block_bytes: DEFAULT_BLOCK_BYTES,
             slots: 6,
             fuse_1q: true,
             small_n: 12,

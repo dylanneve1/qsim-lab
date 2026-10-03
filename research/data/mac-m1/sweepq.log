@@ -1,0 +1,7 @@
+# 22:38:22 qft n=26 f64 t=8 load=[10.31 10.64 11.33] top=[ 85.4 Logic Pro]
+# 22:38:35 qft n=26 f64 t=8 load=[10.33 10.63 11.32] top=[ 86.8 Logic Pro]
+# 22:38:42 qft n=24 f64 t=6 load=[10.43 10.64 11.31] top=[ 92.3 Logic Pro]
+# 22:38:46 qft n=26 f32 t=8 load=[10.16 10.58 11.29] top=[ 93.7 Logic Pro]
+# 22:38:54 qft n=26 f32 t=8 load=[10.30 10.61 11.29] top=[ 83.5 Logic Pro]
+# 22:38:59 qft n=24 f32 t=6 load=[10.60 10.66 11.31] top=[ 87.8 Logic Pro]
+PHASE4_DONE

@@ -1,0 +1,12 @@
+# 22:41:18 /Users/dylan/qsim-bench-venv/bin/python qsim_bench.py qft 22,24 load=[11.44 11.49 11.57] contam=no
+| qsim qft | 22 | f32 | 275 ops | fuse=2 | 0.4079 s |
+| qsim qft | 22 | f32 | 275 ops | fuse=3 | 0.3615 s |
+| qsim qft | 22 | f32 | 275 ops | fuse=4 | 0.5243 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=2 | 1.8527 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=3 | 1.6300 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=4 | 2.3175 s |
+# 22:41:41 /Users/dylan/qsim-bench-venv/bin/python qsim_bench.py qft 26 load=[11.08 11.38 11.53] contam=no
+| qsim qft | 26 | f32 | 377 ops | fuse=2 | 7.8694 s |
+| qsim qft | 26 | f32 | 377 ops | fuse=3 | 6.8898 s |
+| qsim qft | 26 | f32 | 377 ops | fuse=4 | 10.1387 s |
+PHASE5_DONE

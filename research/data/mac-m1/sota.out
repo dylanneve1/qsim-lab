@@ -1,0 +1,30 @@
+# 22:25:07 /Users/dylan/qsim-bench-venv/bin/python qsim_bench.py qft 22,24 load=[35.25 20.47 13.56] contam=YES
+| qsim qft | 22 | f32 | 275 ops | fuse=2 | 1.0752 s |
+| qsim qft | 22 | f32 | 275 ops | fuse=3 | 0.8325 s |
+| qsim qft | 22 | f32 | 275 ops | fuse=4 | 1.0711 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=2 | 2.4002 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=3 | 2.7494 s |
+| qsim qft | 24 | f32 | 324 ops | fuse=4 | 2.9428 s |
+# 22:25:48 /Users/dylan/qsim-bench-venv/bin/python qsim_bench.py qft 26 load=[25.88 19.89 13.66] contam=YES
+| qsim qft | 26 | f32 | 377 ops | fuse=2 | 8.9245 s |
+| qsim qft | 26 | f32 | 377 ops | fuse=3 | 9.7545 s |
+| qsim qft | 26 | f32 | 377 ops | fuse=4 | 10.1878 s |
+# 22:27:22 /Users/dylan/qsim-bench-venv/bin/python qsim_bench.py brick 22,24 load=[16.71 18.31 13.70] contam=no
+| qsim brick | 22 | f32 | 1090 ops | fuse=2 | 0.3604 s |
+| qsim brick | 22 | f32 | 1090 ops | fuse=3 | 0.3339 s |
+| qsim brick | 22 | f32 | 1090 ops | fuse=4 | 0.4837 s |
+| qsim brick | 24 | f32 | 1190 ops | fuse=2 | 1.4745 s |
+| qsim brick | 24 | f32 | 1190 ops | fuse=3 | 1.3587 s |
+| qsim brick | 24 | f32 | 1190 ops | fuse=4 | 1.9736 s |
+# 22:27:42 /Users/dylan/qsim-bench-venv/bin/python aer_bench.py qft 22,24,26 load=[14.45 17.67 13.57] contam=no
+| aer qft | 22 | f32 | 275 gates | fusion=True | 0.4050 s | sim-only 0.4071 s |
+| aer qft | 22 | f32 | 275 gates | fusion=False | 0.3104 s | sim-only 0.3063 s |
+| aer qft | 24 | f32 | 324 gates | fusion=True | 1.6386 s | sim-only 1.6482 s |
+| aer qft | 24 | f32 | 324 gates | fusion=False | 1.0250 s | sim-only 1.0167 s |
+| aer qft | 26 | f32 | 377 gates | fusion=True | 6.6669 s | sim-only 6.6591 s |
+| aer qft | 26 | f32 | 377 gates | fusion=False | 4.0291 s | sim-only 4.1103 s |
+# 22:28:25 /Users/dylan/qsim-bench-venv/bin/python aer_bench.py brick 22,24 load=[12.79 16.80 13.47] contam=no
+| aer brick | 22 | f32 | 1090 gates | fusion=True | 0.9315 s | sim-only 0.9260 s |
+| aer brick | 22 | f32 | 1090 gates | fusion=False | 2.1016 s | sim-only 2.0945 s |
+| aer brick | 24 | f32 | 1190 gates | fusion=True | 3.5867 s | sim-only 3.5770 s |
+| aer brick | 24 | f32 | 1190 gates | fusion=False | 7.4027 s | sim-only 7.3930 s |
