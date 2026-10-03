@@ -18,7 +18,7 @@
 //! trajectory (default 2^26 branches); a capped trajectory has unknown
 //! outcome and is reported as such (`capped_round >= 0`).
 //! Env: `QSIM_NOISE_CONC` = trajectories run concurrently (default: threads),
-//! `QSIM_NOISE_F32` = f32 amplitudes.
+//! `QSIM_NOISE_F32` = f32 amplitudes, `QSIM_NOISE_KMIN` = smallest k (strat).
 
 use qsim_lab::shor::noisy::{self, NoiseKind, NoisyCircuit, Site};
 use qsim_lab::shor::{Instance, Oracle};
@@ -73,7 +73,11 @@ fn main() {
     let (ks, p) = match mode {
         "strat" => {
             let kmax: u64 = args[5].parse().unwrap();
-            ((0..=kmax).collect::<Vec<_>>(), None)
+            let kmin: u64 = std::env::var("QSIM_NOISE_KMIN")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+            ((kmin..=kmax).collect::<Vec<_>>(), None)
         }
         "direct" => (vec![u64::MAX], Some(args[5].parse::<f64>().unwrap())),
         _ => panic!("mode {mode}"),
