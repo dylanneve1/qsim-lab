@@ -188,3 +188,25 @@ bench.sh ./target/release/examples/phasepoly_e2e [filter]    # end-to-end A/B
 ```
 Machine: AMD EPYC-Rome, 4 vCPU shared with other agents (load 3–4 during
 timed runs), Rust stable, release profile.
+
+## Audit, round 4 (3 Oct 2026, exp/phasepoly-r4)
+Rebased onto main fb30f56 cleanly. Independent differential fuzz
+`tests/audit_phasefold.rs` against the naive reference SV, comparing the whole
+instrument (every measurement / reset / flip branch, unnormalised, global
+phase included): all gate kinds incl. iSWAP/SX/U/Toffoli/CPhase, Clifford+T
+up to 12 qubits, mid-circuit measurement, reset, classically controlled
+gates (incl. rotations), Pauli flips, repeated measuring rounds, Cuccaro
+adders, Toffoli ladders, Shor ripple controlled-U_a (10 qubits), and the
+`PlanOptions::phase_fold` pipeline. No discrepancy in ~10k cases
+(`QSIM_FUZZ_ITERS=40`); six deliberately broken variants of the pass are
+each caught. Counts above reproduced exactly with `phasepoly_bench`.
+
+Reading the CSV: `t_*` columns count only `T`/`T†` gates. After
+peephole -> fold -> peephole the random n=32 circuit has 182 T + 158 T† **and
+250 `Phase(odd·π/4)`** gates, so its T-count is **590** (the `nc` column),
+not the 340 of `t_pfp`. Use `nc_*` for T-count claims.
+
+Observation (not done): `Measure` refreshes the wire's variable, which is
+sound but conservative: a Z-basis measurement commutes with diagonal
+rotations and leaves the wire's value unchanged (the audit's mutation that
+removes it stays exact), so rotations could also merge across measurements.
