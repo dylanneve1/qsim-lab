@@ -512,6 +512,8 @@ enum LOp<T: Real> {
 pub struct CompiledKOps<T: Real> {
     n: usize,
     stages: Vec<Prepared<T>>,
+    /// Run with the AVX2+FMA kernels (`cfg.simd` and the CPU supports them).
+    simd: bool,
 }
 
 struct Prepared<T: Real> {
@@ -1530,7 +1532,11 @@ impl<T: Real> StateVector<T> {
                 }
             })
             .collect();
-        CompiledKOps { n, stages }
+        CompiledKOps {
+            n,
+            stages,
+            simd: cfg.simd && simd_available(),
+        }
     }
 
     /// Runs a block compiled by [`StateVector::compile_kops`].
@@ -1539,7 +1545,7 @@ impl<T: Real> StateVector<T> {
         let n = plan.n;
         let amps = self.amplitudes_mut();
         for p in &plan.stages {
-            run_stage(amps, n, p);
+            run_stage(amps, n, p, plan.simd);
         }
     }
 
