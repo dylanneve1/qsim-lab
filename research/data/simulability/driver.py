@@ -29,14 +29,21 @@ ENGINE_MONO = {
 
 
 def grid(name):
-    """Named instance grids: list of (spec, seed)."""
+    """Named instance grids: list of (spec, seed). `file:PATH` reads lines
+    `spec seed [engine,engine,...]` (a re-timing / confirmation pass)."""
     out = []
+    if name.startswith("file:"):
+        for line in open(name[5:]):
+            parts = line.split()
+            if len(parts) >= 2:
+                out.append((parts[0], int(parts[1]), parts[2].split(",") if len(parts) > 2 else None))
+        return out
     def add(fam, seeds=(1,), **ranges):
         keys = list(ranges)
         for vals in itertools.product(*[ranges[k] for k in keys]):
             spec = fam + ":" + ",".join(f"{k}={v}" for k, v in zip(keys, vals))
             for s in seeds:
-                out.append((spec, s))
+                out.append((spec, s, None))
     if name == "smoke":
         add("ct", n=[10], L=[2, 4], t=[0, 6], nn=[1])
         add("brick", n=[10], D=[2, 6], nn=[1])
@@ -137,11 +144,11 @@ def main():
     if new:
         w.writeheader()
     start = time.perf_counter()
-    for spec, seed in grid(a.grid):
+    for spec, seed, only in grid(a.grid):
         if time.perf_counter() - start > a.budget:
             print("budget exhausted", flush=True)
             return 3
-        todo = [e for e in engines if (spec, str(seed), e) not in done]
+        todo = [e for e in (only or engines) if (spec, str(seed), e) not in done]
         if not todo:
             continue
         fam, params = parse_spec(spec)

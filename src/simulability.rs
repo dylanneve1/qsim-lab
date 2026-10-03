@@ -322,11 +322,20 @@ pub struct Features {
     pub chi_bits: usize,
     /// log2 Σ_gates Σ_{cuts swept} χ_cut(t)^3 with the time-resolved bound.
     pub mps_l: f64,
+    /// The same two without the support cap (pure crossing count).
+    pub chi_bits0: usize,
+    pub mps_l0: f64,
     /// HSF: log2 paths of the KL partition and block sizes.
     pub hsf_k: u32,
     pub hsf_na: usize,
     pub hsf_nb: usize,
     pub hsf_l: f64,
+    /// Path bits after exact zero-path pruning is accounted for: a cut gate
+    /// whose diagonal-side qubit is still in a definite Z state on every
+    /// path (no branching gate since its last projection) adds no paths.
+    pub hsf_keff: u32,
+    /// `hsf_l` with the nominal `hsf_k`.
+    pub hsf_l0: f64,
     /// Affine upper bound on log2 of the support size of the final state.
     pub sup: usize,
     pub sparse_l: f64,
@@ -422,47 +431,59 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
         + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
     f.secs_frame = tf.elapsed().as_secs_f64();
 
-    // MPS: crossing-count bound per line cut, time resolved.
-    let mut bits = vec![0usize; n.saturating_sub(1)];
-    let cap: Vec<usize> = (0..n.saturating_sub(1))
-        .map(|i| (i + 1).min(n - 1 - i))
-        .collect();
+    // MPS: crossing-count bound per line cut, time resolved, capped by the
+    // cut size and by the support: a Schmidt rank never exceeds the number
+    // of non-zero amplitudes, which is at most 2^(branching gates so far).
+    let ncut = n.saturating_sub(1);
+    let cap: Vec<usize> = (0..ncut).map(|i| (i + 1).min(n - 1 - i)).collect();
+    let mut bits = vec![0usize; ncut];
+    let mut bits0 = vec![0usize; ncut];
+    let mut nbranch = 0usize;
     let mut mps_terms: Vec<f64> = Vec::new();
+    let mut mps_terms0: Vec<f64> = Vec::new();
     for g in &gates {
         let parts = if g.arity() == 3 {
             g.decompose_to_clifford_rz()
         } else {
             vec![*g]
         };
+        // A Toffoli is a permutation: its Clifford+T expansion (which the
+        // MPS engine applies) raises the support by at most one H inside.
+        let (toffoli, sup_cap) = (g.arity() == 3, nbranch + usize::from(g.arity() == 3));
         for h in parts {
             let qs = h.qubits();
             if qs.len() == 1 {
+                if !toffoli && is_branching(&h) {
+                    nbranch += 1;
+                }
                 // single-site update ~ χ^2
                 let q = qs[0];
-                let b = [q.checked_sub(1), (q + 1 < n).then_some(q)]
-                    .iter()
-                    .flatten()
-                    .map(|&i| bits[i])
-                    .max()
-                    .unwrap_or(0);
+                let nb = [q.checked_sub(1), (q + 1 < n).then_some(q)];
+                let b = nb.iter().flatten().map(|&i| bits[i]).max().unwrap_or(0);
+                let b0 = nb.iter().flatten().map(|&i| bits0[i]).max().unwrap_or(0);
                 mps_terms.push(2.0 * b as f64);
+                mps_terms0.push(2.0 * b0 as f64);
                 continue;
             }
             let (lo, hi) = (qs[0].min(qs[1]), qs[0].max(qs[1]));
             let r = schmidt_bits(&h);
             for i in lo..hi {
-                bits[i] = (bits[i] + r).min(cap[i]);
-            }
-            // each adjacent application on cut i costs ~ χ_i^3 (SVD of 2χ×2χ)
-            for i in lo..hi {
-                // non-adjacent gates also pay a SWAP there and back
-                let swaps: f64 = if hi - lo > 1 { 1.0 } else { 0.0 };
-                mps_terms.push(3.0 * bits[i] as f64 + swaps);
+                bits[i] = (bits[i] + r).min(cap[i]).min(nbranch.max(sup_cap));
+                bits0[i] = (bits0[i] + r).min(cap[i]);
+                // Each adjacent application on cut i costs ~ χ_i^3. A
+                // non-adjacent gate is routed by SWAPs (there and back):
+                // on every intermediate cut two SWAPs, during which the cut
+                // carries one extra qubit (χ ≤ 2 χ_i), i.e. 2 · (2χ)^3.
+                let extra: f64 = if i > lo { 4.0 } else { 0.0 };
+                mps_terms.push(3.0 * bits[i] as f64 + extra);
+                mps_terms0.push(3.0 * bits0[i] as f64 + extra);
             }
         }
     }
     f.chi_bits = bits.iter().copied().max().unwrap_or(0);
     f.mps_l = log2sum(mps_terms.into_iter());
+    f.chi_bits0 = bits0.iter().copied().max().unwrap_or(0);
+    f.mps_l0 = log2sum(mps_terms0.into_iter());
 
     // HSF: KL partition + its path count.
     if with_hsf && n >= 2 {
@@ -472,16 +493,13 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
         f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
         f.hsf_na = in_a.iter().filter(|&&x| x).count();
         f.hsf_nb = n - f.hsf_na;
+        f.hsf_keff = effective_cut_bits(n, &gates, &in_a);
         let g = f.gates.max(1) as f64;
-        let k = f.hsf_k as f64;
+        let big = f.hsf_na.max(f.hsf_nb) as f64;
         // paths × (block evolutions) + GEMM accumulation of the 2^n output
-        f.hsf_l = log2sum(
-            [
-                k + g.log2() + f.hsf_na.max(f.hsf_nb) as f64,
-                k + n as f64,
-            ]
-            .into_iter(),
-        );
+        let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
+        f.hsf_l = cost(f.hsf_keff as f64);
+        f.hsf_l0 = cost(f.hsf_k as f64);
         f.secs_hsf = th.elapsed().as_secs_f64();
     }
 
@@ -494,6 +512,72 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
     f.sv_l = (f.gates.max(1) as f64).log2() + n as f64;
     f.secs = t0.elapsed().as_secs_f64();
     Ok(f)
+}
+
+/// Path bits of an HSF partition once exact zero-path pruning is taken
+/// into account (see [`Features::hsf_keff`]). A qubit is *definite* while it
+/// holds a computational-basis value on every path: initially, after a
+/// projection, and through diagonal gates, X/Y, and CNOTs from definite
+/// controls. A cut CNOT/CZ/CPhase branches on a Z projector of one of its
+/// diagonal-side qubits; if that qubit is definite only one branch survives.
+/// Other crossing gates (SWAP-like, generic) always count their full rank.
+/// This is a heuristic estimate of the engine's live path count, not a
+/// bound (pruning also happens for reasons it does not model).
+pub fn effective_cut_bits(n: usize, gates: &[Gate], in_a: &[bool]) -> u32 {
+    let mut definite = vec![true; n];
+    let mut bits = 0u32;
+    let crosses = |a: usize, b: usize| in_a[a] != in_a[b];
+    for g in gates {
+        let parts = if g.arity() == 3 {
+            g.decompose_to_clifford_rz()
+        } else {
+            vec![*g]
+        };
+        for h in parts {
+            match h {
+                Gate::Cnot(c, t) => {
+                    if crosses(c, t) {
+                        if !definite[c] {
+                            bits += 1;
+                            definite[c] = true;
+                        }
+                    } else if !definite[c] {
+                        definite[t] = false;
+                    }
+                }
+                Gate::Cz(a, b) | Gate::CPhase(a, b, _) => {
+                    if crosses(a, b) && !definite[a] && !definite[b] {
+                        bits += 1;
+                        definite[a] = true;
+                    }
+                }
+                Gate::Swap(a, b) | Gate::ISwap(a, b) | Gate::ISwapdg(a, b) => {
+                    if crosses(a, b) {
+                        bits += 2;
+                    }
+                    definite.swap(a, b);
+                    if !matches!(h, Gate::Swap(..)) {
+                        definite[a] = false;
+                        definite[b] = false;
+                    }
+                }
+                ref x if x.arity() == 1 => {
+                    if is_branching(x) {
+                        definite[x.qubits()[0]] = false;
+                    }
+                }
+                _ => {
+                    let qs = h.qubits();
+                    if crosses(qs[0], qs[1]) {
+                        bits += 2;
+                    }
+                    definite[qs[0]] = false;
+                    definite[qs[1]] = false;
+                }
+            }
+        }
+    }
+    bits
 }
 
 #[derive(Clone)]

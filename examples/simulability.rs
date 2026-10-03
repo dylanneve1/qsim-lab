@@ -27,10 +27,10 @@ fn main() {
             let c = build(&spec, seed).expect("build");
             let f = features(&c, with_hsf).expect("features");
             println!(
-                "{{\"n\":{},\"gates\":{},\"g2\":{},\"g3\":{},\"depth2\":{},\"t_count\":{},\"rotations\":{},\"d\":{},\"dense_l\":{:.4},\"redundant\":{},\"frame_l\":{:.4},\"chi_bits\":{},\"mps_l\":{:.4},\"hsf_k\":{},\"hsf_na\":{},\"hsf_nb\":{},\"hsf_l\":{:.4},\"sup\":{},\"sparse_l\":{:.4},\"sv_l\":{:.4},\"feat_secs\":{:.6},\"feat_secs_frame\":{:.6},\"feat_secs_hsf\":{:.6}}}",
+                "{{\"n\":{},\"gates\":{},\"g2\":{},\"g3\":{},\"depth2\":{},\"t_count\":{},\"rotations\":{},\"d\":{},\"dense_l\":{:.4},\"redundant\":{},\"frame_l\":{:.4},\"chi_bits\":{},\"mps_l\":{:.4},\"hsf_k\":{},\"hsf_na\":{},\"hsf_nb\":{},\"hsf_l\":{:.4},\"sup\":{},\"chi_bits0\":{},\"mps_l0\":{:.4},\"hsf_keff\":{},\"hsf_l0\":{:.4},\"sparse_l\":{:.4},\"sv_l\":{:.4},\"feat_secs\":{:.6},\"feat_secs_frame\":{:.6},\"feat_secs_hsf\":{:.6}}}",
                 f.n, f.gates, f.g2, f.g3, f.depth2, f.t_count, f.rotations, f.d, f.dense_l,
                 f.redundant, f.frame_l, f.chi_bits, f.mps_l, f.hsf_k, f.hsf_na, f.hsf_nb,
-                f.hsf_l, f.sup, f.sparse_l, f.sv_l, f.secs, f.secs_frame, f.secs_hsf
+                f.hsf_l, f.sup, f.chi_bits0, f.mps_l0, f.hsf_keff, f.hsf_l0, f.sparse_l, f.sv_l, f.secs, f.secs_frame, f.secs_hsf
             );
         }
         "run" => {

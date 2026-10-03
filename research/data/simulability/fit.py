@@ -13,11 +13,20 @@ ENGINES = list(STATE_ENGINES)
 COLORS = dict(zip(ALL_ENGINES, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4",
                             "#008300", "#4a3aa7", "#e34948"]))
 FAMILIES = ["ct", "brick", "arith", "qaoa"]
-PENALTY = 2.0  # censored (timeout / too large) runs count as PENALTY x timeout
+PENALTY = 2.0
+T_FLOOR = 2e-4   # s: below this, run times are process/allocation overhead
+EPS = 1e-3       # s: additive slack in the epsilon-regret metric  # censored (timeout / too large) runs count as PENALTY x timeout
+
+
+V0 = False  # --v0: the nominal (unpruned / uncapped) MPS and HSF features
 
 
 def resource(e, f):
     """log2 work estimate of engine e from the cheap features f."""
+    if V0 and e == "mps":
+        return f["mps_l0"]
+    if V0 and e == "hsf":
+        return f["hsf_l0"]
     if e == "sv":
         return f["sv_l"]
     if e == "sparse":
@@ -101,21 +110,20 @@ class Model:
         return [1.0, r] + ([math.log2(max(f["gates"], 1))] if self.two else [])
 
     def fit(self, data):
+        """OLS on the runs above the common overhead floor T_FLOOR. No
+        per-engine floor: a floor learned on other families transfers badly
+        (an engine's cheapest runs depend on the family), so predictions
+        below T_FLOOR are kept as extrapolations; the epsilon-regret metric
+        makes sub-millisecond differences irrelevant anyway."""
         for e in ENGINES:
             pts = [(self.x(e, d["f"]), math.log2(d["runs"][e][1])) for d in data
-                   if d["runs"].get(e, ("",))[0] == "ok"]
+                   if d["runs"].get(e, ("",))[0] == "ok" and d["runs"][e][1] >= T_FLOOR]
             if len(pts) < 3:
                 continue
-            ys = np.array([y for _, y in pts])
-            floor = float(np.percentile(ys, 5))
-            sel = [(x, y) for x, y in pts if y > floor + 2]  # above the overhead floor
-            if len(sel) < 3:
-                self.p[e] = (floor, None)
-                continue
-            X = np.array([x for x, _ in sel])
-            Y = np.array([y for _, y in sel])
+            X = np.array([x for x, _ in pts])
+            Y = np.array([y for _, y in pts])
             coef, *_ = np.linalg.lstsq(X, Y, rcond=None)
-            self.p[e] = (floor, coef)
+            self.p[e] = (math.log2(T_FLOOR), coef)
 
     def predict(self, e, f):
         if not applicable(e, f):
@@ -123,13 +131,10 @@ class Model:
         if e == "tableau":
             # polynomial engine: a prior, not a fit (it only runs on
             # Clifford circuits, which a held-out family may not contain)
-            return min((p[0] for p in self.p.values()), default=-14.0) - 1.0
+            return math.log2(T_FLOOR) - 4.0
         if e not in self.p:
             return math.inf
-        floor, coef = self.p[e]
-        if coef is None:
-            return floor
-        return max(floor, float(np.dot(coef, self.x(e, f))))
+        return float(np.dot(self.p[e][1], self.x(e, f)))
 
     def choose(self, f, engines=ENGINES):
         return min(engines, key=lambda e: self.predict(e, f))
@@ -139,6 +144,7 @@ def evaluate(model_choose, data, predict=None):
     """accuracy, geo-mean regret, frac within 2x, per-engine log10 RMSE."""
     acc = n = 0
     logreg = []
+    epsreg = []
     within2 = 0
     for d in data:
         w = winner(d)
@@ -152,9 +158,12 @@ def evaluate(model_choose, data, predict=None):
         acc += c == w[0]
         r = t / w[1]
         logreg.append(math.log10(r))
+        epsreg.append(math.log10((t + EPS) / (w[1] + EPS)))
         within2 += r <= 2.0
     out = dict(n=n, acc=acc / max(n, 1), geo_regret=10 ** np.mean(logreg) if logreg else math.nan,
-               within2=within2 / max(n, 1), max_regret=10 ** max(logreg) if logreg else math.nan)
+               within2=within2 / max(n, 1), max_regret=10 ** max(logreg) if logreg else math.nan,
+               geo_eps_regret=10 ** np.mean(epsreg) if epsreg else math.nan,
+               max_eps_regret=10 ** max(epsreg) if epsreg else math.nan)
     if predict is not None:
         rm = {}
         for e in ENGINES:
@@ -219,10 +228,13 @@ def fit_single(data, feat, k=3):
 
 
 def main():
-    global ENGINES
+    global ENGINES, V0
     args = sys.argv[1:]
-    if args[0] == "--all":
-        ENGINES[:] = ALL_ENGINES
+    while args[0].startswith("--"):
+        if args[0] == "--all":
+            ENGINES[:] = ALL_ENGINES
+        elif args[0] == "--v0":
+            V0 = True
         args = args[1:]
     outdir = args[0]
     data = load(args[1:])
@@ -269,7 +281,10 @@ def main():
             acc=sum(lofo[F][key]["acc"] * lofo[F][key]["n"] for F in fams) / max(n, 1),
             geo_regret=10 ** (sum(math.log10(lofo[F][key]["geo_regret"]) * lofo[F][key]["n"]
                                   for F in fams) / max(n, 1)),
-            within2=sum(lofo[F][key]["within2"] * lofo[F][key]["n"] for F in fams) / max(n, 1))
+            within2=sum(lofo[F][key]["within2"] * lofo[F][key]["n"] for F in fams) / max(n, 1),
+            geo_eps_regret=10 ** (sum(math.log10(lofo[F][key]["geo_eps_regret"]) * lofo[F][key]["n"]
+                                      for F in fams) / max(n, 1)),
+            max_eps_regret=max(lofo[F][key]["max_eps_regret"] for F in fams))
     rep["lofo_pooled"] = pooled
     json.dump(rep, open(os.path.join(outdir, "fit_report.json"), "w"), indent=1, default=str)
     # winners table
@@ -290,7 +305,7 @@ def main():
     print(json.dumps({k: rep[k] for k in ["n_instances", "max_abs_err", "runs_ok", "lofo_pooled"]},
                      indent=1, default=str))
     for F in fams:
-        print(F, {k: (round(v["acc"], 2), round(v["geo_regret"], 2)) for k, v in lofo[F].items()
+        print(F, {k: (round(v["acc"], 2), round(v["geo_regret"], 2), round(v["geo_eps_regret"], 2)) for k, v in lofo[F].items()
                   if k in ("model", "model_two", "always_sv", "single_d", "single_n", "single_t_count")})
     for e, (fl, c) in rep["coef"].items():
         print(f"  {e:8s} floor 2^{fl:.1f}s  coef {c}")
@@ -322,7 +337,7 @@ def plots(data, outdir, full):
         if e in full.p and full.p[e][1] is not None:
             fl, c = full.p[e]
             xr = np.linspace(*ax.get_xlim(), 50)
-            ax.plot(xr, [max(fl, c[0] + c[1] * x) * math.log10(2) for x in xr], color="#52514e",
+            ax.plot(xr, [(c[0] + c[1] * x) * math.log10(2) for x in xr], color="#52514e",
                     lw=1.5)
             ax.set_title(f"{e}: log2 t = {c[0]:.1f} + {c[1]:.2f}·R", fontsize=9)
         else:
@@ -373,6 +388,7 @@ def plots(data, outdir, full):
         fig.tight_layout()
         fig.savefig(os.path.join(outdir, fname), dpi=130)
         plt.close(fig)
+    universal(data, outdir, plt, Patch)
     phase("ct", {"n": 24, "nn": 1}, "t", "L", "phase_ct24.png", "Clifford+T, n=24, NN CNOT layers")
     phase("ct", {"n": 32, "nn": 1}, "t", "L", "phase_ct32.png", "Clifford+T, n=32, NN CNOT layers")
     phase("ct", {"n": 16, "nn": 1}, "t", "L", "phase_ct16.png", "Clifford+T, n=16")
@@ -383,6 +399,50 @@ def plots(data, outdir, full):
     for nn in (0, 1):
         phase("qaoa", {"deg": 3, "nn": nn}, "p", "n", f"phase_qaoa_nn{nn}.png",
               f"QAOA deg 3, {'ring' if nn else 'random'} graph")
+
+
+def universal(data, outdir, plt, Patch):
+    """All families in normalised resource coordinates: magic (d/n),
+    entanglement (χ bits / (n/2)), support (sup/n). Colour = measured winner
+    among the state engines, marker = family."""
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.6))
+    pairs = [("d", "chi_bits", "active dimension d / n  (magic)",
+              "bond bound log2 χ / (n/2)  (entanglement)"),
+             ("sup", "chi_bits", "support bound / n  (superposition)",
+              "bond bound log2 χ / (n/2)  (entanglement)"),
+             ("d", "sup", "active dimension d / n  (magic)", "support bound / n  (superposition)")]
+    norm = {"d": lambda f: f["d"] / f["n"], "sup": lambda f: f["sup"] / f["n"],
+            "chi_bits": lambda f: f["chi_bits"] / max(1, f["n"] // 2)}
+    rng = np.random.default_rng(0)
+    used = set()
+    for ax, (xa, ya, xl, yl) in zip(axes, pairs):
+        for F, mk in zip(FAMILIES, "o^sD"):
+            for d in data:
+                if d["family"] != F:
+                    continue
+                w = winner(d)
+                if not w:
+                    continue
+                used.add(w[0])
+                jx, jy = rng.uniform(-0.012, 0.012, 2)
+                ax.scatter(norm[xa](d["f"]) + jx, norm[ya](d["f"]) + jy, s=26, marker=mk,
+                           color=COLORS[w[0]], edgecolors="white", linewidths=0.5)
+        ax.set_xlabel(xl)
+        ax.set_ylabel(yl)
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        ax.grid(alpha=0.25)
+    h = [Patch(color=COLORS[e], label=e) for e in ENGINES if e in used]
+    from matplotlib.lines import Line2D
+    h += [Line2D([], [], marker=mk, ls="", color="#52514e", label=F)
+          for F, mk in zip(FAMILIES, "o^sD")]
+    axes[-1].legend(handles=h, bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8,
+                    title="colour: winner / marker: family", title_fontsize=8)
+    fig.suptitle("Phase diagram of exact simulability in normalised resource coordinates "
+                 "(measured winner, all families)", fontsize=10)
+    fig.tight_layout()
+    fig.savefig(os.path.join(outdir, "phase_universal.png"), dpi=130)
+    plt.close(fig)
 
 
 if __name__ == "__main__":
