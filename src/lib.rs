@@ -59,6 +59,7 @@ pub mod simulability;
 pub mod sparse;
 pub mod stabilizer;
 pub mod statevector;
+pub mod stim_io;
 
 pub use circuit::{Circuit, CircuitStats, Op, SimError, Simulator};
 pub use gate::Gate;
