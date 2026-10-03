@@ -219,3 +219,42 @@ fn every_engine_matches_reference_local_observables() {
         }
     }
 }
+
+#[test]
+fn tableau_engine_matches_reference_on_many_clifford_circuits() {
+    // Regression: the tableau runner once conjugated by C instead of C†;
+    // <Z^n> hid it, a local Z_i Z_j exposed it (ct:n=20,L=2,t=0,nn=0).
+    use qsim_lab::simulability::{observable_qubits, run_engine_obs};
+    let mut checked = 0;
+    for nn in [0, 1] {
+        for seed in 1..=25 {
+            let spec = format!("ct:n=8,L=3,t=0,nn={nn}");
+            let c = build(&Spec::parse(&spec).unwrap(), seed).unwrap();
+            let mut sv = StateVectorF64::new(8);
+            sv.apply_circuit(&c).unwrap();
+            for name in ["all", "mid2", "mid4"] {
+                let qs = observable_qubits(name, 8).unwrap();
+                let want: f64 = sv
+                    .amplitudes()
+                    .iter()
+                    .enumerate()
+                    .map(|(x, a)| {
+                        let par = qs.iter().filter(|&&q| x >> q & 1 == 1).count() % 2;
+                        if par == 1 {
+                            -a.norm_sqr()
+                        } else {
+                            a.norm_sqr()
+                        }
+                    })
+                    .sum();
+                let got = run_engine_obs("tableau", &c, 1 << 30, &qs).unwrap().value;
+                assert!(
+                    (got - want).abs() < 1e-9,
+                    "{spec} s{seed} {name}: {got} vs {want}"
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert_eq!(checked, 150);
+}

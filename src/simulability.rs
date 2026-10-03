@@ -850,8 +850,17 @@ pub fn run_engine_obs(
                     limit: 0,
                 });
             }
+            // Heisenberg picture: <0|C† P C|0>. `conjugate_by_clifford(X)`
+            // maps P -> X P X†, so conjugate by the inverse circuit C†
+            // (reversed, inverted gates). The first version conjugated by C
+            // itself, which only happened to agree on <Z^n> (caught by the
+            // local-observable sweep).
+            let mut inv = Circuit::new(n);
+            for g in c.gates().collect::<Vec<_>>().into_iter().rev() {
+                inv.gate(g.inverse());
+            }
             let mut p = PauliSum::z_product(n, &all);
-            p.conjugate_by_clifford(c)?;
+            p.conjugate_by_clifford(&inv)?;
             run.value = p.expectation_zero_state();
         }
         "cstate" => {

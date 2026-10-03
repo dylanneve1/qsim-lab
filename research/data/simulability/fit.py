@@ -18,6 +18,7 @@ T_FLOOR = float(os.environ.get("T_FLOOR", "1e-3"))  # s: below this, times are o
 EPS = 1e-3       # s: additive slack in the epsilon-regret metric  # censored (timeout / too large) runs count as PENALTY x timeout
 
 
+NONCERT = [False]  # --noncert: drop instances whose value is certified 0
 V0 = False  # --v0: the nominal (unpruned / uncapped) MPS and HSF features
 
 
@@ -235,9 +236,13 @@ def main():
             ENGINES[:] = ALL_ENGINES
         elif args[0] == "--v0":
             V0 = True
+        elif args[0] == "--noncert":
+            NONCERT[0] = True
         args = args[1:]
     outdir = args[0]
     data = load(args[1:])
+    if NONCERT[0]:
+        data = [d for d in data if not d["f"].get("obs_zero")]
     os.makedirs(outdir, exist_ok=True)
     fams = [f for f in FAMILIES if any(d["family"] == f for d in data)]
     rep = {"n_instances": len(data)}
