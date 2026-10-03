@@ -404,7 +404,10 @@ fn sliced_ripple_distribution_matches_gate_by_gate_and_permutation() {
             if n <= 21 {
                 let d_gbg = dist(&rip_gbg, shor::sparse_initial(&rip_gbg));
                 let d = max_diff(&d_gbg, &d_sl);
-                assert!(d < 1e-12, "N={n} a={a}: sliced vs gate-by-gate sparse {d:e}");
+                assert!(
+                    d < 1e-12,
+                    "N={n} a={a}: sliced vs gate-by-gate sparse {d:e}"
+                );
             }
         }
     }
@@ -423,11 +426,17 @@ fn windowed_distribution_matches_permutation() {
                 let d_perm = dist(&perm, shor::sparse_initial(&perm));
                 let d_sl = dist(&win, shor::sliced::SlicedState::<f64>::new(&win));
                 let d = max_diff(&d_perm, &d_sl);
-                assert!(d < 1e-12, "N={n} w={w} a={a}: sliced windowed vs perm {d:e}");
+                assert!(
+                    d < 1e-12,
+                    "N={n} w={w} a={a}: sliced windowed vs perm {d:e}"
+                );
                 if n <= 21 && win.qubits() <= 64 {
                     let d_gbg = dist(&win, shor::sparse_initial(&win));
                     let d = max_diff(&d_perm, &d_gbg);
-                    assert!(d < 1e-12, "N={n} w={w} a={a}: gate-by-gate windowed vs perm {d:e}");
+                    assert!(
+                        d < 1e-12,
+                        "N={n} w={w} a={a}: gate-by-gate windowed vs perm {d:e}"
+                    );
                 }
             }
         }
@@ -461,8 +470,16 @@ fn sliced_runs_measure_the_same_bits() {
                     shor::order_finding(inst, b, &mut StdRng::seed_from_u64(seed)).measured
                 };
                 let base = r(&perm, Backend::FusedSparse);
-                assert_eq!(base, r(&rip, Backend::SlicedF64), "ripple N={n} a={a} seed={seed}");
-                assert_eq!(base, r(&win, Backend::SlicedF64), "windowed N={n} a={a} seed={seed}");
+                assert_eq!(
+                    base,
+                    r(&rip, Backend::SlicedF64),
+                    "ripple N={n} a={a} seed={seed}"
+                );
+                assert_eq!(
+                    base,
+                    r(&win, Backend::SlicedF64),
+                    "windowed N={n} a={a} seed={seed}"
+                );
                 if n <= 1003 {
                     assert_eq!(base, r(&rip, Backend::Sparse), "sparse ripple N={n} a={a}");
                 }

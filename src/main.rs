@@ -661,8 +661,8 @@ fn main() {
                         };
                         for r in &runs {
                             println!(
-                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}",
-                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates
+                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}  gate_branch_ops={:.3e}",
+                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates, r.work_ops as f64
                             );
                         }
                         match f {

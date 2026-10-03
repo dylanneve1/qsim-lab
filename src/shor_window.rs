@@ -73,7 +73,14 @@ impl WindowLayout {
 /// `T[v]`, and the chain is uncomputed. Consecutive addresses share the
 /// common chain prefix (only the suffix that changes is recomputed), and
 /// X flips are only emitted when a bit's required polarity changes.
-pub fn lookup(c: &mut Circuit, ctrl: usize, addr: &[usize], and: &[usize], l: &[usize], table: &[u64]) {
+pub fn lookup(
+    c: &mut Circuit,
+    ctrl: usize,
+    addr: &[usize],
+    and: &[usize],
+    l: &[usize],
+    table: &[u64],
+) {
     let w = addr.len();
     assert!(w >= 1 && and.len() >= w && table.len() == 1 << w);
     // flipped[j]: addr[j] currently X-ed (so it reads 1 when the bit is 0)
@@ -203,7 +210,11 @@ mod tests {
                     for l0 in [0u64, 0b101101] {
                         let k = ctrl | (v << 1) | (l0 << (2 * w + 1));
                         let out = eval_circuit_on_key(k, &c);
-                        let want = if ctrl == 1 { l0 ^ table[v as usize] } else { l0 };
+                        let want = if ctrl == 1 {
+                            l0 ^ table[v as usize]
+                        } else {
+                            l0
+                        };
                         assert_eq!(out & ((1 << (2 * w + 1)) - 1), k & ((1 << (2 * w + 1)) - 1));
                         assert_eq!(out >> (2 * w + 1), want, "w={w} ctrl={ctrl} v={v}");
                     }
@@ -219,16 +230,25 @@ mod tests {
             for w in 1..=4 {
                 let lay = WindowLayout::new(n, w);
                 assert!(lay.num_qubits() <= 64);
-                let anc_mask: u64 = !((1u64 << (n + 1)) - 1) & (u64::MAX >> (64 - lay.num_qubits()));
+                let anc_mask: u64 =
+                    !((1u64 << (n + 1)) - 1) & (u64::MAX >> (64 - lay.num_qubits()));
                 for a in (2..n_mod).filter(|&a| gcd(a, n_mod) == 1).take(5) {
                     let c = controlled_ua(&lay, a, n_mod);
                     for ctrl in [0u64, 1] {
                         for x in 0..n_mod {
                             let k_out = eval_circuit_on_key(ctrl | (x << 1), &c);
-                            assert_eq!(k_out & anc_mask, 0, "dirty: N={n_mod} w={w} a={a} c={ctrl} x={x}");
+                            assert_eq!(
+                                k_out & anc_mask,
+                                0,
+                                "dirty: N={n_mod} w={w} a={a} c={ctrl} x={x}"
+                            );
                             assert_eq!(k_out & 1, ctrl);
                             let want = if ctrl == 1 { x * a % n_mod } else { x };
-                            assert_eq!((k_out >> 1) & ((1 << n) - 1), want, "N={n_mod} w={w} a={a} x={x}");
+                            assert_eq!(
+                                (k_out >> 1) & ((1 << n) - 1),
+                                want,
+                                "N={n_mod} w={w} a={a} x={x}"
+                            );
                         }
                     }
                 }

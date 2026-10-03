@@ -89,6 +89,11 @@ pub trait OrderFindingState: Clone {
     {
         inst.round(self, i, y_low);
     }
+    /// Gate applications × basis-state branches performed so far (0 if the
+    /// backend does not count them).
+    fn work_ops(&self) -> u128 {
+        0
+    }
     /// Recycles the control after it was measured as `bit`.
     fn reset_control(&mut self, bit: bool) {
         if bit {
@@ -413,6 +418,8 @@ pub struct SemiRun {
     pub peak_bytes: usize,
     pub total_gates: usize,
     pub toffoli_gates: usize,
+    /// Gate × branch applications (sliced backend only, else 0).
+    pub work_ops: u128,
 }
 
 /// One semiclassical order-finding run on the state `s` (which must be the
@@ -461,6 +468,8 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
             }
         }
     }
+    // the last collapse can grow the support; sample once more
+    peak_stored = peak_stored.max(s.stored());
     let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
     SemiRun {
         a: inst.a,
@@ -472,6 +481,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         peak_bytes,
         total_gates,
         toffoli_gates,
+        work_ops: s.work_ops(),
     }
 }
 

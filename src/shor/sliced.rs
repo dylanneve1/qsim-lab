@@ -46,8 +46,28 @@ use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rayon::prelude::*;
 
-/// Lane count: one slice holds `64 * LANES` branches.
-pub const LANES: usize = 8;
+/// Default lane count: one slice holds `64 * LANES` branches. Override with
+/// the environment variable `QSIM_SLICE_LANES` (4, 8, 16 or 32).
+pub const LANES: usize = 16;
+
+fn lanes() -> usize {
+    static L: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *L.get_or_init(|| {
+        std::env::var("QSIM_SLICE_LANES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .filter(|l| [4usize, 8, 16, 32].contains(l))
+            .unwrap_or(LANES)
+    })
+}
+
+#[cfg(target_arch = "x86_64")]
+fn has_avx2() -> bool {
+    static A: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *A.get_or_init(|| {
+        std::env::var_os("QSIM_NO_AVX2").is_none() && std::arch::is_x86_feature_detected!("avx2")
+    })
+}
 
 /// A reversible circuit compiled to `w[t] ^= w[c1] & w[c2]` steps.
 #[derive(Clone, Debug)]
@@ -57,6 +77,28 @@ pub struct SlicedProgram {
     ops: Vec<[u32; 3]>,
     /// Gates in the source circuit (a SWAP counts once).
     pub gates: usize,
+}
+
+#[inline(always)]
+fn eval_body<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
+    for &[t, a, b] in ops {
+        // SAFETY: every index was checked against nq at compile time and
+        // the caller checked w.len() > nq.
+        unsafe {
+            let x = *w.get_unchecked(a as usize);
+            let y = *w.get_unchecked(b as usize);
+            let wt = w.get_unchecked_mut(t as usize);
+            for l in 0..L {
+                wt[l] ^= x[l] & y[l];
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn eval_avx2<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
+    eval_body::<L>(ops, w);
 }
 
 impl SlicedProgram {
@@ -109,18 +151,13 @@ impl SlicedProgram {
     pub fn eval<const L: usize>(&self, w: &mut [[u64; L]]) {
         assert!(w.len() > self.nq);
         assert!(w[self.nq].iter().all(|&x| x == u64::MAX));
-        for &[t, a, b] in &self.ops {
-            // SAFETY: every index was checked against nq at compile time and
-            // w.len() > nq.
-            unsafe {
-                let x = *w.get_unchecked(a as usize);
-                let y = *w.get_unchecked(b as usize);
-                let wt = w.get_unchecked_mut(t as usize);
-                for l in 0..L {
-                    wt[l] ^= x[l] & y[l];
-                }
-            }
+        #[cfg(target_arch = "x86_64")]
+        if has_avx2() {
+            // SAFETY: AVX2 support was detected at run time.
+            unsafe { eval_avx2::<L>(&self.ops, w) };
+            return;
         }
+        eval_body::<L>(&self.ops, w);
     }
 }
 
@@ -133,11 +170,43 @@ pub struct SliceIo {
     pub x: Vec<usize>,
 }
 
+/// What [`eval_block_into`] does with the output work-register values.
+pub enum BlockOut<'a> {
+    /// Write `out[i] = U x_i`.
+    Keys(&'a mut [u64]),
+    /// Write `out[i] = (U x_i, i)` (for the sort-merge join).
+    Pairs(&'a mut [(u64, u32)]),
+    /// Assert `U x_i = x_i` (control-0 branches).
+    Identity,
+}
+
 /// Evaluates the block on `|ctrl>|x>|0…>` for every `x` in `xs`, gate by
 /// gate on bit slices, and returns the output work-register values.
 /// Panics if any output has a changed control or a non-zero ancilla.
 pub fn eval_block(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64]) -> Vec<u64> {
-    const B: usize = 64 * LANES;
+    let mut out = vec![0u64; xs.len()];
+    eval_block_into(prog, io, ctrl, xs, BlockOut::Keys(&mut out));
+    out
+}
+
+/// [`eval_block`] with an explicit output mode.
+pub fn eval_block_into(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64], out: BlockOut) {
+    match lanes() {
+        4 => eval_block_l::<4>(prog, io, ctrl, xs, out),
+        8 => eval_block_l::<8>(prog, io, ctrl, xs, out),
+        32 => eval_block_l::<32>(prog, io, ctrl, xs, out),
+        _ => eval_block_l::<16>(prog, io, ctrl, xs, out),
+    }
+}
+
+fn eval_block_l<const L: usize>(
+    prog: &SlicedProgram,
+    io: &SliceIo,
+    ctrl: bool,
+    xs: &[u64],
+    out: BlockOut,
+) {
+    let b = 64 * L;
     let nq = prog.nq;
     assert!(io.x.len() <= 64);
     let mut is_reg = vec![false; nq];
@@ -146,67 +215,87 @@ pub fn eval_block(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64]) ->
         is_reg[q] = true;
     }
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
-    let mut out = vec![0u64; xs.len()];
-    xs.par_chunks(B)
-        .zip(out.par_chunks_mut(B))
-        .for_each_init(
-            || vec![[0u64; LANES]; nq + 1],
-            |w, (inp, outp)| {
-                for wq in w.iter_mut() {
-                    *wq = [0; LANES];
-                }
-                w[nq] = [u64::MAX; LANES];
-                // valid-lane mask
-                let mut valid = [0u64; LANES];
-                for (l, v) in valid.iter_mut().enumerate() {
-                    let lo = l * 64;
-                    if inp.len() > lo {
-                        let k = (inp.len() - lo).min(64);
-                        *v = if k == 64 { u64::MAX } else { (1u64 << k) - 1 };
+    let batch = |w: &mut Vec<[u64; L]>, inp: &[u64]| -> Vec<u64> {
+        for wq in w.iter_mut() {
+            *wq = [0; L];
+        }
+        w[nq] = [u64::MAX; L];
+        // valid-lane mask
+        let mut valid = [0u64; L];
+        for (l, v) in valid.iter_mut().enumerate() {
+            let lo = l * 64;
+            if inp.len() > lo {
+                let k = (inp.len() - lo).min(64);
+                *v = if k == 64 { u64::MAX } else { (1u64 << k) - 1 };
+            }
+        }
+        if ctrl {
+            w[io.ctrl] = valid;
+        }
+        // transpose in
+        for (j, &q) in io.x.iter().enumerate() {
+            let wq = &mut w[q];
+            for (i, &x) in inp.iter().enumerate() {
+                wq[i >> 6] |= ((x >> j) & 1) << (i & 63);
+            }
+        }
+        prog.eval(w);
+        // checks: control unchanged, ancillas zero (valid lanes)
+        for l in 0..L {
+            let want = if ctrl { valid[l] } else { 0 };
+            assert_eq!(
+                w[io.ctrl][l] & valid[l],
+                want,
+                "control qubit changed by the oracle block"
+            );
+            let mut dirty = 0u64;
+            for &q in &anc {
+                dirty |= w[q][l];
+            }
+            assert_eq!(
+                dirty & valid[l],
+                0,
+                "ancillas did not return to 0 (lane word {l})"
+            );
+        }
+        // transpose out
+        let mut o = vec![0u64; inp.len()];
+        for (j, &q) in io.x.iter().enumerate() {
+            let wq = &w[q];
+            for (i, o) in o.iter_mut().enumerate() {
+                *o |= ((wq[i >> 6] >> (i & 63)) & 1) << j;
+            }
+        }
+        o
+    };
+    let init = || vec![[0u64; L]; nq + 1];
+    match out {
+        BlockOut::Keys(out) => {
+            assert_eq!(out.len(), xs.len());
+            xs.par_chunks(b)
+                .zip(out.par_chunks_mut(b))
+                .for_each_init(init, |w, (inp, outp)| outp.copy_from_slice(&batch(w, inp)));
+        }
+        BlockOut::Pairs(out) => {
+            assert_eq!(out.len(), xs.len());
+            xs.par_chunks(b)
+                .zip(out.par_chunks_mut(b))
+                .enumerate()
+                .for_each_init(init, |w, (ci, (inp, outp))| {
+                    for (j, (o, y)) in outp.iter_mut().zip(batch(w, inp)).enumerate() {
+                        *o = (y, (ci * b + j) as u32);
                     }
-                }
-                if ctrl {
-                    w[io.ctrl] = valid;
-                }
-                // transpose in
-                for (j, &q) in io.x.iter().enumerate() {
-                    let wq = &mut w[q];
-                    for (i, &x) in inp.iter().enumerate() {
-                        wq[i >> 6] |= ((x >> j) & 1) << (i & 63);
-                    }
-                }
-                prog.eval(w);
-                // checks: control unchanged, ancillas zero (valid lanes)
-                for l in 0..LANES {
-                    let want = if ctrl { valid[l] } else { 0 };
-                    assert_eq!(
-                        w[io.ctrl][l] & valid[l],
-                        want,
-                        "control qubit changed by the oracle block"
-                    );
-                    let mut dirty = 0u64;
-                    for &q in &anc {
-                        dirty |= w[q][l];
-                    }
-                    assert_eq!(
-                        dirty & valid[l],
-                        0,
-                        "ancillas did not return to 0 (lane word {l})"
-                    );
-                }
-                // transpose out
-                for o in outp.iter_mut() {
-                    *o = 0;
-                }
-                for (j, &q) in io.x.iter().enumerate() {
-                    let wq = &w[q];
-                    for (i, o) in outp.iter_mut().enumerate() {
-                        *o |= ((wq[i >> 6] >> (i & 63)) & 1) << j;
-                    }
-                }
-            },
-        );
-    out
+                });
+        }
+        BlockOut::Identity => {
+            xs.par_chunks(b).for_each_init(init, |w, inp| {
+                assert!(
+                    batch(w, inp) == inp,
+                    "controlled-U with control 0 is not the identity"
+                );
+            });
+        }
+    }
 }
 
 /// The controlled-`U_mult` gate-level block for a reversible oracle.
@@ -254,6 +343,21 @@ pub struct SlicedState<T: Real> {
     /// Skip evaluating the control-0 branches (they are the identity on a
     /// clean input; this halves the work but no longer *checks* it).
     pub skip_ctrl0: bool,
+    /// Seconds spent in: building+compiling the circuit, control-1 gate
+    /// evaluation, control-0 gate evaluation, sort, P(1) merge, collapse.
+    pub prof: [f64; 6],
+}
+
+impl<T: Real> Drop for SlicedState<T> {
+    fn drop(&mut self) {
+        if std::env::var_os("QSIM_SLICE_PROFILE").is_some() && self.gate_branch_ops > 0 {
+            let p = self.prof;
+            eprintln!(
+                "[sliced profile] build {:.3}s  eval c=1 {:.3}s  eval c=0 {:.3}s  sort {:.3}s  p1 {:.3}s  collapse {:.3}s  peak support {}",
+                p[0], p[1], p[2], p[3], p[4], p[5], self.peak
+            );
+        }
+    }
 }
 
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
@@ -275,6 +379,7 @@ impl<T: Real> SlicedState<T> {
             peak: 1,
             gate_branch_ops: 0,
             skip_ctrl0: false,
+            prof: [0.0; 6],
         }
     }
 
@@ -308,7 +413,11 @@ impl<T: Real> SlicedState<T> {
 
     /// Visits the union of `supp ψ` and `supp Uψ` in key order on
     /// `[a0,a1) × [b0,b1)`, calling `f(key, ψ_key, (Uψ)_key)`.
-    fn merge(&self, (a0, a1, b0, b1): (usize, usize, usize, usize), mut f: impl FnMut(u64, Complex64, Complex64)) {
+    fn merge(
+        &self,
+        (a0, a1, b0, b1): (usize, usize, usize, usize),
+        mut f: impl FnMut(u64, Complex64, Complex64),
+    ) {
         let z = Complex64::zero();
         let (mut i, mut j) = (a0, b0);
         while i < a1 || j < b1 {
@@ -321,7 +430,11 @@ impl<T: Real> SlicedState<T> {
                 f(kb, z, c64(self.amps[self.ukeys[j].1 as usize]));
                 j += 1;
             } else {
-                f(ka, c64(self.amps[i]), c64(self.amps[self.ukeys[j].1 as usize]));
+                f(
+                    ka,
+                    c64(self.amps[i]),
+                    c64(self.amps[self.ukeys[j].1 as usize]),
+                );
                 i += 1;
                 j += 1;
             }
@@ -338,34 +451,33 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
     }
     fn round(&mut self, inst: &Instance, i: usize, y_low: u128) {
         let mult = inst.mults[inst.t - 1 - i];
+        let t0 = std::time::Instant::now();
         let (c, io) = oracle_block(inst, mult);
         let prog = SlicedProgram::compile(&c).expect("reversible oracle");
+        drop(c);
+        let t1 = std::time::Instant::now();
         assert!(self.keys.len() < u32::MAX as usize);
         // control = 1 branches: the gate-level circuit computes U x
-        let ys = eval_block(&prog, &io, true, &self.keys);
+        self.ukeys = Vec::new();
+        let mut uk = vec![(0u64, 0u32); self.keys.len()];
+        eval_block_into(&prog, &io, true, &self.keys, BlockOut::Pairs(&mut uk));
+        let t2 = std::time::Instant::now();
         let mut branches = self.keys.len() as u128;
         if !self.skip_ctrl0 {
             // control = 0 branches: same circuit, must give x back
-            let back = eval_block(&prog, &io, false, &self.keys);
-            assert!(
-                back == self.keys,
-                "controlled-U with control 0 is not the identity"
-            );
+            eval_block_into(&prog, &io, false, &self.keys, BlockOut::Identity);
             branches *= 2;
         }
+        let t3 = std::time::Instant::now();
         self.gate_branch_ops += branches * prog.gates as u128;
-        let mut uk: Vec<(u64, u32)> = ys
-            .into_iter()
-            .enumerate()
-            .map(|(j, y)| (y, j as u32))
-            .collect();
         uk.par_sort_unstable_by_key(|e| e.0);
         // U is a permutation: distinct inputs must give distinct outputs
         assert!(
-            uk.windows(2).all(|w| w[0].0 != w[1].0),
+            uk.par_windows(2).all(|w| w[0].0 != w[1].0),
             "oracle block is not injective on the support"
         );
         self.ukeys = uk;
+        let t4 = std::time::Instant::now();
         let phi = if y_low != 0 {
             Instance::correction(i, y_low)
         } else {
@@ -383,7 +495,14 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             })
             .sum();
         self.p1 = s / 4.0;
-        self.peak = self.peak.max(self.keys.len() + self.ukeys.len());
+        self.peak = self.peak.max(self.keys.len());
+        let t5 = std::time::Instant::now();
+        let d = |a: std::time::Instant, b: std::time::Instant| (b - a).as_secs_f64();
+        self.prof[0] += d(t0, t1);
+        self.prof[1] += d(t1, t2);
+        self.prof[2] += d(t2, t3);
+        self.prof[3] += d(t3, t4);
+        self.prof[4] += d(t4, t5);
     }
     fn prob_one(&self, q: usize) -> f64 {
         assert_eq!(q, 0);
@@ -395,6 +514,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         assert!(p > 0.0, "cannot collapse onto a zero-probability outcome");
         let ph = if outcome { -self.ph } else { self.ph };
         let k = 0.5 / p.sqrt();
+        let t0 = std::time::Instant::now();
         let parts: Vec<(Vec<u64>, Vec<Complex<T>>)> = self
             .chunks()
             .into_par_iter()
@@ -412,6 +532,9 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
                 (ks, vs)
             })
             .collect();
+        self.keys = Vec::new();
+        self.amps = Vec::new();
+        self.ukeys = Vec::new();
         let total: usize = parts.iter().map(|p| p.0.len()).sum();
         let mut keys = Vec::with_capacity(total);
         let mut amps = Vec::with_capacity(total);
@@ -419,17 +542,22 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             keys.extend(ks);
             amps.extend(vs);
         }
+        self.peak = self.peak.max(keys.len());
         self.keys = keys;
         self.amps = amps;
-        self.ukeys = Vec::new();
+        self.prof[5] += t0.elapsed().as_secs_f64();
     }
     fn reset_control(&mut self, _bit: bool) {}
     fn bytes(&self) -> usize {
-        self.keys.capacity() * (8 + std::mem::size_of::<Complex<T>>())
-            + self.ukeys.capacity() * 16
+        self.keys.capacity() * (8 + std::mem::size_of::<Complex<T>>()) + self.ukeys.capacity() * 16
     }
+    /// Peak support size `|supp ψ|` (work-register values); each round
+    /// evaluates the circuit on `2 |supp ψ|` basis states.
     fn stored(&self) -> usize {
         self.peak
+    }
+    fn work_ops(&self) -> u128 {
+        self.gate_branch_ops
     }
 }
 

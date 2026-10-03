@@ -1,0 +1,25 @@
+[bench.sh] load at start: 4.18
+rep=1 L=4 avx2 time 1.404 load=4.18
+rep=1 L=4 noavx2 time 1.376 load=4.18
+rep=1 L=8 avx2 time 1.116 load=4.40
+rep=1 L=8 noavx2 time 1.307 load=4.40
+rep=1 L=16 avx2 time 1.175 load=4.40
+rep=1 L=16 noavx2 time 1.269 load=4.40
+rep=1 L=32 avx2 time 1.188 load=4.37
+rep=1 L=32 noavx2 time 1.245 load=4.37
+rep=2 L=4 avx2 time 1.371 load=4.37
+rep=2 L=4 noavx2 time 1.645 load=4.37
+rep=2 L=8 avx2 time 1.247 load=4.34
+rep=2 L=8 noavx2 time 1.354 load=4.34
+rep=2 L=16 avx2 time 1.117 load=4.34
+rep=2 L=16 noavx2 time 1.300 load=4.15
+rep=2 L=32 avx2 time 1.113 load=4.15
+rep=2 L=32 noavx2 time 1.236 load=4.15
+rep=3 L=4 avx2 time 1.651 load=4.15
+rep=3 L=4 noavx2 time 1.611 load=4.30
+rep=3 L=8 avx2 time 1.374 load=4.30
+rep=3 L=8 noavx2 time 1.370 load=4.30
+rep=3 L=16 avx2 time 1.163 load=4.30
+rep=3 L=16 noavx2 time 1.197 load=4.84
+rep=3 L=32 avx2 time 0.981 load=4.84
+rep=3 L=32 noavx2 time 1.255 load=4.84
