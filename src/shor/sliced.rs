@@ -189,12 +189,28 @@ pub struct SliceIo {
     pub x: Vec<usize>,
 }
 
+/// An output slot that receives a work-register value.
+pub trait KeySlot: Send {
+    fn set_key(&mut self, y: u64);
+}
+impl KeySlot for u64 {
+    #[inline]
+    fn set_key(&mut self, y: u64) {
+        *self = y;
+    }
+}
+impl<P: Send> KeySlot for (u64, P) {
+    #[inline]
+    fn set_key(&mut self, y: u64) {
+        self.0 = y;
+    }
+}
+
 /// What [`eval_block_into`] does with the output work-register values.
-pub enum BlockOut<'a> {
-    /// Write `out[i] = U x_i`.
-    Keys(&'a mut [u64]),
-    /// Write `out[i] = (U x_i, i)` (for the sort-merge join).
-    Pairs(&'a mut [(u64, u32)]),
+pub enum BlockOut<'a, S: KeySlot> {
+    /// Write `U x_i` into slot `i` (e.g. the key of a `(key, amplitude)`
+    /// pair, so the join needs no index indirection).
+    Keys(&'a mut [S]),
     /// Assert `U x_i = x_i` (control-0 branches).
     Identity,
 }
@@ -204,26 +220,32 @@ pub enum BlockOut<'a> {
 /// Panics if any output has a changed control or a non-zero ancilla.
 pub fn eval_block(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64]) -> Vec<u64> {
     let mut out = vec![0u64; xs.len()];
-    eval_block_into(prog, io, ctrl, xs, BlockOut::Keys(&mut out));
+    eval_block_into(prog, io, ctrl, xs, BlockOut::Keys(&mut out[..]));
     out
 }
 
 /// [`eval_block`] with an explicit output mode.
-pub fn eval_block_into(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64], out: BlockOut) {
-    match lanes() {
-        4 => eval_block_l::<4>(prog, io, ctrl, xs, out),
-        8 => eval_block_l::<8>(prog, io, ctrl, xs, out),
-        32 => eval_block_l::<32>(prog, io, ctrl, xs, out),
-        _ => eval_block_l::<16>(prog, io, ctrl, xs, out),
-    }
-}
-
-fn eval_block_l<const L: usize>(
+pub fn eval_block_into<S: KeySlot>(
     prog: &SlicedProgram,
     io: &SliceIo,
     ctrl: bool,
     xs: &[u64],
-    out: BlockOut,
+    out: BlockOut<S>,
+) {
+    match lanes() {
+        4 => eval_block_l::<4, S>(prog, io, ctrl, xs, out),
+        8 => eval_block_l::<8, S>(prog, io, ctrl, xs, out),
+        32 => eval_block_l::<32, S>(prog, io, ctrl, xs, out),
+        _ => eval_block_l::<16, S>(prog, io, ctrl, xs, out),
+    }
+}
+
+fn eval_block_l<const L: usize, S: KeySlot>(
+    prog: &SlicedProgram,
+    io: &SliceIo,
+    ctrl: bool,
+    xs: &[u64],
+    out: BlockOut<S>,
 ) {
     let b = 64 * L;
     let nq = prog.nq;
@@ -298,16 +320,9 @@ fn eval_block_l<const L: usize>(
             assert_eq!(out.len(), xs.len());
             xs.par_chunks(b)
                 .zip(out.par_chunks_mut(b))
-                .for_each_init(init, |w, (inp, outp)| outp.copy_from_slice(&batch(w, inp)));
-        }
-        BlockOut::Pairs(out) => {
-            assert_eq!(out.len(), xs.len());
-            xs.par_chunks(b)
-                .zip(out.par_chunks_mut(b))
-                .enumerate()
-                .for_each_init(init, |w, (ci, (inp, outp))| {
-                    for (j, (o, y)) in outp.iter_mut().zip(batch(w, inp)).enumerate() {
-                        *o = (y, (ci * b + j) as u32);
+                .for_each_init(init, |w, (inp, outp)| {
+                    for (o, y) in outp.iter_mut().zip(batch(w, inp)) {
+                        o.set_key(y);
                     }
                 });
         }
@@ -358,9 +373,9 @@ pub struct SlicedState<T: Real> {
     keys: Vec<u64>,
     amps: Vec<Complex<T>>,
     /// Output keys of the control-1 branches, sorted, with source index.
-    ukeys: Vec<u64>,
-    /// `e^{0}·ψ` amplitudes gathered in `ukeys` order (sequential merges).
-    uamps: Vec<Complex<T>>,
+    /// `(U x, ψ_x)` for every stored `x`, sorted by `U x` (the control-1
+    /// branches after the block).
+    uk: Vec<(u64, Complex<T>)>,
     ph: Complex64,
     p1: f64,
     peak: usize,
@@ -416,8 +431,7 @@ impl<T: Real> SlicedState<T> {
         Self {
             keys: vec![1],
             amps: vec![Complex::new(T::one(), T::zero())],
-            ukeys: Vec::new(),
-            uamps: Vec::new(),
+            uk: Vec::new(),
             ph: Complex64::new(1.0, 0.0),
             p1: 0.0,
             peak: 1,
@@ -441,7 +455,7 @@ impl<T: Real> SlicedState<T> {
     }
 
     /// Splits the key space into chunks for a parallel merge of `keys` and
-    /// `ukeys`: returns `(a_lo, a_hi, b_lo, b_hi)` per chunk.
+    /// `uk`: returns `(a_lo, a_hi, b_lo, b_hi)` per chunk.
     fn chunks(&self) -> Vec<(usize, usize, usize, usize)> {
         let p = (rayon::current_num_threads() * 8).max(1);
         let n = self.keys.len();
@@ -451,11 +465,11 @@ impl<T: Real> SlicedState<T> {
         let (mut a0, mut b0) = (0, 0);
         for &k in &bounds {
             let a1 = self.keys.partition_point(|&x| x < k);
-            let b1 = self.ukeys.partition_point(|&e| e < k);
+            let b1 = self.uk.partition_point(|e| e.0 < k);
             out.push((a0, a1, b0, b1));
             (a0, b0) = (a1, b1);
         }
-        out.push((a0, n, b0, self.ukeys.len()));
+        out.push((a0, n, b0, self.uk.len()));
         out
     }
 
@@ -470,15 +484,15 @@ impl<T: Real> SlicedState<T> {
         let (mut i, mut j) = (a0, b0);
         while i < a1 || j < b1 {
             let ka = if i < a1 { self.keys[i] } else { u64::MAX };
-            let kb = if j < b1 { self.ukeys[j] } else { u64::MAX };
+            let kb = if j < b1 { self.uk[j].0 } else { u64::MAX };
             if i < a1 && (j >= b1 || ka < kb) {
                 f(ka, c64(self.amps[i]), z);
                 i += 1;
             } else if j < b1 && (i >= a1 || kb < ka) {
-                f(kb, z, c64(self.uamps[j]));
+                f(kb, z, c64(self.uk[j].1));
                 j += 1;
             } else {
-                f(ka, c64(self.amps[i]), c64(self.uamps[j]));
+                f(ka, c64(self.amps[i]), c64(self.uk[j].1));
                 i += 1;
                 j += 1;
             }
@@ -504,14 +518,14 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         let t1 = std::time::Instant::now();
         assert!(self.keys.len() < u32::MAX as usize);
         // control = 1 branches: the gate-level circuit computes U x
-        self.ukeys = Vec::new();
-        let mut uk = vec![(0u64, 0u32); self.keys.len()];
-        eval_block_into(&prog, &io, true, &self.keys, BlockOut::Pairs(&mut uk));
+        self.uk = Vec::new();
+        let mut uk: Vec<(u64, Complex<T>)> = self.amps.par_iter().map(|&a| (0u64, a)).collect();
+        eval_block_into(&prog, &io, true, &self.keys, BlockOut::Keys(&mut uk[..]));
         let t2 = std::time::Instant::now();
         let mut branches = self.keys.len() as u128;
         if !self.skip_ctrl0 {
             // control = 0 branches: same circuit, must give x back
-            eval_block_into(&prog, &io, false, &self.keys, BlockOut::Identity);
+            eval_block_into::<u64>(&prog, &io, false, &self.keys, BlockOut::Identity);
             branches *= 2;
         }
         let t3 = std::time::Instant::now();
@@ -522,9 +536,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             uk.par_windows(2).all(|w| w[0].0 != w[1].0),
             "oracle block is not injective on the support"
         );
-        self.ukeys = uk.par_iter().map(|e| e.0).collect();
-        self.uamps = uk.par_iter().map(|e| self.amps[e.1 as usize]).collect();
-        drop(uk);
+        self.uk = uk;
         let t4 = std::time::Instant::now();
         let phi = if y_low != 0 {
             Instance::correction(i, y_low)
@@ -566,8 +578,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         if self.final_round && !self.keep_final {
             self.keys = Vec::new();
             self.amps = Vec::new();
-            self.ukeys = Vec::new();
-            self.uamps = Vec::new();
+            self.uk = Vec::new();
             return;
         }
         let t0 = std::time::Instant::now();
@@ -591,8 +602,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             .collect();
         self.keys = Vec::new();
         self.amps = Vec::new();
-        self.ukeys = Vec::new();
-        self.uamps = Vec::new();
+        self.uk = Vec::new();
         let total: usize = parts.iter().map(|p| p.0.len()).sum();
         // parallel concatenation into exact-size buffers
         let mut keys = vec![0u64; total];
@@ -622,7 +632,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
     fn reset_control(&mut self, _bit: bool) {}
     fn bytes(&self) -> usize {
         self.keys.capacity() * (8 + std::mem::size_of::<Complex<T>>())
-            + self.ukeys.capacity() * (8 + std::mem::size_of::<Complex<T>>())
+            + self.uk.capacity() * std::mem::size_of::<(u64, Complex<T>)>()
     }
     /// Peak support size `|supp ψ|` (work-register values); each round
     /// evaluates the circuit on `2 |supp ψ|` basis states.
