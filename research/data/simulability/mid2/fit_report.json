@@ -1,6 +1,6 @@
 {
  "n_instances": 314,
- "max_abs_err": 1.0,
+ "max_abs_err": 1.6881473123911417e-07,
  "runs_ok": 2167,
  "coef": {
   "sv": [

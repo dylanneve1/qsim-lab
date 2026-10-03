@@ -3,8 +3,16 @@
 Branch `exp/simulability`. Author: qsim-simulability agent (round 4, 3 Oct 2026).
 Code: `src/simulability.rs` (families, features, engine runners), `examples/simulability.rs` (CLI),
 `tests/simulability.rs`, `research/data/simulability/{driver.py, run_mac.sh, refeature.py, fit.py}`.
-Data: `research/data/simulability/raw/*.csv` (Mac, authoritative), `vps/*.csv.gz` (replicate),
-`fit_report.json`, `winners.csv`, PNGs in the same directory.
+Data:
+- `research/data/simulability/raw/{grid}.csv`: Mac, request `<Z^{⊗n}>`; authoritative.
+- `raw/{grid}.mid2.csv`: the same instances with the request `<Z_{n/2−1} Z_{n/2}>`.
+- `raw/confirm.csv`: re-timing pass.
+- `raw/neon_sv/`: state-vector re-time on main 05b85b9.
+- `vps/*.csv.gz`: VPS replicate.
+- Fits: `fit_report.json` and `winners.csv` (headline), `mid2/` (local request), `mid2/noncert*/`
+  and `noncert_all_request/` (certified-zero instances removed), `all_engines/` (observable engines
+  included).
+- PNGs alongside.
 
 ## Headline
 
@@ -15,6 +23,11 @@ picks the fastest state engine 85 % of the time and is within 2× of the best on
 instances (geometric-mean slowdown 1.25×).**
 The best single statistic, the rotation frame's active dimension `d`, gets 54 % and 4.5×. "Always
 state vector" gets 3 % and 82×. T-count alone gets 19 % and 43×.
+The result does not depend on the request or the kernel build:
+- with a local observable `<Z_{n/2−1} Z_{n/2}>` instead of `<Z^{⊗n}>`: 85 %, 1.27×;
+- on the 207 instances whose value is *not* certified zero: 78 %, 1.46× (best single statistic:
+  43 %, 6.9×);
+- with the state-vector times re-measured on main's new NEON kernels: 84 %, 1.29× (§6.1b).
 
 The resource coordinates are magic (`d`), entanglement (a bond bound) and superposition (a support
 bound), and each engine owns one corner of that space (§5b). Two of the work estimates are close to
@@ -108,6 +121,13 @@ crossing bound. "Exact MPS" therefore always means "exact to the SVD's numerical
 checks the MPS `Z`-product contraction, the bond and support bounds (as true upper bounds), and
 the soundness of the vanishing certificate (§6.1). The existing suites (cross_check,
 differential_fuzz, properties, adaptive, pauli_frame, …) still pass with the MPS change.
+
+**Harness bug found by the second request (mine).** The first `tableau` runner conjugated the
+observable by `C` instead of `C†`. `PauliSum::conjugate_by_clifford(X)` maps `P → X P X†`, so the
+runner must pass the inverted circuit. On `<Z^{⊗n}>` the two agreed on all 20 Clifford instances.
+The local request exposed it (`ct:n=20,L=2,t=0,nn=0`: 1.0 instead of 0). It is fixed and has a
+150-case regression test. The 40 tableau values in the CSVs were recomputed (1 changed). Tableau
+timings are unaffected and are microseconds anyway.
 
 **Engine bug found by the sweep.** `Mps::apply_2q_adjacent` panicked with faer
 `SVD did not converge` on `ct:n=24,L=32,t=16` (exact Clifford+T, highly degenerate spectrum).
@@ -265,6 +285,37 @@ cheap feature (slope 0.20). In a first version `Strategy::Dense` was counted as 
 (2^29 × 16 B). That is why `cstate` exists, and why the headline uses only state engines, whose
 cost does not depend on the observable (§6.1b).
 
+### 6.1b Re-check with a local observable and on a newer kernel
+Prompted by the vanishing certificate, the whole 314-instance sweep was re-run (all nine engines,
+Mac, same build) with the request `<Z_{n/2−1} Z_{n/2}>` (`OBS=mid2`), to test whether any of the
+above is an artefact of the global observable (`mid2/compare_requests.txt`).
+
+- **State-engine costs do not depend on the request.** Median time ratio mid2/all: sv 0.96,
+  hsf 0.92, sparse 0.92, mps 0.96, cstate 1.00. These are within the load noise; the mid2 sweep ran
+  at lower load. The winner among state engines is identical on **90/92** instances (best ≥ 1 ms).
+  None of them short-circuits by construction, since the observable enters only an O(state)
+  readout.
+- **The local request is less often trivial, but not rarely.** The exact value is 0 on 159/314
+  instances (194 for `Z^{⊗n}`), and certified 0 on 107 (157). Observable-engine short-circuits
+  (finished with 0 live terms): frame 107/296, auto 81/303, dense 21/300 (155/246, 126/300 and
+  23/298 for `Z^{⊗n}`).
+- **Held-out results on mid2** (state engines): 84.7 % top-1, regret 1.27, 90 % within 2×.
+  By family: ct 94 % / 1.08, brick 72 % / 1.51, arith 88 % / 1.07, qaoa 65 % / 2.28.
+- **Only non-certified instances** (207 for mid2): 77.8 % top-1, regret 1.46, 84 % within 2×.
+  Best single statistic: 43 % / 6.9×. Always-SV: 6 % / 47×. The same filter on `Z^{⊗n}`
+  (157 instances): 77 % / 1.43×.
+  Removing the trivial instances costs about 7 points of accuracy, because the easy Clifford+T
+  cases leave. The transfer result stands.
+- **With observable engines, non-certified only:** 66 % / 1.49× (worst 2,100×). The Heisenberg
+  frame's cost on a request that does not vanish is still not predicted by any cheap feature (open
+  question 2).
+
+**Kernel change.** Main moved to 05b85b9 (aarch64 NEON FMA, 1 MiB default blocks) after these
+timings. All 229 state-vector runs ≥ 1 ms were re-timed on `exp/simulability-neon` (this branch +
+main): median 1.26× faster (p10 0.51, p90 1.45; the tail is load, 11–17 during the last chunks).
+The SV slope falls from 0.93 to 0.72. Refitting with the new SV times gives 83.8 % top-1, regret
+1.29 (vs 85.0 %, 1.25). The intercepts move with the build, and the decision quality does not.
+
 ### 6.2 The compressed state is the default winner for diagonal-heavy circuits
 For QAOA on random graphs the rotation frame removes every CNOT and H. The compressed register has
 `d = n − 1…n − 3` qubits and only `m ≈ 0.4·G` rotations, so `cstate` is the fastest state engine on
@@ -353,7 +404,10 @@ $B run cstate 'qaoa:n=20,p=2,deg=3,nn=0' 1      # one engine, one instance
 cd research/data/simulability
 python3 driver.py --bin $B --grid ct24 --out ct24.csv --timeout 10   # grids: ct24 ct32 ctnn0 brick arith qaoa
 python3 refeature.py $B ct24.csv ct24.rf.csv    # recompute features only
-python3 fit.py OUTDIR raw/*.csv                 # state engines (headline);  --all: + observable engines
+python3 driver.py ... --obs mid2                # the local request (all | mid2 | mid4)
+python3 fit.py OUTDIR raw/{ct24,ct32,ctnn0,brick,arith,qaoa}.csv   # headline; --all adds observable engines,
+                                                # --noncert drops certified-zero instances, --v0 nominal MPS/HSF features
+python3 compare_requests.py raw .mid2           # request comparison (§6.1b)
 ```
 On the Mac: `WORKERS=2 run_mac.sh OUTDIR grid...` (takes the shared bench lock in ≤ 3 min chunks
 and releases it on exit).

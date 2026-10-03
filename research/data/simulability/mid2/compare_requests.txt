@@ -1,0 +1,9 @@
+instances with both requests: 314
+  sv      t(mid2)/t(all): median 0.961  p10 0.914  p90 1.042  n=229
+  hsf     t(mid2)/t(all): median 0.924  p10 0.824  p90 1.057  n=224
+  sparse  t(mid2)/t(all): median 0.917  p10 0.808  p90 1.086  n=134
+  cstate  t(mid2)/t(all): median 1.004  p10 0.935  p90 1.215  n=149
+  mps     t(mid2)/t(all): median 0.959  p10 0.860  p90 1.078  n=179
+state-engine winner identical under both requests: 90/92 (best >= 1 ms)
+  request all  : value exactly 0 on 194/314, certified 157/314; observable-engine short-circuits frame 155/246, dense 23/298, auto 126/300
+  request mid2 : value exactly 0 on 159/314, certified 107/314; observable-engine short-circuits frame 107/296, dense 21/300, auto 81/303
