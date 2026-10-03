@@ -1,0 +1,26 @@
+load: 3.42 3.26 4.21 4/657 954323
+[bench.sh] load at start: 3.42
+detect,trotter-n12-r1000,12,45012,as-written,gates=45012 covered=0.9997 saved=0.9987 repeats=1 param=0 time_s=0.1300
+detect,trotter-n12-r1000,12,45012,layered,gates=45012 covered=0.9997 saved=0.9987 repeats=1 param=0 time_s=0.1451
+detect,trotter-n12-r1000,12,45012,layered+param,gates=45012 covered=0.9997 saved=0.9987 repeats=1 param=0 time_s=0.1409
+detect,qaoa-n12-p20,12,972,as-written,gates=972 covered=0.0000 saved=0.0000 repeats=0 param=0 time_s=0.0004
+detect,qaoa-n12-p20,12,972,layered,gates=972 covered=0.0000 saved=0.0000 repeats=0 param=0 time_s=0.0007
+detect,qaoa-n12-p20,12,972,layered+param,gates=972 covered=0.9877 saved=0.9383 repeats=0 param=1 time_s=0.0014
+detect,grover-n7-it200,12,12007,as-written,gates=12007 covered=0.9994 saved=0.9944 repeats=1 param=0 time_s=0.0314
+detect,grover-n7-it200,12,12007,layered,gates=12007 covered=0.9994 saved=0.9944 repeats=1 param=0 time_s=0.0403
+detect,grover-n7-it200,12,12007,layered+param,gates=12007 covered=0.9994 saved=0.9944 repeats=1 param=0 time_s=0.0409
+detect,qec-d5-r1000,9,16006,as-written,gates=8005 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.0408
+detect,qec-d5-r1000,9,16006,layered,gates=8005 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.0808
+detect,qec-d5-r1000,9,16006,layered+param,gates=8005 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.0795
+detect,qec-d9-r1000,17,32010,as-written,gates=16009 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.0858
+detect,qec-d9-r1000,17,32010,layered,gates=16009 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.1688
+detect,qec-d9-r1000,17,32010,layered+param,gates=16009 covered=0.9984 saved=0.9974 repeats=1 param=0 time_s=0.1709
+detect,brickwork-n20-d4-r40,20,7920,as-written,gates=7920 covered=1.0000 saved=0.9750 repeats=1 param=0 time_s=0.0178
+detect,brickwork-n20-d4-r40,20,7920,layered,gates=7920 covered=1.0000 saved=0.9750 repeats=1 param=0 time_s=0.0177
+detect,brickwork-n20-d4-r40,20,7920,layered+param,gates=7920 covered=1.0000 saved=0.9750 repeats=1 param=0 time_s=0.0173
+detect,random-brickwork-d200 (no repeats),20,9900,as-written,gates=9900 covered=0.0000 saved=0.0000 repeats=0 param=0 time_s=0.0234
+detect,random-brickwork-d200 (no repeats),20,9900,layered,gates=9900 covered=0.0000 saved=0.0000 repeats=0 param=0 time_s=0.0244
+detect,random-brickwork-d200 (no repeats),20,9900,layered+param,gates=9900 covered=1.0000 saved=0.9900 repeats=0 param=1 time_s=0.0482
+detect,shuffled-trotter-n8-r200,8,5800,as-written,gates=5800 covered=0.0000 saved=0.0000 repeats=0 param=0 time_s=0.0136
+detect,shuffled-trotter-n8-r200,8,5800,layered,gates=5800 covered=0.9850 saved=0.9800 repeats=1 param=0 time_s=0.0157
+detect,shuffled-trotter-n8-r200,8,5800,layered+param,gates=5800 covered=0.9850 saved=0.9800 repeats=1 param=0 time_s=0.0286

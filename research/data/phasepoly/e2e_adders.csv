@@ -1,0 +1,7 @@
+[bench.sh] load at start: 3.94
+circuit,n,gates_in,t_in,engines_off,engines_on,off_s,on_s,speedup
+adder_n12_sup4,26,417,168,"[(26, 291, Adaptive)]","[(26, 247, Adaptive)]",0.0355,0.0322,1.10,d_off=26,d_on=26,nc_off=144,nc_on=96
+adder_n12_sup6,26,421,168,"[(26, 319, Adaptive)]","[(26, 275, Adaptive)]",0.1242,0.1000,1.24,d_off=26,d_on=26,nc_off=144,nc_on=96
+adder_n12_sup8,26,425,168,"[(26, 347, Adaptive)]","[(26, 303, Adaptive)]",0.6256,0.5444,1.15,d_off=26,d_on=26,nc_off=144,nc_on=96
+adder_n16_sup5,34,555,224,"[(34, 385, Adaptive)]","[(34, 325, Adaptive)]",1.1398,0.9742,1.17,d_off=34,d_on=34,nc_off=192,nc_on=128
+adder_n14_sup5,30,487,196,"[(30, 345, Adaptive)]","[(30, 293, Adaptive)]",0.2630,0.2145,1.23,d_off=30,d_on=30,nc_off=168,nc_on=112

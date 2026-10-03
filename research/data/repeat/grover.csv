@@ -1,0 +1,12 @@
+# load: 3.11 4.74 5.11 2/649 971729
+[bench.sh] load at start: 3.11
+# grover n=7 (qubits 12) it=200 Report { total_ops: 12007, total_gates: 12007, covered_gates: 12000, saved_gates: 11940, repeats: 1, param_repeats: 0, blocks: [(60, 200, false)] }
+# grover max|Δamp| = 9.43689570931383e-15
+grover,mcz-ladder,12,200,gatewise,0.025925
+grover,mcz-ladder,12,200,plain-batch,0.012921
+grover,mcz-ladder,12,200,repeat,0.012599
+# grover n=9 (qubits 16) it=100 Report { total_ops: 8009, total_gates: 8009, covered_gates: 8000, saved_gates: 7920, repeats: 1, param_repeats: 0, blocks: [(80, 100, false)] }
+# grover max|Δamp| = 9.992007221626409e-16
+grover,mcz-ladder,16,100,gatewise,0.425071
+grover,mcz-ladder,16,100,plain-batch,0.100272
+grover,mcz-ladder,16,100,repeat,0.114642

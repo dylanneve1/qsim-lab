@@ -1,0 +1,4 @@
+test diagonal_fold_is_more_accurate_than_repeating ... diag r=1e5 |Δ| = 3.390430545034752e-12
+r=100 |Δamp|=1.262009123109048e-14 norm defect=4.6629367034256575e-15
+r=1000 |Δamp|=7.42468236395574e-14 norm defect=5.262457136723242e-14
+r=10000 |Δamp|=6.669798023922712e-13 norm defect=5.204725539442734e-13

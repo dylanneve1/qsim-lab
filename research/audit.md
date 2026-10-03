@@ -505,3 +505,158 @@ All 5 test suites (`spot_check_16_qubits_forced_small_chunks` through `spot_chec
 
 Verdict: **REPRODUCED AND CORRECT.** Out-of-core SV execution with DAG-driven lookahead swapping matches the in-RAM blocked executor bit-for-bit in permutation and to numerical precision across 16–20 qubits under forced small chunk constraints.
 
+
+## 15. Round 4 (3 Oct 2026) — exp/repeat, exp/phasepoly, exp/zx; integration as exp/r4-integrated
+
+Auditor: qsim-audit-merge. Base: main fb30f56. Branches rebased in their own
+worktrees and pushed as new branches (originals untouched):
+`exp/repeat-r4`, `exp/phasepoly-r4`; both merged into `exp/r4-integrated`
+(not into main).
+
+### Method
+New shared harness `tests/audit_r4/mod.rs`: the naive reference SV of
+`tests/audit_common` extended to every gate (iSWAP/iSWAP†, SX/SX†, U, I),
+plus an exact **instrument** comparison: every measurement / reset / Pauli
+flip outcome is a branch, and the *unnormalised* branch state is compared
+(global phase included). That is strictly stronger than comparing outcome
+distributions: a pass that moved a phase across a measurement or reset
+incorrectly is caught even when probabilities agree. Mutation checks: each
+harness was run against deliberately broken copies of the code under test.
+
+### exp/phasepoly → exp/phasepoly-r4 @ a22570f — verdict **MERGE**
+- Rebase: clean (4 commits). Default off (`PlanOptions::phase_fold`), so
+  `simulate()` is unchanged.
+- Code review: parity tracking over path variables is the Amy–Maslov–Mosca
+  phase-polynomial argument; placing merged terms at the first occurrence is
+  sound because the exponent of the path sum is a sum over fixed path
+  variables. Non-affine gates (H, Rx, Ry, U, SX, iSWAP, Toffoli target),
+  measurement, reset, noise and classically controlled gates refresh the
+  touched wires; CZ/CPhase are diagonal and leave parities alone; constant
+  wires (`X`, `Y = i·X·Z`) negate the angle and move `e^{iθ}` to the global
+  phase. No issue found.
+- `tests/audit_phasefold.rs` (7 tests): random circuits over every gate kind
+  (n ≤ 8, full unitary for n ≤ 6), dense-parity Clifford+T up to 12 qubits,
+  mid-circuit measure / reset / classically controlled rotations / X,Y,Z
+  flips (instrument), measuring blocks repeated 1–5×, hand-made adversarial
+  cases (rotation across a reset of a wire that held part of the parity,
+  classically controlled X on a folded wire, constant wires, `Rz` phases),
+  Cuccaro n=1..4 (+ superposed inputs), Toffoli ladders, Shor ripple
+  `controlled_ua` n=2 (10 qubits; T 742 → 428), and the plan option against
+  the reference. `QSIM_FUZZ_ITERS=40`: ~10k cases, all exact (< 1e-9).
+  Mutations caught: reset not refreshing, classical control not refreshing,
+  Toffoli target not refreshing, constant-wire phase dropped, iSWAP refreshing
+  one wire. *Not* caught, correctly: measurement not refreshing — that
+  variant is still exact (Z-measurement commutes with diagonals), i.e. the
+  pass is conservative there and could merge across measurements.
+- Counts reproduced exactly (`phasepoly_bench`, deterministic): Cuccaro n=32
+  448 → 256, ripple controlled-U_a n=6 6636 → 3408, random C+T n=32
+  **1594 → 590** non-Clifford. The "1594 → 340" figure is the `t_pfp` column,
+  which counts only `T`/`T†`; the output also holds 250 `Phase(odd·π/4)`
+  gates (182 T + 158 T† + 250 Phase), so the T-count is 590 (PyZX basic:
+  586). Noted in research/phasepoly.md.
+- End-to-end (Mac M1 Pro, under the swarm bench lock, machine load 7–10 from
+  other agents' builds; interleaved off/on, min of 3, compile + fold
+  included): Cuccaro adders on the adaptive engine 1.12–1.16× (claimed
+  1.10–1.24×): n=12 sup4 18.3 → 16.2 ms, sup6 65.1 → 56.0 ms, sup8 257 → 226 ms,
+  n=14 sup5 119 → 105 ms, n=16 sup5 480 → 430 ms. Confirms the notebook.
+- Tests: full `cargo test` 319 passed / 1 ignored, clippy `-D warnings` and
+  fmt clean.
+
+### exp/repeat → exp/repeat-r4 @ 6e1f9d0 — verdict **FIX-THEN-MERGE (fixes pushed)**
+- Rebase: textually clean but did not compile: main added a `simd` argument
+  to `blocked::run_stage`; `CompiledKOps` now stores
+  `cfg.simd && simd_available()` (a1470a4).
+- **Bug (fixed, 6b1a17d):** `simulate_with(Request::Samples)` returned
+  `NotSupported` when terminal measurements formed a detected repeat (same
+  qubit measured many times after a non-Clifford repeated block) where
+  `simulate` succeeds; `strip_measures` only stripped top-level nodes.
+  Found by the new fuzz, which also asserts `simulate_with` never errors
+  where `simulate` succeeds.
+- **Performance regression (fixed, 1ba0970 + follow-up):** a repeat with no
+  fast path (support > 8 qubits, not diagonal/Clifford) ran through per-copy
+  plan reuse, which loses cross-copy fusion: Trotter n=14 r=1e3 was 1.5×
+  slower than plain `simulate` batching (0.376 s vs 0.246 s, Mac; the
+  notebook's own table shows it too: 414 vs 343 ms). Now: plan reuse only
+  for registers ≤ 12 qubits (where it is ~3× faster than one batch on tiny
+  registers), otherwise all copies go out as one batch.
+- `tests/audit_repeat.rs` (6 tests): `run_dense` on hand-built programs with
+  reps 0/1/2/3/7/64/513/4097/100003, nested repeats (inner reps 0/1/2/9),
+  `Param` nodes, diagonal / Clifford / general (Rx, Ry, U, Toffoli) bodies,
+  all six `ExecOptions` paths forced; `rewrite` with and without the
+  Clifford power; `detect → to_circuit` and `rewrite` on structured circuits
+  with measure / reset / classical control / flips inside blocks
+  (instrument); `simulate_with` amplitudes, ⟨Z…Z⟩, terminal and mid-circuit
+  samples (exact support + 6σ), steady-state QEC-like rounds with and
+  without randomness. `QSIM_FUZZ_ITERS=12` clean. Mutations caught:
+  steady-state skip ignoring random outcomes, `Rz` global-phase sign,
+  `U^(r−1)` in the 2^k path, dropped stabilizer signs.
+- Caveat kept in the notebook: the `2^k` power has no hard bound on `r`
+  (the notebook recommends r ≤ 1e4; error grows ~linearly in r, like
+  gate-by-gate).
+- Numbers (Mac M1 Pro, bench lock, load 4–16 from other agents' builds;
+  interleaved, min of 3). VPS was at load 7–78 during this audit, so no VPS
+  timing is claimed.
+
+| workload | baseline | repeat path | ratio (notebook, VPS) |
+|---|---|---|---|
+| rep-code d=5, 1e6 rounds, 1 shot | 430 ms | 4.25 ms | 101× (147×) |
+| rep-code d=9, 1e6 rounds | 849 ms | 2.81 ms | 302× (317×) |
+| Clifford block n=50, r=1e5 (tableau) | 1.043 s | 2.87 ms | 363× (288×) |
+| Clifford block n=200, r=1e3 | 50 ms | 91 ms | 0.55×, loses (0.39×) |
+| Clifford block n=200, r=1e4 | 506 ms | 94 ms | 5.4× (4.1×) |
+| TFIM n=6, r=1e4 (vs batch / vs gatewise) | 61 / 16.7 ms | 3.4 ms | 18× / 5.0× (28× / 6.5×) |
+| diagonal layer n=14, r=3e4 (vs batch) | 269 ms | 0.41 ms | 660× (1600×) |
+| diagonal layer n=20, r=200 (vs batch) | 10.9 ms | 8.8 ms | 1.25× (1.67×) |
+| TFIM n=14, r=1e3, no fast path (vs batch), **before fix** | 246 ms | 376 ms | 0.65× (0.83×) |
+| same, after fix (one batch above 12 qubits) | 243 ms | 244 ms | 1.00× |
+| TFIM n=10, r=1e4, plan reuse kept (vs batch) | 248 ms | 225 ms | 1.10× |
+
+All headline ratios reproduce within the noise of a shared machine (QEC and
+Clifford power within ~1.5× of the notebook, same order of magnitude; the
+diagonal fold's n=14 ratio is lower only because the Mac's batched baseline is
+faster). Parameterised (QAOA) repeats and plan reuse still give no real gain,
+as the notebook says.
+
+### exp/zx @ ed45cc6 — verdict **DROP**
+139 commits behind (based on the first-week tree: `Op` has only
+`Gate`/`Measure`), so it cannot build on main without a rewrite. Built and
+tested at its own base in a scratch worktree with a full-unitary check
+(all basis columns, one common global phase), which its own test lacks (it
+only compares the state reached from |0…0⟩):
+**281 of 300 random Clifford+T circuits (n = 2–5, 5–60 gates) come out with a
+different unitary** (max entry error up to 1.2), while the T-count only went
+3043 → 3033. On Toffoli circuits it decomposes each CCX into 7 T and fuses
+none (Cuccaro 3-bit: 0 → 42 T, 6-Toffoli ladder: 0 → 56). The intended
+algorithm (graph-like Clifford simplification + phase teleportation, PyZX
+`teleport_reduce`) is the right next step beyond phase folding — PyZX gets
+70 vs 112 on the ripple modular adder — but nothing in this draft is
+salvageable beyond the idea: the pivot rule appears to omit the π on common
+neighbours and the tracker/fusion bookkeeping is unverified. A future
+attempt should start from `compile::phasefold` and this harness.
+
+### Integration — exp/r4-integrated
+main fb30f56 + exp/repeat-r4 + exp/phasepoly-r4: merges without conflicts
+(the shared `tests/audit_r4/` helper is identical on both branches). The two
+passes are independent (`PlanOptions::phase_fold` in the compile front end;
+the repeat pass in `pipeline::simulate_with`, which calls the plain path with
+`phase_fold` off). `tests/audit_r4_compose.rs` checks
+`fold(rewrite(detect(c)))` and `rewrite(detect(fold(c)))` against the
+reference (instrument, global phase) on repeated Clifford+T(+Rz) blocks with
+and without measuring rounds — exact. Interaction: folding pulls merged
+rotations into the first copy, so it can cost repeat coverage — a lowered
+Toffoli block ×50 goes 1400 → 1000 non-Clifford but repeat coverage 100% →
+98.5% (saved gates 3038 → 2696); Trotter, Grover and QEC are unchanged
+(no foldable parities across copies). Run fold *after* the repeat rewrite
+when both are wanted.
+
+Full suite on the integrated branch: **347 passed, 1 ignored** (30 test
+binaries; = main's 303 + phasefold 16 + repeat 26 + composition 2), clippy
+`--all-targets -D warnings` and fmt clean.
+
+### Summary
+| branch | verdict | head | notes |
+|---|---|---|---|
+| exp/phasepoly | MERGE (as exp/phasepoly-r4) | a22570f | sound; T-count of random n=32 is 590, not 340 |
+| exp/repeat | FIX-THEN-MERGE, fixes pushed (exp/repeat-r4) | 6e1f9d0 | rebase compile fix, terminal-measure bug, wide-register fallback regression |
+| exp/zx | DROP | ed45cc6 | wrong unitaries on 94% of random circuits; stale |
+| exp/r4-integrated | ready for Claudius to merge | — | 347 tests green |

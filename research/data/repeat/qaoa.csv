@@ -1,0 +1,16 @@
+# load: 3.11 4.74 5.11 2/649 971701
+[bench.sh] load at start: 3.11
+# qaoa n=12 p=20 Report { total_ops: 972, total_gates: 972, covered_gates: 960, saved_gates: 912, repeats: 0, param_repeats: 1, blocks: [(48, 20, true)] }
+# qaoa max|Δamp| = 1.5700924586837752e-16
+qaoa,ring,12,20,gatewise,0.003275
+qaoa,ring,12,20,plain-batch,0.002896
+qaoa,ring,12,20,plain-canonical-order,0.002832
+qaoa,ring,12,20,detect-only,0.001471
+qaoa,ring,12,20,detect+repeat,0.004284
+# qaoa n=18 p=20 Report { total_ops: 1458, total_gates: 1458, covered_gates: 1440, saved_gates: 1368, repeats: 0, param_repeats: 1, blocks: [(72, 20, true)] }
+# qaoa max|Δamp| = 3.8517111915170804e-17
+qaoa,ring,18,20,gatewise,0.191998
+qaoa,ring,18,20,plain-batch,0.090215
+qaoa,ring,18,20,plain-canonical-order,0.088856
+qaoa,ring,18,20,detect-only,0.002908
+qaoa,ring,18,20,detect+repeat,0.102609
