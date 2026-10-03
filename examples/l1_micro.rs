@@ -74,7 +74,7 @@ fn run<T: Real>(ns: &[usize], k: usize, kind: &str, reps: usize, tbits: Option<u
         println!(
             "| {n} | {} | {} | {kind} | {k} | {:.3} | {cyc:.3} |",
             std::any::type_name::<T>(),
-            (1usize << n) * 2 * std::mem::size_of::<T>() >> 10,
+            ((1usize << n) * 2 * std::mem::size_of::<T>()) >> 10,
             best * 1e3
         );
     }
