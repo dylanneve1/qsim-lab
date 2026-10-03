@@ -57,8 +57,10 @@ fn main() {
     let m = cc.memory(&s, rounds, noise);
     let t0 = Instant::now();
     // Z sector
+    // FULL=1: decode with all detectors (X and Z type; keeps Y correlations), else Z sector only
+    let full = std::env::var("FULL").is_ok();
     let zdet: Vec<usize> = (0..m.detectors.len())
-        .filter(|&i| !m.detector_info[i].1)
+        .filter(|&i| full || !m.detector_info[i].1)
         .collect();
     let mut zmap = vec![u32::MAX; m.detectors.len()];
     for (k, &i) in zdet.iter().enumerate() {
