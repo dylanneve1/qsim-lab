@@ -82,6 +82,7 @@ fn main() {
             for seed in 0..seeds {
                 let mut srng = StdRng::seed_from_u64(seed);
                 let mut s = SlicedState::<f64>::new(&inst);
+                s.keep_final = true;
                 let mut y = 0u128;
                 let mut w_pred: u128 = 0;
                 for i in 0..t {

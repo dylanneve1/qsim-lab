@@ -369,6 +369,12 @@ pub struct SlicedState<T: Real> {
     /// Skip evaluating the control-0 branches (they are the identity on a
     /// clean input; this halves the work but no longer *checks* it).
     pub skip_ctrl0: bool,
+    /// Also materialise the post-measurement state after the last round
+    /// (default `false`: the measured integer is complete after the last
+    /// `P(1)`, so the final collapse — the largest support, `≈ r` — is
+    /// skipped and the state is dropped).
+    pub keep_final: bool,
+    final_round: bool,
     /// Seconds spent in: building+compiling the circuit, control-1 gate
     /// evaluation, control-0 gate evaluation, sort, P(1) merge, collapse.
     pub prof: [f64; 6],
@@ -417,6 +423,8 @@ impl<T: Real> SlicedState<T> {
             peak: 1,
             gate_branch_ops: 0,
             skip_ctrl0: false,
+            keep_final: false,
+            final_round: false,
             prof: [0.0; 6],
             p1_trace: Vec::new(),
             support_trace: Vec::new(),
@@ -488,6 +496,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
     fn round(&mut self, inst: &Instance, i: usize, y_low: u128) {
         let mult = inst.mults[inst.t - 1 - i];
         self.support_trace.push(self.keys.len());
+        self.final_round = i + 1 == inst.t;
         let t0 = std::time::Instant::now();
         let (c, io) = oracle_block(inst, mult);
         let prog = SlicedProgram::compile(&c).expect("reversible oracle");
@@ -554,6 +563,13 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         assert!(p > 0.0, "cannot collapse onto a zero-probability outcome");
         let ph = if outcome { -self.ph } else { self.ph };
         let k = 0.5 / p.sqrt();
+        if self.final_round && !self.keep_final {
+            self.keys = Vec::new();
+            self.amps = Vec::new();
+            self.ukeys = Vec::new();
+            self.uamps = Vec::new();
+            return;
+        }
         let t0 = std::time::Instant::now();
         let parts: Vec<(Vec<u64>, Vec<Complex<T>>)> = self
             .chunks()
