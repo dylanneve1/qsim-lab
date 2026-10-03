@@ -297,3 +297,32 @@ outcomes are identical).
   detector and the options struct; keep (b) behind its documented `r ≤ 1e4`
   bound; (d) can be dropped or kept as an API (`compile_kops`) with no
   claimed speedup.
+
+## 7. Audit, round 4 (3 Oct 2026, exp/repeat-r4)
+Rebased onto main fb30f56 (clean textual rebase; one semantic fix:
+`run_stage` gained a `simd` argument on main, so `CompiledKOps` now records
+`cfg.simd && simd_available()` like the other executors).
+
+Independent differential fuzz `tests/audit_repeat.rs` (naive reference SV of
+`tests/audit_common`, branch-tree comparison in `tests/audit_r4/`):
+`run_dense` on hand-built programs (reps 0/1/2/3/7/64/513/4097/100003,
+nested repeats, `Param` nodes, diagonal / Clifford / general bodies, all six
+`ExecOptions` paths forced), `detect -> to_circuit` and `rewrite` with
+measurements, resets, classical control and Pauli flips inside blocks (the
+whole instrument is compared, every branch's unnormalised state), and
+`simulate_with` amplitudes / expectations / samples (exact support + 6σ),
+including steady-state QEC-like rounds. Mutation check: four deliberately
+broken variants (steady-state skip ignoring randomness, `Rz` phase sign,
+`U^(r-1)`, dropped stabilizer signs) are each caught.
+
+**Bug found and fixed:** `simulate_with(Request::Samples)` returned
+`NotSupported("repeat::run_dense needs a unitary program")` when terminal
+measurements formed a detected repeat (e.g. the same qubit measured many
+times after a non-Clifford repeated block), where `simulate` succeeds.
+`strip_measures` only stripped top-level `Ops` nodes; it now recurses and
+`needs_dense` is decided on the stripped program
+(`audit_repeat_repeated_terminal_measurements`).
+
+Note: §2(b) recommends the `2^k` power only for `r <= 1e4`; the code does
+not enforce a bound on `r` (the cost model decides). The error grows ~linearly
+in `r` like gate-by-gate does, so this is a documentation caveat, not a bug.
