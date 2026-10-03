@@ -302,6 +302,18 @@ fn qaoa<R: Rng>(n: usize, p: usize, deg: usize, nn: bool, rng: &mut R) -> Circui
     c
 }
 
+/// The Z-product observable of a request: `all` (global parity, the
+/// default), `mid2` (`Z_{n/2-1} Z_{n/2}`) or `mid4` (`Z_{n/2-2} … Z_{n/2+1}`).
+pub fn observable_qubits(name: &str, n: usize) -> Result<Vec<usize>, String> {
+    let m = n / 2;
+    match name {
+        "all" => Ok((0..n).collect()),
+        "mid2" if n >= 2 => Ok(vec![m - 1, m]),
+        "mid4" if n >= 4 => Ok((m - 2..m + 2).collect()),
+        _ => Err(format!("unknown observable {name:?} for n = {n}")),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Features.
 
@@ -393,6 +405,13 @@ fn schmidt_bits(g: &Gate) -> usize {
 /// Computes [`Features`]. `with_hsf=false` skips the KL partition (the
 /// most expensive feature on large circuits).
 pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
+    let all: Vec<usize> = (0..c.num_qubits).collect();
+    features_for(c, with_hsf, &all)
+}
+
+/// [`features`] for the observable `Z_{obs}` (only `obs_zero` and the
+/// frame estimate depend on it).
+pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Features, SimError> {
     let t0 = Instant::now();
     let n = c.num_qubits;
     let gates = gate_list(c);
@@ -443,8 +462,7 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
     // redundant rotation, as in adaptive::AdaptiveOptions).
     f.frame_l =
         (prof.len().max(1) as f64).log2() + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
-    let all: Vec<usize> = (0..n).collect();
-    f.obs_zero = adaptive::z_product_vanishes(c, &all)?;
+    f.obs_zero = adaptive::z_product_vanishes(c, obs)?;
     if f.obs_zero {
         f.frame_l = (f.gates.max(1) as f64).log2();
     }
@@ -718,11 +736,11 @@ pub struct EngineRun {
     pub note: String,
 }
 
-fn parity_dense(amps: &[Complex64]) -> f64 {
+fn parity_dense(amps: &[Complex64], mask: u128) -> f64 {
     amps.iter()
         .enumerate()
         .map(|(x, a)| {
-            if x.count_ones() & 1 == 1 {
+            if (x as u128 & mask).count_ones() & 1 == 1 {
                 -a.norm_sqr()
             } else {
                 a.norm_sqr()
@@ -733,13 +751,25 @@ fn parity_dense(amps: &[Complex64]) -> f64 {
 
 /// Runs `engine` on `<Z^{⊗n}>` of `c|0^n>` within `mem_bytes`.
 pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRun, SimError> {
+    let all: Vec<usize> = (0..c.num_qubits).collect();
+    run_engine_obs(engine, c, mem_bytes, &all)
+}
+
+/// Runs `engine` on `<Z_{obs}>` (product of `Z` on the listed qubits).
+pub fn run_engine_obs(
+    engine: &str,
+    c: &Circuit,
+    mem_bytes: u128,
+    obs: &[usize],
+) -> Result<EngineRun, SimError> {
     let n = c.num_qubits;
     let too_large = |what: &'static str, bytes: u128| SimError::TooLarge {
         what,
         bytes,
         limit: mem_bytes,
     };
-    let all: Vec<usize> = (0..n).collect();
+    let all: Vec<usize> = obs.to_vec();
+    let mask: u128 = obs.iter().fold(0u128, |m, &q| m ^ (1u128 << q));
     let t0 = Instant::now();
     let mut run = EngineRun::default();
     match engine {
@@ -750,7 +780,7 @@ pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRu
             }
             let mut sv = StateVectorF64::try_new(n)?;
             sv.apply_circuit_blocked(c, &BlockConfig::default())?;
-            run.value = parity_dense(sv.amplitudes());
+            run.value = parity_dense(sv.amplitudes(), mask);
             run.size = (1u128 << n) as f64;
         }
         "sparse" => {
@@ -769,7 +799,7 @@ pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRu
             run.value = s
                 .iter()
                 .map(|(x, a)| {
-                    if x.count_ones() & 1 == 1 {
+                    if (x as u128 & mask).count_ones() & 1 == 1 {
                         -a.norm_sqr()
                     } else {
                         a.norm_sqr()
@@ -809,7 +839,7 @@ pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRu
                 return Err(too_large("hsf full output", out));
             }
             let amps = h.state_vector()?;
-            run.value = parity_dense(&amps);
+            run.value = parity_dense(&amps, mask);
             run.size = h.num_paths() as f64;
         }
         "tableau" => {

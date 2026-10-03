@@ -178,3 +178,44 @@ fn z_product_vanishing_certificate_is_sound() {
     }
     assert!(certified > 0);
 }
+
+#[test]
+fn every_engine_matches_reference_local_observables() {
+    use qsim_lab::simulability::{observable_qubits, run_engine_obs};
+    for spec in SPECS {
+        let c = build(&Spec::parse(spec).unwrap(), 7).unwrap();
+        let n = c.num_qubits;
+        let mut sv = StateVectorF64::new(n);
+        sv.apply_circuit(&c).unwrap();
+        let clifford = c.gates().all(|g| g.is_clifford());
+        for name in ["mid2", "mid4"] {
+            let qs = observable_qubits(name, n).unwrap();
+            let want: f64 = sv
+                .amplitudes()
+                .iter()
+                .enumerate()
+                .map(|(x, a)| {
+                    let par = qs.iter().filter(|&&q| x >> q & 1 == 1).count() % 2;
+                    if par == 1 {
+                        -a.norm_sqr()
+                    } else {
+                        a.norm_sqr()
+                    }
+                })
+                .sum();
+            for e in ENGINES {
+                if e == "tableau" && !clifford {
+                    continue;
+                }
+                let got = run_engine_obs(e, &c, 1 << 30, &qs).unwrap().value;
+                assert!(
+                    (got - want).abs() < 1e-9,
+                    "{e} {name} on {spec}: {got} vs {want}"
+                );
+            }
+            if adaptive::z_product_vanishes(&c, &qs).unwrap() {
+                assert!(want.abs() < 1e-12, "certificate wrong: {spec} {name}");
+            }
+        }
+    }
+}

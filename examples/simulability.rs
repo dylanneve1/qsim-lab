@@ -1,12 +1,13 @@
 //! Driver binary for the simulability study (research/simulability.md).
 //!
 //! ```text
-//! simulability features SPEC SEED [nohsf]      -> one JSON line of features
-//! simulability run ENGINE SPEC SEED MEM_BYTES  -> one JSON line (value, secs, ...)
+//! simulability features SPEC SEED [nohsf] [OBS]     -> one JSON line of features
+//! simulability run ENGINE SPEC SEED MEM_BYTES [OBS]  -> one JSON line (value, secs, ...)
+//! OBS: all (Z on every qubit, default) | mid2 | mid4
 //! ```
 //! SPEC is `family:key=value,...`, e.g. `ct:n=24,L=8,t=20,nn=1`.
 
-use qsim_lab::simulability::{build, features, run_engine, Spec};
+use qsim_lab::simulability::{build, features_for, observable_qubits, run_engine_obs, Spec};
 use std::time::Instant;
 
 fn esc(s: &str) -> String {
@@ -23,9 +24,11 @@ fn main() {
         "features" => {
             let spec = Spec::parse(&args[2]).expect("spec");
             let seed: u64 = args[3].parse().expect("seed");
-            let with_hsf = args.get(4).map(|s| s != "nohsf").unwrap_or(true);
+            let with_hsf = !args[4..].iter().any(|s| s == "nohsf");
+            let obs_name = args[4..].iter().find(|s| *s != "nohsf").map(String::as_str);
             let c = build(&spec, seed).expect("build");
-            let f = features(&c, with_hsf).expect("features");
+            let obs = observable_qubits(obs_name.unwrap_or("all"), c.num_qubits).expect("obs");
+            let f = features_for(&c, with_hsf, &obs).expect("features");
             println!(
                 "{{\"n\":{},\"gates\":{},\"g2\":{},\"g3\":{},\"depth2\":{},\"t_count\":{},\"rotations\":{},\"d\":{},\"dense_l\":{:.4},\"redundant\":{},\"obs_zero\":{},\"frame_l\":{:.4},\"chi_bits\":{},\"mps_l\":{:.4},\"hsf_k\":{},\"hsf_na\":{},\"hsf_nb\":{},\"hsf_l\":{:.4},\"sup\":{},\"chi_bits0\":{},\"mps_l0\":{:.4},\"hsf_keff\":{},\"hsf_l0\":{:.4},\"sparse_l\":{:.4},\"sv_l\":{:.4},\"feat_secs\":{:.6},\"feat_secs_frame\":{:.6},\"feat_secs_hsf\":{:.6}}}",
                 f.n, f.gates, f.g2, f.g3, f.depth2, f.t_count, f.rotations, f.d, f.dense_l,
@@ -43,8 +46,13 @@ fn main() {
                 .unwrap_or(1 << 30);
             let t0 = Instant::now();
             let c = build(&spec, seed).expect("build");
+            let obs = observable_qubits(
+                args.get(6).map(String::as_str).unwrap_or("all"),
+                c.num_qubits,
+            )
+            .expect("obs");
             let build_secs = t0.elapsed().as_secs_f64();
-            match run_engine(engine, &c, mem) {
+            match run_engine_obs(engine, &c, mem, &obs) {
                 Ok(r) => println!(
                     "{{\"ok\":true,\"value\":{:.15e},\"secs\":{:.6},\"size\":{},\"build_secs\":{:.6},\"note\":\"{}\"}}",
                     r.value, r.secs, r.size, build_secs, esc(&r.note)

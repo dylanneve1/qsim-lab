@@ -129,6 +129,7 @@ def main():
     ap.add_argument("--threads", type=int, default=1)
     ap.add_argument("--engines", default=",".join(ENGINES))
     ap.add_argument("--reps", type=int, default=1, help="timing repeats (min taken)")
+    ap.add_argument("--obs", default="all", help="observable: all | mid2 | mid4")
     a = ap.parse_args()
     engines = a.engines.split(",")
     done = {}
@@ -153,7 +154,7 @@ def main():
         if not todo:
             continue
         fam, params = parse_spec(spec)
-        feats, _, _, ferr = run([a.bin, "features", spec, str(seed)], 120, a.threads)
+        feats, _, _, ferr = run([a.bin, "features", spec, str(seed), a.obs], 120, a.threads)
         if feats is None:
             print("features failed", spec, ferr, flush=True)
             continue
@@ -168,7 +169,7 @@ def main():
                 continue
             best = None
             for rep in range(a.reps):
-                res, wall, rss, err = run([a.bin, "run", e, spec, str(seed), str(a.mem)],
+                res, wall, rss, err = run([a.bin, "run", e, spec, str(seed), str(a.mem), a.obs],
                                           a.timeout, a.threads)
                 if res is None or not res.get("ok"):
                     break
