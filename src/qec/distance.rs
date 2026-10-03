@@ -31,7 +31,12 @@ pub struct MinLogical {
     pub example: Vec<usize>,
     /// Search nodes visited.
     pub nodes: u64,
+    /// All minimum-weight logicals found (at most [`KEEP_ALL`]).
+    pub all: Vec<Vec<usize>>,
 }
+
+/// How many minimum-weight logicals [`min_logical`] keeps in `all`.
+pub const KEEP_ALL: usize = 2000;
 
 struct Search<'a> {
     dets: &'a [Vec<u32>],
@@ -39,12 +44,15 @@ struct Search<'a> {
     by_det: Vec<Vec<u32>>,
     words: usize,
     maxdeg: usize,
+    /// per detector: bitset of detectors sharing a mechanism with it (incl. itself)
+    nbr: Vec<Vec<u64>>,
     excluded: Vec<bool>,
     used: Vec<bool>,
     chosen: Vec<usize>,
     count: u64,
     cap: u64,
     example: Vec<usize>,
+    all: Vec<Vec<usize>>,
     nodes: u64,
     node_limit: u64,
 }
@@ -73,12 +81,35 @@ impl Search<'_> {
                 if self.count == 0 {
                     self.example = self.chosen.clone();
                 }
+                if self.all.len() < KEEP_ALL {
+                    self.all.push(self.chosen.clone());
+                }
                 self.count += 1;
             }
             return true;
         }
         if k + nf.div_ceil(self.maxdeg) > w {
             return true;
+        }
+        // stronger bound: fired detectors no single mechanism touches two of
+        // need distinct mechanisms (greedy independent set)
+        if k + 1 < w {
+            let mut blocked = vec![0u64; self.words];
+            let mut lb = 0usize;
+            for wi in 0..f.len() {
+                let mut x = f[wi] & !blocked[wi];
+                while x != 0 {
+                    let i = wi * 64 + x.trailing_zeros() as usize;
+                    lb += 1;
+                    for (b, n) in blocked.iter_mut().zip(&self.nbr[i]) {
+                        *b |= n;
+                    }
+                    x &= !blocked[wi];
+                }
+            }
+            if k + lb > w {
+                return true;
+            }
         }
         // fired detector with fewest allowed mechanisms
         let mut best_i = usize::MAX;
@@ -157,18 +188,28 @@ pub fn min_logical(
     }
     let words = num_detectors.div_ceil(64).max(1);
     let maxdeg = dets.iter().map(|d| d.len()).max().unwrap_or(1).max(1);
+    let mut nbr = vec![vec![0u64; words]; num_detectors];
+    for ds in dets {
+        for &i in ds {
+            for &j in ds {
+                nbr[i as usize][j as usize / 64] |= 1u64 << (j % 64);
+            }
+        }
+    }
     let mut s = Search {
         dets,
         obs,
         by_det,
         words,
         maxdeg,
+        nbr,
         excluded: vec![false; dets.len()],
         used: vec![false; dets.len()],
         chosen: Vec::new(),
         count: 0,
         cap: count_cap,
         example: Vec::new(),
+        all: Vec::new(),
         nodes: 0,
         node_limit,
     };
@@ -202,6 +243,7 @@ pub fn min_logical(
                 count: 0,
                 example: Vec::new(),
                 nodes: s.nodes,
+                all: Vec::new(),
             };
         }
         if s.count > 0 {
@@ -210,6 +252,7 @@ pub fn min_logical(
                 count: s.count,
                 example: s.example.clone(),
                 nodes: s.nodes,
+                all: std::mem::take(&mut s.all),
             };
         }
     }
@@ -218,6 +261,7 @@ pub fn min_logical(
         count: 0,
         example: Vec::new(),
         nodes: s.nodes,
+        all: Vec::new(),
     }
 }
 
