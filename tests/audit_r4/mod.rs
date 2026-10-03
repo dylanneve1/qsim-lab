@@ -62,13 +62,21 @@ pub fn apply(s: &mut RefSv, g: &Gate) {
 /// Branch tree of a circuit: key = outcome sequence of every stochastic
 /// op (measure 0/1, reset 2/3, flip 4/5), value = unnormalised state.
 pub fn branches(c: &Circuit, init: &RefSv) -> BTreeMap<Vec<u8>, Vec<C>> {
-    fn go(
-        ops: &[Op],
-        mut s: RefSv,
-        mut key: Vec<u8>,
-        rec: Vec<bool>,
-        out: &mut BTreeMap<Vec<u8>, Vec<C>>,
-    ) {
+    branches_capped(c, init, usize::MAX).expect("uncapped")
+}
+
+/// [`branches`], or `None` once more than `cap` leaves would be produced
+/// (the tree is exponential in the number of random outcomes).
+pub fn branches_capped(c: &Circuit, init: &RefSv, cap: usize) -> Option<BTreeMap<Vec<u8>, Vec<C>>> {
+    struct Out {
+        map: BTreeMap<Vec<u8>, Vec<C>>,
+        cap: usize,
+        overflow: bool,
+    }
+    fn go(ops: &[Op], mut s: RefSv, mut key: Vec<u8>, rec: Vec<bool>, out: &mut Out) {
+        if out.overflow {
+            return;
+        }
         for (k, op) in ops.iter().enumerate() {
             let rest = &ops[k + 1..];
             let proj = |s: &RefSv, q: usize, b: bool| -> RefSv {
@@ -139,11 +147,19 @@ pub fn branches(c: &Circuit, init: &RefSv) -> BTreeMap<Vec<u8>, Vec<C>> {
                 _ => unreachable!("not generated"),
             }
         }
-        out.insert(key, s.a);
+        if out.map.len() >= out.cap {
+            out.overflow = true;
+            return;
+        }
+        out.map.insert(key, s.a);
     }
-    let mut out = BTreeMap::new();
+    let mut out = Out {
+        map: BTreeMap::new(),
+        cap,
+        overflow: false,
+    };
     go(&c.ops, init.clone(), Vec::new(), Vec::new(), &mut out);
-    out
+    (!out.overflow).then_some(out.map)
 }
 
 /// max over branches of |a - e^{iφ} b|.
@@ -185,10 +201,16 @@ pub fn basis(n: usize, col: usize) -> RefSv {
 /// Exact distribution of measurement records (one bool per `Measure`, in
 /// program order) from the branch tree.
 pub fn record_distribution(c: &Circuit) -> BTreeMap<Vec<bool>, f64> {
+    record_distribution_capped(c, usize::MAX).expect("uncapped")
+}
+
+/// [`record_distribution`], or `None` if the branch tree has more than
+/// `cap` leaves.
+pub fn record_distribution_capped(c: &Circuit, cap: usize) -> Option<BTreeMap<Vec<bool>, f64>> {
     let mut out = BTreeMap::new();
-    for (k, v) in branches(c, &RefSv::new(c.num_qubits)) {
+    for (k, v) in branches_capped(c, &RefSv::new(c.num_qubits), cap)? {
         let rec: Vec<bool> = k.iter().filter(|&&b| b < 2).map(|&b| b == 1).collect();
         *out.entry(rec).or_insert(0.0) += v.iter().map(|x| x.norm_sqr()).sum::<f64>();
     }
-    out
+    Some(out)
 }
