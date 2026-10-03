@@ -2,6 +2,7 @@
 //! blocked executor and with gate-by-gate application: max |Δamplitude|
 //! <= 1e-12 (f64) and <= 1e-5 (f32).
 
+mod audit_common;
 mod common;
 
 use common::random_universal;
@@ -70,12 +71,20 @@ fn check<T: Real>(c: &Circuit, seed: u64, tol: f64) {
         for simd in [false, true] {
             let mut untiled = init.clone();
             let mut tiled = init.clone();
-            untiled.apply_circuit_blocked(c, &cfg(g, false, simd)).unwrap();
+            untiled
+                .apply_circuit_blocked(c, &cfg(g, false, simd))
+                .unwrap();
             tiled.apply_circuit_blocked(c, &cfg(g, true, simd)).unwrap();
             let d_ref = max_diff(&tiled, &reference);
             let d_unt = max_diff(&tiled, &untiled);
-            assert!(d_ref <= tol, "tiled vs gate-by-gate {d_ref:e} ({g:?}, simd {simd})");
-            assert!(d_unt <= tol, "tiled vs untiled {d_unt:e} ({g:?}, simd {simd})");
+            assert!(
+                d_ref <= tol,
+                "tiled vs gate-by-gate {d_ref:e} ({g:?}, simd {simd})"
+            );
+            assert!(
+                d_unt <= tol,
+                "tiled vs untiled {d_unt:e} ({g:?}, simd {simd})"
+            );
         }
     }
 }
@@ -166,5 +175,37 @@ proptest! {
         }
         check::<f64>(&c, seed, 1e-12);
         check::<f32>(&c, seed, 1e-5);
+    }
+}
+
+/// Differential check against the independent naive state vector of
+/// `audit_common` (edge-case angles and qubits, SWAP/CCX/CPhase included),
+/// tiled and untiled, portable and SIMD kernels, f64 and f32.
+#[test]
+fn tiled_matches_audit_reference() {
+    let mut rng = StdRng::seed_from_u64(audit_common::base_seed() ^ 0x11ee);
+    for &n in &[3usize, 5, 6, 8, 9, 11, 12] {
+        for _ in 0..audit_common::iters().max(4) {
+            let depth = rng.random_range(1..120);
+            let c = audit_common::random_circuit(&mut rng, n, depth, false, false);
+            let r = audit_common::RefSv::run(&c);
+            for g in GEOMS {
+                for simd in [false, true] {
+                    let mut a = StateVector::<f64>::new(n);
+                    a.apply_circuit_blocked(&c, &cfg(g, true, simd)).unwrap();
+                    let d = audit_common::max_amp_diff(&r.a, a.amplitudes().iter().copied());
+                    assert!(d <= 1e-12, "f64 n={n} {g:?} simd {simd}: {d:e}");
+                    let mut b = StateVector::<f32>::new(n);
+                    b.apply_circuit_blocked(&c, &cfg(g, true, simd)).unwrap();
+                    let d = audit_common::max_amp_diff(
+                        &r.a,
+                        b.amplitudes()
+                            .iter()
+                            .map(|z| num_complex::Complex64::new(z.re as f64, z.im as f64)),
+                    );
+                    assert!(d <= 1e-5, "f32 n={n} {g:?} simd {simd}: {d:e}");
+                }
+            }
+        }
     }
 }
