@@ -200,7 +200,10 @@ fn main() {
             let mut involved: Vec<usize> = r
                 .all
                 .iter()
-                .flat_map(|sol| sol.iter().flat_map(|&j| keys[j].0.iter().map(|&z| zinfo[z as usize].0)))
+                .flat_map(|sol| {
+                    sol.iter()
+                        .flat_map(|&j| keys[j].0.iter().map(|&z| zinfo[z as usize].0))
+                })
                 .collect();
             involved.sort_unstable();
             involved.dedup();

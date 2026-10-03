@@ -553,12 +553,42 @@ impl SymPhaseSampler {
     /// to the number of faults that actually occur.
     pub fn sample_vars<R: Rng + ?Sized>(&self, rng: &mut R, vals: &mut [u64]) {
         vals.fill(0);
+        self.draw_vars(rng, vals, None);
+    }
+
+    /// Like [`Self::sample_vars`] (same draws, same result for the same RNG
+    /// stream) but without clearing all `num_vars` words: `touched` must list
+    /// every non-zero word of `vals` on entry (as left by the previous call,
+    /// or empty with `vals` all zero); only those are cleared. At low noise
+    /// this replaces an `O(num_vars)` memset per 64 shots by `O(#faults)`.
+    pub fn sample_vars_sparse<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+        vals: &mut [u64],
+        touched: &mut Vec<u32>,
+    ) {
+        for &i in touched.iter() {
+            vals[i as usize] = 0;
+        }
+        touched.clear();
+        self.draw_vars(rng, vals, Some(touched));
+    }
+
+    fn draw_vars<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+        vals: &mut [u64],
+        mut touched: Option<&mut Vec<u32>>,
+    ) {
         let mut i = 0;
         while i < self.groups.len() {
             let g = self.groups[i];
             let p = match g.dist {
                 VarDist::Coin => {
                     vals[g.first as usize] = rng.random();
+                    if let Some(t) = touched.as_deref_mut() {
+                        t.push(g.first);
+                    }
                     i += 1;
                     continue;
                 }
@@ -590,6 +620,11 @@ impl SymPhaseSampler {
                 let mut m = pattern;
                 while m != 0 {
                     let v = grp.first as usize + m.trailing_zeros() as usize;
+                    if vals[v] == 0 {
+                        if let Some(t) = touched.as_deref_mut() {
+                            t.push(v as u32);
+                        }
+                    }
                     vals[v] |= bit;
                     m &= m - 1;
                 }
@@ -604,6 +639,46 @@ impl SymPhaseSampler {
     pub fn sample_batch<R: Rng + ?Sized>(&self, rng: &mut R, vals: &mut [u64], out: &mut [u64]) {
         self.sample_vars(rng, vals);
         self.eval(vals, out);
+    }
+
+    /// Column (variable -> rows) view of `A`, for [`Self::eval_sparse`].
+    pub fn column_view(&self) -> ColumnView {
+        let mut start = vec![0u32; self.num_vars + 1];
+        for &v in &self.row_vars {
+            start[v as usize + 1] += 1;
+        }
+        for i in 0..self.num_vars {
+            start[i + 1] += start[i];
+        }
+        let mut fill = start.clone();
+        let mut rows = vec![0u32; self.row_vars.len()];
+        for j in 0..self.num_measurements() {
+            for &v in self.row(j) {
+                rows[fill[v as usize] as usize] = j as u32;
+                fill[v as usize] += 1;
+            }
+        }
+        ColumnView { start, rows }
+    }
+
+    /// Same result as [`Self::eval`], computed column-wise from the
+    /// non-zero words listed in `touched` (as produced by
+    /// [`Self::sample_vars_sparse`]): `O(#faults x column weight)` instead of
+    /// `O(nnz)` per 64 shots.
+    pub fn eval_sparse(&self, cv: &ColumnView, vals: &[u64], touched: &[u32], out: &mut [u64]) {
+        for (j, o) in out.iter_mut().enumerate() {
+            *o = 0u64.wrapping_sub(self.reference[j] as u64);
+        }
+        for &v in touched {
+            let w = vals[v as usize];
+            let (a, b) = (
+                cv.start[v as usize] as usize,
+                cv.start[v as usize + 1] as usize,
+            );
+            for &r in &cv.rows[a..b] {
+                out[r as usize] ^= w;
+            }
+        }
     }
 
     /// `out = m_ref xor A vals`, 64 shots per word.
@@ -631,6 +706,13 @@ impl SymPhaseSampler {
         }
         res
     }
+}
+
+/// Transposed (CSC) form of a sampler's matrix `A`.
+#[derive(Clone, Debug)]
+pub struct ColumnView {
+    start: Vec<u32>,
+    rows: Vec<u32>,
 }
 
 /// Number of failures before the next success of a Bernoulli(`p`) process.

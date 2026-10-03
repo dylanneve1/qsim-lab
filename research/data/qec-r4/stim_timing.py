@@ -33,13 +33,14 @@ def ours(path):
     out = subprocess.run([binary, "bench", path, str(shots), "1"], capture_output=True, text=True,
                          check=True, env=env).stdout
     kv = dict(x.split("=") for x in out.split())
-    return float(kv["sample_min"]), float(kv["compile"]) + float(kv["parse"])
+    return (float(kv["sample_min"]), float(kv.get("sparse_min", "nan")), float(kv.get("sparse_smallrng_min", "nan"))), \
+        float(kv["compile"]) + float(kv["parse"]) + float(kv.get("colview", 0))
 
 for name, path in [("A_ours_circuit", pa), ("B_stim_circuit", pb)]:
     c = stim.Circuit.from_file(path)
     t = time.perf_counter(); s = c.compile_detector_sampler(seed=1); tc = time.perf_counter() - t
     s.sample_write(1024, filepath=os.devnull, format="ptb64", append_observables=True)  # warm
-    rs = {"stim_write": [], "stim_mem": [], "ours": []}
+    rs = {"stim_write": [], "stim_mem": [], "ours": [], "ours_sparse": [], "ours_sparse_smallrng": []}
     cli = os.environ.get("STIM_CLI")  # optional natively compiled stim (e.g. -DSIMD_WIDTH=256)
     if cli:
         rs["stim_cli_native"] = []
@@ -62,15 +63,20 @@ for name, path in [("A_ours_circuit", pa), ("B_stim_circuit", pb)]:
                     rs["stim_cli_native"].append(time.perf_counter() - t)
             else:
                 ts, oc = ours(path)
-                rs["ours"].append(ts)
+                rs["ours"].append(ts[0])
+                rs["ours_sparse"].append(ts[1])
+                rs["ours_sparse_smallrng"].append(ts[2])
     res = dict(circuit=name, d=d, shots=shots, detectors=c.num_detectors, qubits=c.num_qubits,
                machine=platform.machine(), stim=stim.__version__,
                stim_compile_s=tc, ours_compile_s=oc,
                **{k + "_min_s": min(v) for k, v in rs.items()},
                **{k + "_all_s": v for k, v in rs.items()})
+    res["ours_best_min_s"] = min(res["ours_min_s"], res["ours_sparse_min_s"], res["ours_sparse_smallrng_min_s"])
     res["ratio_write"] = res["stim_write_min_s"] / res["ours_min_s"]
+    res["ratio_write_best"] = res["stim_write_min_s"] / res["ours_best_min_s"]
     res["ratio_mem"] = res["stim_mem_min_s"] / res["ours_min_s"]
     if cli:
         res["ratio_cli_native"] = res["stim_cli_native_min_s"] / res["ours_min_s"]
+        res["ratio_cli_native_best"] = res["stim_cli_native_min_s"] / res["ours_best_min_s"]
     res["load1"] = os.getloadavg()[0]
     print(json.dumps(res), flush=True)
