@@ -519,8 +519,9 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
             .chunks()
             .into_par_iter()
             .map(|ch| {
-                let mut ks = Vec::new();
-                let mut vs = Vec::new();
+                let cap = (ch.1 - ch.0) + (ch.3 - ch.2);
+                let mut ks = Vec::with_capacity(cap);
+                let mut vs = Vec::with_capacity(cap);
                 self.merge(ch, |key, a, b| {
                     let v = (a + ph * b) * k;
                     let v = cvt::<T>(v);
@@ -536,12 +537,26 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         self.amps = Vec::new();
         self.ukeys = Vec::new();
         let total: usize = parts.iter().map(|p| p.0.len()).sum();
-        let mut keys = Vec::with_capacity(total);
-        let mut amps = Vec::with_capacity(total);
-        for (ks, vs) in parts {
-            keys.extend(ks);
-            amps.extend(vs);
+        // parallel concatenation into exact-size buffers
+        let mut keys = vec![0u64; total];
+        let mut amps = vec![Complex::<T>::zero(); total];
+        {
+            let mut kd: &mut [u64] = &mut keys;
+            let mut ad: &mut [Complex<T>] = &mut amps;
+            let mut jobs = Vec::with_capacity(parts.len());
+            for (ks, vs) in &parts {
+                let (k0, k1) = std::mem::take(&mut kd).split_at_mut(ks.len());
+                let (a0, a1) = std::mem::take(&mut ad).split_at_mut(vs.len());
+                jobs.push((k0, a0, ks, vs));
+                kd = k1;
+                ad = a1;
+            }
+            jobs.into_par_iter().for_each(|(k0, a0, ks, vs)| {
+                k0.copy_from_slice(ks);
+                a0.copy_from_slice(vs);
+            });
         }
+        drop(parts);
         self.peak = self.peak.max(keys.len());
         self.keys = keys;
         self.amps = amps;
