@@ -28,6 +28,11 @@ pub struct ExecOptions {
     /// Largest block support (qubits) for the `2^k` unitary power.
     pub max_small_k: usize,
     pub reuse_plan: bool,
+    /// Plan reuse only up to this register size; wider registers run all
+    /// copies as one batch (cross-copy fusion wins there: Trotter n=14
+    /// r=1e3 is 1.5x slower with per-copy reuse; n<=10 reuse is 3x faster
+    /// than one batch, research/repeat.md §7).
+    pub reuse_max_qubits: usize,
     /// Use the `2^k` unitary power whenever the support allows, ignoring
     /// the cost model (for benchmarks).
     pub force_small: bool,
@@ -39,9 +44,8 @@ impl Default for ExecOptions {
             diag: true,
             small_unitary: true,
             max_small_k: 8,
-            // compile-once plan reuse measured no gain and loses to one
-            // batch on wide blocks (research/repeat.md §2(d), audit §7)
-            reuse_plan: false,
+            reuse_plan: true,
+            reuse_max_qubits: 12,
             force_small: false,
         }
     }
@@ -419,7 +423,7 @@ impl<T: Real> Exec<'_, T> {
                 return Ok(());
             }
         }
-        if self.opts.reuse_plan && reps >= 2 {
+        if self.opts.reuse_plan && reps >= 2 && n <= self.opts.reuse_max_qubits {
             for gate in &g {
                 check_gate(gate, n)?;
             }
