@@ -683,7 +683,9 @@ pub fn run_engine(engine: &str, c: &Circuit, mem_bytes: u128) -> Result<EngineRu
                     return Err(too_large("mps", m.bytes() as u128));
                 }
             }
-            if m.truncation_count() > 0 {
+            // The SVD cutoff (relative weight 1e-14 per singular value) is
+            // numerical noise; anything that discards more is a truncation.
+            if 1.0 - m.fidelity_estimate() > 1e-10 {
                 return Err(SimError::TooLarge {
                     what: "mps (truncated)",
                     bytes: 0,
