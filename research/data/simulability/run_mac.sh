@@ -8,23 +8,32 @@ set -u
 OUT=$1; shift
 BIN=$HOME/qsim-sim-target/release/examples/simulability
 DRV=$HOME/qsim-sim/research/data/simulability/driver.py
+LOCK=${LOCK:-/tmp/qsim-mac-bench.lock}
+W=${WORKERS:-2}
+R=${REPS:-1}
 mkdir -p "$OUT"
 remaining=("$@")
+held=0
+# never leave the shared lock behind (bash 3.2 on macOS: keep expansions simple)
+trap '[ $held -eq 1 ] && rmdir "$LOCK"' EXIT
 while [ ${#remaining[@]} -gt 0 ]; do
-  until mkdir /tmp/qsim-mac-bench.lock 2>/dev/null; do sleep 5; done
+  until mkdir "$LOCK" 2>/dev/null; do sleep 5; done
+  held=1
   echo "== lock acquired $(date +%T) load $(sysctl -n vm.loadavg)"
   pids=(); grids=()
-  for g in "${remaining[@]:0:${WORKERS:-2}}"; do
-    nice -n 10 python3 "$DRV" --reps "${REPS:-1}" --bin "$BIN" --grid "$g" --out "$OUT/$g.csv" --timeout 10 --budget 90 \
+  for g in "${remaining[@]:0:$W}"; do
+    nice -n 10 python3 "$DRV" --reps "$R" --bin "$BIN" --grid "$g" --out "$OUT/$g.csv" --timeout 10 --budget 90 \
       --threads 1 >> "$OUT/$g.log" 2>&1 &
     pids+=($!); grids+=("$g")
   done
-  next=("${remaining[@]:${WORKERS:-2}}")
+  next=()
+  [ ${#remaining[@]} -gt $W ] && next=("${remaining[@]:$W}")
   for i in "${!pids[@]}"; do
     wait "${pids[$i]}"; rc=$?
     [ $rc -ne 0 ] && next+=("${grids[$i]}")
   done
-  rmdir /tmp/qsim-mac-bench.lock
+  rmdir "$LOCK"
+  held=0
   echo "== lock released $(date +%T); remaining: ${next[*]:-none}"
   remaining=("${next[@]+"${next[@]}"}")
   [ ${#remaining[@]} -gt 0 ] && sleep 20

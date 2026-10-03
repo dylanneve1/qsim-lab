@@ -357,7 +357,7 @@ def plots(data, outdir, full):
             return
         xs = sorted(set(d["params"][xk] for d in sel))
         ys = sorted(set(d["params"][yk] for d in sel))
-        fig, ax = plt.subplots(figsize=(1.0 + 0.75 * len(xs), 1.0 + 0.6 * len(ys)))
+        fig, ax = plt.subplots(figsize=(max(6.5, 1.6 + 0.75 * len(xs)), 1.3 + 0.6 * len(ys)))
         used = set()
         for d in sel:
             b = winner(d)
