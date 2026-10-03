@@ -54,6 +54,7 @@ pub mod qec;
 pub mod shor;
 pub mod shor_arith;
 pub mod shor_ripple;
+pub mod shor_window;
 pub mod sparse;
 pub mod stabilizer;
 pub mod statevector;
