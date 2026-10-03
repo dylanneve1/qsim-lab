@@ -1,0 +1,27 @@
+# 22:13:21 brick n=24 f32 t=6 load=[5.65 7.83 7.13] top=[ 93.7 Logic Pro]
+# 22:13:33 brick n=26 f32 t=8 load=[6.46 7.94 7.17] top=[ 91.0 Logic Pro]
+# 22:14:15 brick n=24 f32 t=6 load=[9.73 8.57 7.44] top=[ 84.1 Logic Pro]
+# 22:14:28 brick n=26 f32 t=8 load=[9.67 8.61 7.47] top=[ 89.6 Logic Pro]
+# 22:15:17 brick n=24 f32 t=6 load=[11.55 9.28 7.78] top=[ 85.0 Logic Pro]
+# 22:15:29 brick n=26 f32 t=8 load=[10.91 9.25 7.79] top=[ 93.4 Logic Pro]
+# 22:16:18 brick n=24 f32 t=6 load=[12.08 9.84 8.09] top=[ 88.3 Logic Pro]
+# 22:16:32 brick n=26 f32 t=8 load=[11.92 9.87 8.13] top=[147.9 rustc]
+# 22:17:22 qft n=26 f32 t=8 load=[14.32 10.80 8.56] top=[ 91.4 Logic Pro]
+# 22:17:27 qft n=26 f32 t=8 load=[14.13 10.82 8.58] top=[ 85.8 Logic Pro]
+# 22:17:32 brick n=24 f64 t=6 load=[13.80 10.80 8.59] top=[ 85.5 Logic Pro]
+# 22:17:52 brick n=26 f64 t=8 load=[12.18 10.62 8.58] top=[ 91.2 Logic Pro]
+# 22:19:07 brick n=24 f64 t=6 load=[14.79 11.82 9.20] top=[ 81.9 Logic Pro]
+# 22:19:29 brick n=26 f64 t=8 load=[12.69 11.57 9.19] top=[ 91.3 Logic Pro]
+# 22:20:55 brick n=24 f64 t=6 load=[14.80 12.49 9.77] top=[ 84.9 Logic Pro]
+# 22:21:16 brick n=26 f64 t=8 load=[12.95 12.22 9.73] top=[ 92.1 Logic Pro]
+# 22:22:41 brick n=24 f64 t=6 load=[13.80 12.63 10.12] top=[ 84.3 Logic Pro]
+# 22:22:59 brick n=26 f64 t=8 load=[12.14 12.33 10.07] top=[ 93.0 Logic Pro]
+# 22:24:33 qft n=26 f64 t=8 load=[32.47 18.09 12.46] top=[262.2 rustc]
+CONTAM rustc during qft 26 f64 t=8 rep=0
+CONTAM rustc during qft 26 f64 t=8 rep=1
+CONTAM rustc during qft 26 f64 t=8 rep=2
+# 22:24:43 qft n=26 f64 t=8 load=[35.07 19.13 12.90] top=[ 86.8 Logic Pro]
+CONTAM rustc during qft 26 f64 t=8 rep=0
+CONTAM rustc during qft 26 f64 t=8 rep=1
+CONTAM rustc during qft 26 f64 t=8 rep=2
+PHASE2_DONE

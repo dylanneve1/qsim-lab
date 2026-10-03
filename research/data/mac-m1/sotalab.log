@@ -1,0 +1,4 @@
+# 22:29:08 qft n=22,24,26 f32 t=8 load=[11.55 15.99 13.32] top=[ 91.9 Logic Pro]
+# 22:29:14 brick n=22,24 f32 t=8 load=[12.23 16.06 13.36] top=[ 86.6 Logic Pro]
+# 22:29:28 qft n=22,24,26 f32 t=6 load=[11.33 15.67 13.27] top=[ 86.6 Logic Pro]
+# 22:29:32 brick n=22,24 f32 t=6 load=[11.06 15.54 13.24] top=[ 94.0 Logic Pro]
