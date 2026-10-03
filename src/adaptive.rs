@@ -549,6 +549,26 @@ pub fn active_dimension_profile(circuit: &Circuit) -> Result<Vec<usize>, SimErro
     Ok(prof)
 }
 
+/// Whether `<0|U† Z_S U|0> = 0` follows from the x-span lemma alone
+/// (research/pauli.md §2): the Clifford image `C† Z_S C` has an x part
+/// outside the span of every rotation axis' x part, so every Pauli path
+/// ends with `x ≠ 0`. O(gates · n) — the first step of the frame engine.
+pub fn z_product_vanishes(circuit: &Circuit, qubits: &[usize]) -> Result<bool, SimError> {
+    let comp = compile_state(circuit)?;
+    let w = comp.w;
+    let mut frame = Gf2Frame::new(comp.n, w);
+    for (q, _) in &comp.rots {
+        frame.push(&q[..w]);
+    }
+    let mut p = vec![0u64; 2 * w];
+    for &q in qubits {
+        p[w + q / 64] ^= 1 << (q % 64);
+    }
+    let (_, img) = comp.tab.map(&p);
+    let (rest, _) = frame.reduce(&img[..w]);
+    Ok(rest.iter().any(|&v| v != 0))
+}
+
 /// Statistics of a compressed-state run.
 #[derive(Clone, Debug, Default)]
 pub struct CompressedStats {

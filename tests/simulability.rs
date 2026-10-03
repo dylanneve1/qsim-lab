@@ -132,3 +132,20 @@ fn mps_svd_nonconvergence_regression() {
     let r = run_engine("mps", &c, 1 << 30).expect("mps runs");
     assert!(r.value.abs() < 1e-9, "{}", r.value);
 }
+
+#[test]
+fn z_product_vanishing_certificate_is_sound() {
+    // Whenever the O(gates·n) certificate says <Z^n> = 0, it is 0.
+    let mut certified = 0;
+    for spec in SPECS {
+        for seed in 1..=4 {
+            let c = build(&Spec::parse(spec).unwrap(), seed).unwrap();
+            let all: Vec<usize> = (0..c.num_qubits).collect();
+            if adaptive::z_product_vanishes(&c, &all).unwrap() {
+                certified += 1;
+                assert!(reference_parity(&c).abs() < 1e-12, "{spec} s{seed}");
+            }
+        }
+    }
+    assert!(certified > 0);
+}

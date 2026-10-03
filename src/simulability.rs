@@ -318,6 +318,9 @@ pub struct Features {
     pub redundant: usize,
     /// Pauli-path proxy: `log2 m + min(redundant, 2 d)`... see code.
     pub frame_l: f64,
+    /// `<Z^{⊗n}>` is provably 0 by the x-span lemma (O(gates·n) check);
+    /// the Heisenberg engines then finish without propagating anything.
+    pub obs_zero: bool,
     /// Max over line cuts of the crossing-count bound on log2 χ.
     pub chi_bits: usize,
     /// log2 Σ_gates Σ_{cuts swept} χ_cut(t)^3 with the time-resolved bound.
@@ -429,6 +432,11 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
     // redundant rotation, as in adaptive::AdaptiveOptions).
     f.frame_l = (prof.len().max(1) as f64).log2()
         + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
+    let all: Vec<usize> = (0..n).collect();
+    f.obs_zero = adaptive::z_product_vanishes(c, &all)?;
+    if f.obs_zero {
+        f.frame_l = (f.gates.max(1) as f64).log2();
+    }
     f.secs_frame = tf.elapsed().as_secs_f64();
 
     // MPS: crossing-count bound per line cut, time resolved, capped by the
