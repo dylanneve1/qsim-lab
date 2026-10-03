@@ -39,7 +39,9 @@ impl Default for ExecOptions {
             diag: true,
             small_unitary: true,
             max_small_k: 8,
-            reuse_plan: true,
+            // compile-once plan reuse measured no gain and loses to one
+            // batch on wide blocks (research/repeat.md §2(d), audit §7)
+            reuse_plan: false,
             force_small: false,
         }
     }
@@ -431,8 +433,18 @@ impl<T: Real> Exec<'_, T> {
             return Ok(());
         }
         self.stats.plain_repeats += 1;
-        for _ in 0..reps {
-            self.apply(&g)?;
+        // No fast path: one batch of all copies keeps cross-copy fusion and
+        // stage planning (what `simulate` does for the expanded circuit).
+        if g.len().saturating_mul(reps) <= 1 << 22 {
+            let mut all = Vec::with_capacity(g.len() * reps);
+            for _ in 0..reps {
+                all.extend_from_slice(&g);
+            }
+            self.apply(&all)?;
+        } else {
+            for _ in 0..reps {
+                self.apply(&g)?;
+            }
         }
         let _ = remap_gate;
         Ok(())
