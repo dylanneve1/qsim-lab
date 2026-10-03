@@ -223,22 +223,47 @@ of register.
 
 ## 6. Surprises (the interesting part)
 
-### 6.1 The request changes the phase diagram: global Pauli expectations often vanish for free
-`<Z^{⊗n}>` is **exactly 0** for 58/60 Clifford+T instances at n = 24, 15/48 QAOA instances and
-25/60 adders. For Clifford+T and QAOA the zero is *certified* in O(gates·n) by the x-span lemma
-of research/pauli.md §2. The Clifford image of the observable has an x-part outside the span of
-the rotation axes' x-parts, so every Pauli path ends with x ≠ 0. The certificate is now
-`adaptive::z_product_vanishes`, and it fired on 53/58 ct zeros and 15/15 QAOA zeros, with a
-soundness test. The adder zeros are not certified, since they come from a balanced parity
-distribution, not structure. Consequences:
-- The observable engines (`frame`, and `Strategy::Dense`/`Auto`, which start in the Heisenberg
-  picture) finish in ~1 ms on those instances whatever d is. In a first version `dense` was counted
-  as a state engine and "won" n = 32, d = 29 instances in 0.85 ms that the real compressed state
-  cannot even allocate (2^29 × 16 B > budget). That is why `cstate` exists.
-- With observable engines included (`all_engines/`), the frame beats every state engine on 53/156
-  Clifford+T and 9/48 QAOA instances. The held-out model gets worse (top-1 67 %, regret 1.40, worst 3,600×),
-  because the frame's cost when *not* certified is not captured by any cheap feature (slope 0.20).
-  A phase diagram of exact simulability is a diagram for a *request*, not for a circuit.
+### 6.1 A side result: an O(gates·n) certificate that a Pauli expectation vanishes
+
+**Statement** (`adaptive::z_product_vanishes`). Write `U = C·R_m⋯R_1` in the rotation frame. `C` is
+the Clifford part, and `R_j = exp(−iθ_j Q_j/2)` are the non-Clifford rotations with Heisenberg
+axes `Q_j`. Let `W = span{x(Q_1), …, x(Q_m)} ⊆ GF(2)^n` (the same space whose dimension is the
+active dimension `d`). For a Pauli `P`, if `x(C†PC) ∉ W`, then `<0^n|U†PU|0^n> = 0` exactly.
+
+**Proof.** research/pauli.md §2, Lemma (x-span pruning), applied at stage `m`. Conjugating
+`C†PC` back through the rotations only produces strings `±C†PC·Q_{i_1}⋯Q_{i_r}`, whose x-parts lie
+in the coset `x(C†PC) + W`. That coset misses 0, so every string has `<0|·|0> = 0`.
+
+**Cost.** One Heisenberg-tableau pass over the gates (O(gates·n/64) words), Gaussian elimination
+of the `m` axes (O(m·n·d/64)) and one reduction. That is the same work as computing `d`, in about
+a millisecond at our sizes. Nothing is simulated.
+
+**When it fires.** If the Cliffords scramble, `x(C†PC)` behaves like a uniform vector, and the
+certificate fires with probability ≈ `1 − 2^{d−n}`. It can only fire when `d < n`, i.e. while the
+rotations have not yet spanned all of GF(2)^n. Measured for `P = Z^{⊗n}`:
+
+| family | instances | predicted fires (Σ 1 − 2^{d−n}) | observed fires | value actually 0 |
+|---|---|---|---|---|
+| Clifford+T (3 grids) | 156 | 144.2 | **142** | 150 |
+| QAOA | 48 | 29.4 | 15 | 15 |
+| adders | 60 | 9.0 | 0 | 25 |
+| brickwork | 50 | 0 (d = n) | 0 | 0 |
+
+For scrambling Clifford+T circuits the uniform model is essentially exact (144 predicted vs 142
+observed). On structured circuits it is not. QAOA is invariant under the global flip `X^{⊗n}`,
+which aligns the observable with the circuit, and the certificate fires half as often as the
+model says. The adder zeros come from a balanced output parity, which this certificate cannot see.
+It is sound but incomplete: there were 8 Clifford+T zeros it did not certify.
+
+**Why it matters for the phase diagram.** The request is part of the problem. With observable
+engines included (`all_engines/`), the Heisenberg frame beats every state engine on 53/156
+Clifford+T and 9/48 QAOA instances, mostly because of this early-out: frame finished with zero live
+terms in 155/246 of its successful runs. A held-out model that includes those engines drops to
+67 % top-1 (worst 3,600×), because the frame's cost when *not* certified is not captured by any
+cheap feature (slope 0.20). In a first version `Strategy::Dense` was counted as a state engine and
+"won" n = 32, d = 29 instances in 0.85 ms that the real compressed state cannot even allocate
+(2^29 × 16 B). That is why `cstate` exists, and why the headline uses only state engines, whose
+cost does not depend on the observable (§6.1b).
 
 ### 6.2 The compressed state is the default winner for diagonal-heavy circuits
 For QAOA on random graphs the rotation frame removes every CNOT and H. The compressed register has
