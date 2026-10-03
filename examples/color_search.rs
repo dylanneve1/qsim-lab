@@ -101,6 +101,66 @@ fn main() {
                 writeln!(out, "{:e}\t{}\t{}", e.p, e.observables, ds.join(" ")).unwrap();
             }
         }
+        "distance" => {
+            // exact Z-memory circuit distance (Z sector + twin certification), noisy-CNOT model
+            let rounds: usize = a[3].parse().unwrap();
+            let s = schedule(&cc, &a[4]);
+            let cap: u64 = a.get(5).map_or(1_000_000, |x| x.parse().unwrap());
+            let node_limit: u64 = a.get(6).map_or(u64::MAX, |x| x.parse().unwrap());
+            let noise_kind = a.get(7).map_or("cnot", |x| x.as_str());
+            let t = std::time::Instant::now();
+            let m = cc.memory(&s, rounds, noise(noise_kind, 0.001));
+            let dem = circuit_dem(&m.circuit, &m.noise, &m.detectors, &m.observables);
+            let mut zmap = vec![u32::MAX; m.detectors.len()];
+            let mut nz = 0u32;
+            for (i, inf) in m.detector_info.iter().enumerate() {
+                if !inf.1 {
+                    zmap[i] = nz;
+                    nz += 1;
+                }
+            }
+            let mut keys: Vec<(Vec<u32>, bool)> = Vec::new();
+            let mut pure = std::collections::HashSet::new();
+            let mut seen = std::collections::HashSet::new();
+            for e in &dem {
+                let zs: Vec<u32> = e.detectors.iter().filter_map(|&i| {
+                    let z = zmap[i as usize];
+                    (z != u32::MAX).then_some(z)
+                }).collect();
+                let ob = e.observables & 1 == 1;
+                if zs.is_empty() && !ob {
+                    continue;
+                }
+                let k = (zs.clone(), ob);
+                if zs.len() == e.detectors.len() {
+                    pure.insert(k.clone());
+                }
+                if seen.insert(k.clone()) {
+                    keys.push(k);
+                }
+            }
+            let dets: Vec<Vec<u32>> = keys.iter().map(|k| k.0.clone()).collect();
+            let obs: Vec<bool> = keys.iter().map(|k| k.1).collect();
+            let r = qsim_lab::qec::distance::min_logical(nz as usize, &dets, &obs, 4 * d, cap, node_limit);
+            let certified = r.example.iter().all(|&j| pure.contains(&keys[j]));
+            // describe the example: per mechanism, the plaquettes (and rounds) of its Z detectors
+            let zinfo: Vec<(usize, usize)> = m.detector_info.iter().filter(|i| !i.1).map(|i| (i.0, i.2)).collect();
+            let ex: Vec<String> = r.example.iter().map(|&j| {
+                let v: Vec<String> = keys[j].0.iter().map(|&z| format!("{}@{}", zinfo[z as usize].0, zinfo[z as usize].1)).collect();
+                format!("[{}{}]", v.join(" "), if keys[j].1 { " L" } else { "" })
+            }).collect();
+            println!(
+                "{{\"d\":{d},\"rounds\":{rounds},\"schedule\":\"{}\",\"noise\":\"{noise_kind}\",\"distance\":{},\"count\":{},\"count_capped\":{},\"certified\":{certified},\"mechanisms\":{},\"z_detectors\":{nz},\"nodes\":{},\"seconds\":{:.3},\"example\":\"{}\"}}",
+                a[4],
+                r.weight.map_or("null".to_string(), |w| w.to_string()),
+                r.count,
+                r.count >= cap,
+                keys.len(),
+                r.nodes,
+                t.elapsed().as_secs_f64(),
+                ex.join(" ")
+            );
+        }
         m => panic!("mode {m}"),
     }
 }

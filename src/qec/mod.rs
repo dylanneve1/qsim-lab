@@ -3,6 +3,7 @@
 pub mod bposd;
 pub mod color;
 pub mod decoder;
+pub mod distance;
 pub mod dem;
 pub mod repetition;
 pub mod schedules;
