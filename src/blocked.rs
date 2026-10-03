@@ -260,8 +260,10 @@ pub struct BlockConfig {
     /// Reorder diagonal terms within a stage (they commute with every op
     /// not targeting their qubits) so they form as few passes as possible.
     pub schedule_diag: bool,
-    /// Use the AVX2+FMA build of the chunk kernels when the CPU has them
-    /// (checked at run time; the portable kernels are used otherwise).
+    /// Use the fused-multiply-add kernels: on x86_64 the AVX2+FMA build of
+    /// the chunk kernels when the CPU has them (checked at run time; the
+    /// portable kernels are used otherwise); on aarch64 the same kernels
+    /// with `mul_add` (NEON `fmla`, part of the baseline, no `unsafe`).
     /// Results agree with the portable path to rounding error.
     pub simd: bool,
 }
@@ -1141,6 +1143,13 @@ fn run_ops<T: Real>(
         // true, i.e. the running CPU supports AVX2 and FMA.
         unsafe { return run_ops_avx2(p, buf, base, sc) };
     }
+    #[cfg(target_arch = "aarch64")]
+    if simd {
+        // NEON with fused multiply-add is part of the aarch64 baseline, so
+        // no target feature or run-time check is needed: `mul_add` lowers to
+        // one `fmla`/`fmadd` and `simd_available()` is simply true.
+        return run_ops_impl::<T, true>(p, buf, base, sc);
+    }
     let _ = simd;
     run_ops_impl::<T, false>(p, buf, base, sc);
 }
@@ -1162,13 +1171,18 @@ unsafe fn run_ops_avx2<T: Real>(
     run_ops_impl::<T, true>(p, buf, base, sc)
 }
 
-/// Whether the AVX2+FMA kernels can run on this CPU (detected once).
+/// Whether the FMA kernels can run on this CPU: AVX2+FMA detected at run
+/// time on x86_64, always on aarch64.
 pub fn simd_available() -> bool {
     #[cfg(target_arch = "x86_64")]
     {
         std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
     }
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(target_arch = "aarch64")]
+    {
+        true
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         false
     }
