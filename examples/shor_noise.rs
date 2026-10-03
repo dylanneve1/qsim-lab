@@ -18,7 +18,8 @@
 //! trajectory (default 2^26 branches); a capped trajectory has unknown
 //! outcome and is reported as such (`capped_round >= 0`).
 //! Env: `QSIM_NOISE_CONC` = trajectories run concurrently (default: threads),
-//! `QSIM_NOISE_F32` = f32 amplitudes, `QSIM_NOISE_KMIN` = smallest k (strat).
+//! `QSIM_NOISE_F32` = f32 amplitudes, `QSIM_NOISE_RESET` = ideal measure-and-reset
+//! of every ancilla after each round, `QSIM_NOISE_KMIN` = smallest k (strat).
 
 use qsim_lab::shor::noisy::{self, NoiseKind, NoisyCircuit, Site};
 use qsim_lab::shor::{Instance, Oracle};
@@ -87,12 +88,13 @@ fn main() {
             jobs.push((k, j));
         }
     }
+    let reset = std::env::var_os("QSIM_NOISE_RESET").is_some();
     let stdout = std::io::stdout();
     {
         let mut o = stdout.lock();
         writeln!(
             o,
-            "# N={n_mod} n={} a={a} r={r} w={w} qubits={} kind={} gates={gates} locations={} t={} mode={mode} p={:?} cap={cap} seed={seed}",
+            "# N={n_mod} n={} a={a} r={r} w={w} qubits={} kind={} gates={gates} locations={} t={} mode={mode} p={:?} cap={cap} seed={seed} reset_ancillas={reset}",
             inst.m,
             nc.nq,
             kind.name(),
@@ -119,9 +121,9 @@ fn main() {
         };
         let t0 = std::time::Instant::now();
         let tr = if f32_amps {
-            noisy::run_trajectory::<f32, _>(&nc, &faults, cap, &mut rng)
+            noisy::run_trajectory_opts::<f32, _>(&nc, &faults, cap, reset, &mut rng)
         } else {
-            noisy::run_trajectory::<f64, _>(&nc, &faults, cap, &mut rng)
+            noisy::run_trajectory_opts::<f64, _>(&nc, &faults, cap, reset, &mut rng)
         };
         let secs = t0.elapsed().as_secs_f64();
         let fdesc: Vec<String> = faults

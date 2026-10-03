@@ -683,6 +683,46 @@ impl<T: Real> NoisyState<T> {
     }
 }
 
+impl<T: Real> NoisyState<T> {
+    /// Measures every ancilla (every non-control qubit above the `n`-bit work
+    /// register) and resets it to `|0>`: samples the ancilla value `a` with
+    /// probability `Σ_{x} |ψ(x, a)|²`, keeps those branches, clears their
+    /// ancilla bits and renormalises. Returns `true` if a non-zero ancilla
+    /// value was found (the reset then removed dirt).
+    pub fn reset_ancillas<R: Rng + ?Sized>(&mut self, n: usize, rng: &mut R) -> bool {
+        if self.keys.iter().all(|&k| k >> n == 0) {
+            return false;
+        }
+        let mut w: std::collections::BTreeMap<u128, f64> = std::collections::BTreeMap::new();
+        for (k, a) in self.keys.iter().zip(&self.amps) {
+            *w.entry(k >> n).or_insert(0.0) += c64(*a).norm_sqr();
+        }
+        let total: f64 = w.values().sum();
+        let mut u = rng.random::<f64>() * total;
+        let mut pick = *w.keys().next_back().unwrap();
+        for (&anc, &p) in &w {
+            if u < p {
+                pick = anc;
+                break;
+            }
+            u -= p;
+        }
+        let norm = T::from_f64((total / w[&pick]).sqrt());
+        let mask = (1u128 << n) - 1;
+        let mut kv: Vec<(u128, Complex<T>)> = self
+            .keys
+            .iter()
+            .zip(&self.amps)
+            .filter(|(k, _)| *k >> n == pick)
+            .map(|(k, a)| (k & mask, *a * norm))
+            .collect();
+        kv.sort_unstable_by_key(|e| e.0);
+        self.keys = kv.iter().map(|e| e.0).collect();
+        self.amps = kv.iter().map(|e| e.1).collect();
+        pick != 0
+    }
+}
+
 impl<T: Real> Default for NoisyState<T> {
     fn default() -> Self {
         Self::new()
@@ -713,6 +753,19 @@ pub fn run_trajectory<T: Real, R: Rng + ?Sized>(
     cap: usize,
     rng: &mut R,
 ) -> Trajectory {
+    run_trajectory_opts::<T, R>(nc, faults, cap, false, rng)
+}
+
+/// [`run_trajectory`] with an optional (ideal) measure-and-reset of every
+/// ancilla after each round's control measurement — what a device with
+/// mid-circuit reset could do for qubits that should be clean anyway.
+pub fn run_trajectory_opts<T: Real, R: Rng + ?Sized>(
+    nc: &NoisyCircuit,
+    faults: &[Fault],
+    cap: usize,
+    reset_ancillas: bool,
+    rng: &mut R,
+) -> Trajectory {
     let inst = &nc.inst;
     let mut by_round: Vec<Vec<Fault>> = vec![Vec::new(); inst.t];
     for f in faults {
@@ -726,6 +779,9 @@ pub fn run_trajectory<T: Real, R: Rng + ?Sized>(
                 let bit = rng.random::<f64>() < p1;
                 if i + 1 < inst.t {
                     s.collapse(bit);
+                    if reset_ancillas {
+                        s.reset_ancillas(inst.m, rng);
+                    }
                 }
                 if bit ^ flip {
                     y |= 1 << i;
@@ -804,6 +860,12 @@ pub fn trajectory_distribution(nc: &NoisyCircuit, faults: &[Fault]) -> Vec<f64> 
 /// sampled independently by [`Circuit::run`]): the independent reference
 /// for the trajectory sampler. Measurement `i` is bit `i` of the result.
 pub fn reference_circuit(nc: &NoisyCircuit, p: f64) -> Circuit {
+    reference_circuit_opts(nc, p, false)
+}
+
+/// [`reference_circuit`], optionally with an `Op::Reset` of every ancilla
+/// after each control measurement (matches [`run_trajectory_opts`]).
+pub fn reference_circuit_opts(nc: &NoisyCircuit, p: f64, reset_ancillas: bool) -> Circuit {
     let inst = &nc.inst;
     let mut c = Circuit::new(nc.nq);
     let noise = |c: &mut Circuit, q: usize| {
@@ -840,6 +902,11 @@ pub fn reference_circuit(nc: &NoisyCircuit, p: f64) -> Circuit {
             c.ops.push(Op::XFlip(0, p));
         }
         c.measure(0);
+        if reset_ancillas && i + 1 < inst.t {
+            for q in inst.m + 1..nc.nq {
+                c.reset(q);
+            }
+        }
     }
     c
 }

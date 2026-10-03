@@ -75,13 +75,15 @@ fn main() {
     let me: usize = args.first().map_or(20000, |s| s.parse().unwrap());
     let mr: usize = args.get(1).map_or(4000, |s| s.parse().unwrap());
     let seed: u64 = args.get(2).map_or(1, |s| s.parse().unwrap());
-    let cases: Vec<(u64, u64, Oracle, bool)> = vec![
-        (15, 7, Oracle::Ripple, true),
-        (15, 7, Oracle::Windowed(1), false),
-        (21, 2, Oracle::Windowed(2), false),
+    // (N, a, oracle, dense reference, ancilla reset after every round)
+    let cases: Vec<(u64, u64, Oracle, bool, bool)> = vec![
+        (15, 7, Oracle::Ripple, true, false),
+        (15, 7, Oracle::Windowed(1), false, false),
+        (21, 2, Oracle::Windowed(2), false, false),
+        (21, 2, Oracle::Windowed(2), false, true),
     ];
     println!("case,kind,p,L,mean_faults,M_engine,M_ref,chi2,df,chi2_pvalue,succ_engine,succ_ref,z,z_pvalue,secs_engine,secs_ref");
-    for (n, a, oracle, dense) in cases {
+    for (n, a, oracle, dense, reset) in cases {
         let inst = Instance::new(n, a, oracle);
         let r = noisy::order_of(a, n);
         for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip, NoiseKind::PhaseFlip] {
@@ -95,13 +97,13 @@ fn main() {
                 .map(|j| {
                     let mut rng = StdRng::seed_from_u64(seed.wrapping_mul(1_000_003) + j as u64);
                     let fs = nc.sample_p(p, &mut rng);
-                    noisy::run_trajectory::<f64, _>(&nc, &fs, usize::MAX, &mut rng)
+                    noisy::run_trajectory_opts::<f64, _>(&nc, &fs, usize::MAX, reset, &mut rng)
                         .measured
                         .unwrap()
                 })
                 .collect();
             let se = t0.elapsed().as_secs_f64();
-            let circ = noisy::reference_circuit(&nc, p);
+            let circ = noisy::reference_circuit_opts(&nc, p, reset);
             let t1 = std::time::Instant::now();
             let yr: Vec<u128> = (0..mr)
                 .into_par_iter()
@@ -137,9 +139,10 @@ fn main() {
             let z = if se_ > 0.0 { (s1 - s2) / se_ } else { 0.0 };
             let zp = erfc(z.abs() / std::f64::consts::SQRT_2);
             println!(
-                "N={n} {:?}{},{},{p:.4e},{l},{:.3},{me},{mr},{chi:.2},{df},{pv:.4},{s1:.4},{s2:.4},{z:.3},{zp:.4},{se:.1},{sr:.1}",
+                "N={n} {:?}{}{},{},{p:.4e},{l},{:.3},{me},{mr},{chi:.2},{df},{pv:.4},{s1:.4},{s2:.4},{z:.3},{zp:.4},{se:.1},{sr:.1}",
                 oracle,
                 if dense { " dense" } else { " sparse" },
+                if reset { " +reset" } else { "" },
                 kind.name(),
                 p * l as f64
             );

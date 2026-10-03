@@ -284,3 +284,37 @@ fn sampler_matches_stock_noisy_circuit_run() {
         let _ = PI;
     }
 }
+
+#[test]
+fn ancilla_reset_sampler_matches_stock_circuit_with_resets() {
+    let inst = Instance::new(21, 2, Oracle::Windowed(2));
+    let nc = NoisyCircuit::new(&inst, NoiseKind::Depolarizing);
+    // noiseless: the reset is a no-op
+    let mut rng = StdRng::seed_from_u64(5);
+    let a = noisy::run_trajectory_opts::<f64, _>(&nc, &[], usize::MAX, true, &mut rng);
+    let mut rng = StdRng::seed_from_u64(5);
+    let b = noisy::run_trajectory::<f64, _>(&nc, &[], usize::MAX, &mut rng);
+    assert_eq!(a.measured, b.measured);
+    let p = 1.5 / nc.num_locations() as f64;
+    let circ = noisy::reference_circuit_opts(&nc, p, true);
+    let m = 2000;
+    let mut ha = vec![0u64; 1 << inst.t];
+    let mut hb = vec![0u64; 1 << inst.t];
+    let mut rng = StdRng::seed_from_u64(21);
+    for _ in 0..m {
+        let fs = nc.sample_p(p, &mut rng);
+        let tr = noisy::run_trajectory_opts::<f64, _>(&nc, &fs, usize::MAX, true, &mut rng);
+        ha[tr.measured.unwrap() as usize] += 1;
+    }
+    let mut rng = StdRng::seed_from_u64(22);
+    for _ in 0..m {
+        let mut s = SparseState::basis_state(nc.nq, 0);
+        let bits = circ.run(&mut s, &mut rng).unwrap();
+        let y = bits.iter().enumerate().fold(0usize, |acc, (i, &b)| acc | (usize::from(b) << i));
+        hb[y] += 1;
+    }
+    let (chi, df) = chi2_two_sample(&ha, &hb);
+    let pv = chi2_pvalue(chi, df);
+    eprintln!("reset: chi2 = {chi:.1}, df = {df}, p-value = {pv:.3}");
+    assert!(pv > 1e-3, "chi2 {chi} df {df} p-value {pv}");
+}
