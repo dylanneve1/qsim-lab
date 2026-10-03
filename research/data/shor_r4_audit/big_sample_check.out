@@ -1,0 +1,6 @@
+OK N=1537596787 (31 b) mult=a^(2^0) qubits=132 gates=27431 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean
+OK N=1537596787 (31 b) mult=a^(2^1) qubits=132 gates=27571 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean
+OK N=1537596787 (31 b) mult=a^(2^61) qubits=132 gates=27207 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean
+OK N=3384163410217561 (52 b) mult=a^(2^0) qubits=216 gates=71376 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean
+OK N=3384163410217561 (52 b) mult=a^(2^1) qubits=216 gates=71110 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean
+OK N=3384163410217561 (52 b) mult=a^(2^103) qubits=216 gates=71622 inputs=4006: out = mult*x mod N (c=1) / x (c=0), ancillas clean

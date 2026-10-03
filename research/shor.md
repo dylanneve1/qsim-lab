@@ -25,7 +25,7 @@ outputs are in `research/data/shor/`.
 | (g) round 4: **windowed table-lookup oracle** (w = 4, X/CNOT/CCX), sliced, f64, Mac | 4n+8 = 88 | 1 005 973 | 20 | 0.050 s | 9 MiB | 1 (min of 3) |
 | (g) same, generic semiprime, random base (seed 1), Mac | 120 | **221 643 407 = 14 207 × 15 601** | 28 | 16.1 s | 2.82 GB | 1 |
 | (g) same, generic, random base (seed 2), Mac | 124 | 282 304 153 = 12 391 × 22 783 | 29 | 44.2 s | 1.86 GB | 1 (seed 1: 3 runs, right order, a^(r/2) = −1) |
-| (g) same, **f32**, generic, random base (seed 2), Mac — **gate-level record** | 4n+8 = 132 | **1 537 596 787 = 29 287 × 52 501** | **31** | **134.4 s** | 4.28 GB | 1 (seed 1: 1 run, right order, a^(r/2) = −1) |
+| (g) same, **f32**, generic, random base (seed 2), Mac — **this repo's gate-level record** | 4n+8 = 132 | **1 537 596 787 = 29 287 × 52 501** | **31** | **134.4 s** | 4.28 GB | 1 (seed 1: 1 run, right order, a^(r/2) = −1) |
 | (g) same, special N = p(2p−1) (row (c)'s N; same caveat), Mac | 180 | 8 795 579 227 471 | 43 | 2.54 s | 78 MB | 1 |
 | (g) same, special N = p(2p−1) (caveat as row (c)), Mac | 216 | 3 384 163 410 217 561 = 41 134 921 × 82 269 841 | 52 | 60.5 s | 2.40 GB | 1 |
 
@@ -355,7 +355,7 @@ selected on their orders):
 
 | N | bits | qubits | gates / run | a (random) | r | ν₂(r) | time / run | peak RSS | outcome |
 |---|---|---|---|---|---|---|---|---|---|
-| 10 161 323 | 24 | 104 | 0.82 M | 9 899 614 | 2 538 720 | 5 | 0.95 s | 133 MB | factored, run 1 |
+| 10 161 323 | 24 | 104 | 0.82 M | 9 899 614 | 2 538 720 | 5 | 0.28 s (audit re-run; 0.95 s at load 35 on an earlier commit) | 105 MB (was 133 MB before the final collapse was skipped) | factored, run 1 |
 | 18 942 389 | 25 | 108 | 0.96 M | 18 454 521 | 157 776 | 4 | 0.27 s | 21 MB | factored, run 1 |
 | 43 584 217 | 26 | 112 | 1.04 M | 42 001 717 | 21 785 498 | 1 | 18.5 s | 0.96 GB | factored, run 2 (seed 2) |
 | 82 337 219 | 27 | 116 | 1.14 M | 80 216 601 | 1 371 968 | 6 | 0.20 s | 76 MB | factored, run 1 |
@@ -412,14 +412,26 @@ windowed w = 4, random semiprimes 8–24 bits, random bases, 1–2 seeds):
 With `t = 2n`, `ν = ν₂(r)` and `r_odd = r / 2^ν` (and 2^n > N > r, so
 `gcd(r, 2^(t−i)) = 2^ν` except in the last ν rounds) this sums to
 
-    Σ_i B_i ≈ r_odd · (2n − log₂ r) + 2r,    W ≈ 2·Ḡ·Σ_i B_i,    Ḡ = Θ(n²) gates/round
+    Σ_i B_i ≈ r_odd · (2n − log₂ r) + r,    W ≈ 2·Ḡ·Σ_i B_i,    Ḡ = Θ(n²) gates/round
+
+(audit correction, exp/shor-r4-audit: this line first read `+ 2r`. The rounds
+`i ≤ t − ν` contribute `r_odd · (t − ν − log₂ r_odd) + O(r_odd)`, the last ν
+rounds `r_odd·(2 + 4 + … + 2^(ν−1)) = r − 2·r_odd`, so the tail is `+ r`. Against
+the exact `Σ B_i` of all 12 records in `cost_law_records.txt` the `+ r` form is
+within 0.3 % (the 0.3 % W match quoted above uses the exact `Σ B_i`, not this
+closed form); the `+ 2r` form was 6–66 % high.)
 
 and the peak support is `max(r_odd, r/2)`. Consequences, all visible in the
 table: the cost is **linear in the order r, quadratic in n through the gate
 count, and divided by 2^ν₂(r) in its leading term** — the 27-bit N runs
 in 0.2 s because its random base has r = 2^6 · 21 437, while the 26-bit N
-needs 18.5 s with r = 2 · 10 892 749. The final ν rounds always cost about
-`4·Ḡ·r`, and memory is ~16–24 B per element of the peak support (f32/f64).
+needs 18.5 s with r = 2 · 10 892 749. The final ν rounds cost about
+`2·Ḡ·(r − r_odd)` (≈ 2·Ḡ·r for large ν; audit correction, first written `4·Ḡ·r`).
+Memory: the stored state is 16 / 24 B per support element (f32 / f64), but
+during a round ψ and the `(Ux, ψ_x)` join array coexist, so measured peak RSS is
+≈ 33 B (f32, 31-bit: 4.28 GB / 1.28·10^8) and ≈ 51 B (f64, 28-bit: 2.82 GB /
+5.5·10^7) per element of the peak support (audit correction, first written
+~16–24 B).
 
 **What is exponential in what.** For a generic semiprime and a random base,
 r ≈ λ(N)/small ≈ N/c, so the work is Θ(N · n² · n/2^ν) — exponential in the
@@ -433,6 +445,14 @@ matters. The memory wall on the 16 GB Mac is a peak support of ≈ 2·10^8
 (r ≈ 4·10^8); the next seeded generic N (30 bits: λ = 4.3·10^8; 32 bits:
 λ = 1.8·10^9, ν₂ = 1) would need ≈ 7 GB / 3.5 min and ≈ 29 GB respectively
 — not run.
+
+**Audit note (exp/shor-r4-audit) on the word "record".** It means the largest
+N this repo has factored by simulating every gate of an X/CNOT/Toffoli Shor
+circuit. It is not a record for simulated Shor in general: e.g. Willsch et al.
+2023 (arXiv:2308.05047) factored the 40-bit 549 755 813 701 = 712 321 × 771 781
+by simulating Shor's algorithm on a GPU supercomputer (a different circuit
+construction, so not a like-for-like comparison), and no simulation of this
+kind is a classical factoring speed-up (see above).
 
 ### f32 vs f64 (lever 3)
 
