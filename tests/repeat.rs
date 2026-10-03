@@ -349,7 +349,7 @@ proptest! {
         };
         for (small, reuse) in [(true, false), (false, true), (false, false)] {
             let mut sv = StateVectorF64::new(n);
-            let o = ExecOptions { diag: true, small_unitary: small, max_small_k: 8, reuse_plan: reuse, force_small: small };
+            let o = ExecOptions { diag: true, small_unitary: small, max_small_k: 8, reuse_plan: reuse, reuse_max_qubits: 64, force_small: small };
             run_dense(&prog, &mut sv, &o).unwrap();
             prop_assert!(dist(&want, &sv) < 1e-12, "small={small} reuse={reuse} dist {}", dist(&want, &sv));
         }
