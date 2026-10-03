@@ -374,6 +374,9 @@ pub struct SlicedState<T: Real> {
     pub prof: [f64; 6],
     /// `P(control = 1)` of every round, in order.
     pub p1_trace: Vec<f64>,
+    /// `|supp ψ|` at the start of every round (index `i` = after `i`
+    /// measured bits); the support after the last collapse is `nnz()`.
+    pub support_trace: Vec<usize>,
 }
 
 impl<T: Real> Drop for SlicedState<T> {
@@ -388,6 +391,8 @@ impl<T: Real> Drop for SlicedState<T> {
         if std::env::var_os("QSIM_SLICE_TRACE").is_some() && self.gate_branch_ops > 0 {
             let t: Vec<String> = self.p1_trace.iter().map(|p| format!("{p:.17e}")).collect();
             eprintln!("[sliced p1] {}", t.join(" "));
+            let t: Vec<String> = self.support_trace.iter().map(|p| p.to_string()).collect();
+            eprintln!("[sliced support] {} {}", t.join(" "), self.keys.len());
         }
     }
 }
@@ -414,6 +419,7 @@ impl<T: Real> SlicedState<T> {
             skip_ctrl0: false,
             prof: [0.0; 6],
             p1_trace: Vec::new(),
+            support_trace: Vec::new(),
         }
     }
 
@@ -481,6 +487,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
     }
     fn round(&mut self, inst: &Instance, i: usize, y_low: u128) {
         let mult = inst.mults[inst.t - 1 - i];
+        self.support_trace.push(self.keys.len());
         let t0 = std::time::Instant::now();
         let (c, io) = oracle_block(inst, mult);
         let prog = SlicedProgram::compile(&c).expect("reversible oracle");
