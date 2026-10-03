@@ -125,4 +125,52 @@ Our compile step is also slower than Stim's: 35–45 ms against about 1 ms at d 
 
 ## Part 2. Colour-code syndrome-extraction schedules
 
-(see below)
+### 2.1 Literature: where is the open question?
+
+I looked at three candidates:
+
+- **Bivariate-bicycle codes such as [[72,12,6]].** Crowded. There is IBM's depth-7 schedule, the morphing circuits (arXiv:2407.16336), reinforcement-learning schedule synthesis (AlphaSyndrome, arXiv:2609.12020) and PropHunt (MaxSAT-guided circuit edits). Our decoder story is also weakest there.
+- **Rotated surface code.** Settled. Our own `research/schedules.md` (exhaustive over 576 orders), and recent "off-the-hook" and "no more hooks" papers (arXiv:2602.09099, 2603.01628).
+- **4.8.8 / 6.6.6 colour code.** Mostly settled at the uniform-schedule level:
+  - Beverland et al. and Lee et al. ("tri-optimal") optimised *spatially uniform* single-auxiliary circuits. These are distance-halving.
+  - Gidney–Jones (superdense, middle-out).
+  - **Kishony & Fowler, "Color code off-the-hook" (arXiv:2603.28852, 2026)** gave a *colour-dependent* single-auxiliary schedule that keeps the full circuit distance in the bulk at minimal depth (6 CNOT layers per Pauli type, collision-free).
+
+  Kishony–Fowler leave one thing open at the boundary. Boundary trapezoids reuse the bulk schedule. The resulting "fractional hook errors" give d_circ = d − ⌊(d+3)/6⌋, which they verified to d = 13. Their words: *"multiple valid schedules remain, of which we select one arbitrarily. It may be interesting to explore the performance of the alternatives in future work"*. They suggest flag qubits at the boundary as the fix. Their companion code (`Classiq/classiq-library`, `syndrome_extraction_optimization/`) searched only **colour-uniform** schedules: 864 zero-collision ones, all with d_circ = 6 at d = 7.
+
+**The open question taken here.** Within *exactly their design space*, can non-uniform per-plaquette schedules (in particular at and near the boundary) do better than their arbitrary pick? Their design space is: one auxiliary per plaquette, the same 6-step schedule for the X and Z halves, every plaquette collision-free. The objective is lexicographic: (1) circuit distance; (2) the number of minimum-weight logical fault sets, which sets the leading-order logical error rate p_L ≈ N_min·p^d_circ at low p; (3) measured logical error per round at p = 0.1–0.3%.
+
+### 2.2 Tools built for this (all new on this branch)
+
+- **`src/qec/color.rs`: triangular 6.6.6 colour-code memory circuits.**
+  - Kishony–Fowler's exact layout (colour-code-stim coordinates and offsets) and their round structure: CX data→anc at steps 1–6, `M`, `RX`, CX anc→data at steps 1–6, `MX`, `R`.
+  - One auxiliary per plaquette and any per-plaquette schedule.
+  - Two noise models, written as explicit ops so the sampled circuit is exactly the exported one: noisy-CNOT (`DEPOLARIZE2(p)` after every CNOT) and uniform depolarizing (adds idle `DEPOLARIZE1(p)`, readout flips, reset errors).
+  - `KF_SCHEDULE` is their published pick (`zero_collision_schedules.csv`, row 1, the one `benchmark_circuits.py` loads).
+
+  Validation, `tests/color_code.rs`:
+  - n = (3d²+1)/4 data qubits and (n−1)/2 plaquettes for d = 3–11.
+  - All X/Z stabilizer pairs overlap evenly, and the logical (the y = 0 row, weight d) commutes with every stabilizer.
+  - Code distance is d by brute force (d = 3, 5).
+  - KF is collision-free for d = 3–13.
+  - **Every detector is deterministic** for KF, tri-optimal and random per-plaquette schedules (d = 3, 5, 7; 1–3 rounds; both noise models): no random variable reaches a detector, and noiseless shots are all zero.
+- **`circuit_dem`**: the circuit-derived DEM read off the SymPhase sampler (each noise outcome is one fault). Cross-checked against Stim's DEM of the exported circuit: same mechanism counts (288 at d = 3, 2221 at d = 5), same ILP distance.
+- **`src/qec/distance.rs`: exact minimum-weight logical by branch and bound**, with an exact count of minimum-weight logicals.
+  - The root branches on the lowest-index observable-flipping mechanism. Each node branches on the mechanisms touching its most constrained fired detector, and excludes a mechanism after its branch. The branches therefore *partition* the solution set, so every minimum-weight logical is found exactly once.
+  - Pruning: ⌈|F|/maxdeg⌉ plus a greedy independent-set bound over fired detectors.
+  - Verified against brute force on 300 random DEMs, weights *and* counts.
+  - It runs on the Z sector (Z detectors + observable). That is a lower bound on the full-DEM distance, and it is *certified* exact when every mechanism of the found logical has a twin with an empty X-sector signature. Certification held in every case reported here.
+  - Speed: KF d = 9 rounds = 1 takes 2 s (pysat RC2 MaxSAT: 381 s); d = 7 rounds = 7 takes 5 s (RC2: 367 s; HiGHS ILP: > 10 min).
+- **`research/data/qec-r4/color_exhaustive.py`, `color_lns.py`: schedule search.**
+  - For the Z-memory noisy-CNOT (and uniform) DEM, a plaquette's schedule matters only through (a) the order of its own CNOTs, which sets the X-half hooks, and (b) for each of its data qubits, the order in which that qubit meets its 2–3 plaquettes in the Z half (a data X error at step t reaches exactly the ancillas that touch the qubit later).
+  - Options with equal (a, b) are DEM-equivalent, so the search enumerates one representative per class. This cuts a weight-4 corner plaquette from 165 options to 33.
+  - The LNS repeatedly re-optimises, *exhaustively over all classes*, each single plaquette and each adjacent pair of plaquettes that the current minimum-weight logicals touch. It moves to the best improvement and stops at a schedule no such move improves.
+- **Decoders for LER.**
+  - Our BP+OSD-CS (`src/qec/bposd.rs`): min-sum, 50 iterations, combination sweep of order λ, decoding the Z sector.
+  - Tesseract (K–F's decoder and settings) fed with **our** samples and **our** DEM, used as a cross-check.
+  - On the KF d = 3 circuit at p = 0.5%, Tesseract on our samples gives p_L = 1.98(+0.11/−0.11)% per shot against K–F's published 1.91% (378k shots): **our circuit reproduces theirs**.
+  - Our BP+OSD is 2.5–3× weaker than Tesseract on this code (d = 5, p = 0.3%: 5.4×10⁻³ at λ = 100 against 1.9×10⁻³). LER comparisons between schedules therefore use the *same* decoder on both arms and are decoder-relative.
+
+### 2.3 Reproducing Kishony–Fowler
+
+PART2_RESULTS

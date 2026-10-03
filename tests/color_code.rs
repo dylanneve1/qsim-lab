@@ -176,3 +176,31 @@ fn kf_circuit_distance_matches_published_formula() {
     let (r, _) = m.z_distance(u64::MAX, u64::MAX);
     assert!(r.weight.unwrap() < 4);
 }
+
+fn load_schedule(text: &str) -> qsim_lab::qec::color::ColorSchedule {
+    text.lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let v: Vec<u8> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
+            [v[0], v[1], v[2], v[3], v[4], v[5]]
+        })
+        .collect()
+}
+
+/// The schedule found by the large-neighbourhood search at d = 5
+/// (research/qec-r4.md §2.4): collision-free, deterministic detectors, same
+/// circuit distance as Kishony-Fowler (4) with 197 instead of 388
+/// minimum-weight logicals over 5 rounds.
+#[test]
+fn lns_d5_schedule_is_valid_and_has_fewer_min_weight_logicals() {
+    let cc = ColorCode::new(5);
+    let s = load_schedule(include_str!("../research/data/qec-r4/schedules/d5_lns_r5.sched"));
+    assert_eq!(s.len(), cc.plaquettes.len());
+    assert!(cc.collisions(&s).is_empty());
+    check_deterministic(&cc, &s, 5);
+    let (r, cert) = cc.memory(&s, 5, ColorNoise::Cnot(0.001)).z_distance(u64::MAX, u64::MAX);
+    assert!(cert);
+    assert_eq!((r.weight, r.count), (Some(4), 197));
+    let (k, _) = cc.memory(&cc.uniform_schedule(KF_SCHEDULE), 5, ColorNoise::Cnot(0.001)).z_distance(u64::MAX, u64::MAX);
+    assert_eq!((k.weight, k.count), (Some(4), 388));
+}
