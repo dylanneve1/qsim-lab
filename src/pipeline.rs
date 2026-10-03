@@ -306,11 +306,13 @@ fn repeat_path(
                     _ => None,
                 })
                 .collect();
-            if needs_dense(&prog.nodes, ro.clifford_power) && dense_ok {
-                let gates_only = Program {
-                    num_qubits: n,
-                    nodes: strip_measures(&prog.nodes),
-                };
+            // Terminal measurements may sit inside repeats too (e.g. the
+            // same qubit measured many times): strip them at every depth.
+            let gates_only = Program {
+                num_qubits: n,
+                nodes: strip_measures(&prog.nodes),
+            };
+            if needs_dense(&gates_only.nodes, ro.clifford_power) && dense_ok {
                 let mut run = || -> Result<Vec<Vec<bool>>, SimError> {
                     let mut sv = StateVector::<f64>::try_new(n)?;
                     exec::run_dense(&gates_only, &mut sv, &ro.exec)?;
@@ -375,6 +377,10 @@ fn strip_measures(nodes: &[crate::compile::repeat::Node]) -> Vec<crate::compile:
                     .copied()
                     .collect(),
             ),
+            Node::Repeat { body, reps } => Node::Repeat {
+                body: strip_measures(body),
+                reps: *reps,
+            },
             other => other.clone(),
         })
         .collect()
