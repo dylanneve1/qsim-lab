@@ -66,7 +66,10 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
     for salt in 1..=3u64 {
         let phase = |r: usize| {
             let x = ((r as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15 ^ salt)) >> 11;
-            C::from_polar(1.0, (x as f64 / (1u64 << 53) as f64) * std::f64::consts::TAU)
+            C::from_polar(
+                1.0,
+                (x as f64 / (1u64 << 53) as f64) * std::f64::consts::TAU,
+            )
         };
         let dm = Mat::from_fn(m.nrows(), m.ncols(), |r, c| phase(r) * m[(r, c)]);
         if let Ok(svd) = dm.thin_svd() {

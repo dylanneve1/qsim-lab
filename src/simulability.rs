@@ -194,7 +194,12 @@ fn clifford_t<R: Rng>(n: usize, layers: usize, t: usize, nn: bool, rng: &mut R) 
 fn random_u<R: Rng>(c: &mut Circuit, q: usize, rng: &mut R) {
     // Haar measure on SU(2): θ with density sin θ / 2.
     let th = (1.0 - 2.0 * rng.random::<f64>()).acos();
-    c.u(q, th, rng.random_range(0.0..2.0 * PI), rng.random_range(0.0..2.0 * PI));
+    c.u(
+        q,
+        th,
+        rng.random_range(0.0..2.0 * PI),
+        rng.random_range(0.0..2.0 * PI),
+    );
 }
 
 fn brick<R: Rng>(n: usize, depth: usize, nn: bool, rng: &mut R) -> Circuit {
@@ -436,8 +441,8 @@ pub fn features(c: &Circuit, with_hsf: bool) -> Result<Features, SimError> {
     // redundant one can double the count, capped by 4^d strings. Cost is
     // ~ Σ_j terms_j; use m · 2^{min(redundant/2, 2d)} (growth prior 0.5 per
     // redundant rotation, as in adaptive::AdaptiveOptions).
-    f.frame_l = (prof.len().max(1) as f64).log2()
-        + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
+    f.frame_l =
+        (prof.len().max(1) as f64).log2() + (0.5 * f.redundant as f64).min(2.0 * f.d as f64);
     let all: Vec<usize> = (0..n).collect();
     f.obs_zero = adaptive::z_product_vanishes(c, &all)?;
     if f.obs_zero {

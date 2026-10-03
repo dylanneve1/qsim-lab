@@ -14,7 +14,7 @@ COLORS = dict(zip(ALL_ENGINES, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e8
                                 "#4a3aa7", "#008300", "#8a8986", "#e34948"]))
 FAMILIES = ["ct", "brick", "arith", "qaoa"]
 PENALTY = 2.0
-T_FLOOR = 2e-4   # s: below this, run times are process/allocation overhead
+T_FLOOR = float(os.environ.get("T_FLOOR", "1e-3"))  # s: below this, times are overhead
 EPS = 1e-3       # s: additive slack in the epsilon-regret metric  # censored (timeout / too large) runs count as PENALTY x timeout
 
 

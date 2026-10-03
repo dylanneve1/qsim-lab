@@ -12,7 +12,13 @@ fn reference_parity(c: &Circuit) -> f64 {
     sv.amplitudes()
         .iter()
         .enumerate()
-        .map(|(x, a)| if x.count_ones() % 2 == 1 { -a.norm_sqr() } else { a.norm_sqr() })
+        .map(|(x, a)| {
+            if x.count_ones() % 2 == 1 {
+                -a.norm_sqr()
+            } else {
+                a.norm_sqr()
+            }
+        })
         .sum()
 }
 
@@ -62,17 +68,30 @@ fn mps_z_product_matches_statevector() {
     for g in c.gates() {
         m.apply_gate(g).unwrap();
     }
-    for qs in [vec![0], vec![3], vec![1, 4], vec![0, 2, 6], vec![0, 1, 2, 3, 4, 5, 6]] {
+    for qs in [
+        vec![0],
+        vec![3],
+        vec![1, 4],
+        vec![0, 2, 6],
+        vec![0, 1, 2, 3, 4, 5, 6],
+    ] {
         let want: f64 = sv
             .amplitudes()
             .iter()
             .enumerate()
             .map(|(x, a)| {
                 let par = qs.iter().filter(|&&q| x >> q & 1 == 1).count() % 2;
-                if par == 1 { -a.norm_sqr() } else { a.norm_sqr() }
+                if par == 1 {
+                    -a.norm_sqr()
+                } else {
+                    a.norm_sqr()
+                }
             })
             .sum();
-        assert!((m.expectation_z_product(&qs) - want).abs() < 1e-10, "{qs:?}");
+        assert!(
+            (m.expectation_z_product(&qs) - want).abs() < 1e-10,
+            "{qs:?}"
+        );
     }
 }
 
@@ -81,7 +100,10 @@ fn profile_ends_at_active_dimension() {
     for spec in SPECS {
         let c = build(&Spec::parse(spec).unwrap(), 2).unwrap();
         let prof = adaptive::active_dimension_profile(&c).unwrap();
-        assert_eq!(prof.last().copied().unwrap_or(0), adaptive::active_dimension(&c).unwrap());
+        assert_eq!(
+            prof.last().copied().unwrap_or(0),
+            adaptive::active_dimension(&c).unwrap()
+        );
         assert!(prof.windows(2).all(|w| w[0] <= w[1] && w[1] <= w[0] + 1));
     }
 }
@@ -100,7 +122,11 @@ fn bounds_hold() {
                 m.apply_gate(g).unwrap();
             }
             let nnz = s.iter().filter(|(_, a)| a.norm_sqr() > 1e-20).count();
-            assert!(nnz <= 1usize << f.sup, "{spec} s{seed}: nnz {nnz} > 2^{}", f.sup);
+            assert!(
+                nnz <= 1usize << f.sup,
+                "{spec} s{seed}: nnz {nnz} > 2^{}",
+                f.sup
+            );
             assert!(
                 m.max_bond_dim() <= 1usize << f.chi_bits,
                 "{spec} s{seed}: bond {} > 2^{}",
@@ -119,7 +145,10 @@ fn support_bound_basic_cases() {
     let g = [H(0), H(1), H(2), Cnot(0, 3), Cnot(1, 4), Ccx(0, 1, 5)];
     assert_eq!(support_bound(6, &g), 3);
     // Permutations alone: support 1.
-    assert_eq!(support_bound(4, &[X(0), Cnot(0, 1), Ccx(0, 1, 2), Swap(2, 3)]), 0);
+    assert_eq!(
+        support_bound(4, &[X(0), Cnot(0, 1), Ccx(0, 1, 2), Swap(2, 3)]),
+        0
+    );
     // Diagonal gates do not branch.
     assert_eq!(support_bound(2, &[T(0), Cz(0, 1), Rz(1, 0.3)]), 0);
 }

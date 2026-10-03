@@ -37,7 +37,10 @@ fn main() {
             let engine = &args[2];
             let spec = Spec::parse(&args[3]).expect("spec");
             let seed: u64 = args[4].parse().expect("seed");
-            let mem: u128 = args.get(5).map(|s| s.parse().expect("mem")).unwrap_or(1 << 30);
+            let mem: u128 = args
+                .get(5)
+                .map(|s| s.parse().expect("mem"))
+                .unwrap_or(1 << 30);
             let t0 = Instant::now();
             let c = build(&spec, seed).expect("build");
             let build_secs = t0.elapsed().as_secs_f64();
