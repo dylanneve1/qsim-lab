@@ -70,7 +70,7 @@ for arg in sys.argv[5:]:
     elif kind[0] == "bposd":
         order = kind[1] if len(kind) > 1 else "10"
         z = kind[2] if len(kind) > 2 else "all"
-        r = subprocess.run([ND_TOOL, "bposd", pre + ".dem", test, out + ".bposd.pred", "2", order, z],
+        r = subprocess.run([ND_TOOL, "bposd", pre + ".dem", test, out + ".bposd.pred", os.environ.get("BPOSD_THREADS", "2"), order, z],
                            check=True, capture_output=True, text=True)
         js = json.loads(r.stdout)
         pred = np.fromfile(out + ".bposd.pred", dtype=np.uint8)[:N].astype(bool)
