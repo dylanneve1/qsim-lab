@@ -1,0 +1,2 @@
+new_d9_r9_z.stim: stim DEM, 2266 sector mechanisms, logical of weight <= 7: none -> distance >= 8 (114s, 1752913318 nodes)
+new_d9_r9_x.stim: stim DEM, 2266 sector mechanisms, logical of weight <= 7: none -> distance >= 8 (111s, 1754029888 nodes)

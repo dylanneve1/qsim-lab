@@ -20,7 +20,7 @@ K–F's schedule has d_circ = d − ⌊(d+3)/6⌋: 4, 6, 7, 9, 10 at d = 5, 7, 9
    - Stim's undetectable-logical search finds 8 against 7 for K–F, over 1 and 3 rounds;
    - the uniform depolarizing model also gives 8.
 
-   Logical error per round, same decoder, compared with K–F: **0.58× [0.54, 0.62] at p = 0.3%, 0.50× [0.44, 0.57] at 0.2%, 0.41× [0.33, 0.50] at 0.15%**. The ratio falls with p, as an extra unit of distance should. qec-r4's N_min-halving schedule gave 1.02× at p = 0.3%.
+   Logical error per round, same decoder, compared with K–F: **0.58× [0.54, 0.62] at p = 0.3%, 0.50× [0.44, 0.57] at 0.2%, 0.41× [0.33, 0.50] at 0.15%, 0.26× [0.20, 0.34] at 0.1%**. The ratio falls with p, as an extra unit of distance should. qec-r4's N_min-halving schedule gave 1.02× at p = 0.3%.
 3. **d = 11: K–F *is* optimal in their design space**: D = 10 is UNSAT (DRAT-verified; 140,531 cuts). The cheapest relaxation that recovers d − 1 = 10 is **one extra CNOT layer per half** (7 + 7, still one collision-free schedule for both halves). Its circuit-level check gives 10 in both bases (1 round; Stim agrees). Decoupling the X and Z schedules at 6 layers does not help (UNSAT).
 4. **Why qec-r4's local search never raised d_circ at d = 9.** Freezing the interior plaquettes at K–F and freeing the 21 boundary-touching ones (exactly that search space) makes 8 impossible (DRAT-verified UNSAT). Interior plaquettes next to the boundary must change.
 5. **Reaching the full distance d** needs every boundary-touching plaquette (3d − 6 of them) to be **fully hook-free** (flag-protected, or ≥ 3 auxiliaries on hexagons).
@@ -92,7 +92,7 @@ Verified for d = 3, 5, 7, 9, 11, 13, 15 (`runs/corner_bound.txt`). The SAT certi
 
 ## 3. Certificates (all DRAT-verified)
 
-`certify.sh` regenerates the CNFs, `verify_certs.sh` runs `drat-trim`, and `certs/verified.txt` holds the verdicts. The full CNFs, DRAT proofs and cut logicals are in `certs.tar.xz`.
+`certify.sh` regenerates the CNFs, `verify_certs.sh` runs `drat-trim`, and `certs/verified.txt` holds the verdicts. The full CNFs, DRAT proofs and cut logicals are in `certs.tar.xz`. The d = 11 cut logicals (80 MB) are left out; they regenerate deterministically (the same 356 / 376 iterations on rerun).
 
 Every row means "no schedule in this space reaches D". The proof is over 1 round, so it holds for any number of rounds.
 
@@ -103,7 +103,7 @@ Every row means "no schedule in this space reaches D". The proof is over 1 round
 | `d9_D9_space_free` | same | 9 | 1,368 / 13,761 | 9,171 | VERIFIED |
 | `d9_D8_kf_fixint` | K–F space, 9 interior plaquettes fixed to K–F | 8 | 3,504 / 21,631 | 2,488 | VERIFIED |
 | `d11_D10_kfT6` | **K–F space (6 + 6 layers)** | 10 | 5,490 / 170,561 | 140,531 | VERIFIED |
-| `d11_D10_sepT6` | independent X/Z schedules, 6 layers each | 10 | D11SEPVARS | D11SEPCUTS | D11SEPV |
+| `d11_D10_sepT6` | independent X/Z schedules, 6 layers each | 10 | 8,370 / 179,377 | 139,327 | VERIFIED |
 | `d5_D5_hf8`, `d7_D7_hf14`, `d9_D9_hf20` | any orders, space-only, ≤ 3d − 7 hook-free plaquettes | d | 309 / 991; 812 / 3,197; 1,598 / 8,052 | 36; 659; 3,072 | VERIFIED |
 | `d7_D7_hf3corners` | the 3 corners hook-free | 7 | 741 / 3,072 | 636 | VERIFIED |
 | `d5/7/9_D=d_split_all` | every plaquette two-auxiliary (cat split) | d | 576 / 1,923; 1,557 / 5,728; 3,000 / 14,741 | 33; 484; 4,535 | VERIFIED |
@@ -124,19 +124,34 @@ The UNSAT itself is solver-independent, checked by drat-trim.
 | check | tool | K–F | new |
 |---|---|---|---|
 | collision-free, steps 1–6, deterministic detectors | `color_search collisions`, `tests/colour_global.rs` | yes | yes |
+| design-space diff of the exported 9-round circuits, both bases | `design_space_diff.py` (Stim): see below | — | identical except CNOT order |
 | Z memory, 1 round | Rust circuit DEM + exact B&B, certified | 7 (N = 36) | **8** (N = 10,119) |
 | Z memory, 3 rounds | same | 7 | **8** (19 s) |
 | Z memory, 9 rounds | same | 7 (N = 492) | **8** (275 s) |
 | X memory, 1 / 9 rounds | same | 7 | **8 / 8** (266 s) |
 | uniform depolarizing, Z, 1 round | same | 7 | **8** |
-| Stim 1.16 `search_for_undetectable_logical_errors` on the exported circuit (upper bound), 1 / 3 / 9 rounds | Stim | 7 / 7 / 7 | **8 / 8** / (the 9-round search ran out of memory on the VPS) |
+| exact lower bound from **Stim's own DEM** (Z / X sector), 9 rounds | Stim DEM + our B&B (`stim_dem_distance.py`) | — | **≥ 8 / ≥ 8** |
+| Stim 1.16 `search_for_undetectable_logical_errors` (upper bound), 1 / 3 rounds, Z | Stim, `ev ≤ 4`, `deg ≤ 6` | 7 / 7 | **8 / 8** |
+| same, 9 rounds, Z / X | Stim on the Mac, `ev ≤ 4`, `deg ≤ 10` (no edge pruning; max DEM degree is 10) | STIMR9KF | STIMR9NEW |
+
+**Design-space diff** (`design_space_diff.py`, `runs/design_space_diff_d9.txt`). The exported 9-round circuits of K–F and the new schedule were diffed in both bases:
+- all 1,865 (Z) / 2,108 (X) lines other than CX/DEPOLARIZE2 are identical and in order: resets, H, measurements, detectors, observable, noise and qubit layout;
+- CX layers sit at the same positions, 6 per half-round in all 18 half-rounds;
+- no qubit is used twice in a layer, and every DEPOLARIZE2 matches its CX;
+- the multiset of CNOT pairs per half-round is identical;
+- in every round the X half repeats the Z half's step for each (auxiliary, data) pair;
+- Stim builds the noiseless DEM, which rejects non-deterministic detectors, and 2,000 noiseless shots are all zero.
+
+So the new circuit is K–F's circuit with only the CNOT order changed.
+
+**Why Stim's search is only an upper bound.** With `dont_explore_edges_with_degree_above` = 10 (the DEM's maximum), nothing is pruned by edge degree. The cap on explored detection-event-set size (4) remains. Lifting it makes the breadth-first search exhaustive but infeasible: it would enumerate every reachable event set of ≤ 7 errors among about 16,600 mechanisms. Exactness therefore comes from the branch and bound, run on our DEM *and* on Stim's DEM, which agree: no logical of weight ≤ 7. Stim's search then supplies an independent weight-8 logical.
 
 The schedule changes almost every plaquette, interior ones included; `d9_D8_kf_fixint` shows the interior *must* change. The price is more minimum-weight logicals at the higher weight (10,119 at weight 8 against 36 at weight 7, over 1 round). That is why the gain grows as p falls.
 
 ### 4.1 Logical error rate (d = 9, 9 rounds, noisy CNOT, Z memory)
 
 - Same BP+OSD-CS decoder on both arms (order 100, Z sector, `examples/color_ler.rs`), independent samples.
-- Mac M1 Pro, 8 threads. Each ≤ 150 s chunk held the bench lock; arms interleaved chunk by chunk (`ler_chunks.sh`; raw data `cg_ler_d9.jsonl`).
+- Mac M1 Pro, 8 threads. Each ≤ 150 s chunk held the bench lock; arms interleaved chunk by chunk (`ler_chunks.sh`, `ler2.sh`; raw data `cg_ler_d9.jsonl`, `cg_ler_d9_p001.jsonl`).
 - Ratio CI from the log-ratio normal approximation (`ler_summary.py`).
 
 | p | K–F p_L/round (fails / shots) | new p_L/round (fails / shots) | ratio new / K–F [95% CI] |
@@ -144,15 +159,16 @@ The schedule changes almost every plaquette, interior ones included; `d9_D8_kf_f
 | 0.30% | 2.000e-04 (2157 / 1200128) | 1.162e-04 (1254 / 1200128) | **0.581 [0.542, 0.623]** |
 | 0.20% | 3.806e-05 (685 / 2000128) | 1.900e-05 (342 / 2000128) | **0.499 [0.439, 0.568]** |
 | 0.15% | 1.262e-05 (318 / 2800128) | 5.119e-06 (129 / 2800128) | **0.406 [0.331, 0.498]** |
+| 0.10% | 3.472e-06 (250 / 8000000) | 8.889e-07 (64 / 8000000) | **0.256 [0.195, 0.337]** |
 
-For comparison, the qec-r4 LNS schedule (N_min 492 → 255 at the same d_circ = 7) gave 1.02× [0.94, 1.11] at p = 0.3%: a flat ratio. Here it falls 0.58 → 0.50 → 0.41, the signature of the distance gain.
+For comparison, the qec-r4 LNS schedule (N_min 492 → 255 at the same d_circ = 7) gave 1.02× [0.94, 1.11] at p = 0.3%: a flat ratio. Here it falls 0.58 → 0.50 → 0.41 → 0.26 from p = 0.3% to 0.1%, the signature of the distance gain.
 
 ## 5. d = 11 and beyond
 
 | space (d = 11, D = 10, 1 round) | result | iterations / cuts / time | evidence |
 |---|---|---|---|
 | K–F: 6 + 6 layers, one schedule | **UNSAT** (K–F's 9 is optimal here) | 356 / 140,531 / 942 s | DRAT VERIFIED |
-| independent X/Z schedules, 6 layers each | **UNSAT** | 376 / 139,327 / 737 s | D11SEPV |
+| independent X/Z schedules, 6 layers each | **UNSAT** | 376 / 139,327 / 737 s | DRAT VERIFIED |
 | **7 + 7 layers, one schedule, collision-free** | **FOUND** | 387 / 146,980 / 1,199 s | `schedules/d11_T7_D10.sched` |
 | any depth, independent orders | FOUND | 158 / 95,854 / 835 s | `runs/d11_free_found.json` |
 

@@ -1,0 +1,22 @@
+d=13 D=11 R=1 mode=kf T=6 space=False: 7920 vars, 43506 clauses, 1955 signatures (317 always)
+iter 1: weight 7 count 83, +249 cuts (total 249), sat 0.00s dist 0.15s, elapsed 0s
+iter 2: weight 7 count 4, +12 cuts (total 261), sat 0.02s dist 0.27s, elapsed 1s
+iter 3: weight 8 count 118, +288 cuts (total 549), sat 0.00s dist 1.69s, elapsed 2s
+iter 4: weight 8 count 70, +183 cuts (total 732), sat 0.00s dist 1.76s, elapsed 4s
+iter 10: weight 8 count 12, +30 cuts (total 3081), sat 0.00s dist 2.40s, elapsed 27s
+iter 20: weight 9 count 266, +567 cuts (total 10971), sat 0.00s dist 17.81s, elapsed 143s
+iter 30: weight 8 count 11, +33 cuts (total 11409), sat 0.00s dist 3.12s, elapsed 171s
+iter 40: weight 8 count 8, +24 cuts (total 15141), sat 0.00s dist 2.71s, elapsed 235s
+iter 50: weight 8 count 3, +9 cuts (total 19647), sat 0.00s dist 2.76s, elapsed 323s
+iter 60: weight 9 count 792, +1869 cuts (total 25821), sat 0.00s dist 20.00s, elapsed 423s
+iter 70: weight 8 count 34, +96 cuts (total 31173), sat 0.01s dist 2.48s, elapsed 504s
+iter 80: weight 9 count 186, +504 cuts (total 34728), sat 0.00s dist 20.83s, elapsed 600s
+iter 90: weight 8 count 3, +9 cuts (total 40899), sat 0.00s dist 2.31s, elapsed 797s
+iter 100: weight 9 count 271, +666 cuts (total 43704), sat 0.00s dist 21.74s, elapsed 906s
+iter 110: weight 9 count 185, +483 cuts (total 47898), sat 0.00s dist 21.97s, elapsed 1006s
+iter 120: weight 9 count 1053, +2568 cuts (total 53571), sat 0.00s dist 18.37s, elapsed 1150s
+iter 130: weight 8 count 6, +18 cuts (total 57939), sat 0.01s dist 2.50s, elapsed 1258s
+iter 140: weight 9 count 85, +213 cuts (total 62847), sat 0.00s dist 16.89s, elapsed 1400s
+iter 150: weight 9 count 604, +1509 cuts (total 66312), sat 0.00s dist 24.44s, elapsed 1577s
+iter 160: weight 8 count 6, +15 cuts (total 69159), sat 0.01s dist 2.88s, elapsed 1642s
+iter 170: weight 9 count 255, +603 cuts (total 74916), sat 0.01s dist 18.83s, elapsed 1802s

@@ -399,11 +399,11 @@ def main():
             # cheap screen first: the space-only DEM (layer R) is a subset of the full one
             M = mechanisms(code, ox, mz, args.R, space_only=True, hook_free=hook_free, extra_hooks=split_now)
             keys, rows, nd = to_problem(code, M, args.R)
-            w, cnt, nodes, logs = srv.query(nd, rows, args.D - 1)
+            w, cnt, nodes, logs = srv.query(nd, rows, args.D - 1, args.keep)
         if w is None:
             M = mechanisms(code, ox, mz, args.R, space_only=args.space, hook_free=hook_free, extra_hooks=split_now)
             keys, rows, nd = to_problem(code, M, args.R)
-            w, cnt, nodes, logs = srv.query(nd, rows, args.D - 1)
+            w, cnt, nodes, logs = srv.query(nd, rows, args.D - 1, args.keep)
         tdist = time.time() - ts
         if w is None:
             result = "FOUND"
