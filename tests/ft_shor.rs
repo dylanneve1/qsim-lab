@@ -143,3 +143,55 @@ fn encoded_shor15_noiseless() {
         }
     }
 }
+
+/// T-gadget 1-exRec with an ideal magic state: every single fault in the
+/// gadget (transversal CNOT, ECs, transversal measurement, S/I slot) must leave
+/// the logical state exact (state vector) and the data frame correctable.
+#[test]
+fn t_gadget_exrec_single_faults() {
+    use qsim_lab::ft::machine::ideal_logical;
+    for dagger in [false, true] {
+        let run = |script: Vec<(u64, u8)>, seed: u64| -> (bool, u64) {
+            let mut e = Encoded::frame(1, 1, Noise::scripted(script), FtConfig::default(), MagicMode::Model(0.0), seed);
+            e.m.noise.suspended = true;
+            e.prep(0, false);
+            e.h(0);
+            e.m.noise.suspended = false;
+            if dagger {
+                e.tdg(0)
+            } else {
+                e.t(0)
+            }
+            let nloc = e.m.noise.loc;
+            let b = e.blocks[0];
+            let clean = ideal_logical(&e.m.b.frame, 1, b) == (false, false);
+            // ideal: T|+> (or T†|+>) on logical qubit 0, magic slot reset
+            let sv = e.sv.as_ref().unwrap();
+            let ph = if dagger { -1.0 } else { 1.0 } * std::f64::consts::FRAC_PI_4;
+            let w = num_complex::Complex64::from_polar(std::f64::consts::FRAC_1_SQRT_2, ph);
+            let r = std::f64::consts::FRAC_1_SQRT_2;
+            // amplitudes over (q0, magic q1): magic collapsed to some value
+            let mut best = 0.0f64;
+            for m in 0..2usize {
+                let a0 = sv.a[m << 1];
+                let a1 = sv.a[(m << 1) | 1];
+                let ov = (a0 * r + a1 * w.conj()).norm_sqr();
+                best = best.max(ov);
+            }
+            (clean && (best - 1.0).abs() < 1e-9, nloc)
+        };
+        let (ok, nloc) = run(vec![], 1);
+        assert!(ok);
+        let mut bad = 0;
+        for l in 0..nloc {
+            for code in 1..=15u8 {
+                for seed in 0..2 {
+                    if !run(vec![(l, code)], seed).0 {
+                        bad += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(bad, 0, "dagger={dagger}: {bad} failing single faults of {}", nloc * 30);
+    }
+}
