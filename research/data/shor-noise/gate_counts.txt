@@ -1,0 +1,49 @@
+N=899 n=10 a=689 r=210 w=4 qubits=48 kind=depol gates=77504 locations=181228
+N=899 n=10 a=689 r=210 w=4 qubits=48 kind=bitflip gates=77504 locations=181228
+N=899 n=10 a=689 r=210 w=4 qubits=48 kind=phaseflip gates=77504 locations=181188
+N=1711 n=11 a=65 r=406 w=4 qubits=52 kind=depol gates=97684 locations=226696
+N=1711 n=11 a=65 r=406 w=4 qubits=52 kind=bitflip gates=97684 locations=226696
+N=1711 n=11 a=65 r=406 w=4 qubits=52 kind=phaseflip gates=97684 locations=226652
+N=2867 n=12 a=1388 r=690 w=4 qubits=56 kind=depol gates=124828 locations=291536
+N=2867 n=12 a=1388 r=690 w=4 qubits=56 kind=bitflip gates=124828 locations=291536
+N=2867 n=12 a=1388 r=690 w=4 qubits=56 kind=phaseflip gates=124828 locations=291488
+N=4343 n=13 a=4031 r=350 w=4 qubits=60 kind=depol gates=164906 locations=382488
+N=4343 n=13 a=4031 r=350 w=4 qubits=60 kind=bitflip gates=164906 locations=382488
+N=4343 n=13 a=4031 r=350 w=4 qubits=60 kind=phaseflip gates=164906 locations=382436
+N=8453 n=14 a=8448 r=4134 w=4 qubits=64 kind=depol gates=186378 locations=434216
+N=8453 n=14 a=8448 r=4134 w=4 qubits=64 kind=bitflip gates=186378 locations=434216
+N=8453 n=14 a=8448 r=4134 w=4 qubits=64 kind=phaseflip gates=186378 locations=434160
+N=29083 n=15 a=24984 r=4788 w=4 qubits=68 kind=depol gates=224936 locations=518392
+N=29083 n=15 a=24984 r=4788 w=4 qubits=68 kind=bitflip gates=224936 locations=518392
+N=29083 n=15 a=24984 r=4788 w=4 qubits=68 kind=phaseflip gates=224936 locations=518332
+N=34387 n=16 a=25590 r=17000 w=4 qubits=72 kind=depol gates=266922 locations=618484
+N=34387 n=16 a=25590 r=17000 w=4 qubits=72 kind=bitflip gates=266922 locations=618484
+N=34387 n=16 a=25590 r=17000 w=4 qubits=72 kind=phaseflip gates=266922 locations=618420
+N=88433 n=17 a=83258 r=14630 w=4 qubits=76 kind=depol gates=338164 locations=778396
+N=88433 n=17 a=83258 r=14630 w=4 qubits=76 kind=bitflip gates=338164 locations=778396
+N=88433 n=17 a=83258 r=14630 w=4 qubits=76 kind=phaseflip gates=338164 locations=778328
+N=200479 n=18 a=103279 r=16632 w=4 qubits=80 kind=depol gates=381116 locations=873364
+N=200479 n=18 a=103279 r=16632 w=4 qubits=80 kind=bitflip gates=381116 locations=873364
+N=200479 n=18 a=103279 r=16632 w=4 qubits=80 kind=phaseflip gates=381116 locations=873292
+N=471203 n=19 a=17965 r=117432 w=4 qubits=84 kind=depol gates=428966 locations=983940
+N=471203 n=19 a=17965 r=117432 w=4 qubits=84 kind=bitflip gates=428966 locations=983940
+N=471203 n=19 a=17965 r=117432 w=4 qubits=84 kind=phaseflip gates=428966 locations=983864
+N=821749 n=20 a=118176 r=34164 w=4 qubits=88 kind=depol gates=496440 locations=1137880
+N=821749 n=20 a=118176 r=34164 w=4 qubits=88 kind=bitflip gates=496440 locations=1137880
+N=821749 n=20 a=118176 r=34164 w=4 qubits=88 kind=phaseflip gates=496440 locations=1137800
+N=1128437 n=21 a=1065086 r=187666 w=4 qubits=92 kind=depol gates=602574 locations=1375584
+N=1128437 n=21 a=1065086 r=187666 w=4 qubits=92 kind=bitflip gates=602574 locations=1375584
+N=1128437 n=21 a=1065086 r=187666 w=4 qubits=92 kind=phaseflip gates=602574 locations=1375500
+N=2957047 n=22 a=555422 r=369200 w=4 qubits=96 kind=depol gates=665352 locations=1513524
+N=2957047 n=22 a=555422 r=369200 w=4 qubits=96 kind=bitflip gates=665352 locations=1513524
+N=2957047 n=22 a=555422 r=369200 w=4 qubits=96 kind=phaseflip gates=665352 locations=1513436
+N=6226057 n=23 a=4098359 r=86400 w=4 qubits=100 kind=depol gates=723306 locations=1653980
+N=6226057 n=23 a=4098359 r=86400 w=4 qubits=100 kind=bitflip gates=723306 locations=1653980
+N=6226057 n=23 a=4098359 r=86400 w=4 qubits=100 kind=phaseflip gates=723306 locations=1653888
+N=10161323 n=24 a=321017 r=1692480 w=4 qubits=104 kind=depol gates=818630 locations=1867900
+N=10161323 n=24 a=321017 r=1692480 w=4 qubits=104 kind=bitflip gates=818630 locations=1867900
+N=10161323 n=24 a=321017 r=1692480 w=4 qubits=104 kind=phaseflip gates=818630 locations=1867804
+# rdep N=821749 n=20 a=682589 r=156 w=4 qubits=88 kind=depol gates=496724 locations=1138448
+# rdep N=821749 n=20 a=654012 r=1752 w=4 qubits=88 kind=depol gates=497486 locations=1139972
+# rdep N=821749 n=20 a=435063 r=17082 w=4 qubits=88 kind=depol gates=498156 locations=1141312
+# rdep N=821749 n=20 a=267855 r=68328 w=4 qubits=88 kind=depol gates=496962 locations=1138924

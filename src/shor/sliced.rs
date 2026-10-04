@@ -88,6 +88,23 @@ pub fn transpose64(a: &mut [u64; 64]) {
     }
 }
 
+/// Applies raw `w[t] ^= w[a] & w[b]` steps with the same AVX2 runtime
+/// dispatch as [`SlicedProgram::eval`]. Used by the noisy engine
+/// ([`super::noisy`]), whose programs also address a sign word.
+///
+/// # Safety
+/// Every index in `ops` must be `< w.len()` (the noisy engine checks this
+/// once when it builds a program).
+pub(crate) unsafe fn eval_raw_unchecked<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
+    #[cfg(target_arch = "x86_64")]
+    if has_avx2() {
+        // SAFETY: AVX2 support was detected at run time; indices checked by the caller.
+        unsafe { eval_avx2::<L>(ops, w) };
+        return;
+    }
+    eval_body::<L>(ops, w);
+}
+
 /// A reversible circuit compiled to `w[t] ^= w[c1] & w[c2]` steps.
 #[derive(Clone, Debug)]
 pub struct SlicedProgram {

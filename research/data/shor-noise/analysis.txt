@@ -1,0 +1,404 @@
+## calibration: success among v-capped trajectories (instances run without a binding cap)
+n=10 bitflip: 26/700 = 0.0371 [0.0306, 0.0450]
+n=10 depol: 35/1353 = 0.0259 [0.0219, 0.0305]
+n=10 depol+reset: 5/25 = 0.2000 [0.1322, 0.2908]
+n=11 depol: 10/893 = 0.0112 [0.0082, 0.0153]
+n=12 depol: 16/610 = 0.0262 [0.0205, 0.0335]
+c_hat (depol, pooled) = 0.0214 from 2856 trajectories
+c_hat per kind (pooled over n): bitflip 0.0371, depol 0.0214, depol+reset 0.2000
+
+## strata (S_k = P(peak success | exactly k faults))
+kind n k M S_lo S_est(±1σ) vcapped realcapped strict factor
+bitflip 10 0 400 0.995 0.995±0.004 0 0 0.225 1.000
+bitflip 10 1 400 0.107 0.160±0.018 322 0 0.035 1.000
+bitflip 10 2 400 0.018 0.030±0.009 378 0 0.013 1.000
+bitflip 12 0 300 0.990 0.990±0.006 0 0 0.290 0.993
+bitflip 12 1 300 0.083 0.115±0.018 254 81 0.027 0.590
+bitflip 14 1 300 0.053 0.087±0.016 273 273 0.013 0.067
+bitflip 18 1 300 0.110 0.142±0.020 257 257 0.020 0.140
+bitflip 22 1 300 0.093 0.126±0.019 262 262 0.037 0.123
+depol 10 0 600 0.995 0.995±0.003 0 0 0.220 1.000
+depol 10 1 600 0.252 0.278±0.018 342 0 0.072 1.000
+depol 10 2 600 0.078 0.097±0.012 478 0 0.013 1.000
+depol 10 3 600 0.032 0.045±0.008 533 0 0.013 1.000
+depol 11 0 400 1.000 1.000±0.001 0 0 0.378 0.998
+depol 11 1 400 0.300 0.310±0.023 215 0 0.152 0.858
+depol 11 2 400 0.080 0.092±0.015 319 0 0.045 0.762
+depol 11 3 400 0.022 0.025±0.008 359 0 0.013 0.745
+depol 12 0 400 0.993 0.993±0.004 0 0 0.228 0.998
+depol 12 1 1000 0.254 0.266±0.014 550 228 0.069 0.676
+depol 12 2 760 0.072 0.090±0.010 613 325 0.018 0.458
+depol 12 3 400 0.018 0.037±0.010 365 365 0.005 0.072
+depol 13 0 400 1.000 1.000±0.001 0 0 0.282 0.998
+depol 13 1 900 0.297 0.309±0.015 533 424 0.089 0.513
+depol 13 2 500 0.092 0.110±0.014 416 307 0.020 0.376
+depol 13 3 500 0.024 0.044±0.009 466 352 0.016 0.278
+depol 14 0 400 0.980 0.980±0.007 0 0 0.295 0.990
+depol 14 1 900 0.217 0.229±0.014 528 475 0.062 0.286
+depol 14 2 500 0.050 0.067±0.011 409 352 0.018 0.086
+depol 14 3 500 0.012 0.032±0.008 468 412 0.006 0.036
+depol 15 0 300 0.997 0.997±0.004 0 0 0.247 0.993
+depol 15 1 1000 0.280 0.292±0.014 565 565 0.072 0.370
+depol 15 2 400 0.077 0.095±0.015 327 327 0.015 0.130
+depol 15 3 400 0.033 0.052±0.011 361 361 0.010 0.060
+depol 16 0 300 0.983 0.983±0.008 0 0 0.320 0.970
+depol 16 1 1000 0.267 0.280±0.014 591 591 0.105 0.308
+depol 16 2 400 0.080 0.097±0.015 320 320 0.028 0.113
+depol 16 3 400 0.025 0.044±0.010 360 360 0.010 0.035
+depol 17 0 300 1.000 1.000±0.002 0 0 0.290 0.990
+depol 17 1 1000 0.249 0.262±0.014 597 597 0.076 0.310
+depol 17 2 400 0.060 0.078±0.013 334 334 0.013 0.087
+depol 17 3 400 0.018 0.037±0.010 372 372 0.000 0.033
+depol 18 0 300 1.000 1.000±0.002 0 0 0.253 0.980
+depol 18 1 1000 0.302 0.314±0.015 545 545 0.075 0.382
+depol 18 2 400 0.087 0.105±0.015 327 327 0.018 0.142
+depol 18 3 400 0.020 0.040±0.010 373 373 0.003 0.030
+depol 19 0 300 0.990 0.990±0.006 0 0 0.263 0.977
+depol 19 1 1000 0.243 0.256±0.014 589 589 0.083 0.285
+depol 19 2 400 0.072 0.090±0.014 329 329 0.020 0.092
+depol 19 3 400 0.010 0.030±0.009 372 372 0.003 0.028
+depol 20 0 300 1.000 1.000±0.002 0 0 0.320 1.000
+depol 20 1 1000 0.299 0.311±0.015 573 573 0.101 0.349
+depol 20 2 400 0.048 0.066±0.012 344 344 0.010 0.080
+depol 20 3 400 0.020 0.040±0.010 369 369 0.010 0.035
+depol 21 0 300 0.993 0.993±0.005 0 0 0.487 0.993
+depol 21 1 1000 0.230 0.243±0.014 603 603 0.113 0.261
+depol 21 2 400 0.050 0.068±0.013 343 343 0.020 0.065
+depol 21 3 400 0.015 0.035±0.009 377 377 0.003 0.020
+depol 22 0 300 1.000 1.000±0.002 0 0 0.350 0.997
+depol 22 1 1000 0.257 0.270±0.014 597 597 0.093 0.314
+depol 22 2 400 0.098 0.114±0.016 309 309 0.037 0.130
+depol 22 3 400 0.022 0.042±0.010 369 369 0.007 0.025
+depol 23 0 300 1.000 1.000±0.002 0 0 0.253 0.983
+depol 23 1 1000 0.322 0.334±0.015 571 571 0.088 0.370
+depol 23 2 400 0.115 0.132±0.017 320 320 0.028 0.170
+depol 23 3 400 0.062 0.082±0.014 356 356 0.025 0.085
+depol 24 0 300 1.000 1.000±0.002 0 0 0.253 0.983
+depol 24 1 1000 0.310 0.322±0.015 541 541 0.091 0.347
+depol 24 2 400 0.087 0.105±0.015 319 319 0.028 0.102
+depol 24 3 400 0.030 0.049±0.011 364 364 0.010 0.043
+depol+reset 10 0 400 0.995 0.995±0.004 0 0 0.210 1.000
+depol+reset 10 1 400 0.557 0.562±0.025 10 0 0.092 1.000
+depol+reset 10 2 400 0.330 0.338±0.024 15 0 0.080 1.000
+depol+reset 12 0 200 0.995 0.995±0.006 0 0 0.220 1.000
+depol+reset 12 1 200 0.505 0.513±0.035 8 8 0.175 0.855
+depol+reset 12 2 200 0.240 0.259±0.031 19 19 0.065 0.790
+depol+reset 12 3 200 0.145 0.168±0.027 23 23 0.060 0.715
+depol+reset 14 0 200 0.985 0.985±0.009 0 0 0.275 1.000
+depol+reset 14 1 200 0.460 0.460±0.035 0 0 0.110 0.645
+depol+reset 14 2 200 0.230 0.234±0.030 4 4 0.085 0.375
+depol+reset 14 3 200 0.135 0.141±0.025 6 6 0.050 0.300
+depol+reset 16 0 200 0.995 0.995±0.006 0 0 0.390 0.990
+depol+reset 16 1 200 0.515 0.515±0.035 0 0 0.145 0.610
+depol+reset 16 2 200 0.225 0.226±0.029 1 1 0.060 0.365
+depol+reset 16 3 200 0.130 0.132±0.024 2 2 0.045 0.250
+depol+reset 18 0 200 1.000 1.000±0.002 0 0 0.295 0.990
+depol+reset 18 1 200 0.565 0.579±0.035 14 14 0.165 0.755
+depol+reset 18 2 200 0.280 0.302±0.032 22 22 0.060 0.510
+depol+reset 18 3 200 0.200 0.238±0.030 38 38 0.040 0.390
+depol+reset 20 0 200 1.000 1.000±0.002 0 0 0.315 0.990
+depol+reset 20 1 200 0.510 0.531±0.035 21 21 0.130 0.655
+depol+reset 20 2 200 0.320 0.351±0.034 31 31 0.080 0.445
+depol+reset 20 3 200 0.155 0.186±0.027 31 31 0.030 0.270
+depol+reset 22 0 200 1.000 1.000±0.002 0 0 0.410 0.995
+depol+reset 22 1 200 0.500 0.510±0.035 10 10 0.170 0.605
+depol+reset 22 2 200 0.230 0.267±0.031 37 37 0.080 0.365
+depol+reset 22 3 200 0.140 0.183±0.027 43 43 0.045 0.250
+depol+reset 24 0 100 1.000 1.000±0.005 0 0 0.200 0.970
+depol+reset 24 1 100 0.590 0.602±0.049 6 6 0.160 0.630
+depol+reset 24 2 100 0.350 0.374±0.048 12 12 0.110 0.430
+depol+reset 24 3 100 0.140 0.168±0.038 14 14 0.040 0.200
+depol@r=156 20 0 600 1.000 1.000±0.001 0 0 0.342 1.000
+depol@r=156 20 1 600 0.343 0.356±0.020 345 345 0.123 0.425
+depol@r=17082 20 0 600 1.000 1.000±0.001 0 0 0.275 0.993
+depol@r=17082 20 1 600 0.237 0.250±0.018 378 378 0.073 0.287
+depol@r=1752 20 0 600 1.000 1.000±0.001 0 0 0.290 0.992
+depol@r=1752 20 1 600 0.310 0.322±0.019 339 339 0.097 0.413
+depol@r=68328 20 0 600 1.000 1.000±0.001 0 0 0.322 0.990
+depol@r=68328 20 1 600 0.258 0.271±0.018 359 359 0.077 0.327
+phaseflip 10 0 400 0.995 0.995±0.004 0 0 0.225 1.000
+phaseflip 10 1 400 0.630 0.630±0.024 0 0 0.145 1.000
+phaseflip 10 2 400 0.453 0.453±0.025 0 0 0.102 1.000
+phaseflip 12 0 300 0.997 0.997±0.004 0 0 0.267 1.000
+phaseflip 12 1 300 0.610 0.610±0.028 0 0 0.183 0.943
+phaseflip 12 2 300 0.317 0.317±0.027 0 0 0.063 0.877
+phaseflip 12 3 300 0.247 0.247±0.025 0 0 0.063 0.860
+phaseflip 14 0 300 0.987 0.987±0.007 0 0 0.290 0.987
+phaseflip 14 1 300 0.567 0.567±0.029 0 0 0.153 0.657
+phaseflip 14 2 300 0.333 0.333±0.027 0 0 0.087 0.497
+phaseflip 14 3 300 0.173 0.173±0.022 0 0 0.040 0.363
+phaseflip 16 0 300 0.983 0.983±0.008 0 0 0.397 0.987
+phaseflip 16 1 300 0.657 0.657±0.027 0 0 0.313 0.740
+phaseflip 16 2 300 0.333 0.333±0.027 0 0 0.150 0.437
+phaseflip 16 3 300 0.247 0.247±0.025 0 0 0.123 0.347
+phaseflip 18 0 300 1.000 1.000±0.002 0 0 0.263 0.990
+phaseflip 18 1 300 0.637 0.637±0.028 0 0 0.183 0.767
+phaseflip 18 2 300 0.423 0.423±0.028 0 0 0.117 0.617
+phaseflip 18 3 300 0.293 0.293±0.026 0 0 0.080 0.507
+phaseflip 20 0 300 0.997 0.997±0.004 0 0 0.290 0.980
+phaseflip 20 1 300 0.680 0.680±0.027 0 0 0.170 0.773
+phaseflip 20 2 300 0.433 0.433±0.029 0 0 0.167 0.577
+phaseflip 20 3 300 0.250 0.250±0.025 0 0 0.087 0.440
+phaseflip 22 0 200 1.000 1.000±0.002 0 0 0.355 0.975
+phaseflip 22 1 200 0.610 0.610±0.034 0 0 0.230 0.665
+phaseflip 22 2 200 0.420 0.420±0.035 0 0 0.175 0.495
+phaseflip 22 3 200 0.200 0.200±0.028 0 0 0.070 0.325
+phaseflip 24 0 200 1.000 1.000±0.002 0 0 0.310 0.985
+phaseflip 24 1 200 0.655 0.655±0.034 0 0 0.110 0.710
+phaseflip 24 2 200 0.350 0.350±0.034 0 0 0.120 0.415
+phaseflip 24 3 200 0.205 0.205±0.029 0 0 0.040 0.295
+
+## per instance: per-fault damage d = 1 - S1/S0, G_eff = L d, p_1/2
+kind n r L S0 S1 d1±sd dfit±sd Geff1 Gefffit p_half slack exact
+bitflip 10 210 181228 0.995 0.160 0.839±0.018 0.838±0.016 1.52e+05 1.52e+05 4.56e-06±8.4e-08 4.57 True
+bitflip 12 690 291536 0.990 0.115 0.884±0.016 0.884±0.016 2.58e+05 2.58e+05 2.67e-06±4.4e-08 5.14 False
+bitflip 14 4134 434216 0.980 0.087 0.911±0.013 0.911±0.013 3.96e+05 3.96e+05 1.75e-06±2.4e-08 3.97 False
+bitflip 18 16632 873364 1.000 0.142 0.858±0.018 0.858±0.018 7.5e+05 7.49e+05 9.17e-07±1.7e-08 7.96 False
+bitflip 22 369200 1513524 1.000 0.126 0.874±0.017 0.874±0.017 1.32e+06 1.32e+06 5.2e-07±9.2e-09 7.01 False
+depol 10 210 181228 0.995 0.278 0.720±0.018 0.708±0.015 1.31e+05 1.28e+05 5.38e-06±1.1e-07 4.57 True
+depol 11 406 226696 1.000 0.310 0.690±0.022 0.693±0.016 1.56e+05 1.57e+05 4.42e-06±1.1e-07 4.67 True
+depol 12 690 291536 0.993 0.266 0.732±0.014 0.722±0.011 2.13e+05 2.1e+05 3.29e-06±5e-08 5.14 False
+depol 13 350 382488 1.000 0.309 0.691±0.016 0.681±0.012 2.64e+05 2.61e+05 2.65e-06±4.9e-08 9.10 False
+depol 14 4134 434216 0.980 0.229 0.766±0.014 0.758±0.012 3.33e+05 3.29e+05 2.1e-06±3.3e-08 3.97 False
+depol 15 4788 518392 0.997 0.292 0.707±0.014 0.698±0.012 3.66e+05 3.62e+05 1.91e-06±3.1e-08 5.55 False
+depol 16 17000 618484 0.983 0.280 0.716±0.015 0.704±0.012 4.43e+05 4.35e+05 1.59e-06±2.7e-08 3.89 False
+depol 17 14630 778396 1.000 0.262 0.738±0.014 0.732±0.011 5.75e+05 5.69e+05 1.22e-06±1.9e-08 6.33 False
+depol 18 16632 873364 1.000 0.314 0.686±0.015 0.681±0.011 5.99e+05 5.95e+05 1.16e-06±2e-08 7.96 False
+depol 19 117432 983940 0.990 0.256 0.742±0.015 0.730±0.012 7.3e+05 7.18e+05 9.63e-07±1.6e-08 4.32 False
+depol 20 34164 1137880 1.000 0.311 0.689±0.014 0.700±0.010 7.84e+05 7.97e+05 8.71e-07±1.3e-08 9.88 False
+depol 21 187666 1375584 0.993 0.243 0.755±0.014 0.749±0.012 1.04e+06 1.03e+06 6.72e-07±1.1e-08 6.96 False
+depol 22 369200 1513524 1.000 0.270 0.730±0.014 0.709±0.012 1.11e+06 1.07e+06 6.43e-07±1.1e-08 7.01 False
+depol 23 86400 1653980 1.000 0.334 0.666±0.015 0.646±0.012 1.1e+06 1.07e+06 6.42e-07±1.2e-08 13.20 False
+depol 24 1692480 1867900 1.000 0.322 0.678±0.014 0.674±0.011 1.27e+06 1.26e+06 5.49e-07±9e-09 6.62 False
+depol+reset 10 210 181228 0.995 0.562 0.435±0.026 0.425±0.016 7.88e+04 7.7e+04 8.22e-06±2.2e-07 4.57 True
+depol+reset 12 690 291536 0.995 0.513 0.484±0.033 0.477±0.018 1.41e+05 1.39e+05 4.89e-06±1.8e-07 5.14 False
+depol+reset 14 4134 434216 0.985 0.460 0.533±0.034 0.513±0.021 2.31e+05 2.23e+05 3.06e-06±1.3e-07 3.97 False
+depol+reset 16 17000 618484 0.995 0.515 0.482±0.032 0.500±0.019 2.98e+05 3.09e+05 2.23e-06±8.5e-08 3.89 False
+depol+reset 18 16632 873364 1.000 0.579 0.421±0.033 0.419±0.018 3.68e+05 3.66e+05 1.83e-06±7.2e-08 7.96 False
+depol+reset 20 34164 1137880 1.000 0.531 0.469±0.032 0.432±0.017 5.34e+05 4.92e+05 1.37e-06±5.4e-08 9.88 False
+depol+reset 22 369200 1513524 1.000 0.510 0.490±0.034 0.472±0.019 7.42e+05 7.14e+05 9.46e-07±3.9e-08 7.01 False
+depol+reset 24 1692480 1867900 1.000 0.602 0.398±0.050 0.409±0.022 7.43e+05 7.64e+05 8.95e-07±4.7e-08 6.62 False
+depol@r=156 20 156 1138448 1.000 0.356 0.644±0.018 0.644±0.018 7.34e+05 7.34e+05 8.75e-07±1.5e-08 25.43 False
+depol@r=17082 20 17082 1141312 1.000 0.250 0.750±0.017 0.750±0.017 8.56e+05 8.56e+05 7.84e-07±1.4e-08 11.88 False
+depol@r=1752 20 1752 1139972 1.000 0.322 0.678±0.018 0.678±0.018 7.73e+05 7.73e+05 8.45e-07±1.6e-08 18.45 False
+depol@r=68328 20 68328 1138924 1.000 0.271 0.729±0.017 0.729±0.017 8.3e+05 8.3e+05 8.03e-07±1.4e-08 7.88 False
+phaseflip 10 210 181188 0.995 0.630 0.367±0.024 0.341±0.015 6.65e+04 6.17e+04 9.37e-06±2.3e-07 4.57 True
+phaseflip 12 690 291488 0.997 0.610 0.388±0.028 0.402±0.015 1.13e+05 1.17e+05 5.73e-06±2e-07 5.14 True
+phaseflip 14 4134 434160 0.987 0.567 0.426±0.030 0.427±0.015 1.85e+05 1.85e+05 3.67e-06±1.3e-07 3.97 True
+phaseflip 16 17000 618420 0.983 0.657 0.332±0.028 0.379±0.013 2.05e+05 2.34e+05 2.87e-06±8.8e-08 3.89 True
+phaseflip 18 16632 873292 1.000 0.637 0.363±0.028 0.347±0.013 3.17e+05 3.03e+05 2.15e-06±6.6e-08 7.96 True
+phaseflip 20 34164 1137800 0.997 0.680 0.318±0.025 0.346±0.012 3.62e+05 3.94e+05 1.69e-06±4.5e-08 9.88 True
+phaseflip 22 369200 1513436 1.000 0.610 0.390±0.037 0.383±0.017 5.9e+05 5.79e+05 1.16e-06±4.6e-08 7.01 True
+phaseflip 24 1692480 1867804 1.000 0.655 0.345±0.032 0.392±0.016 6.44e+05 7.31e+05 9.32e-07±3.2e-08 6.62 True
+
+## single-fault breakdown (k=1): class share of locations, P(success|fault in class)/S0
+bitflip gate:lookup:X                share 0.280 (n=448) P(ok|fault) 0.139
+bitflip gate:and:X                   share 0.246 (n=394) P(ok|fault) 0.085
+bitflip gate:const:X                 share 0.148 (n=237) P(ok|fault) 0.132
+bitflip gate:b:X                     share 0.138 (n=220) P(ok|fault) 0.129
+bitflip gate:x:X                     share 0.132 (n=211) P(ok|fault) 0.160
+bitflip gate:ctrl:X                  share 0.031 (n=50) P(ok|fault) 0.196
+bitflip gate:flag:X                  share 0.013 (n=21) P(ok|fault) 0.213
+bitflip gate:carry:X                 share 0.011 (n=18) P(ok|fault) 0.074
+bitflip prep:X                       share 0.001 (n=1) P(ok|fault) 1.000
+depol gate:lookup:X                share 0.104 (n=1429) P(ok|fault) 0.112
+depol gate:lookup:Z                share 0.099 (n=1372) P(ok|fault) 0.613
+depol gate:lookup:Y                share 0.098 (n=1346) P(ok|fault) 0.116
+depol gate:and:Y                   share 0.084 (n=1158) P(ok|fault) 0.119
+depol gate:and:X                   share 0.083 (n=1144) P(ok|fault) 0.103
+depol gate:and:Z                   share 0.083 (n=1142) P(ok|fault) 0.809
+depol gate:const:X                 share 0.053 (n=738) P(ok|fault) 0.100
+depol gate:const:Z                 share 0.052 (n=724) P(ok|fault) 0.681
+depol gate:const:Y                 share 0.051 (n=705) P(ok|fault) 0.101
+depol gate:b:X                     share 0.049 (n=679) P(ok|fault) 0.131
+depol gate:b:Y                     share 0.048 (n=659) P(ok|fault) 0.114
+depol gate:b:Z                     share 0.047 (n=648) P(ok|fault) 0.494
+depol gate:x:X                     share 0.036 (n=495) P(ok|fault) 0.149
+depol gate:x:Y                     share 0.036 (n=493) P(ok|fault) 0.146
+depol gate:x:Z                     share 0.036 (n=492) P(ok|fault) 0.376
+depol gate:ctrl:Z                  share 0.008 (n=112) P(ok|fault) 0.241
+depol gate:ctrl:X                  share 0.007 (n=101) P(ok|fault) 0.095
+depol gate:ctrl:Y                  share 0.006 (n=86) P(ok|fault) 0.110
+depol gate:carry:X                 share 0.004 (n=55) P(ok|fault) 0.126
+depol gate:flag:Z                  share 0.004 (n=50) P(ok|fault) 0.700
+depol gate:flag:Y                  share 0.003 (n=46) P(ok|fault) 0.168
+depol gate:carry:Z                 share 0.003 (n=45) P(ok|fault) 0.844
+depol gate:carry:Y                 share 0.003 (n=38) P(ok|fault) 0.041
+depol gate:flag:X                  share 0.003 (n=38) P(ok|fault) 0.096
+depol h2:X                         share 0.000 (n=1) P(ok|fault) 0.000
+depol h2:Y                         share 0.000 (n=1) P(ok|fault) 0.000
+depol prep:X                       share 0.000 (n=1) P(ok|fault) 0.000
+depol h1:Y                         share 0.000 (n=1) P(ok|fault) 0.000
+depol phase:Z                      share 0.000 (n=1) P(ok|fault) 0.000
+depol+reset gate:lookup:Z                share 0.105 (n=179) P(ok|fault) 0.620
+depol+reset gate:lookup:X                share 0.105 (n=178) P(ok|fault) 0.597
+depol+reset gate:and:Y                   share 0.100 (n=170) P(ok|fault) 0.389
+depol+reset gate:and:Z                   share 0.094 (n=160) P(ok|fault) 0.838
+depol+reset gate:and:X                   share 0.082 (n=140) P(ok|fault) 0.443
+depol+reset gate:lookup:Y                share 0.081 (n=137) P(ok|fault) 0.482
+depol+reset gate:b:Y                     share 0.055 (n=94) P(ok|fault) 0.485
+depol+reset gate:const:Y                 share 0.049 (n=84) P(ok|fault) 0.479
+depol+reset gate:const:Z                 share 0.046 (n=78) P(ok|fault) 0.641
+depol+reset gate:b:X                     share 0.045 (n=77) P(ok|fault) 0.621
+depol+reset gate:x:Z                     share 0.044 (n=75) P(ok|fault) 0.347
+depol+reset gate:x:Y                     share 0.044 (n=74) P(ok|fault) 0.316
+depol+reset gate:const:X                 share 0.039 (n=67) P(ok|fault) 0.558
+depol+reset gate:b:Z                     share 0.039 (n=66) P(ok|fault) 0.530
+depol+reset gate:x:X                     share 0.029 (n=49) P(ok|fault) 0.441
+depol+reset gate:ctrl:X                  share 0.009 (n=15) P(ok|fault) 0.467
+depol+reset gate:ctrl:Y                  share 0.009 (n=15) P(ok|fault) 0.333
+depol+reset gate:ctrl:Z                  share 0.006 (n=10) P(ok|fault) 0.100
+depol+reset gate:flag:Y                  share 0.005 (n=8) P(ok|fault) 0.625
+depol+reset gate:carry:Y                 share 0.003 (n=5) P(ok|fault) 0.440
+depol+reset gate:flag:Z                  share 0.003 (n=5) P(ok|fault) 0.800
+depol+reset gate:flag:X                  share 0.003 (n=5) P(ok|fault) 0.800
+depol+reset gate:carry:X                 share 0.003 (n=5) P(ok|fault) 0.640
+depol+reset gate:carry:Z                 share 0.002 (n=3) P(ok|fault) 0.667
+depol+reset prep:X                       share 0.001 (n=1) P(ok|fault) 1.000
+depol@r=156 gate:lookup:X                share 0.115 (n=69) P(ok|fault) 0.163
+depol@r=156 gate:lookup:Y                share 0.113 (n=68) P(ok|fault) 0.049
+depol@r=156 gate:lookup:Z                share 0.113 (n=68) P(ok|fault) 0.838
+depol@r=156 gate:and:Z                   share 0.090 (n=54) P(ok|fault) 0.907
+depol@r=156 gate:and:Y                   share 0.085 (n=51) P(ok|fault) 0.098
+depol@r=156 gate:and:X                   share 0.073 (n=44) P(ok|fault) 0.155
+depol@r=156 gate:const:X                 share 0.050 (n=30) P(ok|fault) 0.119
+depol@r=156 gate:const:Z                 share 0.048 (n=29) P(ok|fault) 0.862
+depol@r=156 gate:x:Z                     share 0.045 (n=27) P(ok|fault) 0.593
+depol@r=156 gate:const:Y                 share 0.040 (n=24) P(ok|fault) 0.061
+depol@r=156 gate:b:X                     share 0.040 (n=24) P(ok|fault) 0.021
+depol@r=156 gate:b:Z                     share 0.040 (n=24) P(ok|fault) 0.750
+depol@r=156 gate:b:Y                     share 0.038 (n=23) P(ok|fault) 0.062
+depol@r=156 gate:x:X                     share 0.033 (n=20) P(ok|fault) 0.117
+depol@r=156 gate:x:Y                     share 0.032 (n=19) P(ok|fault) 0.175
+depol@r=156 gate:ctrl:X                  share 0.012 (n=7) P(ok|fault) 0.021
+depol@r=156 gate:ctrl:Y                  share 0.008 (n=5) P(ok|fault) 0.021
+depol@r=156 gate:flag:Z                  share 0.007 (n=4) P(ok|fault) 0.750
+depol@r=156 gate:ctrl:Z                  share 0.007 (n=4) P(ok|fault) 0.750
+depol@r=156 gate:carry:Z                 share 0.003 (n=2) P(ok|fault) 1.000
+depol@r=156 gate:flag:X                  share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=156 gate:flag:Y                  share 0.002 (n=1) P(ok|fault) 1.000
+depol@r=156 gate:carry:Y                 share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=156 gate:carry:X                 share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=17082 gate:lookup:Y                share 0.128 (n=77) P(ok|fault) 0.046
+depol@r=17082 gate:lookup:X                share 0.102 (n=61) P(ok|fault) 0.037
+depol@r=17082 gate:lookup:Z                share 0.092 (n=55) P(ok|fault) 0.636
+depol@r=17082 gate:and:Y                   share 0.085 (n=51) P(ok|fault) 0.041
+depol@r=17082 gate:and:Z                   share 0.077 (n=46) P(ok|fault) 0.739
+depol@r=17082 gate:and:X                   share 0.073 (n=44) P(ok|fault) 0.086
+depol@r=17082 gate:const:Y                 share 0.070 (n=42) P(ok|fault) 0.067
+depol@r=17082 gate:const:Z                 share 0.053 (n=32) P(ok|fault) 0.719
+depol@r=17082 gate:b:Z                     share 0.052 (n=31) P(ok|fault) 0.613
+depol@r=17082 gate:const:X                 share 0.045 (n=27) P(ok|fault) 0.093
+depol@r=17082 gate:b:X                     share 0.042 (n=25) P(ok|fault) 0.099
+depol@r=17082 gate:b:Y                     share 0.042 (n=25) P(ok|fault) 0.021
+depol@r=17082 gate:x:Z                     share 0.033 (n=20) P(ok|fault) 0.600
+depol@r=17082 gate:x:X                     share 0.027 (n=16) P(ok|fault) 0.083
+depol@r=17082 gate:x:Y                     share 0.027 (n=16) P(ok|fault) 0.142
+depol@r=17082 gate:ctrl:X                  share 0.023 (n=14) P(ok|fault) 0.091
+depol@r=17082 gate:ctrl:Z                  share 0.012 (n=7) P(ok|fault) 0.286
+depol@r=17082 gate:ctrl:Y                  share 0.008 (n=5) P(ok|fault) 0.021
+depol@r=17082 gate:carry:X                 share 0.003 (n=2) P(ok|fault) 0.021
+depol@r=17082 gate:carry:Z                 share 0.002 (n=1) P(ok|fault) 0.000
+depol@r=17082 gate:flag:X                  share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=17082 gate:flag:Y                  share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=17082 gate:carry:Y                 share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=1752 gate:lookup:X                share 0.118 (n=71) P(ok|fault) 0.186
+depol@r=1752 gate:and:X                   share 0.113 (n=68) P(ok|fault) 0.150
+depol@r=1752 gate:lookup:Y                share 0.110 (n=66) P(ok|fault) 0.095
+depol@r=1752 gate:lookup:Z                share 0.095 (n=57) P(ok|fault) 0.719
+depol@r=1752 gate:and:Z                   share 0.090 (n=54) P(ok|fault) 0.870
+depol@r=1752 gate:and:Y                   share 0.065 (n=39) P(ok|fault) 0.096
+depol@r=1752 gate:b:Y                     share 0.057 (n=34) P(ok|fault) 0.135
+depol@r=1752 gate:const:X                 share 0.052 (n=31) P(ok|fault) 0.116
+depol@r=1752 gate:const:Z                 share 0.048 (n=29) P(ok|fault) 0.621
+depol@r=1752 gate:b:Z                     share 0.047 (n=28) P(ok|fault) 0.643
+depol@r=1752 gate:x:X                     share 0.038 (n=23) P(ok|fault) 0.063
+depol@r=1752 gate:b:X                     share 0.038 (n=23) P(ok|fault) 0.232
+depol@r=1752 gate:x:Z                     share 0.038 (n=23) P(ok|fault) 0.652
+depol@r=1752 gate:const:Y                 share 0.033 (n=20) P(ok|fault) 0.168
+depol@r=1752 gate:x:Y                     share 0.023 (n=14) P(ok|fault) 0.090
+depol@r=1752 gate:ctrl:X                  share 0.008 (n=5) P(ok|fault) 0.021
+depol@r=1752 gate:flag:Y                  share 0.007 (n=4) P(ok|fault) 0.016
+depol@r=1752 gate:ctrl:Z                  share 0.007 (n=4) P(ok|fault) 0.250
+depol@r=1752 gate:ctrl:Y                  share 0.005 (n=3) P(ok|fault) 0.014
+depol@r=1752 gate:carry:X                 share 0.003 (n=2) P(ok|fault) 0.021
+depol@r=1752 gate:flag:Z                  share 0.002 (n=1) P(ok|fault) 0.000
+depol@r=1752 gate:flag:X                  share 0.002 (n=1) P(ok|fault) 0.021
+depol@r=68328 gate:lookup:Y                share 0.110 (n=66) P(ok|fault) 0.050
+depol@r=68328 gate:lookup:X                share 0.100 (n=60) P(ok|fault) 0.053
+depol@r=68328 gate:lookup:Z                share 0.097 (n=58) P(ok|fault) 0.690
+depol@r=68328 gate:and:Y                   share 0.080 (n=48) P(ok|fault) 0.122
+depol@r=68328 gate:and:Z                   share 0.075 (n=45) P(ok|fault) 0.844
+depol@r=68328 gate:and:X                   share 0.075 (n=45) P(ok|fault) 0.108
+depol@r=68328 gate:const:Y                 share 0.062 (n=37) P(ok|fault) 0.153
+depol@r=68328 gate:b:Y                     share 0.057 (n=34) P(ok|fault) 0.106
+depol@r=68328 gate:b:Z                     share 0.052 (n=31) P(ok|fault) 0.419
+depol@r=68328 gate:const:Z                 share 0.048 (n=29) P(ok|fault) 0.724
+depol@r=68328 gate:b:X                     share 0.045 (n=27) P(ok|fault) 0.058
+depol@r=68328 gate:const:X                 share 0.045 (n=27) P(ok|fault) 0.094
+depol@r=68328 gate:x:X                     share 0.032 (n=19) P(ok|fault) 0.124
+depol@r=68328 gate:x:Z                     share 0.030 (n=18) P(ok|fault) 0.556
+depol@r=68328 gate:x:Y                     share 0.028 (n=17) P(ok|fault) 0.135
+depol@r=68328 gate:ctrl:Z                  share 0.015 (n=9) P(ok|fault) 0.000
+depol@r=68328 gate:flag:Y                  share 0.010 (n=6) P(ok|fault) 0.021
+depol@r=68328 gate:ctrl:Y                  share 0.010 (n=6) P(ok|fault) 0.021
+depol@r=68328 gate:carry:X                 share 0.008 (n=5) P(ok|fault) 0.217
+depol@r=68328 gate:ctrl:X                  share 0.007 (n=4) P(ok|fault) 0.021
+depol@r=68328 gate:flag:Z                  share 0.005 (n=3) P(ok|fault) 0.333
+depol@r=68328 gate:carry:Y                 share 0.003 (n=2) P(ok|fault) 0.511
+depol@r=68328 gate:carry:Z                 share 0.003 (n=2) P(ok|fault) 1.000
+depol@r=68328 gate:flag:X                  share 0.003 (n=2) P(ok|fault) 0.021
+phaseflip gate:lookup:Z                share 0.289 (n=665) P(ok|fault) 0.627
+phaseflip gate:and:Z                   share 0.269 (n=618) P(ok|fault) 0.828
+phaseflip gate:const:Z                 share 0.153 (n=352) P(ok|fault) 0.688
+phaseflip gate:b:Z                     share 0.137 (n=316) P(ok|fault) 0.484
+phaseflip gate:x:Z                     share 0.113 (n=259) P(ok|fault) 0.336
+phaseflip gate:ctrl:Z                  share 0.020 (n=46) P(ok|fault) 0.217
+phaseflip gate:carry:Z                 share 0.013 (n=29) P(ok|fault) 0.586
+phaseflip gate:flag:Z                  share 0.006 (n=14) P(ok|fault) 0.786
+phaseflip h1:Z                         share 0.000 (n=1) P(ok|fault) 1.000
+
+## window model: P(success | 1 fault) by family x window (pooled over n)
+bitflip      XY end    n=   90 P(ok) = 0.989 [0.971, 0.996]
+bitflip      XY middle n= 1222 P(ok) = 0.077 [0.070, 0.086]
+bitflip      XY start  n=  288 P(ok) = 0.076 [0.062, 0.094]
+depol        XY end    n=  636 P(ok) = 0.997 [0.994, 0.998]
+depol        XY middle n= 6873 P(ok) = 0.055 [0.052, 0.058]
+depol        XY start  n= 1705 P(ok) = 0.032 [0.028, 0.036]
+depol        Z  end    n=  304 P(ok) = 0.997 [0.991, 0.999]
+depol        Z  middle n= 3526 P(ok) = 0.517 [0.508, 0.525]
+depol        Z  start  n=  756 P(ok) = 0.976 [0.970, 0.981]
+depol+reset  XY end    n=   80 P(ok) = 0.988 [0.968, 0.995]
+depol+reset  XY middle n=  854 P(ok) = 0.335 [0.319, 0.351]
+depol+reset  XY start  n=  190 P(ok) = 0.941 [0.923, 0.957]
+depol+reset  Z  end    n=   52 P(ok) = 0.981 [0.951, 0.993]
+depol+reset  Z  middle n=  435 P(ok) = 0.520 [0.496, 0.543]
+depol+reset  Z  start  n=   89 P(ok) = 0.966 [0.941, 0.981]
+phaseflip    Z  end    n=  149 P(ok) = 0.993 [0.983, 0.997]
+phaseflip    Z  middle n= 1747 P(ok) = 0.519 [0.507, 0.531]
+phaseflip    Z  start  n=  404 P(ok) = 0.978 [0.969, 0.984]
+
+## window-model prediction of d vs measured (depol)
+n t nu2 start_window d_measured d_model
+10 20 1 4 0.720±0.018 0.723
+11 22 1 4 0.690±0.022 0.730
+12 24 1 5 0.732±0.014 0.728
+13 26 1 9 0.691±0.016 0.713
+14 28 1 3 0.766±0.014 0.743
+15 30 2 5 0.707±0.014 0.715
+16 32 3 3 0.716±0.015 0.699
+17 34 1 6 0.738±0.014 0.744
+18 36 3 7 0.686±0.015 0.699
+19 38 3 4 0.742±0.015 0.711
+20 40 2 9 0.689±0.014 0.721
+21 42 1 6 0.755±0.014 0.751
+22 44 4 7 0.730±0.014 0.698
+23 46 7 13 0.666±0.015 0.632
+24 48 6 6 0.678±0.014 0.675
+large-n limit (windows -> 0 rounds / t): d_inf = 1 - (2/3) e_XY - (1/3) z_mid = 0.791
+
+## direct sampling at fixed p vs the stratified prediction
+depol n=16 p=1.62e-06 (pL=1.00) direct 0.499 [0.471,0.529] M=300; stratified 0.485 (+ tail ≤ 0.001)
+depol n=16 p=3.23e-06 (pL=2.00) direct 0.255 [0.232,0.283] M=300; stratified 0.243 (+ tail ≤ 0.006)
+depol n=20 p=1.76e-06 (pL=2.00) direct 0.242 [0.219,0.269] M=300; stratified 0.245 (+ tail ≤ 0.006)
+depol n=20 p=8.79e-07 (pL=1.00) direct 0.457 [0.428,0.486] M=300; stratified 0.497 (+ tail ≤ 0.001)
