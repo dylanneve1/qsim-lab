@@ -246,7 +246,7 @@ We extracted a deletion-minimal unsat core of its 14,262 cut logicals with `cg_c
   - These are interior analogues of K–F's "fractional hook errors".
   - At d ≤ 9 the interior is too small for such pairs to sit on a weight-d logical. At d = 11 it is not.
 
-**Removing middle hooks restores d (space-only check).** In addition to the 27 boundary plaquettes, allow two-auxiliary (cat-split) measurement of interior plaquettes. A 3 + 3 split has only weight-2 residuals, so no middle hook. Then D = 11 is **FOUND** in the space-only model: `cg_sat.py 11 11 1 free --space --hookfree 27 --hookfree-set boundary --split 45`. The solver used splits on 10 of the 18 interior hexagons; this count was not minimised. The 1-round spacetime run is reported under "Status" below.
+**Removing middle hooks restores d (space-only check).** In addition to the 27 boundary plaquettes, allow two-auxiliary (cat-split) measurement of interior plaquettes. A 3 + 3 split has only weight-2 residuals, so no middle hook. Then D = 11 is **FOUND** in the space-only model: `cg_sat.py 11 11 1 free --space --hookfree 27 --hookfree-set boundary --split 45`. The solver used splits on 10 of the 18 interior hexagons; this count was not minimised. The same holds in the 1-round **spacetime** model, with partial and time-like errors included: `--warm` instead of `--space`, FOUND in 909 s (`d11_hfbnd_split_found_R1.json`). Caveats: this is the symbolic model, with cat-pair preparation faults ignored as in `colour-global.md` §1.3 (optimistic), and no circuit-level check was run.
 
 So, empirically: the boundary needs fully hook-free measurement (T2), and from d = 11 on, interior hexagons need their middle hook removed. Neither interior requirement is proved for general d.
 
@@ -306,3 +306,12 @@ python3 famtest.py          # families I, II and rotations are weight-d logicals
 python3 assign.py 5 41      # boundary-lemma certificates, d = 5..41
 python3 hookD.py 5 7 9 && python3 safe.py 5 7 9   # exact malign classes (MILP) and safe-order counts
 ```
+
+## Status of the long runs (at hand-off)
+
+- **d = 11, boundary hook-free + interior cat splits**: FOUND in the space-only model and in the 1-round spacetime model (§6.1).
+- **d = 13, K–F space, D = 12** (`cg_sat.py 13 12 1 kf --warm --sym`): unresolved at hand-off. It is still running on the Mac (`~/qsim-tc/cg`, log `~/qsim-wt-logs/tc-d13-D12.log`) and has reached 90 iterations and 40,899 cuts, still cutting logicals of weight 8–9. Its CNF/DRAT is written on UNSAT.
+- **d = 13, D = 11** sanity run: should be FOUND if K–F's formula value 11 holds. Still running (`tc-d13-D11.log`, 210 iterations).
+- **K–F circuit distance at d = 13**, 1 round (`color_search distance 13 1 kf 1`, log `tc-kf13.log`): still running.
+
+All Mac jobs run under `~/qsim-tc/lockwatch.sh`, which SIGSTOPs them while `/tmp/qsim-mac-bench.lock` exists. Stop everything with `pkill -f 'cg_sat.py 13|color_search distance 13|lockwatch'`.
