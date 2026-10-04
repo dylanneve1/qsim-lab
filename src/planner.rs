@@ -28,12 +28,9 @@
 //! returns the exact value (MPS: to the SVD's numerical rank, ~1e-7) or an
 //! error.
 
-use crate::adaptive::{self, AdaptiveOptions, Strategy};
 use crate::circuit::{Circuit, SimError};
 use crate::mps::Mps;
 use crate::mps_cost::{self, BondSource, Estimator};
-use crate::pauli_frame::FrameOptions;
-use crate::pauli_path::PauliSum;
 use crate::simulability::{self, Features};
 use crate::sparse::SparseState;
 use crate::statevector::StateVectorF64;
@@ -50,8 +47,7 @@ pub enum Engine {
     Mps,
     Hsf,
     /// Clifford frame + dense register on the active qubits
-    /// ([`adaptive::CompressedState`]); for expectation values it runs as
-    /// [`Strategy::Auto`] (Heisenberg sweep first, ski-rental hand-over).
+    /// ([`adaptive::CompressedState`]).
     Compressed,
 }
 
@@ -441,21 +437,10 @@ fn run_one(
                     .sum(),
             ))
         }
-        Engine::Compressed => {
-            let max_d = ((cfg.mem_bytes / 16).max(1).ilog2() as usize).min(30);
-            let opt = AdaptiveOptions {
-                strategy: Strategy::Auto,
-                max_dense_qubits: max_d,
-                frame: FrameOptions {
-                    max_terms: (cfg.mem_bytes / 64) as usize,
-                    ..FrameOptions::default()
-                },
-                ..AdaptiveOptions::default()
-            };
-            let o = PauliSum::z_product(c.num_qubits, obs);
-            Ok(Outcome::Value(adaptive::expectation(c, &o, &opt)?.value))
-        }
-        Engine::Tableau | Engine::StateVector | Engine::Hsf => {
+        // the compressed state runs exactly as the cost model measured it
+        // (frame + dense register, always evolved: `Strategy::Auto`'s
+        // run-time hand-over is not used, its cost is not predictable).
+        Engine::Tableau | Engine::StateVector | Engine::Hsf | Engine::Compressed => {
             let r = simulability::run_engine_obs(e.name(), c, cfg.mem_bytes, obs)?;
             Ok(Outcome::Value(r.value))
         }
