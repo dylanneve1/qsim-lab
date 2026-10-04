@@ -58,7 +58,7 @@ Data and scripts: `research/data/planner-v2/` (all Mac, M1 Pro, one thread, benc
 2. **Planning got cheaper.** Every expensive feature is now gated by a value-of-information test: compute it only if
    the engine it informs could beat the best prediction so far by more than `voi` × the feature's predicted cost,
    using lower bounds available from one O(gates) pass. HSF is first priced on the plain line split in O(gates); the
-   4 ms Kernighan–Lin partition runs only when HSF could still win and is not already first.
+   4 ms Kernighan–Lin partition runs only when it could pay off, and the HSF engine then reuses it.
    - Median planning time for expectations, Mac, same session as v1: 0.47 ms → 0.17 ms; p90 7.1 ms → 1.9 ms.
    - **End-to-end ε-regret for expectations against an in-session oracle: v1 1.32 → v2 1.15** (§4).
    - A plan cache keyed on structure and Clifford class reuses decisions across parameter sweeps: 6 ms → 6 µs per
@@ -210,8 +210,18 @@ v2 (`plan_v2`) works in tiers:
 | cert | vanishing certificate (if requested) | 73 µs / 251 µs | Clifford, or `best > voi · c_1b` |
 | 1b | rotation-frame d-profile (compressed state) | 83 µs / 270 µs | `best − lb_cstate > voi · c_1b` |
 | 2 | MPS replay, best rigorous bound | 244 µs / 1.2 ms | `best − lb_mps > voi · c_2` |
-| 3a | HSF on the line split `[0,n/2)` (engine then runs on it) | O(G), ≈ 1a | `best − lb_hsf > voi · c_3a` |
-| 3b | HSF Kernighan–Lin partition | 4.6 ms / 11.9 ms | HSF not first and `best − lb_hsf > voi · c_3b` |
+| 3a | HSF on the line split `[0,n/2)`, priced with the *nominal* path bits | O(G), ≈ 1a | `best − lb_hsf > voi · c_3a` |
+| 3b | HSF Kernighan–Lin partition | 4.6 ms / 11.9 ms | `best − lb_hsf > voi · c_3b` (also when HSF on the line split is already first) |
+
+The HSF engine runs on exactly the partition the plan priced: the line split, or the KL partition computed in 3b. KL
+therefore runs only once, not again inside `HybridSchrodingerFeynman::auto`.
+
+Two corrections came from the end-to-end sessions:
+- **Zero-path pruning on a line split.** The pruning-aware path bits (`keff`) were fitted on KL partitions. On a line
+  split of a non-local circuit they are far too optimistic (QAOA on random graphs, n = 24: HSF on the line split
+  3.2 s against 0.04 s with KL), so 3a prices with the nominal bits.
+- **KL is not only for deciding.** Skipping KL whenever HSF on the line split was already first sent random-matching
+  brickwork to a 16-path-bit split when KL finds 8.
 
 - `best` is the lowest predicted total so far. Tier-0 upper bounds: sparse with `sup ≤ min(n, branching)`, compressed
   with `d_j ≤ min(n, j)`, the state vector exactly.
@@ -359,8 +369,8 @@ Caveats:
 - Request-aware engine selection for *samples and amplitudes* as `evolve + read-out` with near-exact read-out operation
   counts. The 100 000-shot results show that a request-blind planner is wrong (1.82 → 1.09).
 - Value-of-information tiering with *lower* bounds from one O(G) pass, and pricing HSF on the line split before
-  paying for KL. Together they cut planning without losing choice quality: choice ε 1.07–1.10, planning ≈ 0.05–0.14 ms
-  median.
+  paying for KL, with the engine reusing the partition the plan priced. Together they cut planning without losing
+  choice quality: choice ε 1.07–1.10, planning ≈ 0.1 ms median.
 - A ski-rental Auto with a *fixed* restart price, instead of the growing hand-over price that sank round 4's attempt.
 
 ## 8. Open

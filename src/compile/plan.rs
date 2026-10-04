@@ -138,6 +138,9 @@ pub enum Backend {
     Planned(crate::planner::Engine),
 }
 
+/// `(qubits, gates, backend)` per simulated component.
+pub type ComponentReport = Vec<(usize, usize, Backend)>;
+
 /// One independent part of the circuit.
 #[derive(Clone, Debug)]
 pub struct Component {
@@ -550,8 +553,8 @@ impl SamplingPlan {
         &self,
         shots: usize,
         rng: &mut R,
-    ) -> Result<(Vec<Vec<bool>>, Vec<(usize, usize, Backend)>), SimError> {
-        let mut used: Vec<(usize, usize, Backend)> = Vec::new();
+    ) -> Result<(Vec<Vec<bool>>, ComponentReport), SimError> {
+        let mut used: ComponentReport = Vec::new();
         match &self.kind {
             Kind::Terminal { meas, suffix } => {
                 let mut bits = vec![vec![false; self.n]; shots];
@@ -966,7 +969,7 @@ impl UnitaryPlan {
         &self,
         xs: &[u128],
         cfg: &crate::planner::PlannerConfig,
-    ) -> Result<(Vec<Complex64>, Vec<(usize, usize, Backend)>), SimError> {
+    ) -> Result<(Vec<Complex64>, ComponentReport), SimError> {
         let mut out = vec![Complex64::from_polar(1.0, self.global_phase); xs.len()];
         let mut used = Vec::new();
         for comp in &self.comps {
