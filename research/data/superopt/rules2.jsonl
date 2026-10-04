@@ -1,0 +1,4 @@
+{"file": "/Users/dylan/qsim-so-data/r1_20_all.txt", "gates": 6740, "Q": 5, "LMAX": 10, "distinct_windows": 255, "improvable_distinct": 3, "windows_with_saving": 3, "applied": 1, "gate_saving": 2, "secs": 6.3}
+{"file": "/Users/dylan/qsim-so-data/r1_24_all.txt", "gates": 9646, "Q": 5, "LMAX": 10, "distinct_windows": 261, "improvable_distinct": 4, "windows_with_saving": 4, "applied": 1, "gate_saving": 3, "secs": 4.0}
+{"file": "/Users/dylan/qsim-so-data/r1_28_all.txt", "gates": 13310, "Q": 5, "LMAX": 10, "distinct_windows": 255, "improvable_distinct": 3, "windows_with_saving": 3, "applied": 1, "gate_saving": 2, "secs": 6.3}
+{"file": "/Users/dylan/qsim-so-data/r1_31_all.txt", "gates": 16696, "Q": 5, "LMAX": 10, "distinct_windows": 260, "improvable_distinct": 2, "windows_with_saving": 2, "applied": 1, "gate_saving": 1, "secs": 3.3}

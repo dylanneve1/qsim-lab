@@ -1,0 +1,39 @@
+N=1005973 a=980062 n=20 w=4 qubits=88 rounds=40
+baseline           total=   501808 ccx=  176800 cnot=  292208 x=  32800 round0=12602/4420 (+0.0% gates, +0.0% ccx) build=14ms  | after peephole: 444928 / 160000 ccx
+unary              total=   429808 ccx=  104800 cnot=  314608 x=  10400 round0=10802/2620 (-14.3% gates, -40.7% ccx) build=14ms  | after peephole: 372848 / 88000 ccx
+unary+fanout       total=   397136 ccx=  104800 cnot=  281936 x=  10400 round0=9930/2620 (-20.9% gates, -40.7% ccx) build=25ms  | after peephole: 340164 / 88000 ccx
+comparator         total=   452608 ccx=  160800 cnot=  259408 x=  32400 round0=11372/4020 (-9.8% gates, -9.0% ccx) build=28ms  | after peephole: 443728 / 160000 ccx
+kflip              total=   497808 ccx=  176800 cnot=  292208 x=  28800 round0=12502/4420 (-0.8% gates, +0.0% ccx) build=17ms  | after peephole: 440928 / 160000 ccx
+direct_first       total=   425556 ccx=  151200 cnot=  245876 x=  28480 round0=10692/3780 (-15.2% gates, -14.5% ccx) build=18ms  | after peephole: 380036 / 137760 ccx
+unary+keep_chain   total=   424208 ccx=  101600 cnot=  312208 x=  10400 round0=10662/2540 (-15.5% gates, -42.5% ccx) build=15ms  | after peephole: 368128 / 85600 ccx
+peephole only      total=   444928 ccx=  160000 cnot=  252208 x=  32720 round0=11180/4000 (-11.3% gates, -9.5% ccx) build=100ms  | after peephole: 444928 / 160000 ccx
+all but peephole   total=   277024 ccx=   68058 cnot=  204046 x=   4920 round0=6920/1703 (-44.8% gates, -61.5% ccx) build=128ms  | after peephole: 269848 / 68058 ccx
+all but sat_rules  total=   276892 ccx=   71040 cnot=  201612 x=   4240 round0=6915/1776 (-44.8% gates, -59.8% ccx) build=97ms  | after peephole: 276892 / 71040 ccx
+all + window_dp    total=   269848 ccx=   68058 cnot=  197390 x=   4400 round0=6740/1703 (-46.2% gates, -61.5% ccx) build=383ms  | after peephole: 269848 / 68058 ccx
+all                total=   269848 ccx=   68058 cnot=  197390 x=   4400 round0=6740/1703 (-46.2% gates, -61.5% ccx) build=225ms  | after peephole: 269848 / 68058 ccx
+N=10161323 a=9899614 n=24 w=4 qubits=104 rounds=48
+baseline           total=   819104 ccx=  277632 cnot=  494240 x=  47232 round0=17086/5784 (+0.0% gates, +0.0% ccx) build=24ms  | after peephole: 718784 / 248832 ccx
+unary              total=   715424 ccx=  173952 cnot=  526496 x=  14976 round0=14926/3624 (-12.7% gates, -37.3% ccx) build=15ms  | after peephole: 615008 / 145152 ccx
+unary+fanout       total=   662448 ccx=  173952 cnot=  473520 x=  14976 round0=13782/3624 (-19.1% gates, -37.3% ccx) build=44ms  | after peephole: 561984 / 145152 ccx
+comparator         total=   734432 ccx=  249984 cnot=  437792 x=  46656 round0=15322/5208 (-10.3% gates, -10.0% ccx) build=23ms  | after peephole: 717056 / 248832 ccx
+kflip              total=   813344 ccx=  277632 cnot=  494240 x=  41472 round0=16966/5784 (-0.7% gates, +0.0% ccx) build=26ms  | after peephole: 713024 / 248832 ccx
+direct_first       total=   713833 ccx=  243072 cnot=  428713 x=  42048 round0=14888/5064 (-12.9% gates, -12.4% ccx) build=23ms  | after peephole: 630217 / 219072 ccx
+unary+keep_chain   total=   707360 ccx=  169344 cnot=  523040 x=  14976 round0=14758/3528 (-13.6% gates, -39.0% ccx) build=27ms  | after peephole: 608192 / 141696 ccx
+peephole only      total=   718784 ccx=  248832 cnot=  422816 x=  47136 round0=14996/5184 (-12.2% gates, -10.4% ccx) build=171ms  | after peephole: 718784 / 248832 ccx
+all but peephole   total=   477427 ccx=  116872 cnot=  353067 x=   7488 round0=9948/2435 (-41.7% gates, -57.9% ccx) build=295ms  | after peephole: 462867 / 116872 ccx
+all but sat_rules  total=   473098 ccx=  121152 cnot=  345610 x=   6336 round0=9856/2524 (-42.2% gates, -56.4% ccx) build=172ms  | after peephole: 473098 / 121152 ccx
+all + window_dp    total=   462867 ccx=  116872 cnot=  339371 x=   6624 round0=9646/2435 (-43.5% gates, -57.9% ccx) build=1285ms  | after peephole: 462867 / 116872 ccx
+all                total=   462867 ccx=  116872 cnot=  339371 x=   6624 round0=9646/2435 (-43.5% gates, -57.9% ccx) build=748ms  | after peephole: 462867 / 116872 ccx
+N=221643407 a=215934921 n=28 w=4 qubits=120 rounds=56
+baseline           total=  1264308 ccx=  409248 cnot=  789204 x=  65856 round0=22670/7308 (+0.0% gates, +0.0% ccx) build=62ms  | after peephole: 1104260 / 363776 ccx
+unary              total=  1123188 ccx=  268128 cnot=  833108 x=  21952 round0=20150/4788 (-11.2% gates, -34.5% ccx) build=60ms  | after peephole: 963028 / 222656 ccx
+unary+fanout       total=  1034032 ccx=  268128 cnot=  743952 x=  21952 round0=18582/4788 (-18.2% gates, -34.5% ccx) build=100ms  | after peephole: 873786 / 222656 ccx
+comparator         total=  1130244 ccx=  365344 cnot=  699828 x=  65072 round0=20276/6524 (-10.6% gates, -10.7% ccx) build=85ms  | after peephole: 1101908 / 363776 ccx
+kflip              total=  1255684 ccx=  409248 cnot=  789204 x=  57232 round0=22516/7308 (-0.7% gates, +0.0% ccx) build=56ms  | after peephole: 1095636 / 363776 ccx
+direct_first       total=  1123763 ccx=  364448 cnot=  699731 x=  59584 round0=20128/6508 (-11.1% gates, -10.9% ccx) build=56ms  | after peephole: 986563 / 325472 ccx
+unary+keep_chain   total=  1112212 ccx=  261856 cnot=  828404 x=  21952 round0=19954/4676 (-12.0% gates, -36.0% ccx) build=85ms  | after peephole: 953732 / 217952 ccx
+peephole only      total=  1104260 ccx=  363776 cnot=  674740 x=  65744 round0=19812/6496 (-12.7% gates, -11.1% ccx) build=450ms  | after peephole: 1104260 / 363776 ccx
+all but peephole   total=   763720 ccx=  185014 cnot=  567790 x=  10916 round0=13742/3306 (-39.6% gates, -54.8% ccx) build=518ms  | after peephole: 739282 / 185014 ccx
+all but sat_rules  total=   753138 ccx=  190400 cnot=  553218 x=   9520 round0=13552/3400 (-40.4% gates, -53.5% ccx) build=309ms  | after peephole: 753138 / 190400 ccx
+all + window_dp    total=   739283 ccx=  185014 cnot=  544585 x=   9684 round0=13310/3306 (-41.5% gates, -54.8% ccx) build=1833ms  | after peephole: 739283 / 185014 ccx
+all                total=   739283 ccx=  185014 cnot=  544585 x=   9684 round0=13310/3306 (-41.5% gates, -54.8% ccx) build=1166ms  | after peephole: 739283 / 185014 ccx

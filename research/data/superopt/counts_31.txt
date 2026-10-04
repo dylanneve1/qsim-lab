@@ -1,0 +1,13 @@
+N=1537596787 a=457167243 n=31 w=4 qubits=132 rounds=62
+baseline           total=  1704428 ccx=  528178 cnot= 1083002 x=  93248 round0=27431/8519 (+0.0% gates, +0.0% ccx) build=43ms
+unary              total=  1541244 ccx=  364994 cnot= 1134586 x=  41664 round0=24799/5887 (-9.6% gates, -30.9% ccx) build=34ms
+unary+fanout       total=  1427640 ccx=  364994 cnot= 1020982 x=  41664 round0=22969/5887 (-16.2% gates, -30.9% ccx) build=50ms
+comparator         total=  1516940 ccx=  466674 cnot=  958010 x=  92256 round0=24407/7527 (-11.0% gates, -11.6% ccx) build=28ms
+kflip              total=  1686572 ccx=  528178 cnot= 1083002 x=  75392 round0=27143/8519 (-1.0% gates, +0.0% ccx) build=73ms
+direct_first       total=  1531761 ccx=  474858 cnot=  972335 x=  84568 round0=24637/7659 (-10.1% gates, -10.1% ccx) build=73ms
+unary+keep_chain   total=  1527852 ccx=  357306 cnot= 1128882 x=  41664 round0=24583/5763 (-10.4% gates, -32.4% ccx) build=53ms
+peephole only      total=  1492016 ccx=  464690 cnot=  934202 x=  93124 round0=24005/7495 (-12.5% gates, -12.0% ccx) build=543ms
+all but peephole   total=  1064487 ccx=  256006 cnot=  788270 x=  20211 round0=17092/4128 (-37.5% gates, -51.5% ccx) build=597ms
+all but sat_rules  total=  1056597 ccx=  262322 cnot=  775923 x=  18352 round0=16969/4231 (-38.0% gates, -50.3% ccx) build=386ms
+all + window_dp    total=  1036327 ccx=  256163 cnot=  761565 x=  18599 round0=16670/4128 (-39.2% gates, -51.5% ccx) build=1818ms
+all                total=  1039807 ccx=  256006 cnot=  765202 x=  18599 round0=16696/4128 (-39.0% gates, -51.5% ccx) build=1146ms

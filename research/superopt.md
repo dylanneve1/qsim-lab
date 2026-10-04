@@ -27,15 +27,17 @@ only.
 * Six provably correct block changes, a generic peephole pass, and a
   SAT-derived rewrite-rule pass cut the controlled-U circuit sharply. For the
   31-bit record run (N = 1 537 596 787, a = 457 167 243, all 62 rounds):
-  **1 704 428 → 1 039 807 gates (−39.0 %), 528 178 → 256 006 Toffolis
-  (−51.5 %)**. Qubits are unchanged (132), and so is the measured integer.
-  20/24/28-bit: −46 % / −44 % / −42 % gates and −62 % / −58 % / −55 %
-  Toffolis.
-* End to end on the Mac, the 31-bit record goes **135.7 s → 97.6 s (min of
-  3, −28 %)**. The gate evaluation drops 36 %. Sort, P(1) and collapse are
-  unchanged, so the 28-bit run goes 16.2 s → 13.1 s. Small instances
-  (24-bit, 0.3 s) were *slower* with global passes because of circuit-build
-  time. See "build cost" below.
+  **1 704 428 → 1 039 303 gates (−39.0 %), 528 178 → 261 454 Toffolis
+  (−50.5 %)** with the default `Opts::ALL`. Running the passes on the
+  whole circuit gives 256 006 Toffolis (−51.5 %). Qubits are unchanged
+  (132), and so is the measured integer. 20/24/28-bit: −45.9 % / −43.4 % /
+  −41.7 % gates and −60.0 % / −56.5 % / −53.6 % Toffolis.
+* End to end on the Mac (interleaved, under the bench lock, min of 3), the
+  31-bit record goes **137.8 s → 97.5 s (−29 %)** and the 28-bit run
+  **16.3 s → 12.0 s (−27 %)**. The 24-bit run is unchanged at 0.29 s: its
+  gate evaluation is 35 % faster, but at that size build and sort
+  dominate. The gate evaluation itself drops 36 %. Sort, P(1) and collapse
+  don't depend on the circuit and are unchanged.
 * SAT (CaDiCaL via PySAT) gives exact optimality certificates for small
   blocks (comparators, adders, lookups; tables below). It also gives a
   constant-aware peephole superoptimiser over the real circuit: windows of
@@ -172,7 +174,7 @@ smaller gate count proved UNSAT):
 | controlled lookup w = 2, T = [0,5,3,7] (3 bits), 1 or 2 clean ancillas | 7–8 | **6 gates** (all CCX; uses an output bit as a temporary control and toggles it back) | k ≤ 5 | unary + optimal fan-out: 13 gates / 6 CCX |
 | same lookup, minimum CCX at ≤ 10 gates | 8 | ≤ 4 CCX found; the ≤ 3 CCX query hit the 50-min timeout (open) | — | 6 CCX |
 | linear table T = [0,5,3,6] (T[3] = T[1] ⊕ T[2]) | 7 | 4 gates, ≤ 2 CCX | k ≤ 3 | — |
-| comparator n = 3 | 7 | COMPARE3 | | 19 / 6 |
+| comparator n = 3, no ancilla | 7 | not finished: k ≤ 8 refuted (k = 8 took 456 s), so **optimum ≥ 9** | k ≤ 8 | 19 gates / 6 CCX |
 | comparator n = 2, minimum CCX (≤ 13 gates, NOP padding) | 6 | not resolved: the first query (≤ 4 CCX) ran > 12 min, killed | | 4 |
 
 What these say. At these tiny widths our general constructions are 1.6–2×
@@ -232,7 +234,31 @@ else.
 
 ## 5. End to end on the Mac (bench lock, interleaved, `research/data/superopt/bench2.log`)
 
-TIMINGTABLE
+`qsim run shor --semiclassical --sliced --window 4 --oracle {windowed |
+windowed-opt} --modulus N --seed S --tries 1` (31-bit: `--f32 --seed 2`).
+One lock per 31-bit run, 40 s gaps between locks. Final binary is
+`Opts::ALL` (block passes), `research/data/superopt/bench3.log`. Load
+averages were 17–35 throughout, from other agents' unlocked work, so
+absolute times are 0–15 % above the quiet-machine record (133.4 s). The
+interleaved ratio is the number to use.
+
+| N (bits, qubits) | oracle | gates / run | Toffolis / run | time, 3 runs | eval (gate work) | min | Δ |
+|---|---|---|---|---|---|---|---|
+| 10 161 323 (24, 104) | windowed | 819 272 | 277 632 | 0.893 / 0.287 / 0.312 s | 0.17 s | 0.287 s | |
+| | windowed-opt | 464 090 | 120 672 | 0.507 / 0.287 / 0.299 s | 0.11 s | 0.287 s | ±0 (eval −35 %) |
+| 221 643 407 (28, 120) | windowed | 1 264 500 | 409 248 | 16.73 / 16.30 / 16.55 s | 12.25 s | 16.30 s | |
+| | windowed-opt | 737 154 | 189 728 | 11.98 / 12.03 / 13.09 s | 7.81 s | 11.98 s | **−26.5 %** |
+| 1 537 596 787 (31, 132) | windowed | 1 704 645 | 528 178 | 153.2 / 148.5 / 137.8 s | 112.4 s | 137.8 s | |
+| | windowed-opt | 1 039 520 | 261 454 | 105.5 / 100.5 / 97.5 s | 72.0 s | **97.5 s** | **−29.2 %** |
+
+Every pair measured the same integer (24-bit 150 071 647 041 326, 28-bit
+19 301 499 017 721 646, 31-bit 2 059 039 373 337 077 151), found the same
+order, and factored N. `gate_branch_ops` for the 31-bit run went
+1.341e14 → 8.18e13 (−39 %). Peak RSS is unchanged (4.28 GB): memory is set
+by the support, not the circuit. An earlier session with global passes
+(`bench2.log`) gave 135.7 → 97.6 s at 31 bits and 16.21 → 13.12 s at 28
+bits, but 0.29 → 1.41 s at 24 bits (build cost). That regression is what
+`block_passes` fixed.
 
 ## 6. Literature: known vs new
 
@@ -272,7 +298,7 @@ standard windowed multiplier, which is what the baseline was meant to be.
   iterations.
 * **SAT scaling.** The gate-count search proves n = 2 blocks in seconds.
   The n = 3 comparator reached k = 7 UNSAT in 49 s, and later k took much
-  longer (COMPARE3NOTE). Toffoli-minimisation with NOP padding is weak: the
+  longer (k = 8 UNSAT took 456 s; k = 9 was still running at write-up). Toffoli-minimisation with NOP padding is weak: the
   n = 2 comparator's "≤ 4 CCX" query did not finish in 12 min. A dedicated
   encoding (symmetry breaking for commuting gates, a CCX-count objective
   via assumptions) would be the next step.

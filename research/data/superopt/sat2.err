@@ -1,0 +1,20 @@
+  k=0 max_tof=None: UNSAT (0.0s)
+  k=1 max_tof=None: UNSAT (0.0s)
+  k=2 max_tof=None: UNSAT (0.0s)
+  k=3 max_tof=None: UNSAT (0.0s)
+  k=4 max_tof=None: UNSAT (0.0s)
+  k=5 max_tof=None: UNSAT (0.3s)
+  k=6 max_tof=None: SAT (0.5s)
+  k=0 max_tof=None: UNSAT (0.0s)
+  k=1 max_tof=None: UNSAT (0.0s)
+  k=2 max_tof=None: UNSAT (0.0s)
+  k=3 max_tof=None: UNSAT (0.0s)
+  k=4 max_tof=None: UNSAT (0.0s)
+  k=5 max_tof=None: UNSAT (0.2s)
+  k=6 max_tof=None: SAT (0.3s)
+  kcap=10 max_tof=5: SAT (1.1s)
+  kcap=10 max_tof=4: SAT (5.9s)
+{"window": "CNOT(0,1) CNOT(1,2) CNOT(1,3) CNOT(1,4) CNOT(1,5) CNOT(0,1)", "consts": [null, null, null, 0, null, null], "len": 6, "better": 5, "circuit": "CNOT(0,3) CNOT(1,3) CNOT(3,5) CNOT(3,2) CNOT(3,4)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(2,3,4) X(3) CNOT(3,4) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null, null], "len": 10, "better": 8, "circuit": "CCX(0,1,2) CCX(1,2,3) CNOT(2,1) CNOT(1,4) CCX(1,3,4) CCX(0,2,1) CNOT(3,4) CCX(0,1,2)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(0,3,4) X(3) CNOT(3,4) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [1, null, null, null, null], "len": 9, "better": 7, "circuit": "CCX(1,2,0) CCX(0,3,4) CCX(0,2,3) CCX(1,2,0) X(2) CNOT(0,4) CCX(2,3,4)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(2,3,4) X(3) CNOT(3,4) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null, null], "len": 8, "better": 7, "circuit": "CCX(1,3,2) CCX(0,2,4) CCX(1,3,2) CCX(0,1,3) X(1) X(0) CCX(0,2,4)"}
