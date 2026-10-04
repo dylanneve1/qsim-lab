@@ -59,6 +59,7 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [shor_support](shor_support.rs) | Reachable support of the semiclassical Shor circuit | [shor.md](../research/shor/shor.md) |
 | [shor_seed_orders](shor_seed_orders.rs) | Base and order drawn by each `--seed` | [mbu-shor.md](../research/shor/mbu-shor.md) |
 | [theory_coset](theory_coset.rs) | Data for the coset-error theory | [theory-coset.md](../research/theory/theory-coset.md) |
+| [theory_rank](theory_rank.rs) | Branching-rank profiles and demos | [theory-rank.md](../research/theory/theory-rank.md) |
 | [schedule_search](schedule_search.rs) | Surface-code CNOT schedule search | [schedules.md](../research/qec/schedules.md) |
 | [color_search](color_search.rs) | Colour-code schedule experiments | [qec-r4.md](../research/qec/qec-r4.md), [colour-global.md](../research/qec/colour-global.md) |
 | [color_ler](color_ler.rs) | Colour-code memory logical error rate (SymPhase + BP+OSD) | [colour-flags.md](../research/qec/colour-flags.md) |
@@ -67,6 +68,7 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [magic_atlas](magic_atlas.rs) | Magic atlas CLI | [magic-atlas.md](../research/simulability/magic-atlas.md) |
 | [magic_transition](magic_transition.rs) | Monitored Clifford+T transition campaign | [magic-transition.md](../research/simulability/magic-transition.md) |
 | [transition_theory](transition_theory.rs) | d-only polynomial campaign for the transition theory | [transition-theory.md](../research/theory/transition-theory.md) |
+| [nd_tool](nd_tool.rs) | Neural-decoder data export, streaming, BP+OSD on files | [neural-decoder.md](../research/qec/neural-decoder.md) |
 | [planner_v2](planner_v2.rs) | Planner v2 features, plans and end-to-end runs | [planner-v2.md](../research/simulability/planner-v2.md) |
 
 ## Audit helpers

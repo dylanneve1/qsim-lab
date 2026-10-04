@@ -69,6 +69,15 @@ def rewrite_target(t, old_file, new_file, pairs):
     return rel + (sep + frag if sep else "")
 
 
+def keep_if_already_new(m, new):
+    """Replace a mention unless it is already the tail of NEW (idempotence when
+    NEW ends with OLD, e.g. foo -> tools/foo)."""
+    s, i, old = m.string, m.start(), m.group(0)
+    if new.endswith(old) and s[max(0, i - (len(new) - len(old))):m.end()] == new:
+        return old
+    return new
+
+
 def main(argv):
     mv = False
     excl = set()
@@ -122,9 +131,9 @@ def main(argv):
         if new_file.endswith(".md"):
             txt = LINK.sub(lambda m: m.group(1) + rewrite_target(m.group(2), old_file, new_file, pairs) + m.group(3), txt)
             txt = REFDEF.sub(lambda m: m.group(1) + rewrite_target(m.group(2), old_file, new_file, pairs) + m.group(3), txt)
-        if os.path.normpath(new_file) not in excl:
+        if os.path.normpath(new_file) not in excl and new_file != "tools/relink.py":
             for rx, new in mention_res:
-                txt = rx.sub(new, txt)
+                txt = rx.sub(lambda m, new=new: keep_if_already_new(m, new), txt)
         if txt != src:
             open(new_file, "w", encoding="utf-8").write(txt)
             changed += 1

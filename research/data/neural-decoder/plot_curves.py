@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Learning curves (validation logical error per shot vs training shots) -> research/neural-decoder-curves.png.
+"""Learning curves (validation logical error per shot vs training shots) -> research/data/neural-decoder/curves.png.
 Reads results/models/*/log.jsonl; resumed runs are offset by the shots of the checkpoint they resumed from."""
 import json, os
 import matplotlib

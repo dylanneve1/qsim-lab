@@ -30,6 +30,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [qec-r4.md](qec/qec-r4.md) | Identical-circuit Stim comparison; colour-code schedule search |
 | [colour-global.md](qec/colour-global.md) | Colour-code schedules: global search and optimality certificates |
 | [colour-flags.md](qec/colour-flags.md) | Colour-code flags: full circuit distance as real circuits |
+| [neural-decoder.md](qec/neural-decoder.md) | A learned decoder trained on FastSampler data: surface code and colour code |
 | [fast-sampler.md](qec/fast-sampler.md) | Fast detector sampling: Poisson hits into precomputed detector tables |
 | [fast-sampler-audit.md](qec/fast-sampler-audit.md) | Independent audit of the FastSampler speed and equivalence claims |
 
@@ -74,6 +75,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | [theory-shor.md](theory/theory-shor.md) | Theorems behind the round-4 Shor observations (support law, borrowed magic, noise windows) |
 | [theory-coset.md](theory/theory-coset.md) | Coset-representation error in the Gidney–Ekerå Shor circuit |
+| [theory-rank.md](theory/theory-rank.md) | Low stabilizer rank in algorithm circuits: branching-rank invariant and an exact engine |
 | [theory-colour.md](theory/theory-colour.md) | Single-auxiliary syndrome extraction for the triangular colour code |
 | [transition-theory.md](theory/transition-theory.md) | Why ν_eff ≈ 2.5: the transition as the Clifford MIPT in a noise field |
 

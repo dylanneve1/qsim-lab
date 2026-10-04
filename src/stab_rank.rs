@@ -6,7 +6,7 @@
 //! Qiskit Aer's `chstabilizer.hpp` (Apache-2.0) to any number of qubits
 //! (bitsets instead of 64-bit words).
 //!
-//! What is new here (research/theory-rank.md) is how non-Clifford gates are
+//! What is new here (research/theory/theory-rank.md) is how non-Clifford gates are
 //! handled. Every non-Clifford gate of the families we simulate is a
 //! *projector gate* `U = I + (λ−1)Π`, `Π = Π_{P_1}⋯Π_{P_m}` the joint +1
 //! projector of commuting Hermitian Paulis (`T, Phase, Rz: Π = |1⟩⟨1|`,
