@@ -9,7 +9,7 @@ JSON line per decoder per test file; `models/*/log.jsonl` = training logs with v
 
 **Question.** Does a neural decoder trained on data streamed from our exact FastSampler beat our BP+OSD and
 approach Tesseract, (1) on Stim's rotated surface-code memory and (2) on the triangular colour code under the
-Kishony–Fowler (K–F) schedule and the certified d_circ = 8 schedule of `research/colour-global.md` §4, where
+Kishony–Fowler (K–F) schedule and the certified d_circ = 8 schedule of `research/qec/colour-global.md` §4, where
 BP+OSD sees a 0.26–0.58× logical-error gain and Tesseract sees none?
 
 **Answer.** Partly at d = 5, no at d = 7 and for the d = 9 colour code, on a laptop budget.
@@ -41,7 +41,7 @@ BP+OSD sees a 0.26–0.58× logical-error gain and Tesseract sees none?
 ### 1.1 Circuits, noise and data
 
 - **Surface code**: `stim.Circuit.generated("surface_code:rotated_memory_z", d, rounds = d)` with all four noise
-  knobs at p = 0.3% ("uniform circuit noise", as `research/qec-r4.md` direction B): `DEPOLARIZE2(p)` after CX,
+  knobs at p = 0.3% ("uniform circuit noise", as `research/qec/qec-r4.md` direction B): `DEPOLARIZE2(p)` after CX,
   `DEPOLARIZE1(p)` on data before each round, measurement flips p, reset flips p. d = 3, 5, 7
   (24 / 120 / 336 detectors). `gen_surface.py` writes the flattened `.stim`, Stim's undecomposed DEM in
   `nd_tool`'s tab format, and per-detector coordinates. SI1000 was not run (Stim's generator has no idle-noise
@@ -54,7 +54,7 @@ BP+OSD sees a 0.26–0.58× logical-error gain and Tesseract sees none?
 - **Sampling**: `nd_tool stream <stim> <seed>` parses the `.stim`, compiles SymPhase, builds the
   **FastSampler** (Poisson-hit, wyrand) and streams ptb64 detection events + observable on stdout forever;
   `train.py` reads 1024-shot blocks from the pipe. FastSampler's distribution is the circuit's
-  (`research/fast-sampler.md`: 0 / 155,531 rejections against Stim). Sampling is never the bottleneck: the
+  (`research/qec/fast-sampler.md`: 0 / 155,531 rejections against Stim). Sampling is never the bottleneck: the
   sampler process idles at a few % CPU while the GPU trains.
 - **Held-out data**: 10⁶ test shots per circuit (seed 7) and 131,072 validation shots (seed 8), written once
   to ptb64 files; training streams use seeds ≥ 1000, so train/val/test are independent wyrand streams.
@@ -159,7 +159,7 @@ expected gain from using the Y correlations that uncorrelated matching discards.
 
 ### 3.2 Learning curves (validation failures on a fixed validation set)
 
-![learning curves](neural-decoder-curves.png)
+![learning curves](../data/neural-decoder/curves.png)
 
 Validation logical error per shot against training shots (log–log; `plot_curves.py`). Left: surface code,
 dashed = PyMatching, dotted = Tesseract on the test set, same colour as the distance. Right: colour code
@@ -229,7 +229,7 @@ beam 5 / 1 order, 114,688 shots per schedule), not re-run.
 - The cost of reaching matching-level accuracy grows steeply with distance: every one of these works trains
   on 10⁷–10⁹ shots on datacentre GPUs/TPUs, and the data needed grows with d because failures become rarer.
 - Tesseract (Beni et al., arXiv:2503.10988) is a near-optimal search decoder for these DEMs; we use it as the
-  quality ceiling, as in `research/qec-r4.md` and `research/colour-global.md`.
+  quality ceiling, as in `research/qec/qec-r4.md` and `research/qec/colour-global.md`.
 
 **New here.**
 - A complete pipeline from **our** exact sampler to a trained decoder on a laptop GPU: `nd_tool stream`

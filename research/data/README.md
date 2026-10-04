@@ -21,6 +21,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`magic-transition/`](magic-transition/) | [magic-transition.md](../simulability/magic-transition.md) |
 | [`mbu-shor/`](mbu-shor/) | [mbu-shor.md](../shor/mbu-shor.md) |
 | [`metal/`](metal/) | [metal.md](../performance/metal.md) |
+| [`neural-decoder/`](neural-decoder/) | [neural-decoder.md](../qec/neural-decoder.md) |
 | [`ooc/`](ooc/) | [ooc.md](../performance/ooc.md) |
 | [`pauli/`](pauli/) | [pauli.md](../performance/pauli.md) |
 | [`phasepoly/`](phasepoly/) | [phasepoly.md](../compiler/phasepoly.md) |
@@ -43,6 +44,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`theory-colour/`](theory-colour/) | [theory-colour.md](../theory/theory-colour.md) |
 | [`theory-coset/`](theory-coset/) | [theory-coset.md](../theory/theory-coset.md) |
 | [`theory-shor/`](theory-shor/) | [theory-shor.md](../theory/theory-shor.md) |
+| [`theory-rank/`](theory-rank/) | [theory-rank.md](../theory/theory-rank.md) |
 | [`transition-theory/`](transition-theory/) | [transition-theory.md](../theory/transition-theory.md) |
 
 ## Compressed raw files
