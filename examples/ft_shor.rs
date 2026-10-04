@@ -1,0 +1,161 @@
+//! Fault-tolerant vs. unencoded Shor (N = 15) under circuit-level noise.
+//!
+//! ```text
+//! ft_shor shor <mode> <level> <magic> <p> <shots> <seed> [a] [mask]
+//!     mode  = enc | unenc | unenc-ccx
+//!     magic = raw | ideal | dist      (enc only; dist = 15-to-1 model,
+//!             eps_out = 35 eps_in^3 with eps_in measured by injection runs)
+//!     mask  = bit mask over components prep,gate,ec,inject,meas (default 31)
+//! ft_shor inject <level> <p> <trials> <seed> [postselect 0/1]
+//! ```
+//! Prints one `key=value` line per run.
+
+use qsim_lab::ft::backends::FrameBackend;
+use qsim_lab::ft::core::{Noise, ALL_COMPS, COMP_NAMES, N_COMP};
+use qsim_lab::ft::logical::{Encoded, MagicMode, Unencoded};
+use qsim_lab::ft::machine::{ideal_logical, FtConfig, Machine};
+use qsim_lab::ft::shor::{ideal_distribution, run_shor15, NLOG15};
+use qsim_lab::shor::postprocess;
+use std::time::Instant;
+
+/// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
+fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
+    let cfg = FtConfig { ec: true, inject_postselect: ps };
+    let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed), cfg, level);
+    let (mut nx, mut ny, mut nz) = (0u64, 0u64, 0u64);
+    for _ in 0..trials {
+        let q = m.alloc(level);
+        m.inject(level, q);
+        match ideal_logical(&m.b.frame, level, q) {
+            (true, false) => nx += 1,
+            (true, true) => ny += 1,
+            (false, true) => nz += 1,
+            _ => {}
+        }
+        m.release(level, q);
+    }
+    let t = trials as f64;
+    let (px, py, pz) = (nx as f64 / t, ny as f64 / t, nz as f64 / t);
+    let acc = trials as f64 / m.stats.inject_attempts.max(1) as f64;
+    (px, py, pz, pz + 0.5 * (px + py), acc)
+}
+
+fn main() {
+    let a: Vec<String> = std::env::args().collect();
+    match a[1].as_str() {
+        "inject" => {
+            let level: usize = a[2].parse().unwrap();
+            let p: f64 = a[3].parse().unwrap();
+            let trials: u64 = a[4].parse().unwrap();
+            let seed: u64 = a[5].parse().unwrap();
+            let ps = a.get(6).map(|s| s != "0").unwrap_or(true);
+            let (px, py, pz, eps, acc) = inject_errors(level, p, trials, seed, ps);
+            println!(
+                "kind=inject level={level} p={p:e} trials={trials} postselect={ps} pX={px:.6e} pY={py:.6e} pZ={pz:.6e} eps={eps:.6e} accept={acc:.5}"
+            );
+        }
+        "shor" => {
+            let mode = a[2].as_str();
+            let level: usize = a[3].parse().unwrap();
+            let magic = a[4].as_str();
+            let p: f64 = a[5].parse().unwrap();
+            let shots: u64 = a[6].parse().unwrap();
+            let seed: u64 = a[7].parse().unwrap();
+            let base: u64 = a.get(8).map(|s| s.parse().unwrap()).unwrap_or(7);
+            let mask: u32 = a.get(9).map(|s| s.parse().unwrap()).unwrap_or(ALL_COMPS);
+            let t = 3usize;
+            let ideal = ideal_distribution(base, t);
+            let mut hist = [0u64; 8];
+            let mut factor = 0u64;
+            let start = Instant::now();
+            let mut eps_in = 0.0;
+            let mut eps_out = 0.0;
+            let mm = match magic {
+                "raw" => MagicMode::Raw,
+                "ideal" => MagicMode::Model(0.0),
+                "dist" => {
+                    let n = if level == 1 { 200_000 } else { 4_000 };
+                    eps_in = inject_errors(level, p, n, seed ^ 0xABCD, true).3;
+                    eps_out = 35.0 * eps_in.powi(3);
+                    MagicMode::Model(eps_out)
+                }
+                _ => panic!("magic"),
+            };
+            let mut locs = 0u64;
+            let mut faults = [0u64; N_COMP];
+            let mut comp_locs = [0u64; N_COMP];
+            let mut phys = (0u64, 0u64, 0u64, 0u64);
+            let mut rejects = (0u64, 0u64);
+            let mut qubits = 0usize;
+            let mut tg = 0u64;
+            for s in 0..shots {
+                let sd = seed.wrapping_mul(1_000_003).wrapping_add(s);
+                let mut noise = Noise::new(p, sd);
+                noise.mask = mask;
+                let y = match mode {
+                    "enc" => {
+                        let mut e = Encoded::frame(level, NLOG15, noise, FtConfig::default(), mm, sd);
+                        let y = run_shor15(&mut e, base, t);
+                        locs += e.m.noise.loc;
+                        for c in 0..N_COMP {
+                            faults[c] += e.m.noise.faults[c];
+                            comp_locs[c] += e.m.noise.locs[c];
+                        }
+                        let st = &e.m.stats;
+                        phys.0 += st.phys_prep;
+                        phys.1 += st.phys_1q;
+                        phys.2 += st.phys_2q;
+                        phys.3 += st.phys_meas;
+                        rejects.0 += st.prep_rejects;
+                        rejects.1 += st.inject_rejects;
+                        qubits = qubits.max(e.m.phys_qubits());
+                        tg += e.counts.t_gadgets;
+                        y
+                    }
+                    "unenc" | "unenc-ccx" => {
+                        let mut u = Unencoded::new(NLOG15, noise, mode == "unenc-ccx", sd);
+                        let y = run_shor15(&mut u, base, t);
+                        locs += u.locations;
+                        for c in 0..N_COMP {
+                            faults[c] += u.noise.faults[c];
+                        }
+                        qubits = NLOG15;
+                        y
+                    }
+                    _ => panic!("mode"),
+                };
+                hist[y as usize] += 1;
+                if let (Some(_), Some(_)) = postprocess(15, base, y as u128, t as u32) {
+                    factor += 1;
+                }
+            }
+            let n = shots as f64;
+            let peak: u64 = (0..8).filter(|&y| ideal[y] > 0.0).map(|y| hist[y]).sum();
+            let tvd: f64 = 0.5 * (0..8).map(|y| (hist[y] as f64 / n - ideal[y]).abs()).sum::<f64>();
+            let fs: Vec<String> = (0..N_COMP)
+                .map(|c| format!("f_{}={:.4} l_{}={:.0}", COMP_NAMES[c], faults[c] as f64 / n, COMP_NAMES[c], comp_locs[c] as f64 / n))
+                .collect();
+            println!(
+                "kind=shor mode={mode} level={level} magic={magic} p={p:e} shots={shots} seed={seed} a={base} mask={mask} \
+                 peak={peak} P_peak={:.6} factor={factor} P_factor={:.6} tvd={tvd:.6} hist={} \
+                 eps_in={eps_in:.4e} eps_out={eps_out:.4e} locs_per_shot={:.1} phys_qubits={qubits} \
+                 prep_per_shot={:.1} g1_per_shot={:.1} g2_per_shot={:.1} meas_per_shot={:.1} \
+                 prep_rej_per_shot={:.2} inj_rej_per_shot={:.3} t_gadgets_per_shot={:.2} {} secs={:.2}",
+                peak as f64 / n,
+                factor as f64 / n,
+                hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join(","),
+                locs as f64 / n,
+                phys.0 as f64 / n,
+                phys.1 as f64 / n,
+                phys.2 as f64 / n,
+                phys.3 as f64 / n,
+                rejects.0 as f64 / n,
+                rejects.1 as f64 / n,
+                tg as f64 / n,
+                fs.join(" "),
+                start.elapsed().as_secs_f64()
+            );
+        }
+        _ => panic!("usage: see source"),
+    }
+}
