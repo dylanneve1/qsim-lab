@@ -157,7 +157,7 @@ Stim pays per gate per 128- or 256-shot word but only a few ns per fault. On its
 - clear only the touched words;
 - evaluate column-wise over the faults that fired.
 
-It is **bit-identical** to the dense path for the same RNG stream (`tests/symphase.rs::sparse_sampling_path_is_identical_to_dense`). Together with `SmallRng` (Xoshiro256++) it gains 5–20% on large circuits. It does not change the picture.
+It is **bit-identical** to the dense path for the same RNG stream (`tests/symphase.rs::sparse_sampling_path_is_identical_to_dense`). Together with `SmallRng` (Xoshiro256++) it cuts sampling time by 4–25% on x86 (indicative, load 15) and 23–36% on the M1. It does not change the x86 picture.
 
 **The next lever, not done here:** cheaper fault draws. Options are batching geometric skips with a precomputed `1/ln(1-p)`, drawing the Pauli index from spare bits of the same random word, or a wider batch (256 shots) so that coins and per-group overhead amortise.
 
