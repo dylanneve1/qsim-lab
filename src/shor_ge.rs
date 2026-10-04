@@ -545,6 +545,70 @@ impl<T: Real> WindowArrays<T> {
             })
             .reduce(|| (0.0, 0.0), |u, v| (u.0 + v.0, u.1 + v.1))
     }
+    /// Joint distribution of all remaining exponent bits in one pass:
+    /// `out[b]` = P(next bits = `b`), bit `j` of `b` = the `j`-th remaining
+    /// measurement (highest remaining power first), where measurement `j`
+    /// gets the phase `phi(j, b mod 2^j)` (Griffiths–Niu: it depends on the
+    /// outcomes of the earlier measurements of the same window).
+    pub fn joint_probs(&self, phi: &(dyn Fn(usize, u64) -> f64 + Sync)) -> Vec<f64> {
+        let bl = self.bits_left();
+        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
+        // phases per (level j, prefix): 2^bl − 1 of them
+        let mut phs = Vec::new();
+        for j in 0..bl {
+            for pre in 0..1u64 << j {
+                phs.push(Complex64::from_polar(1.0, phi(j, pre)));
+            }
+        }
+        let r = std::f64::consts::FRAC_1_SQRT_2;
+        chunks_k(&refs)
+            .into_par_iter()
+            .map(|ch| {
+                let mut acc = vec![0.0f64; 1 << bl];
+                // scratch: one value vector per tree level
+                let mut lv: Vec<Vec<Complex64>> = (0..=bl).map(|j| vec![Complex64::zero(); 1 << (bl - j)]).collect();
+                merge_k(&refs, &ch, |_, vals| {
+                    let len = self.reduce(vals);
+                    lv[0][..len].copy_from_slice(&vals[..len]);
+                    // depth-first over outcome prefixes
+                    fn rec(
+                        lv: &mut [Vec<Complex64>],
+                        phs: &[Complex64],
+                        j: usize,
+                        bl: usize,
+                        pre: u64,
+                        r: f64,
+                        acc: &mut [f64],
+                    ) {
+                        if j == bl {
+                            acc[pre as usize] += lv[j][0].norm_sqr();
+                            return;
+                        }
+                        let ph = phs[(1usize << j) - 1 + pre as usize];
+                        let h = 1usize << (bl - j - 1);
+                        for b in 0..2u64 {
+                            let s = if b == 1 { -ph } else { ph };
+                            let (cur, nxt) = lv.split_at_mut(j + 1);
+                            for e in 0..h {
+                                nxt[0][e] = (cur[j][e] + s * cur[j][e + h]) * r;
+                            }
+                            rec(lv, phs, j + 1, bl, pre | (b << j), r, acc);
+                        }
+                    }
+                    rec(&mut lv, &phs, 0, bl, 0, r, &mut acc);
+                });
+                acc
+            })
+            .reduce(
+                || vec![0.0; 1 << bl],
+                |mut a, b| {
+                    for (x, y) in a.iter_mut().zip(b) {
+                        *x += y;
+                    }
+                    a
+                },
+            )
+    }
     /// Records the outcome `bit` (probability `p`) of the highest remaining
     /// exponent qubit.
     pub fn collapse(&mut self, phi: f64, bit: bool, p: f64) {
@@ -831,18 +895,37 @@ pub fn run<T: Real>(
             let mut wa = st.window(&wp, w);
             let tm = std::time::Instant::now();
             let final_window = last_reg && k + 1 == wins.len();
+            // the joint distribution of the window's w bits in one pass,
+            // then one conditional draw per round (as in
+            // `shor::run_semiclassical`)
+            let y0 = y;
+            let jp = wa.joint_probs(&|j, pre| correction(i0 + j, y0 | (u128::from(pre) << i0)));
+            let tot: f64 = jp.iter().sum();
+            assert!((tot - 1.0).abs() < 1e-6, "window norm {tot}");
+            let mut pre = 0u64;
             for j in 0..w {
                 let i = i0 + j;
                 let phi = correction(i, y);
-                let (p0, p1) = wa.probs(phi);
-                let s = p0 + p1;
-                assert!((s - 1.0).abs() < 1e-6, "window norm {s}");
-                // one uniform draw per round, as in `shor::run_semiclassical`
-                let bit = rng() < p1 / s;
+                let (mut q0, mut q1) = (0.0, 0.0);
+                for (b, &p) in jp.iter().enumerate() {
+                    let b = b as u64;
+                    if b & ((1 << j) - 1) == pre {
+                        if (b >> j) & 1 == 1 {
+                            q1 += p;
+                        } else {
+                            q0 += p;
+                        }
+                    }
+                }
+                let s = q0 + q1;
+                let bit = rng() < q1 / s;
                 if bit {
                     y |= 1 << i;
+                    pre |= 1 << j;
                 }
-                wa.collapse(phi, bit, if bit { p1 } else { p0 });
+                // conditional probability of this outcome given the prefix
+                let pc = if bit { q1 } else { q0 } / s;
+                wa.collapse(phi, bit, pc);
             }
             // the measured integer is complete after the last P(1): the
             // final state (the largest support) is not materialised
