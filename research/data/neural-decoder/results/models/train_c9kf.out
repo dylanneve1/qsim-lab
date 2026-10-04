@@ -1,0 +1,66 @@
+it 200 loss 0.60416 shots 51200 1504/s lr 6.08e-05 dropped 0 skipped 0 paused 0s
+it 400 loss 0.55999 shots 102400 1493/s lr 1.21e-04 dropped 0 skipped 0 paused 0s
+it 600 loss 0.55344 shots 153600 1490/s lr 1.80e-04 dropped 0 skipped 0 paused 0s
+it 800 loss 0.52514 shots 204800 1494/s lr 2.40e-04 dropped 0 skipped 0 paused 0s
+it 1000 loss 0.47595 shots 256000 1493/s lr 3.00e-04 dropped 0 skipped 0 paused 0s
+it 1200 loss 0.42880 shots 307200 1495/s lr 3.00e-04 dropped 0 skipped 0 paused 0s
+it 1400 loss 0.39258 shots 358400 1500/s lr 2.99e-04 dropped 0 skipped 0 paused 0s
+it 1600 loss 0.36982 shots 409600 1502/s lr 2.98e-04 dropped 0 skipped 0 paused 0s
+it 1800 loss 0.34749 shots 460800 1507/s lr 2.96e-04 dropped 0 skipped 0 paused 0s
+it 2000 loss 0.32594 shots 512000 1508/s lr 2.94e-04 dropped 0 skipped 0 paused 0s
+{"it": 2000, "shots": 512000, "train_s": 339.5, "wall_s": 339.5, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.04, "free_inactive_gb": 6.62, "mlx_peak_mb": 1582.4, "mlx_active_mb": 17.2, "mlx_cache_mb": 252.7, "val_fails": 5074, "val_shots": 32768, "val_pL": 0.15484619140625, "skipped": 0, "best": true}
+it 2200 loss 0.32033 shots 563200 1500/s lr 2.91e-04 dropped 0 skipped 0 paused 0s
+it 2400 loss 0.30373 shots 614400 1501/s lr 2.88e-04 dropped 0 skipped 0 paused 0s
+it 2600 loss 0.29561 shots 665600 1503/s lr 2.85e-04 dropped 0 skipped 0 paused 0s
+it 2800 loss 0.28969 shots 716800 1504/s lr 2.81e-04 dropped 0 skipped 0 paused 0s
+it 3000 loss 0.28279 shots 768000 1505/s lr 2.77e-04 dropped 0 skipped 0 paused 0s
+it 3200 loss 0.27536 shots 819200 1505/s lr 2.72e-04 dropped 0 skipped 0 paused 0s
+it 3400 loss 0.27235 shots 870400 1505/s lr 2.67e-04 dropped 0 skipped 0 paused 0s
+it 3600 loss 0.25653 shots 921600 1506/s lr 2.61e-04 dropped 0 skipped 0 paused 5s
+it 3800 loss 0.25942 shots 972800 1507/s lr 2.55e-04 dropped 0 skipped 0 paused 10s
+it 4000 loss 0.25652 shots 1024000 1508/s lr 2.49e-04 dropped 0 skipped 0 paused 10s
+{"it": 4000, "shots": 1024000, "train_s": 679.1, "wall_s": 689.1, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.37, "free_inactive_gb": 6.43, "mlx_peak_mb": 1662.5, "mlx_active_mb": 17.2, "mlx_cache_mb": 251.1, "val_fails": 3894, "val_shots": 32768, "val_pL": 0.11883544921875, "skipped": 0, "best": true}
+it 4200 loss 0.24862 shots 1075200 1504/s lr 2.43e-04 dropped 0 skipped 0 paused 15s
+it 4400 loss 0.24774 shots 1126400 1504/s lr 2.36e-04 dropped 0 skipped 0 paused 15s
+it 4600 loss 0.24153 shots 1177600 1504/s lr 2.29e-04 dropped 0 skipped 0 paused 20s
+it 4800 loss 0.23552 shots 1228800 1505/s lr 2.22e-04 dropped 0 skipped 0 paused 20s
+it 5000 loss 0.22695 shots 1280000 1505/s lr 2.14e-04 dropped 0 skipped 0 paused 25s
+it 5200 loss 0.22996 shots 1331200 1506/s lr 2.06e-04 dropped 0 skipped 0 paused 25s
+it 5400 loss 0.22358 shots 1382399 1505/s lr 1.98e-04 dropped 1 skipped 0 paused 30s
+it 5600 loss 0.22042 shots 1433599 1506/s lr 1.90e-04 dropped 1 skipped 0 paused 30s
+it 5800 loss 0.21529 shots 1484799 1506/s lr 1.82e-04 dropped 1 skipped 0 paused 30s
+it 6000 loss 0.21232 shots 1535999 1507/s lr 1.74e-04 dropped 1 skipped 0 paused 30s
+{"it": 6000, "shots": 1535999, "train_s": 1019.5, "wall_s": 1049.5, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.25, "free_inactive_gb": 6.38, "mlx_peak_mb": 1662.5, "mlx_active_mb": 17.2, "mlx_cache_mb": 254.4, "val_fails": 3356, "val_shots": 32768, "val_pL": 0.1024169921875, "skipped": 0, "best": true}
+it 6200 loss 0.20523 shots 1587199 1504/s lr 1.66e-04 dropped 1 skipped 0 paused 30s
+it 6400 loss 0.20674 shots 1638399 1504/s lr 1.57e-04 dropped 1 skipped 0 paused 30s
+it 6600 loss 0.20291 shots 1689599 1504/s lr 1.49e-04 dropped 1 skipped 0 paused 30s
+it 6800 loss 0.19761 shots 1740799 1505/s lr 1.40e-04 dropped 1 skipped 0 paused 30s
+it 7000 loss 0.19580 shots 1791999 1505/s lr 1.32e-04 dropped 1 skipped 0 paused 30s
+it 7200 loss 0.19574 shots 1843199 1505/s lr 1.24e-04 dropped 1 skipped 0 paused 30s
+it 7400 loss 0.18994 shots 1894399 1506/s lr 1.16e-04 dropped 1 skipped 0 paused 30s
+it 7600 loss 0.18365 shots 1945599 1506/s lr 1.08e-04 dropped 1 skipped 0 paused 30s
+it 7800 loss 0.18659 shots 1996799 1506/s lr 9.97e-05 dropped 1 skipped 0 paused 30s
+it 8000 loss 0.17898 shots 2047999 1506/s lr 9.19e-05 dropped 1 skipped 0 paused 30s
+{"it": 8000, "shots": 2047999, "train_s": 1359.6, "wall_s": 1389.7, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.35, "free_inactive_gb": 6.32, "mlx_peak_mb": 1662.5, "mlx_active_mb": 17.2, "mlx_cache_mb": 251.7, "val_fails": 2694, "val_shots": 32768, "val_pL": 0.08221435546875, "skipped": 0, "best": true}
+it 8200 loss 0.17579 shots 2099199 1504/s lr 8.44e-05 dropped 1 skipped 0 paused 30s
+it 8400 loss 0.17485 shots 2150399 1504/s lr 7.71e-05 dropped 1 skipped 0 paused 35s
+it 8600 loss 0.17265 shots 2201599 1504/s lr 7.00e-05 dropped 1 skipped 0 paused 40s
+it 8800 loss 0.16799 shots 2252799 1505/s lr 6.32e-05 dropped 1 skipped 0 paused 40s
+it 9000 loss 0.16665 shots 2303999 1505/s lr 5.67e-05 dropped 1 skipped 0 paused 45s
+it 9200 loss 0.16580 shots 2355199 1505/s lr 5.06e-05 dropped 1 skipped 0 paused 45s
+it 9400 loss 0.16518 shots 2406399 1505/s lr 4.47e-05 dropped 1 skipped 0 paused 95s
+it 9600 loss 0.16474 shots 2457599 1506/s lr 3.92e-05 dropped 1 skipped 0 paused 95s
+it 9800 loss 0.16059 shots 2508799 1506/s lr 3.41e-05 dropped 1 skipped 0 paused 110s
+it 10000 loss 0.16051 shots 2559999 1506/s lr 2.93e-05 dropped 1 skipped 0 paused 110s
+{"it": 10000, "shots": 2559999, "train_s": 1699.4, "wall_s": 1809.6, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.26, "free_inactive_gb": 6.96, "mlx_peak_mb": 1662.5, "mlx_active_mb": 17.2, "mlx_cache_mb": 252.0, "val_fails": 2376, "val_shots": 32768, "val_pL": 0.072509765625, "skipped": 0, "best": true}
+it 10200 loss 0.15996 shots 2611199 1505/s lr 2.50e-05 dropped 1 skipped 0 paused 160s
+it 10400 loss 0.16007 shots 2662399 1505/s lr 2.11e-05 dropped 1 skipped 0 paused 160s
+it 10600 loss 0.15492 shots 2713599 1505/s lr 1.76e-05 dropped 1 skipped 0 paused 175s
+it 10800 loss 0.15588 shots 2764799 1505/s lr 1.45e-05 dropped 1 skipped 0 paused 225s
+it 11000 loss 0.15735 shots 2815999 1505/s lr 1.20e-05 dropped 1 skipped 0 paused 225s
+it 11200 loss 0.15516 shots 2867199 1505/s lr 9.82e-06 dropped 1 skipped 0 paused 240s
+it 11400 loss 0.15654 shots 2918399 1505/s lr 8.15e-06 dropped 1 skipped 0 paused 240s
+it 11600 loss 0.15925 shots 2969599 1505/s lr 6.96e-06 dropped 1 skipped 0 paused 321s
+it 11800 loss 0.15243 shots 3020799 1505/s lr 6.24e-06 dropped 1 skipped 0 paused 321s
+it 12000 loss 0.15394 shots 3071999 1505/s lr 6.00e-06 dropped 1 skipped 0 paused 526s
+{"it": 12000, "shots": 3071999, "train_s": 2041.2, "wall_s": 2567.1, "params": 1489617, "peak_rss_mb": 194.5, "wired_gb": 3.06, "free_inactive_gb": 10.55, "mlx_peak_mb": 1662.5, "mlx_active_mb": 17.2, "mlx_cache_mb": 248.5, "val_fails": 2302, "val_shots": 32768, "val_pL": 0.07025146484375, "skipped": 0, "best": true}
