@@ -27,6 +27,8 @@ import numpy as np
 import mlx.core as mx
 import mlx.nn as nn
 
+if os.environ.get("AQ_DEVICE") == "cpu":
+    mx.set_default_device(mx.cpu)
 if os.environ.get("AQ_NO_MEMCAP") != "1":
     # Dylan's laptop (swarm GPU/MEMORY RULE): hard caps on MLX memory and its buffer cache
     mx.set_memory_limit(int(float(os.environ.get("AQ_MEM_GB", "1.5")) * 2**30))
