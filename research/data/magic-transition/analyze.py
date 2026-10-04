@@ -42,6 +42,8 @@ def family(r):
     pt = f(r, "p_t")
     mode = r[ci["mode"]]
     pre = "exact:" if mode == "exact" else ""
+    if tag in ("E6", "E7"):
+        return f"{tag}:depth={r[ci['depth']]}:" + (f"pt={round(pt * n)}/n")
     if pt == 0:
         return pre + "pt=0"
     for eta in (1, 2):
@@ -87,6 +89,9 @@ with open(f"{out}/aggregate.csv", "w") as fo:
         fo.write(",".join(f"{a[k]:.6g}" if isinstance(a[k], float) else str(a[k]) for k in ks) + "\n")
 
 # ---------------------------------------------------------------- FSS
+EFLOOR = {"v": 1e-3}
+
+
 def collapse_cost(theta, data, beta):
     pc, nu = theta[0], theta[1]
     bnu = theta[2] if beta else 0.0
@@ -96,7 +101,7 @@ def collapse_cost(theta, data, beta):
     for (n, p, y, e) in data:
         xs.append((p - pc) * n ** (1 / nu))
         ys.append(y * n ** bnu)
-        ws.append(1.0 / max(e * n ** bnu, 1e-3 * abs(y * n ** bnu) + 1e-9) ** 2)
+        ws.append(1.0 / max(e, EFLOOR["v"], 0.01 * abs(y)) ** 2 / n ** (2 * bnu))
     xs, ys, ws = map(np.array, (xs, ys, ws))
     # master curve: weighted polynomial
     deg = 4
@@ -180,15 +185,16 @@ def pd_tr(alpha):
 
 results = {}
 NS_ALL = [16, 32, 64, 128, 256, 512]
-for label, fam, ns, pwin, tr, beta, x0 in [
-    ("EE_I3_pt0", "pt=0", [32, 64, 128, 256], (0.12, 0.20), i3_tr, False, [0.16, 1.3]),
-    ("EE_I3_pt0_n64+", "pt=0", [64, 128, 256], (0.12, 0.20), i3_tr, False, [0.16, 1.3]),
-    ("d_over_n_pt1n", "pt=1/n", [32, 64, 128, 256, 512], (0.10, 0.22), phi_tr, True, [0.16, 1.3, 0.0]),
-    ("d_over_n_pt1n_n64+", "pt=1/n", [64, 128, 256, 512], (0.10, 0.22), phi_tr, True, [0.16, 1.3, 0.0]),
-    ("P(d>=0.05n)_pt1n", "pt=1/n", [64, 128, 256, 512], (0.10, 0.22), pd_tr(0.05), False, [0.16, 1.3]),
-    ("d_over_n_pt2n", "pt=2/n", [64, 128, 256, 512, 1024], (0.14, 0.25), phi_tr, True, [0.17, 1.3, 0.0]),
-    ("d_over_n_pt2n_n128+", "pt=2/n", [128, 256, 512, 1024], (0.14, 0.25), phi_tr, True, [0.17, 1.3, 0.0]),
+for label, fam, ns, pwin, tr, beta, x0, fl in [
+    ("EE_I3_pt0", "pt=0", [32, 64, 128, 256], (0.13, 0.19), i3_tr, False, [0.16, 1.3], 0.03),
+    ("EE_I3_pt0_n64+", "pt=0", [64, 128, 256], (0.13, 0.19), i3_tr, False, [0.16, 1.3], 0.03),
+    ("d_over_n_pt1n", "pt=1/n", [32, 64, 128, 256, 512, 1024], (0.10, 0.22), phi_tr, True, [0.16, 1.3, 0.4], 1e-3),
+    ("d_over_n_pt1n_n64+", "pt=1/n", [64, 128, 256, 512, 1024], (0.10, 0.22), phi_tr, True, [0.16, 1.3, 0.4], 1e-3),
+    ("d_over_n_pt1n_n128+", "pt=1/n", [128, 256, 512, 1024], (0.10, 0.22), phi_tr, True, [0.16, 1.3, 0.4], 1e-3),
+    ("d_over_n_pt2n", "pt=2/n", [64, 128, 256, 512, 1024], (0.14, 0.25), phi_tr, True, [0.16, 1.3, 0.4], 1e-3),
+    ("d_over_n_pt2n_n128+", "pt=2/n", [128, 256, 512, 1024], (0.14, 0.25), phi_tr, True, [0.16, 1.3, 0.4], 1e-3),
 ]:
+    EFLOOR["v"] = fl
     try:
         best, err, data = boot_fit(fam, ns, pwin, tr, beta, x0)
         results[label] = dict(params=list(map(float, best.x)), err=list(map(float, err)),
@@ -200,15 +206,106 @@ for label, fam, ns, pwin, tr, beta, x0 in [
 # constant p_t: same window fits (expected to be poor: no transition)
 for pt in ["pt=0.01", "pt=0.05", "pt=0.2"]:
     try:
-        best, err, data = boot_fit(pt, [64, 128, 256, 512], (0.05, 0.30), phi_tr, True, [0.16, 1.3, 0.0], nboot=20)
+        EFLOOR["v"] = 1e-3
+        best, err, data = boot_fit(pt, [64, 128, 256, 512], (0.05, 0.30), phi_tr, True, [0.16, 1.3, 0.0], nboot=10)
         results[f"d_over_n_{pt}"] = dict(params=list(map(float, best.x)), err=list(map(float, err)),
                                           chi2dof=float(best.fun), sizes=[64, 128, 256, 512], window=(0.05, 0.3))
         print(pt, results[f"d_over_n_{pt}"], flush=True)
     except Exception as e:
         print("fit failed", pt, e)
+
+# ---------------------------------------------------------------- model-free crossings
+def cell_vals(fam, n, pm, kind):
+    rs = cells.get((fam, n, pm))
+    if not rs:
+        return None
+    if kind == "dbar":
+        return np.array([float(r[ci["d_avg"]]) for r in rs])
+    v = np.array([float(r[ci["i3_lo"]]) for r in rs])
+    return v[np.isfinite(v)]
+
+
+def curve(fam, n, kind, rg, pms):
+    out_ = []
+    for pm in pms:
+        v = cell_vals(fam, n, pm, kind)
+        if v is None or len(v) == 0:
+            return None
+        if rg is not None:
+            v = rg.choice(v, len(v))
+        out_.append(v.mean())
+    return np.array(out_)
+
+
+def first_cross(pms, a, b):
+    """p where a - b changes sign (linear interpolation), first from the left."""
+    dlt = a - b
+    for i in range(len(pms) - 1):
+        if dlt[i] == 0:
+            return pms[i]
+        if dlt[i] * dlt[i + 1] < 0:
+            t = dlt[i] / (dlt[i] - dlt[i + 1])
+            return pms[i] + t * (pms[i + 1] - pms[i])
+    return float("nan")
+
+
+def common_pms(fam, ns, kind):
+    sets = [set(pm for (fm, n, pm) in cells if fm == fam and n == nn) for nn in ns]
+    return sorted(set.intersection(*sets)) if sets else []
+
+
+crossings = {}
+# EE: I3(n) = I3(2n)
+for (n1, n2) in [(32, 64), (64, 128), (128, 256)]:
+    pms = [pm for pm in common_pms("pt=0", [n1, n2], "i3") if 0.12 <= pm <= 0.2]
+    vals = []
+    for b in range(201):
+        rg = None if b == 0 else rng
+        a1, a2 = curve("pt=0", n1, "i3", rg, pms), curve("pt=0", n2, "i3", rg, pms)
+        vals.append(first_cross(pms, a1, a2))
+    vals = np.array(vals)
+    crossings[f"I3 {n1}x{n2}"] = (float(vals[0]), float(np.nanstd(vals[1:])))
+# d: local exponent kappa(n) = log2(dbar(2n)/dbar(n)); crossing of kappa(n,2n) and kappa(2n,4n)
+kap = {}
+for fam, ns in [("pt=1/n", [16, 32, 64, 128, 256, 512, 1024]), ("pt=2/n", [32, 64, 128, 256, 512, 1024])]:
+    for i in range(len(ns) - 2):
+        n1, n2, n3 = ns[i], ns[i + 1], ns[i + 2]
+        pms = [pm for pm in common_pms(fam, [n1, n2, n3], "dbar") if 0.08 <= pm <= 0.25]
+        if len(pms) < 3:
+            continue
+        vals, kv = [], []
+        for b in range(201):
+            rg = None if b == 0 else rng
+            c1, c2, c3 = (curve(fam, nn, "dbar", rg, pms) for nn in (n1, n2, n3))
+            k1, k2 = np.log2(c2 / c1), np.log2(c3 / c2)
+            x = first_cross(pms, k2, k1)
+            vals.append(x)
+            # kappa at the crossing
+            kv.append(np.interp(x, pms, k2) if np.isfinite(x) else np.nan)
+        vals, kv = np.array(vals), np.array(kv)
+        crossings[f"kappa {fam} {n1},{n2},{n3}"] = (float(vals[0]), float(np.nanstd(vals[1:])), float(kv[0]), float(np.nanstd(kv[1:])))
+    for i in range(len(ns) - 1):
+        n1, n2 = ns[i], ns[i + 1]
+        pms = sorted(set(pm for (fm, n, pm) in cells if fm == fam and n == n1) & set(pm for (fm, n, pm) in cells if fm == fam and n == n2))
+        if pms:
+            c1, c2 = curve(fam, n1, "dbar", None, pms), curve(fam, n2, "dbar", None, pms)
+            kap[(fam, n1, n2)] = (np.array(pms), np.log2(c2 / c1))
+for k, v in crossings.items():
+    print("crossing", k, v)
+results["crossings"] = {k: list(v) for k, v in crossings.items()}
 json.dump(results, open(f"{out}/fss.json", "w"), indent=1)
 
 # ---------------------------------------------------------------- figures
+fig, ax = plt.subplots(1, 2, figsize=(11, 4.2))
+for k, fam in enumerate(["pt=1/n", "pt=2/n"]):
+    for (fm, n1, n2), (pms_, kk) in sorted(kap.items()):
+        if fm == fam:
+            ax[k].plot(pms_, kk, marker="o", ms=3, color=ncol(n2), label=f"n={n1}→{n2}")
+    ax[k].axhline(1, c="k", lw=0.5); ax[k].axhline(0, c="k", lw=0.5); ax[k].axvline(0.16, ls=":", c="gray")
+    ax[k].set_xlabel("$p_m$"); ax[k].set_ylabel("local exponent $\\kappa = \\log_2[\\bar d(2n)/\\bar d(n)]$")
+    ax[k].set_title(f"{fam.replace('pt', '$p_T$')}: $\\bar d \\sim n^\\kappa$"); ax[k].legend(fontsize=7); ax[k].set_xlim(0.03, 0.42)
+fig.tight_layout(); fig.savefig(f"{out}/local_exponent.png", dpi=130); plt.close(fig)
+
 def series(fam, n, ycol="phi"):
     pts = sorted((a["p_m"], a[ycol], a.get(ycol + "_err", 0.0)) for a in agg if a["family"] == fam and a["n"] == n)
     return np.array(pts) if pts else np.zeros((0, 3))
