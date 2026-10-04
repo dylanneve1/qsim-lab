@@ -38,13 +38,23 @@ fn request(name: &str, n: usize) -> PlanRequest {
 
 fn xs_for(n: usize, m: usize, seed: u64) -> Vec<u128> {
     let mut rng = StdRng::seed_from_u64(seed ^ 0xa5a5);
-    let mask = if n >= 128 { u128::MAX } else { (1u128 << n) - 1 };
+    let mask = if n >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << n) - 1
+    };
     (0..m).map(|_| rng.random::<u128>() & mask).collect()
 }
 
 fn parity_sum(it: impl Iterator<Item = (u128, f64)>, mask: u128) -> f64 {
-    it.map(|(x, p)| if (x & mask).count_ones() & 1 == 1 { -p } else { p })
-        .sum()
+    it.map(|(x, p)| {
+        if (x & mask).count_ones() & 1 == 1 {
+            -p
+        } else {
+            p
+        }
+    })
+    .sum()
 }
 
 fn j(x: Option<f64>) -> String {
@@ -63,7 +73,9 @@ fn cmd_req(engine: &str, c: &Circuit, mem: u128, seed: u64) -> String {
     let evolve = t0.elapsed().as_secs_f64();
     let mut p = match p {
         Ok(Some(p)) => p,
-        Ok(None) => return format!("{{\"ok\":false,\"error\":\"aborted\",\"evolve\":{evolve:.6}}}"),
+        Ok(None) => {
+            return format!("{{\"ok\":false,\"error\":\"aborted\",\"evolve\":{evolve:.6}}}")
+        }
         Err(err) => {
             return format!(
                 "{{\"ok\":false,\"error\":\"{}\",\"evolve\":{evolve:.6}}}",
@@ -71,7 +83,11 @@ fn cmd_req(engine: &str, c: &Circuit, mem: u128, seed: u64) -> String {
             )
         }
     };
-    let mask: u128 = if n >= 128 { u128::MAX } else { (1u128 << n) - 1 };
+    let mask: u128 = if n >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << n) - 1
+    };
     let all: Vec<usize> = (0..n).collect();
     let mut size = String::new();
     // expectation read-out (where the state is directly readable)
@@ -86,7 +102,10 @@ fn cmd_req(engine: &str, c: &Circuit, mem: u128, seed: u64) -> String {
         )),
         Prepared::Sparse(s) => {
             size = format!("\"nnz\":{},\"peak_nnz\":{},", s.nnz(), s.peak_nnz());
-            Some(parity_sum(s.iter().map(|(x, a)| (u128::from(x), a.norm_sqr())), mask))
+            Some(parity_sum(
+                s.iter().map(|(x, a)| (u128::from(x), a.norm_sqr())),
+                mask,
+            ))
         }
         Prepared::Mps(m) => {
             let b = m.bond_dims();
@@ -223,12 +242,16 @@ fn cmd_plan(variant: &str, req_name: &str, c: &Circuit, mem: u128, seed: u64) ->
     let t0 = Instant::now();
     let (plan, rule) = if variant == "rule" && !matches!(req, PlanRequest::Expectation(_)) {
         let e = rule_engine(c, &req);
-        let mut p = planner::plan(c, &PlanRequest::Expectation(vec![]), &PlannerConfig {
-            tiered: true,
-            voi: f64::INFINITY,
-            cache: false,
-            ..cfg
-        })
+        let mut p = planner::plan(
+            c,
+            &PlanRequest::Expectation(vec![]),
+            &PlannerConfig {
+                tiered: true,
+                voi: f64::INFINITY,
+                cache: false,
+                ..cfg
+            },
+        )
         .expect("plan");
         p.engine = e;
         p.ranked = vec![(e, 0.0)];
@@ -303,7 +326,11 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         0.0
     } else {
         let m = *prof.iter().max().unwrap() as f64;
-        m + prof.iter().map(|&d| (d as f64 - m).exp2()).sum::<f64>().log2()
+        m + prof
+            .iter()
+            .map(|&d| (d as f64 - m).exp2())
+            .sum::<f64>()
+            .log2()
     };
     let t = Instant::now();
     let r = replay(&c, BondSource::Bound(Estimator::Best)).expect("replay");
@@ -324,17 +351,45 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
     let mut choices = Vec::new();
     for rq in REQS {
         let req = request(rq, n);
-        let v1 = planner::plan(&c, &req, &PlannerConfig { use_certificate: false, ..PlannerConfig::v1() })
-            .map(|p| p.engine.name())
-            .unwrap_or("none");
-        let v2 = planner::plan(&c, &req, &PlannerConfig { use_certificate: false, cache: false, ..PlannerConfig::default() })
-            .map(|p| p.engine.name())
-            .unwrap_or("none");
+        let v1 = planner::plan(
+            &c,
+            &req,
+            &PlannerConfig {
+                use_certificate: false,
+                ..PlannerConfig::v1()
+            },
+        )
+        .map(|p| p.engine.name())
+        .unwrap_or("none");
+        let v2 = planner::plan(
+            &c,
+            &req,
+            &PlannerConfig {
+                use_certificate: false,
+                cache: false,
+                ..PlannerConfig::default()
+            },
+        )
+        .map(|p| p.engine.name())
+        .unwrap_or("none");
         let rule = rule_engine(&c, &req).name();
-        let preds: Vec<String> = [Engine::StateVector, Engine::Sparse, Engine::Mps, Engine::Hsf, Engine::Compressed, Engine::Tableau]
-            .iter()
-            .map(|&e| format!("\"{}\":{:.6e}", e.name(), predict_secs(e, &f, &req, &cfg.model)))
-            .collect();
+        let preds: Vec<String> = [
+            Engine::StateVector,
+            Engine::Sparse,
+            Engine::Mps,
+            Engine::Hsf,
+            Engine::Compressed,
+            Engine::Tableau,
+        ]
+        .iter()
+        .map(|&e| {
+            format!(
+                "\"{}\":{:.6e}",
+                e.name(),
+                predict_secs(e, &f, &req, &cfg.model)
+            )
+        })
+        .collect();
         choices.push(format!(
             "\"{rq}\":{{\"v1\":\"{v1}\",\"v2\":\"{v2}\",\"rule\":\"{rule}\",\"pred\":{{{}}}}}",
             preds.join(",")
@@ -350,11 +405,22 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let mem = |i: usize| -> u128 { args.get(i).map(|s| s.parse().expect("mem")).unwrap_or(1 << 30) };
+    let mem = |i: usize| -> u128 {
+        args.get(i)
+            .map(|s| s.parse().expect("mem"))
+            .unwrap_or(1 << 30)
+    };
     match args.get(1).map(String::as_str) {
         Some("req") => {
-            let c = build(&Spec::parse(&args[3]).expect("spec"), args[4].parse().unwrap()).expect("build");
-            println!("{}", cmd_req(&args[2], &c, mem(5), args[4].parse().unwrap()));
+            let c = build(
+                &Spec::parse(&args[3]).expect("spec"),
+                args[4].parse().unwrap(),
+            )
+            .expect("build");
+            println!(
+                "{}",
+                cmd_req(&args[2], &c, mem(5), args[4].parse().unwrap())
+            );
         }
         Some("plan") => {
             let seed: u64 = args[5].parse().unwrap();

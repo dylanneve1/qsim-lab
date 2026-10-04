@@ -961,12 +961,14 @@ pub fn run_engine_obs(
                 _ => r.dense_qubits as f64,
             };
             run.note = format!(
-                "switched_at={:?} dense_qubits={} peak_terms={} term_visits={} dense_ops={}",
+                "switched_at={:?} dense_qubits={} peak_terms={} term_visits={} dense_ops={} frame_secs={:.6} restarted={}",
                 r.switched_at,
                 r.dense_qubits,
                 r.frame_stats.peak_terms,
                 r.frame_stats.term_visits,
-                r.dense_ops
+                r.dense_ops,
+                r.frame_secs,
+                r.restarted
             );
         }
         "plan" | "planx" | "planp" => {

@@ -722,7 +722,9 @@ pub fn lower_bound_secs(e: Engine, q: &QuickFeatures, req: &PlanRequest, m: &Cos
             hsf_keff: 0,
             ..Default::default()
         },
-        mps_r: (m.mps_call_overhead * q.mps_steps as f64 + g).max(1.0).log2(),
+        mps_r: (m.mps_call_overhead * q.mps_steps as f64 + g)
+            .max(1.0)
+            .log2(),
         mps_bonds: vec![1; n.saturating_sub(1)],
         ..Default::default()
     };
@@ -1027,7 +1029,11 @@ fn tier0_features(q: &QuickFeatures) -> PlanFeatures {
 }
 
 /// Tier 1: affine support bound, rotation-frame profile, certificate.
-fn tier1_features(c: &Circuit, obs: Option<&[usize]>, f: &mut PlanFeatures) -> Result<(), SimError> {
+fn tier1_features(
+    c: &Circuit,
+    obs: Option<&[usize]>,
+    f: &mut PlanFeatures,
+) -> Result<(), SimError> {
     let n = c.num_qubits;
     let gates: Vec<Gate> = c.gates().copied().collect();
     let g = gates.len().max(1) as f64;
@@ -1492,7 +1498,11 @@ impl Prepared {
     ) -> Result<Option<Vec<u128>>, SimError> {
         self.prepare_sampling()?;
         Ok(Some(match self {
-            Prepared::Sv(sv) => sv.sample(shots, rng).into_iter().map(|x| x as u128).collect(),
+            Prepared::Sv(sv) => sv
+                .sample(shots, rng)
+                .into_iter()
+                .map(|x| x as u128)
+                .collect(),
             Prepared::Sparse(s) => s.sample(shots, rng).into_iter().map(u128::from).collect(),
             Prepared::Mps(m) => {
                 if m.num_qubits() > 128 {

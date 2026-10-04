@@ -721,7 +721,6 @@ impl<T: Real> Simulator for StateVector<T> {
     }
 }
 
-
 /// `shots` sorted uniforms on `[0, total)` in `O(shots)`: normalised partial
 /// sums of `shots + 1` i.i.d. standard exponentials (Rényi's
 /// representation of uniform order statistics).

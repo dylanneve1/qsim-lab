@@ -131,7 +131,10 @@ fn assert_distribution(samples: &[u128], p: &[f64], what: &str) {
     let (stat, df) = chi_square(samples, p);
     // mean df, sd sqrt(2 df): 7 sd is never reached by chance at fixed seeds
     let limit = df as f64 + 7.0 * (2.0 * df as f64).sqrt() + 12.0;
-    assert!(stat <= limit, "{what}: chi2 {stat:.1} > {limit:.1} (df {df})");
+    assert!(
+        stat <= limit,
+        "{what}: chi2 {stat:.1} > {limit:.1} (df {df})"
+    );
 }
 
 #[test]
@@ -171,7 +174,10 @@ fn every_sampling_engine_draws_the_exact_distribution() {
                     let xs: Vec<u128> = (0..p.len() as u128).collect();
                     let a = st.amplitudes(&xs).unwrap();
                     for (x, (u, v)) in want.iter().zip(&a).enumerate() {
-                        assert!((u - v).norm() < 1e-7, "{name} {e:?} amplitude {x}: {u} vs {v}");
+                        assert!(
+                            (u - v).norm() < 1e-7,
+                            "{name} {e:?} amplitude {x}: {u} vs {v}"
+                        );
                     }
                 }
                 _ => {}
@@ -197,14 +203,23 @@ fn every_amplitude_engine_keeps_the_global_phase() {
         // planned (debug mode checks against the reference too)
         let r = planner::amplitudes(&c, &xs, &cfg).unwrap();
         for (x, a) in xs.iter().zip(&r.amplitudes) {
-            assert!((want[*x as usize] - a).norm() < 1e-7, "{name} planned {:?}", r.engine);
+            assert!(
+                (want[*x as usize] - a).norm() < 1e-7,
+                "{name} planned {:?}",
+                r.engine
+            );
         }
         // forced engines run to completion (no speculative abort)
         let forced = PlannerConfig {
             speculate: 0.0,
             ..cfg
         };
-        for e in [Engine::StateVector, Engine::Sparse, Engine::Mps, Engine::Hsf] {
+        for e in [
+            Engine::StateVector,
+            Engine::Sparse,
+            Engine::Mps,
+            Engine::Hsf,
+        ] {
             let mut p = planner::plan(&c, &PlanRequest::Amplitudes(xs.len()), &forced).unwrap();
             p.engine = e;
             let got = planner::execute_amplitudes(&p, &c, &xs, &forced).unwrap();
@@ -258,14 +273,25 @@ fn pipeline_samples_and_amplitudes_are_exact() {
         // terminal samples of every qubit
         let mut m = c.clone();
         m.measure_all();
-        let r = simulate(&m, &Request::Samples { shots: 20_000, seed: i as u64 }, &Budget::default())
-            .unwrap();
+        let r = simulate(
+            &m,
+            &Request::Samples {
+                shots: 20_000,
+                seed: i as u64,
+            },
+            &Budget::default(),
+        )
+        .unwrap();
         let Output::Samples(s) = r.output else {
             panic!()
         };
         let idx: Vec<u128> = s
             .iter()
-            .map(|b| b.iter().enumerate().fold(0u128, |a, (q, &v)| a | (u128::from(v) << q)))
+            .map(|b| {
+                b.iter()
+                    .enumerate()
+                    .fold(0u128, |a, (q, &v)| a | (u128::from(v) << q))
+            })
             .collect();
         let p: Vec<f64> = want.iter().map(|a| a.norm_sqr()).collect();
         assert_distribution(&idx, &p, &format!("{name} pipeline {:?}", r.engines));
@@ -296,10 +322,7 @@ fn speculative_sampling_falls_back_exactly() {
 #[test]
 fn tiering_and_cache_never_change_a_result() {
     let tiered = cfg();
-    let full = PlannerConfig {
-        voi: 0.0,
-        ..cfg()
-    };
+    let full = PlannerConfig { voi: 0.0, ..cfg() };
     let cached = PlannerConfig {
         cache: true,
         ..cfg()
@@ -326,7 +349,10 @@ fn tiering_and_cache_never_change_a_result() {
         }
         // voi = 0 computes every feature it may need
         let p = planner::plan(&c, &PlanRequest::Expectation(obs.clone()), &full).unwrap();
-        assert!(p.features.tier >= 1 || p.engine == Engine::Tableau, "{name}");
+        assert!(
+            p.features.tier >= 1 || p.engine == Engine::Tableau,
+            "{name}"
+        );
     }
 }
 
@@ -362,8 +388,12 @@ fn cache_reuses_choices_across_angles_but_never_values() {
     assert!(b.cached, "same structure, same Clifford classes");
     assert_eq!(a.engine, b.engine);
     // a Clifford angle changes the class: no reuse
-    let c = planner::plan(&mk(std::f64::consts::FRAC_PI_2), &PlanRequest::Expectation(obs.clone()), &cfg)
-        .unwrap();
+    let c = planner::plan(
+        &mk(std::f64::consts::FRAC_PI_2),
+        &PlanRequest::Expectation(obs.clone()),
+        &cfg,
+    )
+    .unwrap();
     assert!(!c.cached);
     // the value of the reused plan is the new circuit's own
     let r = planner::execute_expectation(&b, &mk(0.7), &obs, &cfg).unwrap();
@@ -371,7 +401,13 @@ fn cache_reuses_choices_across_angles_but_never_values() {
         .a
         .iter()
         .enumerate()
-        .map(|(x, a)| if (x as u32).count_ones() % 2 == 1 { -a.norm_sqr() } else { a.norm_sqr() })
+        .map(|(x, a)| {
+            if (x as u32).count_ones() % 2 == 1 {
+                -a.norm_sqr()
+            } else {
+                a.norm_sqr()
+            }
+        })
         .sum();
     assert!((r.value - want).abs() < 1e-7);
     planner::clear_cache();
@@ -390,11 +426,13 @@ fn sorted_uniforms_are_sorted_uniform_order_statistics() {
         .enumerate()
         .map(|(i, &x)| {
             let f = x / 2.0;
-            (f - i as f64 / n as f64).abs().max(((i + 1) as f64 / n as f64 - f).abs())
+            (f - i as f64 / n as f64)
+                .abs()
+                .max(((i + 1) as f64 / n as f64 - f).abs())
         })
         .fold(0.0, f64::max);
     assert!(d * (n as f64).sqrt() < 1.95, "KS {d}"); // p ~ 0.001
-    // the k-th order statistic has mean k/(n+1)
+                                                     // the k-th order statistic has mean k/(n+1)
     let mid = r[n / 2] / 2.0;
     assert!((mid - 0.5).abs() < 0.01);
 }
