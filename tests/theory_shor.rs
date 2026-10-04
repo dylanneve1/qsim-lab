@@ -257,7 +257,7 @@ fn t1_support_law_on_gate_level_tree() {
                 "P(prefix) N={n} a={a} i={i} y={y}: {norm2} vs {prob}"
             );
             let g = powmod(a, 1u128 << (t - i), n);
-            let mut sim: Vec<(u64, Complex64)> = s.work().map(|(k, v)| (k, v)).collect();
+            let mut sim: Vec<(u64, Complex64)> = s.work().collect();
             sim.sort_by_key(|e| e.0);
             let mut nonzero = 0u64;
             let sc = 1.0 / prob.sqrt();
@@ -1060,6 +1060,7 @@ fn t3_phase_fault_textbook_formula() {
             }
             let mut pt = vec![0.0; tt];
             for (_, amp) in by_z {
+                #[allow(clippy::needless_range_loop)]
                 for y in 0..tt {
                     let mut acc = Complex64::new(0.0, 0.0);
                     for (x, v) in amp.iter().enumerate() {

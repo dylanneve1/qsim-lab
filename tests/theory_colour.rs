@@ -58,6 +58,7 @@ impl Tri {
         for (pi, p) in cc.plaquettes.iter().enumerate() {
             let (u, v) = p_uv[pi];
             assert_eq!((u - v).rem_euclid(3), 2, "plaquette site rule");
+            #[allow(clippy::needless_range_loop)]
             for k in 0..6 {
                 let site = (u + NB[k].0, v + NB[k].1);
                 assert_eq!(p.data[k], q_of.get(&site).copied(), "offset map");
@@ -68,10 +69,22 @@ impl Tri {
             assert!(u >= 0 && v >= 0 && u + v <= l && (u - v).rem_euclid(3) != 2);
         }
         let bottom = (0..cc.data.len()).filter(|&i| cc.data[i].1 == 0).collect();
-        Tri { d, m, l, q_of, p_uv, p_of, supp, bottom }
+        Tri {
+            d,
+            m,
+            l,
+            q_of,
+            p_uv,
+            p_of,
+            supp,
+            bottom,
+        }
     }
     fn q(&self, p: Pt) -> usize {
-        *self.q_of.get(&p).unwrap_or_else(|| panic!("{p:?} is not a data qubit"))
+        *self
+            .q_of
+            .get(&p)
+            .unwrap_or_else(|| panic!("{p:?} is not a data qubit"))
     }
     fn set<I: IntoIterator<Item = Pt>>(&self, pts: I) -> Set {
         pts.into_iter().map(|p| self.q(p)).collect()
@@ -98,7 +111,9 @@ impl Tri {
         p
     }
     fn rot(&self, s: &Set, k: usize) -> Set {
-        s.iter().map(|&q| self.q(self.rho_k(self.uv_of(q), k))).collect()
+        s.iter()
+            .map(|&q| self.q(self.rho_k(self.uv_of(q), k)))
+            .collect()
     }
     fn times(&self, s: &Set, plaquette: Pt) -> Set {
         s.symmetric_difference(&self.supp[self.plaq(plaquette)].iter().copied().collect())
@@ -120,7 +135,10 @@ impl Tri {
     /// Family II_j (j = 0..m-1): right part of the bottom side plus a green
     /// string from the trapezoid (3j+2, 0) up-left to the left side.
     fn fam_ii(&self, j: i32) -> Set {
-        let mut pts: Vec<Pt> = (3 * j + 3..=self.l).filter(|u| u % 3 != 2).map(|u| (u, 0)).collect();
+        let mut pts: Vec<Pt> = (3 * j + 3..=self.l)
+            .filter(|u| u % 3 != 2)
+            .map(|u| (u, 0))
+            .collect();
         for t in 0..j {
             pts.push((3 * j + 1 - 3 * t, 3 * t + 1));
             pts.push((3 * j - 3 * t, 3 * t + 2));
@@ -141,7 +159,12 @@ fn bottom_certificates(t: &Tri) -> Vec<(usize, Vec<(Set, Set, String)>)> {
     let m = t.m;
     let tr = |j: i32| (3 * j + 2, 0);
     let mut out = Vec::new();
-    let pair = |p: Pt, a: usize, b: usize| t.set([(p.0 + NB[a].0, p.1 + NB[a].1), (p.0 + NB[b].0, p.1 + NB[b].1)]);
+    let pair = |p: Pt, a: usize, b: usize| {
+        t.set([
+            (p.0 + NB[a].0, p.1 + NB[a].1),
+            (p.0 + NB[b].0, p.1 + NB[b].1),
+        ])
+    };
     let (a, b, c, d, e, f) = (0, 1, 2, 3, 4, 5);
     // Theorem 1: bottom-left corner (0,1) = {b=(0,2), c=(1,1), d=(1,0), e=(0,0)}.
     let p0 = (0, 1);
@@ -149,7 +172,11 @@ fn bottom_certificates(t: &Tri) -> Vec<(usize, Vec<(Set, Set, String)>)> {
         t.plaq(p0),
         vec![
             (pair(p0, d, e), t.a_side(), "A".into()),
-            (pair(p0, b, e), t.rot(&t.a_side(), 1), "rho A (left side)".into()),
+            (
+                pair(p0, b, e),
+                t.rot(&t.a_side(), 1),
+                "rho A (left side)".into(),
+            ),
             (pair(p0, c, e), t.times(&t.a_side(), tr(0)), "A.t0".into()),
         ],
     ));
@@ -176,22 +203,62 @@ fn bottom_certificates(t: &Tri) -> Vec<(usize, Vec<(Set, Set, String)>)> {
         let r2 = |s: Set| t.rot(&s, 2);
         let mut v = vec![
             (pair(p, d, e), t.a_side(), "A".to_string()),
-            (pair(p, d, f), t.times(&t.a_side(), tr(j - 1)), format!("A.t{}", j - 1)),
-            (pair(p, c, e), t.times(&t.a_side(), tr(j)), format!("A.t{j}")),
-            (pair(p, c, f), t.times(&t.times(&t.a_side(), tr(j - 1)), tr(j)), format!("A.t{}.t{j}", j - 1)),
+            (
+                pair(p, d, f),
+                t.times(&t.a_side(), tr(j - 1)),
+                format!("A.t{}", j - 1),
+            ),
+            (
+                pair(p, c, e),
+                t.times(&t.a_side(), tr(j)),
+                format!("A.t{j}"),
+            ),
+            (
+                pair(p, c, f),
+                t.times(&t.times(&t.a_side(), tr(j - 1)), tr(j)),
+                format!("A.t{}.t{j}", j - 1),
+            ),
             (pair(p, c, d), t.fam_i(j), format!("I_{j}")),
             (pair(p, b, c), t.fam_ii(j), format!("II_{j}")),
-            (pair(p, e, f), r2(t.fam_ii(m - j)), format!("rho^2 II_{}", m - j)),
+            (
+                pair(p, e, f),
+                r2(t.fam_ii(m - j)),
+                format!("rho^2 II_{}", m - j),
+            ),
         ];
         if j <= m - 2 {
-            v.push((pair(p, b, d), t.times(&t.fam_ii(j), tr(j)), format!("II_{j}.t{j}")));
-            v.push((pair(p, b, e), r2(t.fam_i(m - 1 - j)), format!("rho^2 I_{}", m - 1 - j)));
-            v.push((pair(p, b, f), t.times(&r2(t.fam_i(m - 1 - j)), tr(j - 1)), format!("rho^2 I_{}.t{}", m - 1 - j, j - 1)));
+            v.push((
+                pair(p, b, d),
+                t.times(&t.fam_ii(j), tr(j)),
+                format!("II_{j}.t{j}"),
+            ));
+            v.push((
+                pair(p, b, e),
+                r2(t.fam_i(m - 1 - j)),
+                format!("rho^2 I_{}", m - 1 - j),
+            ));
+            v.push((
+                pair(p, b, f),
+                t.times(&r2(t.fam_i(m - 1 - j)), tr(j - 1)),
+                format!("rho^2 I_{}.t{}", m - 1 - j, j - 1),
+            ));
         } else {
             let k = (3 * m - 2, 2);
-            v.push((pair(p, b, d), t.times(&t.fam_i(m - 1), k), format!("I_{}.S{k:?}", m - 1)));
-            v.push((pair(p, b, e), t.times(&r2(t.fam_i(0)), k), format!("rho^2 I_0.S{k:?}")));
-            v.push((pair(p, b, f), t.rot(&t.fam_ii(m - 1), 1), format!("rho II_{}", m - 1)));
+            v.push((
+                pair(p, b, d),
+                t.times(&t.fam_i(m - 1), k),
+                format!("I_{}.S{k:?}", m - 1),
+            ));
+            v.push((
+                pair(p, b, e),
+                t.times(&r2(t.fam_i(0)), k),
+                format!("rho^2 I_0.S{k:?}"),
+            ));
+            v.push((
+                pair(p, b, f),
+                t.rot(&t.fam_ii(m - 1), 1),
+                format!("rho II_{}", m - 1),
+            ));
         }
         out.push((t.plaq(p), v));
     }
@@ -206,7 +273,11 @@ fn all_certificates(t: &Tri) -> HashMap<usize, Vec<(Set, Set, String)>> {
         for k in 0..3 {
             let rp = t.plaq(t.rho_k(t.p_uv[pi], k));
             for (pr, l, name) in &certs {
-                all.entry(rp).or_default().push((t.rot(pr, k), t.rot(l, k), format!("rho^{k}({name})")));
+                all.entry(rp).or_default().push((
+                    t.rot(pr, k),
+                    t.rot(l, k),
+                    format!("rho^{k}({name})"),
+                ));
             }
         }
     }
@@ -232,7 +303,9 @@ fn permutations(v: &[usize]) -> Vec<Vec<usize>> {
 /// Multi-qubit hooks of a sequential order: suffixes of size 2..=w-2.
 fn hooks(order: &[usize]) -> Vec<Set> {
     let w = order.len();
-    (2..=w.saturating_sub(2)).map(|k| order[k..].iter().copied().collect()).collect()
+    (2..=w.saturating_sub(2))
+        .map(|k| order[k..].iter().copied().collect())
+        .collect()
 }
 
 /// Number of orders of `supp` none of whose hooks (or their complements) is in `malign`.
@@ -291,7 +364,11 @@ fn corner_and_boundary_lemmas_hold_with_explicit_certificates() {
         let certs = all_certificates(&t);
         let nbnd = (0..t.supp.len()).filter(|&p| is_boundary(&t, p)).count();
         assert_eq!(nbnd, 3 * d - 6, "d={d}: boundary plaquettes");
-        assert_eq!(certs.len(), 3 * d - 6, "d={d}: every boundary plaquette certified");
+        assert_eq!(
+            certs.len(),
+            3 * d - 6,
+            "d={d}: every boundary plaquette certified"
+        );
         for (&pi, list) in &certs {
             assert!(is_boundary(&t, pi));
             let sp: Set = t.supp[pi].iter().copied().collect();
@@ -302,7 +379,12 @@ fn corner_and_boundary_lemmas_hold_with_explicit_certificates() {
                 assert_eq!(&meet, pr, "d={d} plaquette {:?} {name}", t.p_uv[pi]);
                 malign.insert(pr.clone());
             }
-            assert_eq!(safe_orders(&t.supp[pi], &malign), 0, "d={d} plaquette {:?}", t.p_uv[pi]);
+            assert_eq!(
+                safe_orders(&t.supp[pi], &malign),
+                0,
+                "d={d} plaquette {:?}",
+                t.p_uv[pi]
+            );
         }
     }
 }
@@ -312,7 +394,11 @@ fn corner_and_boundary_lemmas_hold_with_explicit_certificates() {
 fn weight_d_logicals(t: &Tri) -> Vec<u128> {
     let n = t.q_of.len();
     assert!(n <= 128);
-    let rows: Vec<u128> = t.supp.iter().map(|s| s.iter().fold(0u128, |a, &q| a | 1 << q)).collect();
+    let rows: Vec<u128> = t
+        .supp
+        .iter()
+        .map(|s| s.iter().fold(0u128, |a, &q| a | 1 << q))
+        .collect();
     let mut cur: u128 = t.bottom.iter().fold(0, |a, &q| a | 1 << q);
     let mut out = vec![cur];
     for k in 1u64..(1u64 << rows.len()) {
@@ -345,7 +431,10 @@ fn exact_check(d: usize, expect_logicals: usize) {
                 }
             }
         }
-        assert!(malign.iter().all(|h| h.len() == 2), "d={d}: a weight-3 hook is malign");
+        assert!(
+            malign.iter().all(|h| h.len() == 2),
+            "d={d}: a weight-3 hook is malign"
+        );
         let safe = safe_orders(sp, &malign);
         if is_boundary(&t, pi) {
             assert_eq!(safe, 0, "d={d} boundary plaquette {:?}", t.p_uv[pi]);
@@ -389,8 +478,14 @@ fn circuit_witness(d: usize, s: &ColorSchedule) {
     let np = cc.plaquettes.len();
     let mem = cc.memory(s, 1, ColorNoise::Cnot(0.001));
     let z = mem.z_sector();
-    let index: HashMap<(Vec<u32>, bool), usize> =
-        z.dets.iter().cloned().zip(z.obs.iter().copied()).enumerate().map(|(i, k)| (k, i)).collect();
+    let index: HashMap<(Vec<u32>, bool), usize> = z
+        .dets
+        .iter()
+        .cloned()
+        .zip(z.obs.iter().copied())
+        .enumerate()
+        .map(|(i, k)| (k, i))
+        .collect();
     // a clean X error on data set Q during the X half of the last round flips the
     // final-layer detectors (layer 1) of the plaquettes meeting Q oddly
     let sig = |qs: &Set| -> (Vec<u32>, bool) {
@@ -417,8 +512,15 @@ fn circuit_witness(d: usize, s: &ColorSchedule) {
                 // hook H plus singles on L \ pr: product L (pr = H) or L.S_p (pr = supp \ H)
                 let singles: Set = l.symmetric_difference(pr).copied().collect();
                 let mut faults = vec![index.get(&sig(&h)).copied()];
-                faults.extend(singles.iter().map(|&q| index.get(&sig(&[q].into())).copied()));
-                assert!(faults.iter().all(|f| f.is_some()), "d={d}: missing mechanism ({name})");
+                faults.extend(
+                    singles
+                        .iter()
+                        .map(|&q| index.get(&sig(&[q].into())).copied()),
+                );
+                assert!(
+                    faults.iter().all(|f| f.is_some()),
+                    "d={d}: missing mechanism ({name})"
+                );
                 let faults: Vec<usize> = faults.into_iter().map(|f| f.unwrap()).collect();
                 assert!(faults.iter().all(|&f| z.pure[f]));
                 let mut acc: BTreeSet<u32> = BTreeSet::new();
@@ -431,13 +533,20 @@ fn circuit_witness(d: usize, s: &ColorSchedule) {
                     }
                     ob ^= z.obs[f];
                 }
-                assert!(acc.is_empty() && ob, "d={d}: not an undetectable logical ({name})");
+                assert!(
+                    acc.is_empty() && ob,
+                    "d={d}: not an undetectable logical ({name})"
+                );
                 assert_eq!(faults.len(), d - 1, "d={d}: {name}, hook {h:?}");
                 found = true;
                 break 'h;
             }
         }
-        assert!(found, "d={d}: no certified hook at plaquette {:?}", t.p_uv[pi]);
+        assert!(
+            found,
+            "d={d}: no certified hook at plaquette {:?}",
+            t.p_uv[pi]
+        );
     }
 }
 
@@ -452,7 +561,9 @@ fn boundary_lemma_circuit_level_d5_d7() {
 
 #[test]
 fn boundary_lemma_circuit_level_d9_global_schedule() {
-    let s = load_schedule(include_str!("../research/data/colour-global/schedules/d9_global_D8.sched"));
+    let s = load_schedule(include_str!(
+        "../research/data/colour-global/schedules/d9_global_D8.sched"
+    ));
     circuit_witness(9, &s);
     circuit_witness(9, &ColorCode::new(9).uniform_schedule(KF_SCHEDULE));
 }
@@ -467,12 +578,19 @@ fn hook_free_residuals_give_full_distance() {
         let t = Tri::new(d);
         let cc = ColorCode::new(d);
         let np = cc.plaquettes.len();
-        let mem = cc.memory(&cc.uniform_schedule(KF_SCHEDULE), rounds, ColorNoise::Cnot(0.001));
+        let mem = cc.memory(
+            &cc.uniform_schedule(KF_SCHEDULE),
+            rounds,
+            ColorNoise::Cnot(0.001),
+        );
         let z = mem.z_sector();
         // (syndrome, observable parity) of every single-qubit X error
         let single: HashSet<(Vec<u32>, bool)> = (0..t.q_of.len())
             .map(|q| {
-                let syn = (0..np).filter(|&pi| t.supp[pi].contains(&q)).map(|pi| pi as u32).collect();
+                let syn = (0..np)
+                    .filter(|&pi| t.supp[pi].contains(&q))
+                    .map(|pi| pi as u32)
+                    .collect();
                 (syn, t.bottom.contains(&q))
             })
             .collect();
