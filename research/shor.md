@@ -390,6 +390,23 @@ SAT-derived window rewrites. On the 31-bit record run: 1.70 M → 1.04 M
 gates, 528 k → 261 k Toffolis, and 135.7 s → 97.6 s on the Mac (min of 3),
 with the same measured integer.
 
+### Follow-up: measurement-based uncomputation (exp/mbu-shor)
+
+`--oracle windowed-mbu-lookup` / `windowed-mbu` (`src/shor_mbu.rs`,
+`research/mbu-shor.md`). The sliced engine gains a per-branch sign word, so
+X-basis measurements of deterministic ancillas with Z/CZ fix-ups run
+exactly; the engine asserts that every branch has sign +1 after each
+block. Temporary-AND lookups, a measurement-based unlookup and a measured
+modular-adder flag give 31-bit 261 k → 218 k Toffolis at the same 132
+qubits, and 98.0 → 89.3 s on the Mac (min of 3, same measured integer).
+Gidney adders on top take Toffolis to 119 k (−54 %) at 162 qubits. That
+variant has +20 % more engine steps, so it runs 112 s. With the
+lookup-only oracle, the first seeded 32-bit generic N, 3 631 204 201 =
+58 907 × 61 643, was factored at gate level: 136 qubits, peak support
+1.30·10⁸ exactly as predicted, 6.3 GB, 498 s on 2 threads. The base was
+chosen by seed so that its order fits in RAM; that choice used λ(N). See
+§5b there.
+
 ### The law: reachable support of the gate-level circuit, and the cost it implies (new)
 
 Before round `i` (bits `0..i−1` measured, `U^(2^(t−1)) … U^(2^(t−i))`
