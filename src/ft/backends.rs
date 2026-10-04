@@ -68,6 +68,9 @@ impl Phys for FrameBackend {
     fn pauli(&mut self, q: usize, code: u8) {
         self.frame[q] ^= code;
     }
+    fn frame_ref(&self) -> Option<&[u8]> {
+        Some(&self.frame)
+    }
 }
 
 /// Dense state vector with real (Born-rule) measurements, for validating the

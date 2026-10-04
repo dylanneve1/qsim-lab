@@ -41,6 +41,10 @@ pub trait Phys {
     fn meas_x(&mut self, q: usize) -> bool;
     /// Apply a Pauli (code: bit0 X, bit1 Z).
     fn pauli(&mut self, q: usize, code: u8);
+    /// The Pauli frame, if this backend is one.
+    fn frame_ref(&self) -> Option<&[u8]> {
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

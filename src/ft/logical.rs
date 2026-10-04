@@ -209,6 +209,8 @@ pub struct Encoded<B: Phys> {
     pub mrng: Xoshiro,
     pub magic: MagicMode,
     pub counts: RunCounts,
+    /// Logical qubits currently holding state (prepared, not yet measured).
+    pub live: Vec<bool>,
 }
 
 impl Encoded<FrameBackend> {
@@ -223,6 +225,7 @@ impl Encoded<FrameBackend> {
             mrng: Xoshiro::new(seed ^ 0x5EED_CAFE),
             magic,
             counts: RunCounts::default(),
+            live: vec![false; nlog],
         }
     }
 }
@@ -239,18 +242,20 @@ impl Encoded<DenseBackend> {
             mrng: Xoshiro::new(seed ^ 0x5EED_CAFE),
             magic,
             counts: RunCounts::default(),
+            live: vec![false; nlog],
         }
     }
 }
 
 impl Encoded<FrameBackend> {
-    /// Update `counts.logical_fault` from the data blocks' frames.
+    /// Update `counts.logical_fault` from the frames of the live data blocks
+    /// (a measured block is dead until it is prepared again).
     pub fn check_frames(&mut self) {
         if self.counts.logical_fault {
             return;
         }
-        for &b in &self.blocks {
-            if ideal_logical(&self.m.b.frame, self.k, b) != (false, false) {
+        for (q, &b) in self.blocks.iter().enumerate() {
+            if self.live[q] && ideal_logical(&self.m.b.frame, self.k, b) != (false, false) {
                 self.counts.logical_fault = true;
                 return;
             }
@@ -324,6 +329,17 @@ impl<B: Phys> Logical for Encoded<B> {
     fn prep(&mut self, q: usize, bit: bool) {
         let (k, b) = (self.k, self.blocks[q]);
         self.m.prep0(k, b);
+        self.live[q] = true;
+        if self.sv.is_some() {
+            // Z_L stabilises the freshly prepared |0⟩_L / |1⟩_L: a decoded Z_L
+            // in the frame is no error; absorb it (exact rewrite of the frame)
+            // so that the logical-fault indicator only sees real errors.
+            if let Some(fr) = self.m.b.frame_ref() {
+                if ideal_logical(fr, k, b).1 {
+                    self.m.pauli_block(k, b, PZ);
+                }
+            }
+        }
         match &mut self.sv {
             // frame model: the ideal state carries the |1⟩, the frame only errors
             Some(sv) => sv.reset(q, bit, &mut self.mrng),
@@ -373,6 +389,7 @@ impl<B: Phys> Logical for Encoded<B> {
     }
     fn meas(&mut self, q: usize) -> bool {
         let b = self.blocks[q];
+        self.live[q] = false;
         self.meas_block(q, b)
     }
     fn sdg_slot(&mut self, q: usize, apply: bool) {
