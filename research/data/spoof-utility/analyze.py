@@ -319,6 +319,44 @@ def main():
                 f"| {r['theta']:.2f} | {r['max_weight']} | {r['delta']:.0e} | {r['value']:+.4f} | {rv:+.4f} | {r['value'] - rv:+.4f} | {deficit(r):+.2e} | {r['peak_terms']} | {r['seconds']:.1f} | {r['aborted']} |"
             )
 
+    # ---------------- exact patches at depth ----------------
+    prs = []
+    for f in sorted(glob.glob("patch*.jsonl")):
+        for line in open(f):
+            if line.startswith("{"):
+                prs.append(json.loads(line))
+    if prs:
+        out.append("\n### Heavy-hex patches (BFS ball around Eagle qubit 62), exact state vector vs SPD\n")
+        out.append("| qubits | θ_h | steps | exact ⟨Z⟩ | δ | SPD | error | 1−‖O‖² | peak terms | time (s) |")
+        out.append("|---|---|---|---|---|---|---|---|---|---|")
+        for r in sorted(prs, key=lambda r: (r["k"], r["theta"], r["steps"], -r["delta"])):
+            if r["aborted"] or r.get("branch_factor", 1) != 1:
+                continue
+            out.append(
+                f"| {r['k']} | {r['theta']} | {r['steps']} | {r['exact']:+.4f} | {r['delta']:.0e} | {r['spd']:+.4f} | {r['err']:+.4f} | {1 - r['norm2']:.3f} | {r['peak_terms']} | {r['seconds']:.1f} |"
+            )
+
+    # ---------------- locked timings ----------------
+    bt = defaultdict(list)
+    loads = []
+    for f in sorted(glob.glob("bench*.jsonl")):
+        for line in open(f):
+            r = json.loads(line)
+            if "fig" in r:
+                bt[(r["fig"], r["theta"], r["delta"], r["threads"])].append(r)
+            else:
+                loads.append(r)
+    if bt:
+        out.append("\n### Locked timings (min of 3, interleaved)\n")
+        out.append(f"load: {loads}\n")
+        out.append("| figure | θ_h | δ | threads | min time (s) | all (s) | peak stored terms | value |")
+        out.append("|---|---|---|---|---|---|---|---|")
+        for k in sorted(bt):
+            v = bt[k]
+            out.append(
+                f"| {k[0]} | {k[1]} | {k[2]:.0e} | {k[3]} | {min(x['seconds'] for x in v):.3f} | {', '.join('%.3f' % x['seconds'] for x in v)} | {v[0]['peak_terms']} | {v[0]['value']:+.6f} |"
+            )
+
     open("tables.md", "w").write("\n".join(out) + "\n")
     print("\n".join(out))
 

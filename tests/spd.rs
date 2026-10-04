@@ -15,7 +15,152 @@ use std::f64::consts::PI;
 /// The 144 Eagle edges exactly as published with Kim et al. (Fig3a.ipynb of
 /// github.com/youngseok-kim1/Evidence-for-the-utility-of-quantum-computing-before-fault-tolerance),
 /// in its three edge-colour layers of 48.
-const EAGLE_EDGES: [(usize, usize); 144] = [(2,1),(33,39),(59,60),(66,67),(72,81),(118,119),(21,20),(26,25),(13,12),(31,32),(70,74),(122,123),(97,96),(57,56),(63,64),(107,108),(103,104),(46,45),(28,35),(7,6),(79,78),(5,4),(109,114),(62,61),(58,71),(37,52),(76,77),(0,14),(36,51),(106,105),(73,85),(88,87),(68,55),(116,115),(94,95),(100,110),(17,30),(92,102),(50,49),(83,84),(48,47),(98,99),(8,9),(121,120),(23,24),(44,43),(22,15),(53,41),(53,60),(123,124),(21,22),(11,12),(67,68),(2,3),(66,65),(122,121),(110,118),(6,5),(94,90),(28,29),(14,18),(62,63),(111,104),(100,99),(45,44),(4,15),(20,19),(57,58),(77,71),(76,75),(26,27),(16,8),(35,47),(31,30),(48,49),(69,70),(125,126),(89,74),(80,79),(116,117),(114,113),(10,9),(106,93),(101,102),(92,83),(98,91),(82,81),(54,64),(96,109),(85,84),(87,86),(108,112),(34,24),(42,43),(40,41),(39,38),(10,11),(54,45),(111,122),(64,65),(60,61),(103,102),(72,62),(4,3),(33,20),(58,59),(26,16),(28,27),(8,7),(104,105),(66,73),(87,93),(85,86),(55,49),(68,69),(89,88),(80,81),(117,118),(101,100),(114,115),(96,95),(29,30),(106,107),(83,82),(91,79),(0,1),(56,52),(90,75),(126,112),(36,32),(46,47),(77,78),(97,98),(17,12),(119,120),(22,23),(24,25),(43,34),(42,41),(40,39),(37,38),(125,124),(50,51),(18,19)];
+const EAGLE_EDGES: [(usize, usize); 144] = [
+    (2, 1),
+    (33, 39),
+    (59, 60),
+    (66, 67),
+    (72, 81),
+    (118, 119),
+    (21, 20),
+    (26, 25),
+    (13, 12),
+    (31, 32),
+    (70, 74),
+    (122, 123),
+    (97, 96),
+    (57, 56),
+    (63, 64),
+    (107, 108),
+    (103, 104),
+    (46, 45),
+    (28, 35),
+    (7, 6),
+    (79, 78),
+    (5, 4),
+    (109, 114),
+    (62, 61),
+    (58, 71),
+    (37, 52),
+    (76, 77),
+    (0, 14),
+    (36, 51),
+    (106, 105),
+    (73, 85),
+    (88, 87),
+    (68, 55),
+    (116, 115),
+    (94, 95),
+    (100, 110),
+    (17, 30),
+    (92, 102),
+    (50, 49),
+    (83, 84),
+    (48, 47),
+    (98, 99),
+    (8, 9),
+    (121, 120),
+    (23, 24),
+    (44, 43),
+    (22, 15),
+    (53, 41),
+    (53, 60),
+    (123, 124),
+    (21, 22),
+    (11, 12),
+    (67, 68),
+    (2, 3),
+    (66, 65),
+    (122, 121),
+    (110, 118),
+    (6, 5),
+    (94, 90),
+    (28, 29),
+    (14, 18),
+    (62, 63),
+    (111, 104),
+    (100, 99),
+    (45, 44),
+    (4, 15),
+    (20, 19),
+    (57, 58),
+    (77, 71),
+    (76, 75),
+    (26, 27),
+    (16, 8),
+    (35, 47),
+    (31, 30),
+    (48, 49),
+    (69, 70),
+    (125, 126),
+    (89, 74),
+    (80, 79),
+    (116, 117),
+    (114, 113),
+    (10, 9),
+    (106, 93),
+    (101, 102),
+    (92, 83),
+    (98, 91),
+    (82, 81),
+    (54, 64),
+    (96, 109),
+    (85, 84),
+    (87, 86),
+    (108, 112),
+    (34, 24),
+    (42, 43),
+    (40, 41),
+    (39, 38),
+    (10, 11),
+    (54, 45),
+    (111, 122),
+    (64, 65),
+    (60, 61),
+    (103, 102),
+    (72, 62),
+    (4, 3),
+    (33, 20),
+    (58, 59),
+    (26, 16),
+    (28, 27),
+    (8, 7),
+    (104, 105),
+    (66, 73),
+    (87, 93),
+    (85, 86),
+    (55, 49),
+    (68, 69),
+    (89, 88),
+    (80, 81),
+    (117, 118),
+    (101, 100),
+    (114, 115),
+    (96, 95),
+    (29, 30),
+    (106, 107),
+    (83, 82),
+    (91, 79),
+    (0, 1),
+    (56, 52),
+    (90, 75),
+    (126, 112),
+    (36, 32),
+    (46, 47),
+    (77, 78),
+    (97, 98),
+    (17, 12),
+    (119, 120),
+    (22, 23),
+    (24, 25),
+    (43, 34),
+    (42, 41),
+    (40, 39),
+    (37, 38),
+    (125, 124),
+    (50, 51),
+    (18, 19),
+];
 
 #[test]
 fn eagle_matches_published_coupling_map() {
@@ -72,11 +217,19 @@ fn pauli_masks(n: usize, s: &[(usize, char)]) -> (usize, usize) {
 
 /// <psi| P |psi> with P = i^{|x&z|} X^x Z^z.
 fn sv_pauli(a: &[C], x: usize, z: usize) -> f64 {
-    let ph = [C::new(1.0, 0.0), C::new(0.0, 1.0), C::new(-1.0, 0.0), C::new(0.0, -1.0)]
-        [((x & z).count_ones() % 4) as usize];
+    let ph = [
+        C::new(1.0, 0.0),
+        C::new(0.0, 1.0),
+        C::new(-1.0, 0.0),
+        C::new(0.0, -1.0),
+    ][((x & z).count_ones() % 4) as usize];
     let mut acc = C::new(0.0, 0.0);
     for (b, amp) in a.iter().enumerate() {
-        let s = if (z & b).count_ones() % 2 == 1 { -1.0 } else { 1.0 };
+        let s = if (z & b).count_ones() % 2 == 1 {
+            -1.0
+        } else {
+            1.0
+        };
         acc += a[b ^ x].conj() * amp * s;
     }
     (acc * ph).re
@@ -130,7 +283,9 @@ fn exact_spd_matches_statevector_on_heavy_hex_patches() {
                 obs.push(multi);
                 for o in &obs {
                     let want = sv_expect(&m, o);
-                    for (light_cone, stream) in [(true, 1), (false, 1), (true, 0), (true, 2), (true, 99)] {
+                    for (light_cone, stream) in
+                        [(true, 1), (false, 1), (true, 0), (true, 2), (true, 99)]
+                    {
                         let r = simulate(
                             &m,
                             o,
@@ -156,7 +311,10 @@ fn exact_spd_matches_statevector_on_heavy_hex_patches() {
         }
     }
     // Guard against a degenerate test (all-zero expectation values).
-    assert!(nonzero * 2 > total, "only {nonzero}/{total} non-zero values");
+    assert!(
+        nonzero * 2 > total,
+        "only {nonzero}/{total} non-zero values"
+    );
 }
 
 #[test]
@@ -165,10 +323,17 @@ fn exact_spd_matches_statevector_at_special_angles() {
     for theta in [0.0, PI / 4.0, PI / 2.0, PI, -PI / 2.0, 3.0 * PI / 2.0] {
         for steps in 1..=3 {
             let m = KickedIsing::new(patch.clone(), steps, theta);
-            for o in [PauliObs::z(0), PauliObs::parse("X0 Y1 Z2"), PauliObs::parse("Y3 Y5")] {
+            for o in [
+                PauliObs::z(0),
+                PauliObs::parse("X0 Y1 Z2"),
+                PauliObs::parse("Y3 Y5"),
+            ] {
                 let want = sv_expect(&m, &o);
                 let got = simulate(&m, &o, &SpdOptions::default()).value;
-                assert!((got - want).abs() < 1e-10, "θ {theta} steps {steps}: {got} vs {want}");
+                assert!(
+                    (got - want).abs() < 1e-10,
+                    "θ {theta} steps {steps}: {got} vs {want}"
+                );
             }
         }
     }
@@ -186,11 +351,30 @@ fn truncation_error_is_within_the_l1_bound_and_converges() {
         let mut last_err = f64::INFINITY;
         for delta in [1e-1, 1e-2, 1e-3, 1e-4, 1e-6] {
             for stream in [0, 1, 3] {
-                let r = simulate(&m, &o, &SpdOptions { delta, stream, ..SpdOptions::default() });
+                let r = simulate(
+                    &m,
+                    &o,
+                    &SpdOptions {
+                        delta,
+                        stream,
+                        ..SpdOptions::default()
+                    },
+                );
                 let err = (r.value - exact).abs();
-                assert!(err <= r.discarded_l1 + 1e-12, "δ {delta}: err {err} > bound {}", r.discarded_l1);
+                assert!(
+                    err <= r.discarded_l1 + 1e-12,
+                    "δ {delta}: err {err} > bound {}",
+                    r.discarded_l1
+                );
             }
-            let r = simulate(&m, &o, &SpdOptions { delta, ..SpdOptions::default() });
+            let r = simulate(
+                &m,
+                &o,
+                &SpdOptions {
+                    delta,
+                    ..SpdOptions::default()
+                },
+            );
             let err = (r.value - exact).abs();
             // (norm2 can exceed 1 slightly: dropping one of two cancelling
             // pre-merge children leaves the other — the l1 bound still holds.)
@@ -198,7 +382,14 @@ fn truncation_error_is_within_the_l1_bound_and_converges() {
         }
         assert!(last_err < 1e-4, "δ=1e-6 error {last_err}");
         for w in [2usize, 4, 8] {
-            let r = simulate(&m, &o, &SpdOptions { max_weight: w, ..SpdOptions::default() });
+            let r = simulate(
+                &m,
+                &o,
+                &SpdOptions {
+                    max_weight: w,
+                    ..SpdOptions::default()
+                },
+            );
             assert!((r.value - exact).abs() <= r.discarded_l1 + 1e-12);
         }
     }
@@ -254,8 +445,16 @@ fn clifford_point_matches_pauli_path_at_depth_20() {
     let eagle = Lattice::eagle127();
     for (steps, final_rx, s) in [
         (5, false, "X13 X29 X31 Y9 Y30 Z8 Z12 Z17 Z28 Z32"),
-        (5, false, "X37 X41 X52 X56 X57 X58 X62 X79 Y75 Z38 Z40 Z42 Z63 Z72 Z80 Z90 Z91"),
-        (5, true, "X37 X41 X52 X56 X57 X58 X62 X79 Y38 Y40 Y42 Y63 Y72 Y80 Y90 Y91 Z75"),
+        (
+            5,
+            false,
+            "X37 X41 X52 X56 X57 X58 X62 X79 Y75 Z38 Z40 Z42 Z63 Z72 Z80 Z90 Z91",
+        ),
+        (
+            5,
+            true,
+            "X37 X41 X52 X56 X57 X58 X62 X79 Y38 Y40 Y42 Y63 Y72 Y80 Y90 Y91 Z75",
+        ),
         (20, false, "Z62"),
         (20, false, "X0 Z1 Y126"),
     ] {
@@ -269,10 +468,17 @@ fn clifford_point_matches_pauli_path_at_depth_20() {
         let ps = PauliSum::from_str_single(&chars.iter().collect::<String>());
         let (want, _) = pauli_path::expectation(&m.to_circuit(), &ps, 1 << 20).unwrap();
         let got = simulate(&m, &o, &SpdOptions::default());
-        assert!((got.value - want).abs() < 1e-12, "{s}: {} vs {want}", got.value);
+        assert!(
+            (got.value - want).abs() < 1e-12,
+            "{s}: {} vs {want}",
+            got.value
+        );
         assert_eq!(got.peak_terms, 1);
         if steps == 5 {
-            assert!((want.abs() - 1.0).abs() < 1e-12, "{s} should be a stabilizer, got {want}");
+            assert!(
+                (want.abs() - 1.0).abs() < 1e-12,
+                "{s} should be a stabilizer, got {want}"
+            );
         }
     }
 }
@@ -292,11 +498,20 @@ fn apply_1q(rho: &mut Mat, n: usize, q: usize, u: [[C; 2]; 2]) {
                     continue;
                 }
                 let i1 = i | (1 << q);
-                let (a0, a1) = if side == 0 { (rho[i][j], rho[i1][j]) } else { (rho[j][i], rho[j][i1]) };
+                let (a0, a1) = if side == 0 {
+                    (rho[i][j], rho[i1][j])
+                } else {
+                    (rho[j][i], rho[j][i1])
+                };
                 let (u00, u01, u10, u11) = if side == 0 {
                     (u[0][0], u[0][1], u[1][0], u[1][1])
                 } else {
-                    (u[0][0].conj(), u[0][1].conj(), u[1][0].conj(), u[1][1].conj())
+                    (
+                        u[0][0].conj(),
+                        u[0][1].conj(),
+                        u[1][0].conj(),
+                        u[1][1].conj(),
+                    )
                 };
                 let b0 = u00 * a0 + u01 * a1;
                 let b1 = u10 * a0 + u11 * a1;
@@ -326,7 +541,10 @@ fn depolarize(rho: &mut Mat, n: usize, q: usize, p: f64) {
     let z = C::new(0.0, 0.0);
     let i = C::new(0.0, 1.0);
     let paulis = [[[z, o], [o, z]], [[z, -i], [i, z]], [[o, z], [z, -o]]];
-    let mut out: Mat = rho.iter().map(|r| r.iter().map(|v| v * (1.0 - p)).collect()).collect();
+    let mut out: Mat = rho
+        .iter()
+        .map(|r| r.iter().map(|v| v * (1.0 - p)).collect())
+        .collect();
     for pm in paulis {
         let mut t = rho.clone();
         apply_1q(&mut t, n, q, pm);
@@ -351,7 +569,10 @@ fn noisy_spd_matches_density_matrix() {
         let mut rho: Mat = vec![vec![C::new(0.0, 0.0); d]; d];
         rho[0][0] = C::new(1.0, 0.0);
         let (c, s) = ((theta / 2.0).cos(), (theta / 2.0).sin());
-        let rx = [[C::new(c, 0.0), C::new(0.0, -s)], [C::new(0.0, -s), C::new(c, 0.0)]];
+        let rx = [
+            [C::new(c, 0.0), C::new(0.0, -s)],
+            [C::new(0.0, -s), C::new(c, 0.0)],
+        ];
         for _ in 0..steps {
             for q in 0..n {
                 apply_1q(&mut rho, n, q, rx);
@@ -361,7 +582,13 @@ fn noisy_spd_matches_density_matrix() {
                 // exp(+i π/4 Σ Z_a Z_b)
                 let e: f64 = edges
                     .iter()
-                    .map(|&(a, bb)| if ((b >> a) ^ (b >> bb)) & 1 == 0 { 1.0 } else { -1.0 })
+                    .map(|&(a, bb)| {
+                        if ((b >> a) ^ (b >> bb)) & 1 == 0 {
+                            1.0
+                        } else {
+                            -1.0
+                        }
+                    })
                     .sum();
                 C::new(0.0, PI / 4.0 * e).exp()
             });
@@ -369,19 +596,43 @@ fn noisy_spd_matches_density_matrix() {
                 depolarize(&mut rho, n, q, p);
             }
         }
-        for o in [PauliObs::z(0), PauliObs::parse("X0 Y1 Z3"), PauliObs::parse("Y2 Z4")] {
+        for o in [
+            PauliObs::z(0),
+            PauliObs::parse("X0 Y1 Z3"),
+            PauliObs::parse("Y2 Z4"),
+        ] {
             let (x, z) = pauli_masks(n, &o.terms[0].0);
             // Tr(P rho) = Σ_b <b|P rho|b>; P|b'> = i^{|x&z|}(-1)^{z·b'}|b'^x>
-            let ph = [C::new(1.0, 0.0), C::new(0.0, 1.0), C::new(-1.0, 0.0), C::new(0.0, -1.0)]
-                [((x & z).count_ones() % 4) as usize];
+            let ph = [
+                C::new(1.0, 0.0),
+                C::new(0.0, 1.0),
+                C::new(-1.0, 0.0),
+                C::new(0.0, -1.0),
+            ][((x & z).count_ones() % 4) as usize];
             let mut tr = C::new(0.0, 0.0);
             for b in 0..d {
                 // <b| P = (P† |b>)† = (P|b>)† since P Hermitian; P|b> = ph (-1)^{z·b} |b^x>
-                let sgn = if (z & b).count_ones() % 2 == 1 { -1.0 } else { 1.0 };
+                let sgn = if (z & b).count_ones() % 2 == 1 {
+                    -1.0
+                } else {
+                    1.0
+                };
                 tr += (ph * sgn).conj() * rho[b ^ x][b];
             }
-            let r = simulate(&m, &o, &SpdOptions { depol: p, ..SpdOptions::default() });
-            assert!((r.value - tr.re).abs() < 1e-10, "steps {steps}: spd {} dm {}", r.value, tr.re);
+            let r = simulate(
+                &m,
+                &o,
+                &SpdOptions {
+                    depol: p,
+                    ..SpdOptions::default()
+                },
+            );
+            assert!(
+                (r.value - tr.re).abs() < 1e-10,
+                "steps {steps}: spd {} dm {}",
+                r.value,
+                tr.re
+            );
             let clean = simulate(&m, &o, &SpdOptions::default());
             if clean.value.abs() > 1e-3 {
                 assert!((r.value - clean.value).abs() > 1e-6, "noise had no effect");

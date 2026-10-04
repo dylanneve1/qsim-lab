@@ -11,7 +11,9 @@
 //! ```
 //! One JSON object per (θ, δ) on stdout. Set RAYON_NUM_THREADS to bound cores.
 
-use qsim_lab::spd::{light_cone_size, simulate, term_bytes, KickedIsing, Lattice, PauliObs, SpdOptions};
+use qsim_lab::spd::{
+    light_cone_size, simulate, term_bytes, KickedIsing, Lattice, PauliObs, SpdOptions,
+};
 use std::f64::consts::PI;
 
 const W10: &str = "X13 X29 X31 Y9 Y30 Z8 Z12 Z17 Z28 Z32";
@@ -36,7 +38,11 @@ fn list(s: &str) -> Vec<f64> {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let fig = args.first().cloned().unwrap_or_else(|| "3a".into());
-    let get = |k: &str| args.iter().position(|a| a == k).map(|i| args[i + 1].clone());
+    let get = |k: &str| {
+        args.iter()
+            .position(|a| a == k)
+            .map(|i| args[i + 1].clone())
+    };
     let deltas = get("--delta").map(|s| list(&s)).unwrap_or(vec![1e-4]);
     let lattice_n: usize = get("--lattice").map(|s| s.parse().unwrap()).unwrap_or(127);
     let lat = match lattice_n {
@@ -46,15 +52,23 @@ fn main() {
         _ => panic!("lattice must be 127, 433 or 1121"),
     };
     let depol: f64 = get("--depol").map(|s| s.parse().unwrap()).unwrap_or(0.0);
-    let max_weight: usize = get("--max-weight").map(|s| s.parse().unwrap()).unwrap_or(usize::MAX);
-    let branch_factor: f64 = get("--branch-factor").map(|s| s.parse().unwrap()).unwrap_or(1.0);
+    let max_weight: usize = get("--max-weight")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or(usize::MAX);
+    let branch_factor: f64 = get("--branch-factor")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or(1.0);
     let stream: usize = get("--stream").map(|s| s.parse().unwrap()).unwrap_or(1);
     let mem_gb: f64 = get("--mem-gb").map(|s| s.parse().unwrap()).unwrap_or(2.0);
     let default_thetas: Vec<f64> = (0..=16).map(|k| k as f64 * PI / 32.0).collect();
     let thetas = get("--thetas").map(|s| list(&s)).unwrap_or(default_thetas);
 
     let (obs, mut steps, final_rx) = match fig.as_str() {
-        "3a" | "mz" => (PauliObs::magnetisation(&(0..lat.n).collect::<Vec<_>>()), 5, false),
+        "3a" | "mz" => (
+            PauliObs::magnetisation(&(0..lat.n).collect::<Vec<_>>()),
+            5,
+            false,
+        ),
         "3b" => (PauliObs::parse(W10), 5, false),
         "3c" => (PauliObs::parse(W17), 5, false),
         "4a" => (PauliObs::parse(W17B), 5, true),
