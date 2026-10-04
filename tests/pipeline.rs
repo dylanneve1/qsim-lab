@@ -436,7 +436,11 @@ fn adaptive_is_chosen_and_exact() {
         .unwrap();
         if !meas.is_empty() {
             assert!(
-                r.engines.iter().any(|e| e.2 == Backend::Adaptive),
+                // the compressed state, or whichever exact engine Planner
+                // v2 picked instead (research/planner-v2.md)
+                r.engines
+                    .iter()
+                    .any(|e| matches!(e.2, Backend::Adaptive | Backend::Planned(_))),
                 "trial {trial}: engines {:?}",
                 r.engines
             );

@@ -391,15 +391,22 @@ fn dataset_regret_no_worse_than_published() {
         sv_shortcut_secs: 0.0,
         mps_feature_min_secs: 0.0,
         hsf_feature_min_secs: 0.0,
-        ..PlannerConfig::default()
+        ..PlannerConfig::v1()
     };
     // the shipped, staged planner (skips features that cannot pay off):
     // judged by the epsilon-regret (+1 ms on both sides), since staging
     // only gives up sub-millisecond differences.
     let staged = PlannerConfig {
         use_certificate: false,
+        ..PlannerConfig::v1()
+    };
+    // Planner v2 (tiered planning, research/planner-v2.md), no cache
+    let tiered = PlannerConfig {
+        use_certificate: false,
+        cache: false,
         ..PlannerConfig::default()
     };
+    let mut eps_log2 = 0.0f64;
     let mut eps_log = 0.0f64;
     let (mut n, mut top1, mut logsum) = (0usize, 0usize, 0.0f64);
     let mut worst = (1.0f64, String::new());
@@ -444,6 +451,17 @@ fn dataset_regret_no_worse_than_published() {
             _ => 2.0 * timeout,
         };
         eps_log += ((ts + 1e-3) / (wt + 1e-3)).log10();
+        let pt = planner::plan(
+            &c,
+            &PlanRequest::Expectation((0..c.num_qubits).collect()),
+            &tiered,
+        )
+        .unwrap();
+        let tt = match runs.get(name(pt.engine)) {
+            Some((s, t)) if s == "ok" => *t,
+            _ => 2.0 * timeout,
+        };
+        eps_log2 += ((tt + 1e-3) / (wt + 1e-3)).log10();
         if reg > worst.0 {
             worst = (reg, format!("{} -> {chosen} (best {wname})", key.0));
         }
@@ -451,6 +469,9 @@ fn dataset_regret_no_worse_than_published() {
     let geo = 10f64.powf(logsum / n as f64);
     let acc = top1 as f64 / n as f64;
     let geo_eps_staged = 10f64.powf(eps_log / n as f64);
+    let geo_eps_tiered = 10f64.powf(eps_log2 / n as f64);
+    eprintln!("tiered (v2) choice geo eps-regret={geo_eps_tiered:.3}");
+    assert!(geo_eps_tiered <= 1.15, "tiered eps-regret {geo_eps_tiered}");
     eprintln!(
         "planner on dataset: n={n} top1={acc:.3} geo regret={geo:.3} worst={worst:?}; \
          staged geo eps-regret={geo_eps_staged:.3}"

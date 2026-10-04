@@ -133,6 +133,9 @@ pub enum Backend {
     /// Exact marginal over the needed qubits from Pauli-path expectation
     /// values (terminal measurements only).
     PauliPath,
+    /// Chosen at run time by the planner ([`crate::planner`], samples and
+    /// amplitudes with [`PlanOptions::planner`] set): the engine it ran.
+    Planned(crate::planner::Engine),
 }
 
 /// One independent part of the circuit.
@@ -475,7 +478,7 @@ fn sample_component<T: Real, R: Rng>(
                 .map(|b| comp.needed.iter().map(|&q| b[q]).collect())
                 .collect()
         }
-        Backend::StateVector => {
+        Backend::StateVector | Backend::Planned(_) => {
             let s = prepare_statevector::<T>(&comp.circuit, use_prefix)?;
             s.sample(shots, rng)
                 .into_iter()
@@ -528,6 +531,27 @@ impl SamplingPlan {
         shots: usize,
         rng: &mut R,
     ) -> Result<Vec<Vec<bool>>, SimError> {
+        Ok(self.sample_report::<T, R>(shots, rng)?.0)
+    }
+
+    /// Whether the planner samples this component (terminal plans with
+    /// [`PlanOptions::planner`] set, components that would otherwise need
+    /// a state vector or the compressed state, at most 128 qubits).
+    pub fn planned(&self, comp: &Component) -> bool {
+        self.opts.planner.is_some()
+            && matches!(self.kind, Kind::Terminal { .. })
+            && matches!(comp.backend, Backend::StateVector | Backend::Adaptive)
+            && comp.qubits.len() <= 128
+    }
+
+    /// [`SamplingPlan::sample`], also returning `(qubits, gates, backend)`
+    /// per simulated component with the engine actually used.
+    pub fn sample_report<T: Real, R: Rng>(
+        &self,
+        shots: usize,
+        rng: &mut R,
+    ) -> Result<(Vec<Vec<bool>>, Vec<(usize, usize, Backend)>), SimError> {
+        let mut used: Vec<(usize, usize, Backend)> = Vec::new();
         match &self.kind {
             Kind::Terminal { meas, suffix } => {
                 let mut bits = vec![vec![false; self.n]; shots];
@@ -536,26 +560,44 @@ impl SamplingPlan {
                         .opts
                         .adaptive
                         .map_or(AdaptiveRule::default().max_active, |r| r.max_active);
-                    let s = sample_component::<T, R>(
-                        comp,
-                        shots,
-                        self.opts.clifford_prefix,
-                        max_active,
-                        rng,
-                    )?;
+                    let s = if let (true, Some(cfg)) = (self.planned(comp), &self.opts.planner) {
+                        let r = crate::planner::samples(&comp.circuit, shots, rng, cfg)?;
+                        used.push((
+                            comp.qubits.len(),
+                            comp.circuit.num_gates(),
+                            Backend::Planned(r.engine),
+                        ));
+                        r.samples
+                            .into_iter()
+                            .map(|x| comp.needed.iter().map(|&q| (x >> q) & 1 == 1).collect())
+                            .collect()
+                    } else {
+                        if comp.circuit.num_gates() > 0 {
+                            used.push((comp.qubits.len(), comp.circuit.num_gates(), comp.backend));
+                        }
+                        sample_component::<T, R>(
+                            comp,
+                            shots,
+                            self.opts.clifford_prefix,
+                            max_active,
+                            rng,
+                        )?
+                    };
                     for (row, sb) in bits.iter_mut().zip(s) {
                         for (&lq, b) in comp.needed.iter().zip(sb) {
                             row[comp.qubits[lq]] = b;
                         }
                     }
                 }
-                Ok(bits
-                    .into_iter()
-                    .map(|mut row| {
-                        apply_classical(&mut row, suffix);
-                        meas.iter().map(|&q| row[q]).collect()
-                    })
-                    .collect())
+                Ok((
+                    bits.into_iter()
+                        .map(|mut row| {
+                            apply_classical(&mut row, suffix);
+                            meas.iter().map(|&q| row[q]).collect()
+                        })
+                        .collect(),
+                    used,
+                ))
             }
             Kind::MidCircuit { src } => {
                 // Prepare each component's measurement-free Clifford prefix
@@ -569,9 +611,12 @@ impl SamplingPlan {
                         rng,
                     )?);
                 }
-                Ok((0..shots)
-                    .map(|s| src.iter().map(|&(c, i)| per_comp[c][s][i]).collect())
-                    .collect())
+                Ok((
+                    (0..shots)
+                        .map(|s| src.iter().map(|&(c, i)| per_comp[c][s][i]).collect())
+                        .collect(),
+                    self.stats.components.clone(),
+                ))
             }
         }
     }
@@ -911,6 +956,52 @@ impl UnitaryPlan {
     /// The full state vector.
     pub fn statevector<T: Real>(&self) -> Result<StateVector<T>, SimError> {
         self.factored::<T>()?.to_statevector()
+    }
+
+    /// `<x|ψ>` for every `x` in `xs` (bit `q` = qubit `q`, global phase
+    /// included), every component on the engine the planner picks for the
+    /// distinct local indices it needs. Also returns `(qubits, gates,
+    /// backend)` per simulated component.
+    pub fn amplitudes_planned(
+        &self,
+        xs: &[u128],
+        cfg: &crate::planner::PlannerConfig,
+    ) -> Result<(Vec<Complex64>, Vec<(usize, usize, Backend)>), SimError> {
+        let mut out = vec![Complex64::from_polar(1.0, self.global_phase); xs.len()];
+        let mut used = Vec::new();
+        for comp in &self.comps {
+            let locals: Vec<u128> = xs
+                .iter()
+                .map(|&x| {
+                    comp.qubits
+                        .iter()
+                        .enumerate()
+                        .fold(0u128, |acc, (i, &q)| acc | (((x >> q) & 1) << i))
+                })
+                .collect();
+            if comp.backend == Backend::Idle {
+                for (o, &l) in out.iter_mut().zip(&locals) {
+                    if l != 0 {
+                        *o = Complex64::new(0.0, 0.0);
+                    }
+                }
+                continue;
+            }
+            let mut uniq: Vec<u128> = locals.clone();
+            uniq.sort_unstable();
+            uniq.dedup();
+            let r = crate::planner::amplitudes(&comp.circuit, &uniq, cfg)?;
+            used.push((
+                comp.qubits.len(),
+                comp.circuit.num_gates(),
+                Backend::Planned(r.engine),
+            ));
+            for (o, l) in out.iter_mut().zip(&locals) {
+                let k = uniq.binary_search(l).expect("present");
+                *o *= r.amplitudes[k];
+            }
+        }
+        Ok((out, used))
     }
 }
 

@@ -401,19 +401,45 @@ fn simulate_plain(
     debug: bool,
 ) -> Result<Simulation, SimError> {
     let opts = plan_options();
+    let planner_cfg = crate::planner::PlannerConfig {
+        mem_bytes: budget.mem_bytes.min(MAX_STATE_BYTES),
+        debug_reference: debug,
+        ..Default::default()
+    };
     match request {
         Request::Samples { shots, seed } => {
+            // Planner v2 (research/planner-v2.md) picks the engine of every
+            // terminal component that would otherwise need a state vector
+            // or the compressed state; it respects the budget itself.
+            let opts = PlanOptions {
+                planner: Some(planner_cfg),
+                ..opts
+            };
             let plan = compile_sampling(circuit, opts)?;
-            check_budget(&plan.stats, budget)?;
+            let mut unplanned = plan.stats.clone();
+            unplanned.components = plan
+                .components()
+                .iter()
+                .filter(|c| c.circuit.num_gates() > 0 && !plan.planned(c))
+                .map(|c| (c.qubits.len(), c.circuit.num_gates(), c.backend))
+                .collect();
+            check_budget(&unplanned, budget)?;
             let mut rng = StdRng::seed_from_u64(*seed);
-            let out = plan.sample::<f64, _>(*shots, &mut rng)?;
+            let (out, engines) = plan.sample_report::<f64, _>(*shots, &mut rng)?;
             Ok(Simulation {
                 output: Output::Samples(out),
-                engines: plan.stats.components.clone(),
+                engines,
             })
         }
         Request::Amplitudes(xs) => {
             let plan = compile_unitary(circuit, opts)?;
+            if plan.components().iter().all(|c| c.qubits.len() <= 63) {
+                let (amps, engines) = plan.amplitudes_planned(xs, &planner_cfg)?;
+                return Ok(Simulation {
+                    output: Output::Amplitudes(amps),
+                    engines,
+                });
+            }
             check_budget(&plan.stats, budget)?;
             let state = plan.factored::<f64>()?;
             Ok(Simulation {
@@ -424,11 +450,7 @@ fn simulate_plain(
         Request::Expectation(qs) => {
             // Expectation values go through Planner v0 (research/planner.md).
             let opts = PlanOptions {
-                planner: Some(crate::planner::PlannerConfig {
-                    mem_bytes: budget.mem_bytes.min(MAX_STATE_BYTES),
-                    debug_reference: debug,
-                    ..Default::default()
-                }),
+                planner: Some(planner_cfg),
                 ..opts
             };
             let v = expectation_z_product(circuit, qs, opts)?;

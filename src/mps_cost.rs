@@ -586,6 +586,9 @@ pub struct ReplayCost {
     pub secs: f64,
     /// Bond kept after every SVD (only with [`replay_traced`]).
     pub trace: Vec<u32>,
+    /// Bond dimensions of the final state (`n - 1` entries), for read-out
+    /// costs (sampling, amplitudes).
+    pub final_bonds: Vec<usize>,
 }
 
 struct Sym<'a> {
@@ -777,6 +780,7 @@ fn replay_impl(c: &Circuit, src: BondSource, record: bool) -> Result<ReplayCost,
     }
     s.out.max_bond = s.out.max_bond.max(1);
     s.out.final_max_bond = s.bond.iter().copied().max().unwrap_or(1);
+    s.out.final_bonds = s.bond.clone();
     s.out.secs = t0.elapsed().as_secs_f64();
     Ok(s.out)
 }

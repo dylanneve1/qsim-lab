@@ -1,39 +1,56 @@
-//! Planner v0: choose the exact engine for a circuit from fitted per-engine
-//! cost models (research/planner.md, research/simulability.md).
+//! Planner v2: choose the exact engine for a circuit and a *request*
+//! (expectation value, samples, amplitudes) from fitted per-engine cost
+//! models (research/planner.md, research/planner-v2.md,
+//! research/simulability.md).
 //!
 //! ```text
-//! plan(circuit, request, budget)
-//!   1. <Z...Z> provably 0 (x-span certificate, O(gates·n))   -> Zero
-//!   2. Clifford circuit                                      -> Tableau
-//!   3. argmin_e  2^(a_e + b_e · R_e)  over the applicable state engines
-//!      R_e = cheap log2 work estimate (simulability::features):
-//!        sv     n + log2 gates
-//!        sparse log2 gates + affine support bound
-//!        hsf    pruning-aware path count of the KL partition
-//!        cstate log2 Σ_j 2^{d_j} (rotation-frame active dimension)
-//!        mps    log2 of the replayed operation count (mps_cost::replay
-//!               with the best rigorous bond bound)
-//! execute(plan)
-//!   - MPS and sparse run speculatively: if they exceed `speculate` × the
-//!     runner-up's predicted time (or the memory budget) they are aborted
-//!     and the runner-up runs instead. The MPS model is the least reliable
-//!     one, and this caps what a misprediction can cost.
-//!   - `debug_reference`: on small registers, also run the reference state
-//!     vector and fail loudly if the plan's value differs.
+//! plan(circuit, request, config)
+//!   tier 0  one O(gates) pass: n, gates, Clifford?, branching gates,
+//!           non-Clifford rotations, MPS adjacent-operation count, cache key
+//!           -> cache hit: reuse the plan of a structurally equal circuit
+//!           -> upper-bound predictions for SV (exact), sparse (support
+//!              <= 2^branching), compressed state (d_j <= j)
+//!           -> if the best upper bound < voi x (predicted tier-1 cost): run it
+//!   tier 1  O(gates·n): affine support bound, rotation-frame d-profile,
+//!           vanishing certificate (expectations only)
+//!   tier 2  MPS replay with the best rigorous bond bound, only if the MPS
+//!           lower bound (every bond 1) beats the best prediction so far and
+//!           that prediction > voi x (predicted replay cost)
+//!   tier 3  HSF partition (KL), same rule with the HSF lower bound
+//!   rank    argmin_e  evolve_e + readout_e(request)
+//!           evolve_e  = 2^(a_e + b_e R_e)          (fitted, Mac M1)
+//!           readout_e = Σ_i c_{e,i} · T_{e,i}(request) (fitted op counts:
+//!             SV sampling 2^n + shots·log shots; MPS perfect sampling
+//!             Σ 2 χ_l χ_r per shot; compressed sampler 2^d·d + shots·n;
+//!             amplitudes: MPS Σ χ_l χ_r each, HSF its own path model)
+//! execute_{expectation,samples,amplitudes}(plan)
+//!   MPS and sparse run speculatively (abort after `speculate` × the
+//!   runner-up's predicted time, then run the runner-up).
 //! ```
 //!
-//! The constants `a_e, b_e` are machine specific; [`CostModel::mac_m1`] was
-//! fitted on the 314-instance simulability dataset (M1 Pro, single thread,
-//! `research/data/planner/`). Everything is exact: every engine either
-//! returns the exact value (MPS: to the SVD's numerical rank, ~1e-7) or an
-//! error.
+//! `PlannerConfig { tiered: false, cache: false, .. }` (see
+//! [`PlannerConfig::v1`]) reproduces Planner v0/v1 exactly.
+//!
+//! Everything is exact: every engine either returns the exact answer
+//! (MPS: to the SVD's numerical rank, ~1e-7; samples: exact distribution)
+//! or an error. The cache only ever reuses an engine *choice*, never a
+//! value.
 
-use crate::circuit::{Circuit, SimError};
+use crate::adaptive::{CompressedState, Sampler};
+use crate::blocked::BlockConfig;
+use crate::circuit::{Circuit, Op, SimError};
+use crate::gate::{is_multiple_of_half_pi, Gate};
+use crate::hsf::{HsfOptions, HybridSchrodingerFeynman};
 use crate::mps::Mps;
 use crate::mps_cost::{self, BondSource, Estimator};
 use crate::simulability::{self, Features};
 use crate::sparse::SparseState;
+use crate::stabilizer::Tableau;
 use crate::statevector::StateVectorF64;
+use num_complex::Complex64;
+use rand::Rng;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use std::time::Instant;
 
 /// An exact engine the planner can choose.
@@ -47,7 +64,7 @@ pub enum Engine {
     Mps,
     Hsf,
     /// Clifford frame + dense register on the active qubits
-    /// ([`adaptive::CompressedState`]).
+    /// ([`crate::adaptive::CompressedState`]).
     Compressed,
 }
 
@@ -63,6 +80,20 @@ impl Engine {
             Engine::Hsf => "hsf",
             Engine::Compressed => "cstate",
         }
+    }
+
+    /// Inverse of [`Engine::name`].
+    pub fn from_name(s: &str) -> Option<Engine> {
+        Some(match s {
+            "zero" => Engine::Zero,
+            "tableau" => Engine::Tableau,
+            "sv" => Engine::StateVector,
+            "sparse" => Engine::Sparse,
+            "mps" => Engine::Mps,
+            "hsf" => Engine::Hsf,
+            "cstate" => Engine::Compressed,
+            _ => return None,
+        })
     }
 }
 
@@ -80,8 +111,26 @@ pub const STATE_ENGINES: [Engine; 5] = [
 pub enum PlanRequest {
     /// `<Z_{q1} Z_{q2} ...>` of the final state.
     Expectation(Vec<usize>),
-    /// Amplitudes with the global phase (the compressed state drops it).
-    Amplitudes,
+    /// `count` amplitudes `<x|ψ>` with the global phase (the compressed
+    /// state and the tableau drop it, so they are not candidates).
+    Amplitudes(usize),
+    /// `shots` samples of every qubit in the computational basis.
+    Samples(usize),
+}
+
+impl PlanRequest {
+    fn shots(&self) -> f64 {
+        match self {
+            PlanRequest::Samples(s) => *s as f64,
+            _ => 0.0,
+        }
+    }
+    fn amps(&self) -> f64 {
+        match self {
+            PlanRequest::Amplitudes(m) => *m as f64,
+            _ => 0.0,
+        }
+    }
 }
 
 /// `log2 seconds = a + b · R`.
@@ -89,6 +138,43 @@ pub enum PlanRequest {
 pub struct EngineModel {
     pub a: f64,
     pub b: f64,
+}
+
+impl EngineModel {
+    fn secs(&self, r: f64) -> f64 {
+        (self.a + self.b * r).exp2()
+    }
+}
+
+/// Read-out costs (seconds per operation-count unit) on top of the
+/// evolution; research/planner-v2.md §2 defines the units.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ReadoutModel {
+    /// State vector sampling: per amplitude of the `2^n` pass, and per shot
+    /// (exponential spacings, merged walk, shuffle).
+    pub sv_amp: f64,
+    pub sv_shot: f64,
+    /// Sparse sampling: per stored amplitude (bound `2^sup`), per shot.
+    pub sparse_amp: f64,
+    pub sparse_shot: f64,
+    /// MPS: canonicalisation per `Σ 2 χ_l χ_r min(2χ_l, χ_r)`, perfect
+    /// sampling per shot per `Σ 2 χ_l χ_r`, one amplitude per `Σ χ_l χ_r`.
+    pub mps_canon: f64,
+    pub mps_shot: f64,
+    pub mps_amp: f64,
+    /// Compressed-state sampler: build per `2^d (d + 1) + n^2 ⌈n/64⌉`,
+    /// per shot per `(d + n) ⌈n/64⌉`.
+    pub cs_build: f64,
+    pub cs_shot: f64,
+    /// Tableau sampling: echelon form per `n^2 ⌈n/64⌉`, per shot per
+    /// `n (1 + ⌈n/64⌉)`.
+    pub tab_build: f64,
+    pub tab_shot: f64,
+    /// One amplitude look-up (state vector, sparse).
+    pub lookup: f64,
+    /// HSF amplitudes (no `2^n` output): `log2 secs = a + b R_amp`,
+    /// `R_amp = log2(2^k G 2^max(n_A,n_B) + 2^k m)`.
+    pub hsf_amp: EngineModel,
 }
 
 /// Per-engine cost models plus the units of the MPS work estimate.
@@ -103,6 +189,31 @@ pub struct CostModel {
     pub mps_svd_weight: f64,
     /// Fixed cost of one SVD/QR call, in work units.
     pub mps_call_overhead: f64,
+    pub readout: ReadoutModel,
+}
+
+impl ReadoutModel {
+    /// Fitted on the Mac (M1 Pro, one thread), research/planner-v2.md §2.
+    pub fn mac_m1() -> Self {
+        ReadoutModel {
+            sv_amp: 1.2e-9,
+            sv_shot: 4.0e-9,
+            sparse_amp: 8.0e-9,
+            sparse_shot: 6.0e-9,
+            mps_canon: 3.0e-9,
+            mps_shot: 2.0e-9,
+            mps_amp: 3.0e-9,
+            cs_build: 2.0e-9,
+            cs_shot: 4.0e-9,
+            tab_build: 2.0e-9,
+            tab_shot: 5.0e-9,
+            lookup: 5.0e-8,
+            hsf_amp: EngineModel {
+                a: -19.6338,
+                b: 0.5932,
+            },
+        }
+    }
 }
 
 impl CostModel {
@@ -132,6 +243,7 @@ impl CostModel {
             },
             mps_svd_weight: 8.0,
             mps_call_overhead: 1000.0,
+            readout: ReadoutModel::mac_m1(),
         }
     }
 
@@ -153,6 +265,34 @@ impl Default for CostModel {
     }
 }
 
+/// Predicted seconds of computing each planning tier (fitted on the Mac,
+/// research/planner-v2.md §3): `per_gate · G + per_gate_qubit · G · n`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FeatureCost {
+    pub tier1_per_gate: f64,
+    pub tier1_per_gate_qubit: f64,
+    /// MPS replay: per adjacent two-qubit application (every one updates
+    /// the bounds and evaluates a bipartition).
+    pub mps_per_step: f64,
+    pub mps_per_step_qubit: f64,
+    /// KL partition: per gate·qubit.
+    pub hsf_per_gate_qubit: f64,
+    pub fixed: f64,
+}
+
+impl Default for FeatureCost {
+    fn default() -> Self {
+        FeatureCost {
+            tier1_per_gate: 1.0e-6,
+            tier1_per_gate_qubit: 5.0e-8,
+            mps_per_step: 1.0e-6,
+            mps_per_step_qubit: 1.0e-7,
+            hsf_per_gate_qubit: 2.0e-7,
+            fixed: 5.0e-6,
+        }
+    }
+}
+
 /// Planner configuration.
 #[derive(Clone, Copy, Debug)]
 pub struct PlannerConfig {
@@ -165,31 +305,38 @@ pub struct PlannerConfig {
     /// Never abort before this many seconds (overheads, timer noise).
     pub min_deadline_secs: f64,
     /// Also run the reference state vector (n ≤ `debug_max_qubits`) and
-    /// panic if the planned value differs by more than `debug_tol`.
+    /// panic if the planned value differs by more than `debug_tol`
+    /// (expectations and amplitudes; samples are checked by the tests).
     pub debug_reference: bool,
     pub debug_max_qubits: usize,
     pub debug_tol: f64,
     /// Answer 0 without simulating when the x-span certificate fires.
     pub use_certificate: bool,
-    /// Probe-or-solve: when MPS is not the first choice, run the MPS with
-    /// bond cap `probe_cap` for at most `probe_frac` × the best predicted
-    /// time. If it finishes without truncating, it *is* the exact answer;
-    /// if it truncates, its bond trace (exact below the cap, extrapolated
-    /// above it) replaces the bound in the MPS prediction and the engines
-    /// are re-ranked. `None` (default) plans from the bounds alone.
+    /// Probe-or-solve (expectations only): when MPS is not the first
+    /// choice, run the MPS with bond cap `probe_cap` for at most
+    /// `probe_frac` × the best predicted time. If it finishes without
+    /// truncating, it *is* the exact answer; if it truncates, its bond
+    /// trace replaces the bound in the MPS prediction and the engines are
+    /// re-ranked. `None` (default) plans from the bounds alone.
     pub probe_cap: Option<u32>,
     pub probe_frac: f64,
-    /// Staged planning: the MPS replay is computed only if the cheapest
-    /// engine predicted from the O(gates · n) features (state vector,
-    /// sparse, compressed state) takes at least this long, and the HSF
-    /// partition (KL, the most expensive feature) only above
-    /// `hsf_feature_min_secs`. Below that, planning would cost more than it
-    /// could save. `0` computes everything.
+    /// v1 staging (used when `tiered` is false): the MPS replay is computed
+    /// only if the cheapest O(gates · n) prediction is at least
+    /// `mps_feature_min_secs`, the HSF partition only above
+    /// `hsf_feature_min_secs`, and a state vector predicted below
+    /// `sv_shortcut_secs` runs without any feature.
     pub mps_feature_min_secs: f64,
     pub hsf_feature_min_secs: f64,
-    /// Stage 0: if the state vector is predicted below this (from `n` and
-    /// the gate count alone), run it without computing any feature.
     pub sv_shortcut_secs: f64,
+    /// v2 tiered planning (module docs). A tier is computed only when the
+    /// best prediction so far exceeds `voi` × its predicted cost and (MPS,
+    /// HSF) the engine's lower bound beats that prediction.
+    pub tiered: bool,
+    pub voi: f64,
+    pub feature_cost: FeatureCost,
+    /// Reuse plans of structurally equal circuits (same gates and qubits,
+    /// same Clifford class of every angle, same request size bucket).
+    pub cache: bool,
 }
 
 impl Default for PlannerConfig {
@@ -208,8 +355,179 @@ impl Default for PlannerConfig {
             mps_feature_min_secs: 1e-3,
             hsf_feature_min_secs: 5e-3,
             sv_shortcut_secs: 3e-4,
+            tiered: true,
+            voi: 4.0,
+            feature_cost: FeatureCost::default(),
+            cache: true,
         }
     }
+}
+
+impl PlannerConfig {
+    /// Planner v1 (research/planner.md): v1 staging, no cache.
+    pub fn v1() -> Self {
+        PlannerConfig {
+            tiered: false,
+            cache: false,
+            ..Default::default()
+        }
+    }
+
+    fn fingerprint(&self) -> u64 {
+        let mut h = Fnv::new();
+        h.u128(self.mem_bytes);
+        for x in [
+            self.speculate,
+            self.min_deadline_secs,
+            self.probe_frac,
+            self.mps_feature_min_secs,
+            self.hsf_feature_min_secs,
+            self.sv_shortcut_secs,
+            self.voi,
+            self.model.sv.a,
+            self.model.mps.a,
+            self.model.readout.sv_amp,
+            self.model.readout.mps_shot,
+        ] {
+            h.u64(x.to_bits());
+        }
+        h.u64(u64::from(self.use_certificate) | (u64::from(self.tiered) << 1));
+        h.u64(self.probe_cap.map_or(u64::MAX, u64::from));
+        h.0
+    }
+}
+
+/// The O(gates) tier-0 view of a circuit.
+#[derive(Clone, Debug, Default)]
+pub struct QuickFeatures {
+    pub n: usize,
+    pub gates: usize,
+    pub g2: usize,
+    pub clifford: bool,
+    /// Upper bound on the non-Clifford rotations of the rotation frame.
+    pub rotations: usize,
+    /// Branching (non-monomial) one-qubit gates: `log2 nnz ≤ branching`.
+    pub branching: usize,
+    /// Adjacent two-qubit applications of the MPS engine (SWAP routing and
+    /// decompositions included): a lower bound on its SVD calls.
+    pub mps_steps: usize,
+    /// Structural hash (gates, qubits, Clifford class of every angle).
+    pub key: u64,
+}
+
+struct Fnv(u64);
+impl Fnv {
+    fn new() -> Self {
+        Fnv(0xcbf2_9ce4_8422_2325)
+    }
+    fn u64(&mut self, x: u64) {
+        self.0 = (self.0 ^ x).wrapping_mul(0x0100_0000_01b3);
+        self.0 ^= self.0 >> 29;
+    }
+    fn u128(&mut self, x: u128) {
+        self.u64(x as u64);
+        self.u64((x >> 64) as u64);
+    }
+}
+
+fn angle_class(t: f64) -> u64 {
+    u64::from(is_multiple_of_half_pi(t)) | (u64::from(is_multiple_of_half_pi(t / 2.0)) << 1)
+}
+
+/// Tier 0: one pass over the gates, no allocation.
+pub fn quick_features(c: &Circuit) -> QuickFeatures {
+    let n = c.num_qubits;
+    let mut q = QuickFeatures {
+        n,
+        clifford: true,
+        ..Default::default()
+    };
+    let mut h = Fnv::new();
+    h.u64(n as u64);
+    let nonhalf = |t: f64| usize::from(!is_multiple_of_half_pi(t));
+    for op in &c.ops {
+        let g = match op {
+            Op::Gate(g) => g,
+            _ => {
+                h.u64(u64::MAX);
+                continue;
+            }
+        };
+        q.gates += 1;
+        q.clifford &= g.is_clifford();
+        use Gate::*;
+        let (code, class, a, b, t3): (u64, u64, usize, usize, usize) = match *g {
+            I(x) => (0, 0, x, 0, 0),
+            H(x) => (1, 0, x, 0, 0),
+            X(x) => (2, 0, x, 0, 0),
+            Y(x) => (3, 0, x, 0, 0),
+            Z(x) => (4, 0, x, 0, 0),
+            S(x) => (5, 0, x, 0, 0),
+            Sdg(x) => (6, 0, x, 0, 0),
+            T(x) => (7, 0, x, 0, 0),
+            Tdg(x) => (8, 0, x, 0, 0),
+            Sx(x) => (9, 0, x, 0, 0),
+            Sxdg(x) => (10, 0, x, 0, 0),
+            Rx(x, t) => (11, angle_class(t), x, 0, 0),
+            Ry(x, t) => (12, angle_class(t), x, 0, 0),
+            Rz(x, t) => (13, angle_class(t), x, 0, 0),
+            Phase(x, t) => (14, angle_class(t), x, 0, 0),
+            U(x, t, p, l) => (
+                15,
+                angle_class(t) | angle_class(p) << 2 | angle_class(l) << 4,
+                x,
+                0,
+                0,
+            ),
+            Cnot(x, y) => (16, 0, x, y, 0),
+            Cz(x, y) => (17, 0, x, y, 0),
+            Swap(x, y) => (18, 0, x, y, 0),
+            ISwap(x, y) => (19, 0, x, y, 0),
+            ISwapdg(x, y) => (20, 0, x, y, 0),
+            CPhase(x, y, t) => (21, angle_class(t / 2.0), x, y, 0),
+            Ccx(x, y, z) => (22, 0, x, y, z),
+        };
+        h.u64(code | class << 8 | (a as u64) << 16 | (b as u64) << 36);
+        if t3 != 0 || code == 22 {
+            h.u64(t3 as u64);
+        }
+        // rotations (upper bound: before merging) and branching gates
+        q.rotations += match *g {
+            T(_) | Tdg(_) => 1,
+            Rz(_, t) | Phase(_, t) | Rx(_, t) | Ry(_, t) => nonhalf(t),
+            U(_, t, p, l) => nonhalf(t) + nonhalf(p) + nonhalf(l),
+            CPhase(_, _, t) => 3 * nonhalf(t / 2.0),
+            Ccx(..) => 7,
+            _ => 0,
+        };
+        if g.arity() == 1 && g.diagonal_1q().is_none() && !matches!(g, X(_) | Y(_) | I(_)) {
+            q.branching += 1;
+        }
+        // MPS adjacent applications (as mps_cost::replay routes them)
+        let span = |x: usize, y: usize| (2 * x.abs_diff(y)).saturating_sub(1);
+        match *g {
+            Cnot(x, y) | Cz(x, y) | Swap(x, y) => {
+                q.g2 += 1;
+                q.mps_steps += span(x, y);
+            }
+            ISwap(x, y) | ISwapdg(x, y) | CPhase(x, y, _) => {
+                q.g2 += 1;
+                // decomposed into two-qubit parts by the MPS engine
+                q.mps_steps += span(x, y);
+            }
+            Ccx(x, y, z) => {
+                // Clifford+T decomposition: CNOTs (x,y)x1? use the exact list
+                for p in crate::gate::toffoli_clifford_t(x, y, z) {
+                    if let Cnot(u, v) = p {
+                        q.mps_steps += span(u, v);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    q.key = h.0;
+    q
 }
 
 /// The planner's cheap view of a circuit.
@@ -221,6 +539,12 @@ pub struct PlanFeatures {
     /// Predicted largest MPS bond.
     pub mps_max_bond: usize,
     pub clifford: bool,
+    /// Tier-0 features (v2).
+    pub quick: QuickFeatures,
+    /// Predicted bonds of the final MPS (empty until the replay ran).
+    pub mps_bonds: Vec<usize>,
+    /// Deepest tier computed: 0 quick, 1 O(G n), 2 + MPS replay, 3 + HSF.
+    pub tier: u8,
 }
 
 /// A decision.
@@ -236,6 +560,10 @@ pub struct Plan {
     pub solved: Option<f64>,
     /// What the probe did: `(finished, truncated)`.
     pub probe: Option<(bool, bool)>,
+    /// Seconds per tier `[quick, tier 1, MPS replay, HSF]` (v2).
+    pub stage_secs: [f64; 4],
+    /// The plan came from the cache.
+    pub cached: bool,
 }
 
 impl Plan {
@@ -267,6 +595,9 @@ pub fn plan_features(
         mps_max_bond: r.max_bond,
         clifford: c.gates().all(|g| g.is_clifford()),
         base,
+        mps_bonds: r.final_bonds,
+        quick: quick_features(c),
+        tier: 3,
     })
 }
 
@@ -281,43 +612,197 @@ fn resource(e: Engine, f: &PlanFeatures) -> f64 {
     }
 }
 
+fn words(n: usize) -> f64 {
+    n.div_ceil(64).max(1) as f64
+}
+
+/// Read-out operation counts of the MPS final state: `(canonicalisation,
+/// one shot, one amplitude)`.
+pub fn mps_readout_units(bonds: &[usize]) -> (f64, f64, f64) {
+    let n = bonds.len() + 1;
+    let (mut canon, mut shot, mut amp) = (0.0, 0.0, 0.0);
+    for q in 0..n {
+        let dl = if q == 0 { 1 } else { bonds[q - 1] } as f64;
+        let dr = if q + 1 == n { 1 } else { bonds[q] } as f64;
+        canon += 2.0 * dl * dr * (2.0 * dr).min(dl);
+        shot += 2.0 * dl * dr;
+        amp += dl * dr;
+    }
+    (canon, shot, amp)
+}
+
+/// Sorted uniforms are drawn in O(shots) (exponential spacings), so a
+/// shot costs a constant on top of the `2^n` pass.
+fn shot_units(s: f64) -> f64 {
+    s
+}
+
+/// HSF amplitude work: `log2(2^k G 2^max(n_A, n_B) + 2^k m)`.
+pub fn hsf_amp_r(f: &Features, m: f64) -> f64 {
+    let k = f.hsf_keff as f64;
+    let g = f.gates.max(1) as f64;
+    let big = f.hsf_na.max(f.hsf_nb) as f64;
+    let x = k + g.log2() + big;
+    let y = k + m.max(1.0).log2();
+    let mx = x.max(y);
+    mx + ((x - mx).exp2() + (y - mx).exp2()).log2()
+}
+
+/// Predicted seconds of `e` for `req` (evolution + read-out).
+pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    let ro = &m.readout;
+    let n = f.base.n;
+    let s = req.shots();
+    let am = req.amps();
+    if e == Engine::Hsf && matches!(req, PlanRequest::Amplitudes(_)) {
+        return ro.hsf_amp.secs(hsf_amp_r(&f.base, am));
+    }
+    if e == Engine::Tableau {
+        let nn = n as f64;
+        return match req {
+            PlanRequest::Samples(_) => {
+                ro.tab_build * nn * nn * words(n) + ro.tab_shot * s * nn * (1.0 + words(n))
+            }
+            _ => 0.0,
+        };
+    }
+    let Some(model) = m.model(e) else {
+        return 0.0;
+    };
+    let evolve = model.secs(resource(e, f));
+    let read = match (e, req) {
+        (_, PlanRequest::Expectation(_)) => 0.0,
+        (Engine::StateVector, PlanRequest::Samples(_)) => {
+            ro.sv_amp * (n as f64).exp2() + ro.sv_shot * shot_units(s)
+        }
+        (Engine::Hsf, PlanRequest::Samples(_)) => {
+            ro.sv_amp * (n as f64).exp2() + ro.sv_shot * shot_units(s)
+        }
+        (Engine::Sparse, PlanRequest::Samples(_)) => {
+            ro.sparse_amp * (f.base.sup.min(n) as f64).exp2() + ro.sparse_shot * shot_units(s)
+        }
+        (Engine::Mps, PlanRequest::Samples(_)) => {
+            let (c, sh, _) = mps_readout_units(&f.mps_bonds);
+            ro.mps_canon * c + ro.mps_shot * s * sh
+        }
+        (Engine::Mps, PlanRequest::Amplitudes(_)) => {
+            let (_, _, a) = mps_readout_units(&f.mps_bonds);
+            ro.mps_amp * am * a
+        }
+        (Engine::Compressed, PlanRequest::Samples(_)) => {
+            let d = f.base.d as f64;
+            let nn = n as f64;
+            ro.cs_build * (d.exp2() * (d + 1.0) + nn * nn * words(n))
+                + ro.cs_shot * s * (d + nn) * words(n)
+        }
+        (Engine::StateVector | Engine::Sparse, PlanRequest::Amplitudes(_)) => ro.lookup * am,
+        _ => 0.0,
+    };
+    evolve + read
+}
+
+/// A lower bound on [`predict_secs`] from the tier-0 features alone (the
+/// model evaluated at the smallest work the engine can do: support 1,
+/// active dimension 0, every MPS bond 1, a balanced HSF partition without
+/// paths). Used to skip features of engines that cannot win.
+pub fn lower_bound_secs(e: Engine, q: &QuickFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    let n = q.n;
+    let g = q.gates.max(1) as f64;
+    let mut f = PlanFeatures {
+        base: Features {
+            n,
+            gates: q.gates,
+            sv_l: g.log2() + n as f64,
+            sparse_l: g.log2(),
+            sup: 0,
+            d: 0,
+            dense_l: (q.rotations.max(1) as f64).log2(),
+            hsf_na: n.div_ceil(2),
+            hsf_nb: n / 2,
+            hsf_keff: 0,
+            ..Default::default()
+        },
+        mps_r: (m.mps_call_overhead * q.mps_steps as f64 + g).max(1.0).log2(),
+        mps_bonds: vec![1; n.saturating_sub(1)],
+        ..Default::default()
+    };
+    let half = n.div_ceil(2) as f64;
+    // log2(G 2^half + 2^n) >= max(log2 G + half, n)
+    f.base.hsf_l = (g.log2() + half).max(n as f64);
+    predict_secs(e, &f, req, m)
+}
+
 fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool {
     let cap = (mem / 16).max(1).ilog2() as usize;
     let n = f.base.n;
+    let amps = matches!(req, PlanRequest::Amplitudes(_));
+    let indexed = !matches!(req, PlanRequest::Expectation(_));
     match e {
-        Engine::StateVector | Engine::Hsf => n <= cap,
-        Engine::Compressed => f.base.d <= cap.min(30) && matches!(req, PlanRequest::Expectation(_)),
+        Engine::StateVector => n <= cap,
+        // amplitudes need only the two blocks in memory
+        Engine::Hsf => {
+            if amps {
+                n <= 2 * cap && n < 64
+            } else {
+                n <= cap
+            }
+        }
+        Engine::Compressed => f.base.d <= cap.min(30) && !amps && (!indexed || n <= 128),
         // sparse and MPS check their memory at run time (and abort); the
         // bounds are too loose to exclude them up front.
         Engine::Sparse => n <= 64,
-        Engine::Mps => true,
-        Engine::Tableau => f.clifford,
+        Engine::Mps => !indexed || n <= 128,
+        Engine::Tableau => f.clifford && !amps,
         Engine::Zero => false,
     }
 }
 
 /// Chooses the engine (nothing is simulated).
 pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, SimError> {
+    if cfg.tiered {
+        plan_v2(c, req, cfg)
+    } else {
+        plan_v1(c, req, cfg)
+    }
+}
+
+fn empty_plan(engine: Engine, ranked: Vec<(Engine, f64)>, features: PlanFeatures) -> Plan {
+    Plan {
+        engine,
+        ranked,
+        features,
+        plan_secs: 0.0,
+        solved: None,
+        probe: None,
+        stage_secs: [0.0; 4],
+        cached: false,
+    }
+}
+
+/// Planner v1 (research/planner.md §3), kept for A/B comparisons.
+fn plan_v1(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, SimError> {
     let t0 = Instant::now();
     let n = c.num_qubits;
     let obs: Vec<usize> = match req {
         PlanRequest::Expectation(q) => q.clone(),
-        PlanRequest::Amplitudes => (0..n).collect(),
+        _ => (0..n).collect(),
     };
     let clifford = c.gates().all(|g| g.is_clifford());
-    if clifford && !(matches!(req, PlanRequest::Expectation(_)) && cfg.use_certificate) {
+    if clifford
+        && !(matches!(req, PlanRequest::Expectation(_)) && cfg.use_certificate)
+        && !matches!(req, PlanRequest::Amplitudes(_))
+    {
         // polynomial: nothing to compare
-        return Ok(Plan {
-            engine: Engine::Tableau,
-            ranked: vec![(Engine::Tableau, 0.0)],
-            features: PlanFeatures {
+        let mut p = empty_plan(
+            Engine::Tableau,
+            vec![(Engine::Tableau, 0.0)],
+            PlanFeatures {
                 clifford,
                 ..Default::default()
             },
-            plan_secs: t0.elapsed().as_secs_f64(),
-            solved: None,
-            probe: None,
-        });
+        );
+        p.plan_secs = t0.elapsed().as_secs_f64();
+        return Ok(p);
     }
     // Stage 0: a state vector this cheap is not worth planning for.
     let sv_l = (c.num_gates().max(1) as f64).log2() + n as f64;
@@ -326,17 +811,16 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
         && n <= ((cfg.mem_bytes / 16).max(1).ilog2() as usize)
         && t_sv < cfg.sv_shortcut_secs
     {
-        return Ok(Plan {
-            engine: Engine::StateVector,
-            ranked: vec![(Engine::StateVector, t_sv)],
-            features: PlanFeatures {
+        let mut p = empty_plan(
+            Engine::StateVector,
+            vec![(Engine::StateVector, t_sv)],
+            PlanFeatures {
                 clifford,
                 ..Default::default()
             },
-            plan_secs: t0.elapsed().as_secs_f64(),
-            solved: None,
-            probe: None,
-        });
+        );
+        p.plan_secs = t0.elapsed().as_secs_f64();
+        return Ok(p);
     }
     // Stage 1: O(gates · n) features (state vector, sparse, compressed
     // state, certificate).
@@ -345,6 +829,7 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
         mps_r: f64::INFINITY,
         mps_max_bond: 0,
         clifford,
+        ..Default::default()
     };
     let predict = |e: Engine, f: &PlanFeatures| {
         let m = cfg.model.model(e).expect("state engine");
@@ -361,6 +846,7 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
         let r = mps_cost::replay(c, BondSource::Bound(Estimator::Best))?;
         f.mps_r = mps_work_log2(&r.stats, &cfg.model);
         f.mps_max_bond = r.max_bond;
+        f.mps_bonds = r.final_bonds;
     } else {
         skip.push(Engine::Mps);
     }
@@ -385,7 +871,7 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
     let engine =
         if matches!(req, PlanRequest::Expectation(_)) && cfg.use_certificate && f.base.obs_zero {
             Engine::Zero
-        } else if clifford {
+        } else if clifford && !matches!(req, PlanRequest::Amplitudes(_)) {
             Engine::Tableau
         } else if let Some(&(e, _)) = ranked.first() {
             e
@@ -396,57 +882,308 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
                 limit: cfg.mem_bytes,
             });
         };
-    let mut engine = engine;
-    let mut solved = None;
-    let mut probe = None;
-    if let (Some(cap), PlanRequest::Expectation(obs)) = (cfg.probe_cap, req) {
-        let best_t = ranked.first().map_or(0.0, |x| x.1);
-        let budget = cfg.probe_frac * best_t;
-        if !matches!(engine, Engine::Zero | Engine::Tableau | Engine::Mps)
-            && budget >= cfg.min_deadline_secs
-        {
-            let tp = Instant::now();
-            let mut m = Mps::new(n, cap as usize);
-            m.enable_trace();
-            let mut finished = true;
-            for g in c.gates() {
-                m.apply_gate(g)?;
-                if tp.elapsed().as_secs_f64() > budget {
-                    finished = false;
-                    break;
-                }
-            }
-            let truncated = m.truncation_count() > 0;
-            probe = Some((finished, truncated));
-            if finished && !truncated {
-                solved = Some(m.expectation_z_product(obs));
-                engine = Engine::Mps;
-            } else if finished {
-                let r = mps_cost::replay(c, BondSource::ProbeExtrapolate(m.trace(), cap))?;
-                f.mps_r = mps_work_log2(&r.stats, &cfg.model);
-                let mm = cfg.model.mps;
-                for x in ranked.iter_mut() {
-                    if x.0 == Engine::Mps {
-                        x.1 = (mm.a + mm.b * f.mps_r).exp2();
-                    }
-                }
-                ranked.sort_by(|a, b| a.1.total_cmp(&b.1));
-                engine = ranked[0].0;
-            }
+    let mut p = empty_plan(engine, ranked, f);
+    probe_or_solve(c, req, cfg, &mut p)?;
+    if matches!(p.engine, Engine::Zero | Engine::Tableau) {
+        p.ranked.insert(0, (p.engine, 0.0));
+    }
+    p.plan_secs = t0.elapsed().as_secs_f64();
+    Ok(p)
+}
+
+fn probe_or_solve(
+    c: &Circuit,
+    req: &PlanRequest,
+    cfg: &PlannerConfig,
+    p: &mut Plan,
+) -> Result<(), SimError> {
+    let (Some(cap), PlanRequest::Expectation(obs)) = (cfg.probe_cap, req) else {
+        return Ok(());
+    };
+    let n = c.num_qubits;
+    let best_t = p.ranked.first().map_or(0.0, |x| x.1);
+    let budget = cfg.probe_frac * best_t;
+    if matches!(p.engine, Engine::Zero | Engine::Tableau | Engine::Mps)
+        || budget < cfg.min_deadline_secs
+    {
+        return Ok(());
+    }
+    let tp = Instant::now();
+    let mut m = Mps::new(n, cap as usize);
+    m.enable_trace();
+    let mut finished = true;
+    for g in c.gates() {
+        m.apply_gate(g)?;
+        if tp.elapsed().as_secs_f64() > budget {
+            finished = false;
+            break;
         }
     }
-    if matches!(engine, Engine::Zero | Engine::Tableau) {
-        ranked.insert(0, (engine, 0.0));
+    let truncated = m.truncation_count() > 0;
+    p.probe = Some((finished, truncated));
+    if finished && !truncated {
+        p.solved = Some(m.expectation_z_product(obs));
+        p.engine = Engine::Mps;
+    } else if finished {
+        let r = mps_cost::replay(c, BondSource::ProbeExtrapolate(m.trace(), cap))?;
+        p.features.mps_r = mps_work_log2(&r.stats, &cfg.model);
+        let mm = cfg.model.mps;
+        for x in p.ranked.iter_mut() {
+            if x.0 == Engine::Mps {
+                x.1 = (mm.a + mm.b * p.features.mps_r).exp2();
+            }
+        }
+        p.ranked.sort_by(|a, b| a.1.total_cmp(&b.1));
+        p.engine = p.ranked[0].0;
     }
-    Ok(Plan {
-        engine,
-        ranked,
-        features: f,
-        plan_secs: t0.elapsed().as_secs_f64(),
-        solved,
-        probe,
-    })
+    Ok(())
 }
+
+static CACHE: Mutex<Option<HashMap<u64, Plan>>> = Mutex::new(None);
+const CACHE_CAP: usize = 4096;
+
+fn cache_key(q: &QuickFeatures, req: &PlanRequest, cfg: &PlannerConfig) -> u64 {
+    let mut h = Fnv::new();
+    h.u64(q.key);
+    h.u64(cfg.fingerprint());
+    match req {
+        PlanRequest::Expectation(obs) => {
+            h.u64(1);
+            for &o in obs {
+                h.u64(o as u64);
+            }
+        }
+        // read-out costs scale with the request size: bucket by powers of 2
+        PlanRequest::Amplitudes(m) => {
+            h.u64(2);
+            h.u64(u64::from(m.max(&1).ilog2()));
+        }
+        PlanRequest::Samples(s) => {
+            h.u64(3);
+            h.u64(u64::from(s.max(&1).ilog2()));
+        }
+    }
+    h.0
+}
+
+/// Empties the plan cache.
+pub fn clear_cache() {
+    if let Ok(mut g) = CACHE.lock() {
+        *g = None;
+    }
+}
+
+fn cache_get(key: u64) -> Option<Plan> {
+    CACHE.lock().ok()?.as_ref()?.get(&key).cloned()
+}
+
+fn cache_put(key: u64, p: &Plan) {
+    // never reuse values (probe) or certificates (angle-specific merging)
+    if p.solved.is_some() || p.engine == Engine::Zero {
+        return;
+    }
+    if let Ok(mut g) = CACHE.lock() {
+        let m = g.get_or_insert_with(HashMap::new);
+        if m.len() >= CACHE_CAP {
+            m.clear();
+        }
+        m.insert(key, p.clone());
+    }
+}
+
+/// Tier-0 bounds written into [`Features`]: `sup ≤ min(n, branching)`,
+/// `d_j ≤ min(n, j)`.
+fn tier0_features(q: &QuickFeatures) -> PlanFeatures {
+    let n = q.n;
+    let g = q.gates.max(1) as f64;
+    let mut base = Features {
+        n,
+        gates: q.gates,
+        g2: q.g2,
+        ..Default::default()
+    };
+    base.sv_l = g.log2() + n as f64;
+    base.sup = q.branching.min(n);
+    base.sparse_l = g.log2() + base.sup as f64;
+    let r = q.rotations;
+    base.rotations = r;
+    base.d = r.min(n);
+    // log2 Σ_{j=1}^{r} 2^{min(n, j)}
+    base.dense_l = if r == 0 {
+        0.0
+    } else if r <= n {
+        ((r as f64 + 1.0).exp2() - 2.0).log2()
+    } else {
+        ((n as f64 + 1.0).exp2() - 2.0 + (r - n) as f64 * (n as f64).exp2()).log2()
+    };
+    PlanFeatures {
+        base,
+        mps_r: f64::INFINITY,
+        clifford: q.clifford,
+        quick: q.clone(),
+        tier: 0,
+        ..Default::default()
+    }
+}
+
+/// Tier 1: affine support bound, rotation-frame profile, certificate.
+fn tier1_features(c: &Circuit, obs: Option<&[usize]>, f: &mut PlanFeatures) -> Result<(), SimError> {
+    let n = c.num_qubits;
+    let gates: Vec<Gate> = c.gates().copied().collect();
+    let g = gates.len().max(1) as f64;
+    f.base.sup = simulability::support_bound(n, &gates);
+    f.base.sparse_l = g.log2() + f.base.sup as f64;
+    let prof = crate::adaptive::active_dimension_profile(c)?;
+    f.base.rotations = prof.len();
+    f.base.d = prof.last().copied().unwrap_or(0);
+    f.base.dense_l = if prof.is_empty() {
+        0.0
+    } else {
+        let m = prof.iter().copied().max().unwrap_or(0) as f64;
+        m + prof
+            .iter()
+            .map(|&d| (d as f64 - m).exp2())
+            .sum::<f64>()
+            .log2()
+    };
+    if let Some(obs) = obs {
+        f.base.obs_zero = crate::adaptive::z_product_vanishes(c, obs)?;
+    }
+    f.tier = 1;
+    Ok(())
+}
+
+fn rank(
+    f: &PlanFeatures,
+    req: &PlanRequest,
+    cfg: &PlannerConfig,
+    engines: &[Engine],
+) -> Vec<(Engine, f64)> {
+    let mut r: Vec<(Engine, f64)> = engines
+        .iter()
+        .filter(|&&e| applicable(e, f, req, cfg.mem_bytes))
+        .map(|&e| (e, predict_secs(e, f, req, &cfg.model)))
+        .collect();
+    r.sort_by(|a, b| a.1.total_cmp(&b.1));
+    r
+}
+
+fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, SimError> {
+    let t0 = Instant::now();
+    let n = c.num_qubits;
+    let q = quick_features(c);
+    let key = cfg.cache.then(|| cache_key(&q, req, cfg));
+    if let Some(k) = key {
+        if let Some(mut p) = cache_get(k) {
+            p.cached = true;
+            p.plan_secs = t0.elapsed().as_secs_f64();
+            return Ok(p);
+        }
+    }
+    let mut stage = [0.0f64; 4];
+    stage[0] = t0.elapsed().as_secs_f64();
+    let is_exp = matches!(req, PlanRequest::Expectation(_));
+    let amps = matches!(req, PlanRequest::Amplitudes(_));
+    let cert_obs: Option<&[usize]> = match req {
+        PlanRequest::Expectation(o) if cfg.use_certificate => Some(o),
+        _ => None,
+    };
+    let finish = |mut p: Plan, stage: [f64; 4]| -> Plan {
+        p.stage_secs = stage;
+        p.plan_secs = t0.elapsed().as_secs_f64();
+        if let Some(k) = key {
+            if cfg.probe_cap.is_none() {
+                cache_put(k, &p);
+            }
+        }
+        p
+    };
+    let mut f = tier0_features(&q);
+    if q.clifford && cert_obs.is_none() && !amps {
+        let t = predict_secs(Engine::Tableau, &f, req, &cfg.model);
+        return Ok(finish(
+            empty_plan(Engine::Tableau, vec![(Engine::Tableau, t)], f),
+            stage,
+        ));
+    }
+    let fc = &cfg.feature_cost;
+    let (g, nn) = (q.gates as f64, n as f64);
+    let cheap = [Engine::StateVector, Engine::Sparse, Engine::Compressed];
+    let mut ranked = rank(&f, req, cfg, &cheap);
+    let best = |r: &[(Engine, f64)]| r.first().map_or(f64::INFINITY, |x| x.1);
+    // Tier 1: worth it if the tier-0 upper bound exceeds the best lower
+    // bound by more than `voi` x its cost.
+    let c1 = fc.fixed + fc.tier1_per_gate * g + fc.tier1_per_gate_qubit * g * nn;
+    let lb1 = cheap
+        .iter()
+        .filter(|&&e| applicable(e, &f, req, cfg.mem_bytes))
+        .map(|&e| lower_bound_secs(e, &q, req, &cfg.model))
+        .fold(f64::INFINITY, f64::min);
+    if best(&ranked) - lb1 > cfg.voi * c1 || (q.clifford && cert_obs.is_some()) {
+        let t1 = Instant::now();
+        tier1_features(c, cert_obs, &mut f)?;
+        stage[1] = t1.elapsed().as_secs_f64();
+        ranked = rank(&f, req, cfg, &cheap);
+    }
+    if f.base.obs_zero && cert_obs.is_some() {
+        let mut r = ranked.clone();
+        r.insert(0, (Engine::Zero, 0.0));
+        return Ok(finish(empty_plan(Engine::Zero, r, f), stage));
+    }
+    if q.clifford && !amps {
+        let t = predict_secs(Engine::Tableau, &f, req, &cfg.model);
+        let mut r = ranked.clone();
+        r.insert(0, (Engine::Tableau, t));
+        return Ok(finish(empty_plan(Engine::Tableau, r, f), stage));
+    }
+    let mut considered: Vec<Engine> = cheap.to_vec();
+    // Tier 2: MPS replay, if MPS could beat the best prediction by more
+    // than `voi` x the replay's cost.
+    let c2 = fc.fixed + (fc.mps_per_step + fc.mps_per_step_qubit * nn) * q.mps_steps as f64;
+    let mps_lb = lower_bound_secs(Engine::Mps, &q, req, &cfg.model);
+    let indexed = !matches!(req, PlanRequest::Expectation(_));
+    if (!indexed || n <= 128) && best(&ranked) - mps_lb > cfg.voi * c2 {
+        let t2 = Instant::now();
+        let r = mps_cost::replay(c, BondSource::Bound(Estimator::Best))?;
+        f.mps_r = mps_work_log2(&r.stats, &cfg.model);
+        f.mps_max_bond = r.max_bond;
+        f.mps_bonds = r.final_bonds;
+        f.tier = 2;
+        stage[2] = t2.elapsed().as_secs_f64();
+        considered.push(Engine::Mps);
+        ranked = rank(&f, req, cfg, &considered);
+    }
+    // Tier 3: HSF partition, same rule.
+    let c3 = fc.fixed + fc.hsf_per_gate_qubit * g * nn;
+    let hsf_lb = lower_bound_secs(Engine::Hsf, &q, req, &cfg.model);
+    let mut probe_f = f.clone();
+    probe_f.base.hsf_na = n / 2;
+    if n >= 2
+        && applicable(Engine::Hsf, &probe_f, req, cfg.mem_bytes)
+        && best(&ranked) - hsf_lb > cfg.voi * c3
+    {
+        let t3 = Instant::now();
+        simulability::add_hsf_features(c, &mut f.base)?;
+        f.tier = 3;
+        stage[3] = t3.elapsed().as_secs_f64();
+        considered.push(Engine::Hsf);
+        ranked = rank(&f, req, cfg, &considered);
+    }
+    let Some(&(engine, _)) = ranked.first() else {
+        return Err(SimError::TooLarge {
+            what: "planner: no exact engine fits the budget",
+            bytes: 16u128 << n.min(120),
+            limit: cfg.mem_bytes,
+        });
+    };
+    let _ = is_exp;
+    let mut p = empty_plan(engine, ranked, f);
+    probe_or_solve(c, req, cfg, &mut p)?;
+    Ok(finish(p, stage))
+}
+
+// ---------------------------------------------------------------------------
+// Execution
 
 /// What [`execute_expectation`] did.
 #[derive(Clone, Debug)]
@@ -527,6 +1264,27 @@ fn run_one(
     }
 }
 
+/// The engines to try, the planned one first.
+fn order_of(plan: &Plan) -> Vec<(Engine, f64)> {
+    let mut order: Vec<(Engine, f64)> = plan.ranked.clone();
+    if order.first().map(|x| x.0) != Some(plan.engine) {
+        order.retain(|x| x.0 != plan.engine);
+        order.insert(0, (plan.engine, 0.0));
+    }
+    order
+}
+
+fn deadline_for(order: &[(Engine, f64)], i: usize, cfg: &PlannerConfig) -> Option<f64> {
+    let e = order[i].0;
+    let speculative = matches!(e, Engine::Mps | Engine::Sparse) && cfg.speculate > 0.0;
+    if !speculative {
+        return None;
+    }
+    order
+        .get(i + 1)
+        .map(|&(_, t)| (cfg.speculate * t).max(cfg.min_deadline_secs))
+}
+
 /// Runs a [`Plan`] for `<Z_obs>` (see the module docs for speculation and
 /// debug mode).
 pub fn execute_expectation(
@@ -537,26 +1295,14 @@ pub fn execute_expectation(
 ) -> Result<Execution, SimError> {
     let t0 = Instant::now();
     let mut aborted = Vec::new();
-    let mut order: Vec<(Engine, f64)> = plan.ranked.clone();
-    if order.first().map(|x| x.0) != Some(plan.engine) {
-        order.retain(|x| x.0 != plan.engine);
-        order.insert(0, (plan.engine, 0.0));
-    }
+    let order = order_of(plan);
     let mut result = plan.solved.map(|v| (v, Engine::Mps));
     for i in 0..order.len() {
         if result.is_some() {
             break;
         }
         let e = order[i].0;
-        let speculative = matches!(e, Engine::Mps | Engine::Sparse) && cfg.speculate > 0.0;
-        let deadline = if speculative {
-            order
-                .get(i + 1)
-                .map(|&(_, t)| (cfg.speculate * t).max(cfg.min_deadline_secs))
-        } else {
-            None
-        };
-        match run_one(e, c, obs, cfg, deadline) {
+        match run_one(e, c, obs, cfg, deadline_for(&order, i, cfg)) {
             Ok(Outcome::Value(v)) => {
                 result = Some((v, e));
                 break;
@@ -575,10 +1321,7 @@ pub fn execute_expectation(
     let secs = t0.elapsed().as_secs_f64();
     let mut reference = None;
     if cfg.debug_reference && c.num_qubits <= cfg.debug_max_qubits {
-        let mut sv = StateVectorF64::try_new(c.num_qubits)?;
-        for g in c.gates() {
-            sv.apply_gate(g)?;
-        }
+        let sv = reference_state(c)?;
         let mask = obs.iter().fold(0u64, |m, &q| m ^ (1u64 << q));
         let r: f64 = sv
             .amplitudes()
@@ -604,8 +1347,378 @@ pub fn execute_expectation(
     })
 }
 
+fn reference_state(c: &Circuit) -> Result<StateVectorF64, SimError> {
+    let mut sv = StateVectorF64::try_new(c.num_qubits)?;
+    for g in c.gates() {
+        sv.apply_gate(g)?;
+    }
+    Ok(sv)
+}
+
 /// Plans and runs `<Z_obs>` of `c|0^n>`.
 pub fn expectation(c: &Circuit, obs: &[usize], cfg: &PlannerConfig) -> Result<Execution, SimError> {
     let p = plan(c, &PlanRequest::Expectation(obs.to_vec()), cfg)?;
     execute_expectation(&p, c, obs, cfg)
+}
+
+/// An engine's final state of `c|0^n>`, ready for read-out.
+pub enum Prepared {
+    Sv(StateVectorF64),
+    Sparse(SparseState),
+    Mps(Mps),
+    /// The HSF set-up (partition, segments); the full output is computed
+    /// on the first sampling call and kept.
+    Hsf(Box<HybridSchrodingerFeynman>, Option<StateVectorF64>),
+    /// The compressed state, turned into its sampler on the first
+    /// sampling call.
+    Compressed(Option<Box<CompressedState>>, Option<Box<Sampler>>),
+    Tableau(Box<Tableau>),
+}
+
+/// Evolves `c|0^n>` on `e`; `Ok(None)` if the deadline (seconds) or the
+/// memory budget was hit (MPS, sparse) or the MPS truncated.
+pub fn prepare(
+    e: Engine,
+    c: &Circuit,
+    cfg: &PlannerConfig,
+    deadline: Option<f64>,
+) -> Result<Option<Prepared>, SimError> {
+    let t0 = Instant::now();
+    let over = |t0: &Instant| deadline.is_some_and(|d| t0.elapsed().as_secs_f64() > d);
+    let n = c.num_qubits;
+    let too_large = |what: &'static str, bytes: u128| SimError::TooLarge {
+        what,
+        bytes,
+        limit: cfg.mem_bytes,
+    };
+    Ok(Some(match e {
+        Engine::StateVector => {
+            let bytes = 16u128 << n.min(120);
+            if bytes > cfg.mem_bytes {
+                return Err(too_large("state vector", bytes));
+            }
+            let mut sv = StateVectorF64::try_new(n)?;
+            sv.apply_circuit_blocked(c, &BlockConfig::default())?;
+            Prepared::Sv(sv)
+        }
+        Engine::Sparse => {
+            if n > 64 {
+                return Ok(None);
+            }
+            let max_nnz = (cfg.mem_bytes / 48) as usize;
+            let mut s = SparseState::new(n);
+            for g in c.gates() {
+                s.apply_gate(g)?;
+                if s.nnz() > max_nnz || over(&t0) {
+                    return Ok(None);
+                }
+            }
+            Prepared::Sparse(s)
+        }
+        Engine::Mps => {
+            let mut m = Mps::new(n, 1 << 20);
+            for g in c.gates() {
+                m.apply_gate(g)?;
+                if m.bytes() as u128 > cfg.mem_bytes / 4 || over(&t0) {
+                    return Ok(None);
+                }
+            }
+            if 1.0 - m.fidelity_estimate() > 1e-10 {
+                return Ok(None);
+            }
+            Prepared::Mps(m)
+        }
+        Engine::Hsf => {
+            let opts = HsfOptions {
+                max_bytes: cfg.mem_bytes,
+                ..HsfOptions::default()
+            };
+            Prepared::Hsf(Box::new(HybridSchrodingerFeynman::auto(c, opts)?), None)
+        }
+        Engine::Compressed => {
+            let max_d = ((cfg.mem_bytes / 16).max(1).ilog2() as usize).min(30);
+            Prepared::Compressed(Some(Box::new(CompressedState::new(c, max_d)?)), None)
+        }
+        Engine::Tableau => {
+            let mut t = Tableau::try_new(n)?;
+            for g in c.gates() {
+                t.apply_gate(g)?;
+            }
+            Prepared::Tableau(Box::new(t))
+        }
+        Engine::Zero => {
+            return Err(SimError::NotSupported {
+                what: "planner: the Zero engine has no state",
+            })
+        }
+    }))
+}
+
+fn not_indexed(what: &'static str) -> SimError {
+    SimError::NotSupported { what }
+}
+
+impl Prepared {
+    /// One-off read-out preparation, done by the first sampling call
+    /// anyway: MPS canonical form, HSF full output, compressed sampler.
+    pub fn prepare_sampling(&mut self) -> Result<(), SimError> {
+        match self {
+            Prepared::Mps(m) => {
+                m.canonicalize();
+            }
+            Prepared::Hsf(h, full) => {
+                if full.is_none() {
+                    *full = Some(StateVectorF64::from_amplitudes(h.state_vector()?));
+                }
+            }
+            Prepared::Compressed(st, sm) => {
+                if sm.is_none() {
+                    let s = st.take().expect("compressed state");
+                    *sm = Some(Box::new(s.sampler()));
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// `shots` samples of all qubits (bit `q` = qubit `q`, `n ≤ 128`);
+    /// `Ok(None)` if `deadline` (an instant and seconds) passed (MPS).
+    pub fn samples<R: Rng + ?Sized>(
+        &mut self,
+        shots: usize,
+        rng: &mut R,
+        deadline: Option<(Instant, f64)>,
+    ) -> Result<Option<Vec<u128>>, SimError> {
+        self.prepare_sampling()?;
+        Ok(Some(match self {
+            Prepared::Sv(sv) => sv.sample(shots, rng).into_iter().map(|x| x as u128).collect(),
+            Prepared::Sparse(s) => s.sample(shots, rng).into_iter().map(u128::from).collect(),
+            Prepared::Mps(m) => {
+                if m.num_qubits() > 128 {
+                    return Err(not_indexed("planner samples need n <= 128"));
+                }
+                let mut out = Vec::with_capacity(shots);
+                while out.len() < shots {
+                    let k = (shots - out.len()).min(256);
+                    out.extend(m.sample(k, rng));
+                    if deadline.is_some_and(|(t, d)| t.elapsed().as_secs_f64() > d) {
+                        return Ok(None);
+                    }
+                }
+                out
+            }
+            Prepared::Hsf(_, full) => full
+                .as_ref()
+                .expect("prepared")
+                .sample(shots, rng)
+                .into_iter()
+                .map(|x| x as u128)
+                .collect(),
+            Prepared::Compressed(_, sm) => {
+                let sm = sm.as_ref().expect("prepared");
+                if sm.num_qubits() > 128 {
+                    return Err(not_indexed("planner samples need n <= 128"));
+                }
+                (0..shots)
+                    .map(|_| {
+                        let b = sm.sample_packed(rng);
+                        u128::from(b[0]) | (u128::from(*b.get(1).unwrap_or(&0)) << 64)
+                    })
+                    .collect()
+            }
+            Prepared::Tableau(t) => {
+                if t.num_qubits() > 128 {
+                    return Err(not_indexed("planner samples need n <= 128"));
+                }
+                t.sample(shots, rng)
+                    .into_iter()
+                    .map(|b| {
+                        b.iter()
+                            .enumerate()
+                            .fold(0u128, |a, (q, &v)| a | (u128::from(v) << q))
+                    })
+                    .collect()
+            }
+        }))
+    }
+
+    /// Exact amplitudes `<x|ψ>` with the global phase.
+    pub fn amplitudes(&mut self, xs: &[u128]) -> Result<Vec<Complex64>, SimError> {
+        Ok(match self {
+            Prepared::Sv(sv) => xs.iter().map(|&x| sv.amplitude(x as usize)).collect(),
+            Prepared::Sparse(s) => xs.iter().map(|&x| s.amplitude(x as u64)).collect(),
+            Prepared::Mps(m) => xs.iter().map(|&x| m.amplitude(x)).collect(),
+            Prepared::Hsf(h, full) => match full {
+                Some(sv) => xs.iter().map(|&x| sv.amplitude(x as usize)).collect(),
+                None => {
+                    let ix: Vec<usize> = xs.iter().map(|&x| x as usize).collect();
+                    h.amplitudes(&ix)?
+                }
+            },
+            Prepared::Compressed(..) | Prepared::Tableau(_) => {
+                return Err(not_indexed(
+                    "planner: compressed state / tableau amplitudes drop the global phase",
+                ))
+            }
+        })
+    }
+}
+
+/// What [`execute_samples`] did.
+#[derive(Clone, Debug)]
+pub struct SampleExecution {
+    /// One basis index per shot (bit `q` = qubit `q`).
+    pub samples: Vec<u128>,
+    pub engine: Engine,
+    pub aborted: Vec<Engine>,
+    pub secs: f64,
+    pub plan_secs: f64,
+}
+
+/// Runs a [`Plan`] for `shots` samples of all qubits of `c|0^n>` (`n ≤
+/// 128`). Speculative engines that are aborted fall back to the next one;
+/// the samples then come from a different (equally exact) engine, so with
+/// speculation on, a seeded `rng` reproduces the samples only when no
+/// abort happens.
+pub fn execute_samples<R: Rng + ?Sized>(
+    plan: &Plan,
+    c: &Circuit,
+    shots: usize,
+    rng: &mut R,
+    cfg: &PlannerConfig,
+) -> Result<SampleExecution, SimError> {
+    let t0 = Instant::now();
+    if c.num_qubits > 128 {
+        return Err(not_indexed("planner samples need n <= 128"));
+    }
+    let order = order_of(plan);
+    let mut aborted = Vec::new();
+    for i in 0..order.len() {
+        let e = order[i].0;
+        if e == Engine::Zero {
+            continue;
+        }
+        let dl = deadline_for(&order, i, cfg);
+        let ts = Instant::now();
+        let r = prepare(e, c, cfg, dl).and_then(|p| match p {
+            None => Ok(None),
+            Some(mut p) => p.samples(shots, rng, dl.map(|d| (ts, d))),
+        });
+        match r {
+            Ok(Some(samples)) => {
+                return Ok(SampleExecution {
+                    samples,
+                    engine: e,
+                    aborted,
+                    secs: t0.elapsed().as_secs_f64(),
+                    plan_secs: plan.plan_secs,
+                })
+            }
+            Ok(None) => aborted.push(e),
+            Err(SimError::TooLarge { .. } | SimError::NotSupported { .. })
+                if i + 1 < order.len() =>
+            {
+                aborted.push(e)
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    Err(SimError::TooLarge {
+        what: "planner: every engine aborted",
+        bytes: 0,
+        limit: cfg.mem_bytes,
+    })
+}
+
+/// What [`execute_amplitudes`] did.
+#[derive(Clone, Debug)]
+pub struct AmplitudeExecution {
+    pub amplitudes: Vec<Complex64>,
+    pub engine: Engine,
+    pub aborted: Vec<Engine>,
+    pub secs: f64,
+    pub plan_secs: f64,
+    /// Largest deviation from the reference state vector (debug mode).
+    pub max_err: Option<f64>,
+}
+
+/// Runs a [`Plan`] for the amplitudes `<x|ψ>` (global phase included).
+pub fn execute_amplitudes(
+    plan: &Plan,
+    c: &Circuit,
+    xs: &[u128],
+    cfg: &PlannerConfig,
+) -> Result<AmplitudeExecution, SimError> {
+    let t0 = Instant::now();
+    let order = order_of(plan);
+    let mut aborted = Vec::new();
+    let mut out = None;
+    for i in 0..order.len() {
+        let e = order[i].0;
+        if matches!(e, Engine::Zero | Engine::Tableau | Engine::Compressed) {
+            continue;
+        }
+        let r = prepare(e, c, cfg, deadline_for(&order, i, cfg))
+            .and_then(|p| p.map(|mut p| p.amplitudes(xs)).transpose());
+        match r {
+            Ok(Some(a)) => {
+                out = Some((a, e));
+                break;
+            }
+            Ok(None) => aborted.push(e),
+            Err(SimError::TooLarge { .. }) if i + 1 < order.len() => aborted.push(e),
+            Err(err) => return Err(err),
+        }
+    }
+    let (amplitudes, engine) = out.ok_or(SimError::TooLarge {
+        what: "planner: every engine aborted",
+        bytes: 0,
+        limit: cfg.mem_bytes,
+    })?;
+    let secs = t0.elapsed().as_secs_f64();
+    let mut max_err = None;
+    if cfg.debug_reference && c.num_qubits <= cfg.debug_max_qubits {
+        let sv = reference_state(c)?;
+        let err = xs
+            .iter()
+            .zip(&amplitudes)
+            .map(|(&x, a)| (sv.amplitude(x as usize) - a).norm())
+            .fold(0.0, f64::max);
+        assert!(
+            err <= cfg.debug_tol,
+            "planner debug: {engine:?} amplitudes differ by {err} (plan {:?})",
+            plan.ranked
+        );
+        max_err = Some(err);
+    }
+    Ok(AmplitudeExecution {
+        amplitudes,
+        engine,
+        aborted,
+        secs,
+        plan_secs: plan.plan_secs,
+        max_err,
+    })
+}
+
+/// Plans and draws `shots` samples of every qubit of `c|0^n>`.
+pub fn samples<R: Rng + ?Sized>(
+    c: &Circuit,
+    shots: usize,
+    rng: &mut R,
+    cfg: &PlannerConfig,
+) -> Result<SampleExecution, SimError> {
+    let p = plan(c, &PlanRequest::Samples(shots), cfg)?;
+    execute_samples(&p, c, shots, rng, cfg)
+}
+
+/// Plans and computes the amplitudes `<x|ψ>` of `c|0^n>`.
+pub fn amplitudes(
+    c: &Circuit,
+    xs: &[u128],
+    cfg: &PlannerConfig,
+) -> Result<AmplitudeExecution, SimError> {
+    let p = plan(c, &PlanRequest::Amplitudes(xs.len()), cfg)?;
+    execute_amplitudes(&p, c, xs, cfg)
 }

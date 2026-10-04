@@ -16,6 +16,7 @@
 use crate::circuit::{check_gate, SimError, Simulator};
 use crate::gate::{Gate, Mat2, Mat4};
 use num_complex::Complex64;
+use rand::seq::SliceRandom;
 use rand::{Rng, RngCore};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -284,6 +285,49 @@ impl SparseState {
             i & bit == want
         });
         p
+    }
+
+    /// Draws `shots` basis indices from `|a_x|^2` without collapsing the
+    /// state: one pass over the stored amplitudes against sorted uniforms,
+    /// `O(nnz + shots log shots)`. The stored order is deterministic (fixed
+    /// hasher, same insertion history), so a seeded `rng` reproduces the
+    /// samples.
+    pub fn sample<R: Rng + ?Sized>(&self, shots: usize, rng: &mut R) -> Vec<u64> {
+        if shots == 0 {
+            return Vec::new();
+        }
+        let total = self.norm_sqr();
+        let rs: Vec<(f64, usize)> = crate::statevector::sorted_uniforms(shots, total, rng)
+            .into_iter()
+            .zip(0..)
+            .collect();
+        let mut out = vec![0u64; shots];
+        let mut it = self.amps.iter();
+        let (mut acc, mut cur) = (0.0f64, None::<(u64, f64)>);
+        let mut last = 0u64;
+        for (r, slot) in rs {
+            loop {
+                if let Some((k, p)) = cur {
+                    if acc + p > r {
+                        break;
+                    }
+                    acc += p;
+                    last = k;
+                }
+                match it.next() {
+                    Some((&k, a)) => cur = Some((k, a.norm_sqr())),
+                    None => {
+                        // rounding at the very top: the last entry
+                        cur = None;
+                        break;
+                    }
+                }
+            }
+            out[slot] = cur.map_or(last, |(k, _)| k);
+        }
+        // the uniforms came sorted: shuffle so that shots are i.i.d.
+        out.shuffle(rng);
+        out
     }
 
     pub fn measure_qubit<R: Rng + ?Sized>(&mut self, q: usize, rng: &mut R) -> bool {

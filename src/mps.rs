@@ -598,6 +598,12 @@ impl Mps {
         }
     }
 
+    /// Moves the orthogonality centre to site 0 (what [`Mps::sample`] does
+    /// first; idempotent).
+    pub fn canonicalize(&mut self) {
+        self.move_center(0);
+    }
+
     /// Draws `shots` bitstrings without collapsing the state (for up to 128
     /// qubits). With the centre at site 0 every other site is
     /// right-isometric, so conditional probabilities can be read off left
@@ -605,25 +611,35 @@ impl Mps {
     pub fn sample<R: Rng + ?Sized>(&mut self, shots: usize, rng: &mut R) -> Vec<u128> {
         assert!(self.n <= 128);
         self.move_center(0);
+        // one set of buffers for every shot and site (same arithmetic and
+        // random draws as the per-site allocating version)
+        let maxd = self.sites.iter().map(|s| s.dr.max(s.dl)).max().unwrap_or(1);
+        let mut v = vec![C::default(); maxd];
+        let (mut w0, mut w1) = (vec![C::default(); maxd], vec![C::default(); maxd]);
         let mut out = Vec::with_capacity(shots);
         for _ in 0..shots {
-            let mut v = vec![C::new(1.0, 0.0)];
+            v[0] = C::new(1.0, 0.0);
             let mut bits = 0u128;
             for (q, s) in self.sites.iter().enumerate() {
-                let mut w = [vec![C::default(); s.dr], vec![C::default(); s.dr]];
-                for (b, wb) in w.iter_mut().enumerate() {
-                    for (l, vl) in v.iter().enumerate() {
-                        for (r, o) in wb.iter_mut().enumerate() {
-                            *o += vl * s.at(l, b, r);
-                        }
+                let (dl, dr) = (s.dl, s.dr);
+                w0[..dr].fill(C::default());
+                w1[..dr].fill(C::default());
+                for (l, &vl) in v[..dl].iter().enumerate() {
+                    let r0 = &s.data[(l * 2) * dr..(l * 2 + 1) * dr];
+                    let r1 = &s.data[(l * 2 + 1) * dr..(l * 2 + 2) * dr];
+                    for r in 0..dr {
+                        w0[r] += vl * r0[r];
+                        w1[r] += vl * r1[r];
                     }
                 }
-                let p0: f64 = w[0].iter().map(|z| z.norm_sqr()).sum();
-                let p1: f64 = w[1].iter().map(|z| z.norm_sqr()).sum();
+                let p0: f64 = w0[..dr].iter().map(|z| z.norm_sqr()).sum();
+                let p1: f64 = w1[..dr].iter().map(|z| z.norm_sqr()).sum();
                 let b = usize::from(rng.random::<f64>() * (p0 + p1) >= p0);
-                let pb = if b == 1 { p1 } else { p0 };
+                let (pb, wb) = if b == 1 { (p1, &w1) } else { (p0, &w0) };
                 let k = 1.0 / pb.sqrt();
-                v = w[b].iter().map(|z| z * k).collect();
+                for (o, z) in v[..dr].iter_mut().zip(&wb[..dr]) {
+                    *o = z * k;
+                }
                 bits |= (b as u128) << q;
             }
             out.push(bits);
