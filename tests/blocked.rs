@@ -143,3 +143,30 @@ fn split_phases_regression() {
     check::<f64>(&c, &cfg, 7, 1e-12);
     check::<f32>(&c, &cfg, 7, 1e-5);
 }
+
+/// Grover in executor IR (`algorithms::grover_kops`, MCZ as one diagonal
+/// term) through every blocked config vs gate by gate, and vs the closed
+/// form: after `k` iterations the marked amplitude is `sin((2k+1)θ)` with
+/// `sin θ = 2^{-n/2}` (an independent check of both paths).
+#[test]
+fn grover_matches_gate_by_gate_and_closed_form() {
+    for n in [3usize, 6, 9, 13] {
+        let marked = 0b101 & ((1 << n) - 1);
+        for k in [1usize, 3] {
+            let a = algorithms::grover_state::<f64>(n, marked, k);
+            let theta = (2f64.powf(-(n as f64) / 2.0)).asin();
+            let want = ((2 * k + 1) as f64 * theta).sin();
+            let got = a.amplitudes()[marked];
+            assert!(
+                (got.norm() - want.abs()).abs() < 1e-12,
+                "n={n} k={k}: {got} vs {want}"
+            );
+            for cfg in configs() {
+                let mut b = StateVector::<f64>::new(n);
+                b.apply_kops_blocked(&algorithms::grover_kops(n, marked, k), &cfg);
+                let d = max_diff(&a, &b);
+                assert!(d <= 1e-12, "n={n} k={k} max |Δamp| = {d:e}");
+            }
+        }
+    }
+}
