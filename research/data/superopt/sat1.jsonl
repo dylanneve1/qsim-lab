@@ -1,0 +1,2 @@
+{"block": "compare n=2 c0=True", "wires": 6, "rows": 32, "max_tof": null, "optimum_gates": 8, "toffolis": 5, "circuit": "CNOT(a0,b0) CCX(a0,b0,a1) CCX(a0,b0,b1) CCX(a1,b1,t) CCX(a0,b0,a1) CCX(a0,b0,b1) CNOT(a0,b0) CNOT(a1,t)", "refuted": [0, 1, 2, 3, 4, 5, 6, 7], "secs": 23.4}
+{"block": "lookup w=2 T=[0, 5, 3, 6] anc=1", "wires": 7, "rows": 64, "max_tof": null, "optimum_gates": 4, "toffolis": 4, "circuit": "CCX(c,a0,o0) CCX(c,a1,o0) CCX(c,a1,o1) CCX(c,a0,o2)", "refuted": [0, 1, 2, 3], "secs": 0.1}

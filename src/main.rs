@@ -99,6 +99,8 @@ enum OracleArg {
     Beauregard,
     Ripple,
     Windowed,
+    /// windowed oracle with the superoptimised blocks (exp/superopt)
+    WindowedOpt,
 }
 
 /// Peak resident set size of this process in MiB (Linux `VmHWM`).
@@ -597,6 +599,7 @@ fn main() {
                         OracleArg::Beauregard => shor::Oracle::Beauregard,
                         OracleArg::Ripple => shor::Oracle::Ripple,
                         OracleArg::Windowed => shor::Oracle::Windowed(window),
+                        OracleArg::WindowedOpt => shor::Oracle::WindowedOpt(window),
                     };
                     let path = qsim_lab::pipeline::choose_shor_path(
                         n,

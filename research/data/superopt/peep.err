@@ -1,0 +1,75 @@
+{"window": "CNOT(0,1) CCX(0,2,1) CNOT(3,0) CCX(0,2,1)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CCX(2,3,1) CNOT(0,1) CNOT(3,0)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2)", "consts": [null, null, null, null], "len": 3, "better": 2, "circuit": "CNOT(3,0) CCX(1,3,2)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, null, null, 0], "len": 7, "better": 4, "circuit": "CCX(0,1,3) CNOT(0,1) CCX(1,2,3) CNOT(2,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, 0], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CNOT(0,3) CCX(0,2,3) CNOT(1,2)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, 0], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3)", "consts": [null, null, 0, null], "len": 4, "better": 3, "circuit": "CNOT(0,1) CCX(0,1,2) CNOT(2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3)", "consts": [0, null, null, null], "len": 3, "better": 2, "circuit": "CCX(1,2,0) CNOT(0,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 7, "better": 4, "circuit": "X(1) CCX(1,2,3) CCX(0,2,1) CCX(0,1,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [1, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) X(2) CNOT(2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 5, "better": 4, "circuit": "X(3) CCX(0,1,3) X(0) X(1)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CCX(0,1,3) CNOT(0,1) CCX(1,2,3) CNOT(2,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, null], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CCX(0,2,3) CNOT(1,2) CNOT(0,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, null], "len": 7, "better": 5, "circuit": "CNOT(2,0) CCX(0,1,3) CNOT(0,3) CNOT(2,0) CCX(0,2,3)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2) CNOT(0,2)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CNOT(3,0) CNOT(0,2) CCX(1,3,2)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CNOT(0,1) CCX(0,1,3) CNOT(2,1) CCX(1,2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [null, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) CNOT(0,2) CCX(0,2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(2,3) CCX(0,1,3) CNOT(2,0) CNOT(2,1)"}
+{"window": "CCX(0,1,2) CNOT(0,2) CNOT(2,3) CNOT(0,2)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CCX(0,1,2) CNOT(2,3) CNOT(0,3)"}
+{"window": "CNOT(0,1) CNOT(1,2) CNOT(0,1) CNOT(1,3)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CNOT(1,2) CNOT(0,2) CNOT(1,3)"}
+{"window": "CCX(0,1,2) X(1) CCX(0,1,2) X(3)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "X(1) CNOT(0,2) X(3)"}
+{"window": "CCX(0,1,2) X(1) CCX(0,1,2)", "consts": [null, null, null], "len": 3, "better": 2, "circuit": "CNOT(0,2) X(1)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, 0, null, 0], "len": 7, "better": 3, "circuit": "CCX(0,2,3) CNOT(2,1) CNOT(0,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, 0], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CNOT(0,3) CCX(0,2,3) CNOT(1,2)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, 0], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3)", "consts": [null, null, 0, null], "len": 4, "better": 3, "circuit": "CNOT(0,1) CCX(0,1,2) CNOT(2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3)", "consts": [0, null, null, null], "len": 3, "better": 2, "circuit": "CCX(1,2,0) CNOT(0,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 7, "better": 4, "circuit": "X(1) CCX(1,2,3) CCX(0,2,1) CCX(0,1,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [1, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) X(2) CNOT(2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 5, "better": 4, "circuit": "X(3) CCX(0,1,3) X(0) X(1)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CCX(0,1,3) CNOT(0,1) CCX(1,2,3) CNOT(2,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, null], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CCX(0,2,3) CNOT(1,2) CNOT(0,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CNOT(0,1) CCX(0,1,3) CNOT(2,1) CCX(1,2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [null, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) CNOT(0,2) CCX(0,2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(2,3) CCX(0,1,3) CNOT(2,0) CNOT(2,1)"}
+{"window": "CNOT(0,1) X(2) CNOT(2,3) X(2) CNOT(0,1)", "consts": [null, null, null, null], "len": 5, "better": 2, "circuit": "X(3) CNOT(2,3)"}
+{"window": "X(0) CNOT(0,1) X(0) CNOT(2,3)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "X(1) CNOT(0,1) CNOT(2,3)"}
+{"window": "X(0) CCX(1,2,3) X(2) CCX(1,2,3)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "X(0) X(2) CNOT(1,3)"}
+{"window": "CNOT(0,1) CCX(0,2,1) CNOT(3,0) CCX(0,2,1) CNOT(1,4)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CCX(2,3,1) CNOT(0,1) CNOT(3,0) CNOT(1,4)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2) CNOT(2,4)", "consts": [null, null, null, null, null], "len": 4, "better": 3, "circuit": "CCX(1,3,2) CNOT(2,4) CNOT(3,0)"}
+{"window": "CNOT(0,1) CCX(0,2,1) CNOT(3,0) CNOT(0,4) CCX(0,2,1)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(0,1) CNOT(3,0) CNOT(0,4) CCX(2,3,1)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CNOT(0,4) CCX(0,1,2)", "consts": [null, null, null, null, null], "len": 4, "better": 3, "circuit": "CNOT(3,0) CNOT(0,4) CCX(1,3,2)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(2,3,0) CNOT(4,2) CCX(2,3,0)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(0,1) CNOT(2,0) CCX(3,4,0) CNOT(4,2)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, null, null, 0], "len": 7, "better": 4, "circuit": "CCX(0,1,3) CNOT(0,1) CCX(1,2,3) CNOT(2,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, 0], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CNOT(0,3) CCX(0,2,3) CNOT(1,2)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, 0], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CNOT(4,0) CCX(0,3,4)", "consts": [1, null, null, null, 0], "len": 5, "better": 4, "circuit": "X(1) CCX(1,2,0) CNOT(0,3) CCX(0,3,4)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CNOT(4,2) CCX(2,3,4)", "consts": [null, null, 1, null, 0], "len": 4, "better": 3, "circuit": "CCX(0,1,2) CNOT(2,3) CCX(2,3,4)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CNOT(4,2) CCX(2,3,4)", "consts": [null, null, 0, null, 1], "len": 6, "better": 5, "circuit": "CNOT(0,1) CCX(0,1,2) CNOT(2,3) X(2) CCX(2,3,4)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CNOT(4,0) CCX(0,3,4)", "consts": [0, null, null, null, 1], "len": 5, "better": 4, "circuit": "CCX(1,2,0) CNOT(4,0) CCX(0,3,4) CCX(1,2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CNOT(4,2) CCX(2,3,4)", "consts": [null, null, 1, null, 0], "len": 6, "better": 5, "circuit": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(2,3,4)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CNOT(4,2) CCX(2,3,4)", "consts": [null, null, 0, null, 0], "len": 6, "better": 4, "circuit": "CNOT(0,1) CCX(0,1,2) CNOT(2,3) CCX(2,3,4)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CNOT(4,0) CCX(0,3,4)", "consts": [0, null, null, null, 0], "len": 5, "better": 3, "circuit": "CCX(1,2,3) CCX(1,2,0) CCX(0,3,4)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CNOT(4,2) CCX(2,3,4)", "consts": [null, null, 0, null, 0], "len": 4, "better": 3, "circuit": "CCX(0,1,3) CCX(0,1,2) CCX(2,3,4)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 7, "better": 4, "circuit": "X(1) CCX(1,2,3) CCX(0,2,1) CCX(0,1,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [1, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) X(2) CNOT(2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, 1, null], "len": 5, "better": 4, "circuit": "X(3) CCX(0,1,3) X(0) X(1)"}
+{"window": "CNOT(0,1) CNOT(0,2) CCX(2,1,0) CNOT(0,3) CCX(2,1,0) CNOT(0,2) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CCX(0,1,3) CNOT(0,1) CCX(1,2,3) CNOT(2,1)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(1,2)", "consts": [null, null, null, null], "len": 6, "better": 4, "circuit": "CCX(1,2,3) CCX(0,2,3) CNOT(1,2) CNOT(0,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CCX(0,1,3) CNOT(2,0) CNOT(0,1) CNOT(2,3)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(0,1)", "consts": [null, null, null, null], "len": 7, "better": 5, "circuit": "CNOT(2,0) CCX(0,1,3) CNOT(0,3) CNOT(2,0) CCX(0,2,3)"}
+{"window": "CNOT(0,1) CCX(2,3,0) CNOT(4,2) CCX(2,3,0) CNOT(2,0)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(0,1) CNOT(4,2) CNOT(2,0) CCX(3,4,0)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2) CNOT(0,2) CNOT(2,4)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(3,0) CNOT(0,2) CCX(1,3,2) CNOT(2,4)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2) CNOT(0,2)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CNOT(3,0) CNOT(0,2) CCX(1,3,2)"}
+{"window": "CNOT(0,1) CNOT(2,0) CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 7, "better": 4, "circuit": "CNOT(0,1) CCX(0,1,3) CNOT(2,1) CCX(1,2,3)"}
+{"window": "CNOT(0,1) CCX(1,2,0) CNOT(0,3) CCX(1,2,0) CNOT(0,1) CNOT(0,2)", "consts": [null, null, null, null], "len": 6, "better": 3, "circuit": "CCX(1,2,3) CNOT(0,2) CCX(0,2,3)"}
+{"window": "CCX(0,1,2) CNOT(2,3) CCX(0,1,2) CNOT(2,0) CNOT(2,1)", "consts": [null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(2,3) CCX(0,1,3) CNOT(2,0) CNOT(2,1)"}
+{"window": "CCX(0,1,2) CNOT(0,3) CNOT(4,0) CCX(0,1,2) CNOT(0,2)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(0,3) CNOT(4,0) CNOT(0,2) CCX(1,4,2)"}
+{"window": "CNOT(0,1) CCX(0,2,1) CNOT(3,0) CCX(0,2,1)", "consts": [null, null, null, null], "len": 4, "better": 3, "circuit": "CCX(2,3,1) CNOT(0,1) CNOT(3,0)"}
+{"window": "CCX(0,1,2) CNOT(3,0) CCX(0,1,2)", "consts": [null, null, null, null], "len": 3, "better": 2, "circuit": "CNOT(3,0) CCX(1,3,2)"}
+{"window": "CNOT(0,1) CCX(1,2,3) CNOT(1,3) CNOT(3,4) CNOT(1,3)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(0,1) CCX(1,2,3) CNOT(1,4) CNOT(3,4)"}
+{"window": "CCX(0,1,2) CNOT(0,2) CNOT(2,3) CNOT(0,2) CNOT(2,4)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CCX(0,1,2) CNOT(2,3) CNOT(2,4) CNOT(0,3)"}
+{"window": "CNOT(0,1) CNOT(1,2) CNOT(0,1) CNOT(1,3) CNOT(1,4)", "consts": [null, null, null, null, null], "len": 5, "better": 4, "circuit": "CNOT(1,2) CNOT(0,2) CNOT(1,3) CNOT(1,4)"}
+runq done

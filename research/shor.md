@@ -380,6 +380,16 @@ gates; 48-bit 248 376 613 912 741 in 24.8 s / 200 qubits; **52-bit
 3 384 163 410 217 561 = 41 134 921 × 82 269 841 in 60.5 s / 216 qubits /
 7.41 M gates / 2.40 GB**, random base each time, factored on the first run.
 
+### Follow-up: superoptimised oracle (exp/superopt)
+
+`--oracle windowed-opt` (`src/shor_superopt.rs`, `research/superopt.md`) is
+the same layout and arithmetic with cheaper, proved-correct blocks:
+unary-iteration lookups (the round-4 lookup recomputed its whole AND chain
+for every address), optimal fan-out, a comparator-based modular adder, and
+SAT-derived window rewrites. On the 31-bit record run: 1.70 M → 1.04 M
+gates, 528 k → 261 k Toffolis, and 135.7 s → 97.6 s on the Mac (min of 3),
+with the same measured integer.
+
 ### The law: reachable support of the gate-level circuit, and the cost it implies (new)
 
 Before round `i` (bits `0..i−1` measured, `U^(2^(t−1)) … U^(2^(t−i))`

@@ -1,0 +1,10 @@
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py compare 2 1
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py tof compare 13 4 2 1
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py tof compare 13 4 2 0
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py lookup 2 3 1 0 5 3 6
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py tof lookup 16 6 2 3 2 0 5 3 6
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py add 2 1 1
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py tof add 14 4 2 1 1
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py modadd 3 0
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py compare 3 0
+timeout 3000 ~/qsim-so-venv/bin/python blocks.py tof compare 19 6 3 1

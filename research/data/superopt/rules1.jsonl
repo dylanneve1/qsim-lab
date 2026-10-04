@@ -1,0 +1,4 @@
+{"file": "/Users/dylan/qsim-so-data/r0_20_allnosat.txt", "gates": 6915, "Q": 5, "LMAX": 10, "distinct_windows": 220, "improvable_distinct": 35, "windows_with_saving": 273, "applied": 111, "gate_saving": 169, "secs": 2.1}
+{"file": "/Users/dylan/qsim-so-data/r0_24_allnosat.txt", "gates": 9856, "Q": 5, "LMAX": 10, "distinct_windows": 226, "improvable_distinct": 34, "windows_with_saving": 341, "applied": 136, "gate_saving": 210, "secs": 2.0}
+{"file": "/Users/dylan/qsim-so-data/r0_28_allnosat.txt", "gates": 13552, "Q": 5, "LMAX": 10, "distinct_windows": 223, "improvable_distinct": 34, "windows_with_saving": 383, "applied": 151, "gate_saving": 240, "secs": 2.1}
+{"file": "/Users/dylan/qsim-so-data/r0_31_allnosat.txt", "gates": 16969, "Q": 5, "LMAX": 10, "distinct_windows": 225, "improvable_distinct": 32, "windows_with_saving": 424, "applied": 167, "gate_saving": 267, "secs": 2.3}

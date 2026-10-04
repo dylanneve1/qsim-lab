@@ -1,0 +1,36 @@
+# SAT-derived window rewrite rules: tools/superopt/peep.py (Q=5, LMAX=10) on the round-0 controlled-U of the
+# 20/24/28/31-bit records (Opts::ALL without sat_rules). Format: wires|consts (- unknown, 0/1 known)|pattern|replacement.
+# Only rules that do not increase the CCX count are kept. Every rule is re-verified exhaustively when loaded.
+4|----|CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 0 1|CCX 0 1 3;CX 2 0;CX 0 1;CX 2 3
+4|----|CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 2 1|CX 2 3;CCX 0 1 3;CX 2 0;CX 2 1
+4|----|CCX 0 1 2;CX 3 0;CCX 0 1 2;CX 0 2|CX 3 0;CX 0 2;CCX 1 3 2
+4|----|CCX 0 1 2;CX 3 0;CCX 0 1 2|CX 3 0;CCX 1 3 2
+4|----|CX 0 1;CCX 0 2 1;CX 3 0;CCX 0 2 1|CCX 2 3 1;CX 0 1;CX 3 0
+4|----|CX 0 1;CCX 1 2 0;CX 0 3;CCX 1 2 0;CX 0 1;CX 0 2|CCX 1 2 3;CX 0 2;CCX 0 2 3
+4|----|CX 0 1;CCX 1 2 0;CX 0 3;CCX 1 2 0;CX 0 1;CX 1 2|CCX 1 2 3;CCX 0 2 3;CX 1 2;CX 0 3
+4|----|CX 0 1;CX 0 2;CCX 2 1 0;CX 0 3;CCX 2 1 0;CX 0 2;CX 2 1|CCX 0 1 3;CX 0 1;CCX 1 2 3;CX 2 1
+4|----|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 0 1|CX 2 0;CCX 0 1 3;CX 0 3;CX 2 0;CCX 0 2 3
+4|----|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 2 1|CX 0 1;CCX 0 1 3;CX 2 1;CCX 1 2 3
+4|---0|CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 0 1|CCX 0 1 3;CX 2 0;CX 0 1;CX 2 3
+4|---0|CX 0 1;CCX 1 2 0;CX 0 3;CCX 1 2 0;CX 0 1;CX 1 2|CCX 1 2 3;CX 0 3;CCX 0 2 3;CX 1 2
+4|---0|CX 0 1;CX 0 2;CCX 2 1 0;CX 0 3;CCX 2 1 0;CX 0 2;CX 2 1|CCX 0 1 3;CX 0 1;CCX 1 2 3;CX 2 1
+4|--1-|CCX 0 1 2;CX 2 3;CCX 0 1 2;CX 2 0;CX 2 1|X 3;CCX 0 1 3;X 0;X 1
+4|1---|CX 0 1;CCX 1 2 0;CX 0 3;CCX 1 2 0;CX 0 1;CX 0 2|CCX 1 2 3;X 2;CX 2 3
+5|-----|CCX 0 1 2;CX 0 2;CX 2 3;CX 0 2;CX 2 4|CCX 0 1 2;CX 2 3;CX 2 4;CX 0 3
+5|-----|CCX 0 1 2;CX 0 3;CX 4 0;CCX 0 1 2;CX 0 2|CX 0 3;CX 4 0;CX 0 2;CCX 1 4 2
+5|-----|CCX 0 1 2;CX 3 0;CCX 0 1 2;CX 0 2;CX 2 4|CX 3 0;CX 0 2;CCX 1 3 2;CX 2 4
+5|-----|CCX 0 1 2;CX 3 0;CCX 0 1 2;CX 2 4|CCX 1 3 2;CX 2 4;CX 3 0
+5|-----|CCX 0 1 2;CX 3 0;CX 0 4;CCX 0 1 2|CX 3 0;CX 0 4;CCX 1 3 2
+5|-----|CX 0 1;CCX 0 2 1;CX 3 0;CCX 0 2 1;CX 1 4|CCX 2 3 1;CX 0 1;CX 3 0;CX 1 4
+5|-----|CX 0 1;CCX 0 2 1;CX 3 0;CX 0 4;CCX 0 2 1|CX 0 1;CX 3 0;CX 0 4;CCX 2 3 1
+5|-----|CX 0 1;CCX 1 2 3;CX 1 3;CX 3 4;CX 1 3|CX 0 1;CCX 1 2 3;CX 1 4;CX 3 4
+5|-----|CX 0 1;CCX 2 3 0;CX 4 2;CCX 2 3 0;CX 2 0|CX 0 1;CX 4 2;CX 2 0;CCX 3 4 0
+5|-----|CX 0 1;CX 1 2;CX 0 1;CX 1 3;CX 1 4|CX 1 2;CX 0 2;CX 1 3;CX 1 4
+5|-----|CX 0 1;CX 2 0;CCX 2 3 0;CX 4 2;CCX 2 3 0|CX 0 1;CX 2 0;CCX 3 4 0;CX 4 2
+5|----0|CCX 0 1 2;CX 3 0;CX 0 4;CCX 0 1 2|CX 3 0;CX 0 4;CCX 1 3 2
+5|----0|CX 0 1;CCX 0 2 1;CX 3 0;CX 0 4;CCX 0 2 1|CX 0 1;CX 3 0;CX 0 4;CCX 2 3 1
+5|--0-0|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CX 4 2;CCX 2 3 4|CX 0 1;CCX 0 1 2;CX 2 3;CCX 2 3 4
+5|--0-1|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CX 4 2;CCX 2 3 4|CX 0 1;CCX 0 1 2;CX 2 3;X 2;CCX 2 3 4
+5|--1-0|CCX 0 1 2;CX 2 3;CX 4 2;CCX 2 3 4|CCX 0 1 2;CX 2 3;CCX 2 3 4
+5|--1-0|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CX 4 2;CCX 2 3 4|CX 0 1;CX 2 0;CCX 0 1 2;CX 2 3;CCX 2 3 4
+5|1---0|CX 0 1;CCX 1 2 0;CX 0 3;CX 4 0;CCX 0 3 4|X 1;CCX 1 2 0;CX 0 3;CCX 0 3 4

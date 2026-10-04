@@ -1,0 +1,106 @@
+167b380 superopt: per-block counts mode
+lock S1 Sun Oct  4 14:23:00 IST 2026
+== --oracle windowed --modulus 10161323 --seed 1 --tries 1 (load { 24.75 21.61 20.74 }) 14:23:00
+[sliced profile] build 0.025s  eval c=1 0.266s  eval c=0 0.212s  sort 0.104s  p1 0.049s  collapse 0.105s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=819272  toffoli_gates=277632  gate_branch_ops=1.589e11
+time 0.785 s  peak RSS NaN MiB
+           104202240  maximum resident set size
+== --oracle windowed-opt --modulus 10161323 --seed 1 --tries 1 (load { 24.75 21.61 20.74 }) 14:23:01
+[sliced profile] build 0.695s  eval c=1 0.150s  eval c=0 0.114s  sort 0.076s  p1 0.035s  collapse 0.066s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=463035  toffoli_gates=116872  gate_branch_ops=9.002e10
+time 1.874 s  peak RSS NaN MiB
+           102907904  maximum resident set size
+== --oracle windowed --modulus 10161323 --seed 1 --tries 1 (load { 23.89 21.48 20.70 }) 14:23:03
+[sliced profile] build 0.017s  eval c=1 0.091s  eval c=0 0.078s  sort 0.042s  p1 0.011s  collapse 0.035s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=819272  toffoli_gates=277632  gate_branch_ops=1.589e11
+time 0.294 s  peak RSS NaN MiB
+           102105088  maximum resident set size
+== --oracle windowed-opt --modulus 10161323 --seed 1 --tries 1 (load { 23.89 21.48 20.70 }) 14:23:03
+[sliced profile] build 0.600s  eval c=1 0.068s  eval c=0 0.052s  sort 0.039s  p1 0.011s  collapse 0.034s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=463035  toffoli_gates=116872  gate_branch_ops=9.002e10
+time 1.413 s  peak RSS NaN MiB
+           104087552  maximum resident set size
+== --oracle windowed --modulus 10161323 --seed 1 --tries 1 (load { 23.89 21.48 20.70 }) 14:23:05
+[sliced profile] build 0.017s  eval c=1 0.102s  eval c=0 0.087s  sort 0.052s  p1 0.010s  collapse 0.037s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=819272  toffoli_gates=277632  gate_branch_ops=1.589e11
+time 0.326 s  peak RSS NaN MiB
+           102514688  maximum resident set size
+== --oracle windowed-opt --modulus 10161323 --seed 1 --tries 1 (load { 23.89 21.48 20.70 }) 14:23:05
+[sliced profile] build 0.600s  eval c=1 0.070s  eval c=0 0.053s  sort 0.040s  p1 0.010s  collapse 0.035s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=463035  toffoli_gates=116872  gate_branch_ops=9.002e10
+time 1.420 s  peak RSS NaN MiB
+           104235008  maximum resident set size
+== --oracle windowed --modulus 221643407 --seed 1 --tries 1 (load { 23.89 21.48 20.70 }) 14:23:07
+[sliced profile] build 0.024s  eval c=1 6.356s  eval c=0 5.924s  sort 2.334s  p1 0.352s  collapse 1.173s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+time 16.210 s  peak RSS NaN MiB
+          2820947968  maximum resident set size
+== --oracle windowed-opt --modulus 221643407 --seed 1 --tries 1 (load { 22.07 21.21 20.62 }) 14:23:23
+[sliced profile] build 0.700s  eval c=1 4.205s  eval c=0 3.668s  sort 2.369s  p1 0.345s  collapse 1.144s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=739475  toffoli_gates=185014  gate_branch_ops=8.273e12
+time 13.168 s  peak RSS NaN MiB
+          2831859712  maximum resident set size
+== --oracle windowed --modulus 221643407 --seed 1 --tries 1 (load { 21.04 21.02 20.56 }) 14:23:36
+[sliced profile] build 0.024s  eval c=1 6.385s  eval c=0 5.942s  sort 2.350s  p1 0.336s  collapse 1.155s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+time 16.239 s  peak RSS NaN MiB
+          2822029312  maximum resident set size
+== --oracle windowed-opt --modulus 221643407 --seed 1 --tries 1 (load { 19.08 20.58 20.41 }) 14:23:52
+[sliced profile] build 0.699s  eval c=1 4.140s  eval c=0 3.679s  sort 2.363s  p1 0.342s  collapse 1.158s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=739475  toffoli_gates=185014  gate_branch_ops=8.273e12
+time 13.117 s  peak RSS NaN MiB
+          2824798208  maximum resident set size
+== --oracle windowed --modulus 221643407 --seed 1 --tries 1 (load { 18.45 20.40 20.35 }) 14:24:05
+[sliced profile] build 0.024s  eval c=1 6.388s  eval c=0 5.899s  sort 2.351s  p1 0.340s  collapse 1.159s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=1264500  toffoli_gates=409248  gate_branch_ops=1.413e13
+time 16.210 s  peak RSS NaN MiB
+          2826240000  maximum resident set size
+== --oracle windowed-opt --modulus 221643407 --seed 1 --tries 1 (load { 17.40 20.06 20.23 }) 14:24:22
+[sliced profile] build 0.701s  eval c=1 4.175s  eval c=0 3.699s  sort 2.393s  p1 0.345s  collapse 1.172s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=739475  toffoli_gates=185014  gate_branch_ops=8.273e12
+time 13.220 s  peak RSS NaN MiB
+          2831581184  maximum resident set size
+unlock Sun Oct  4 14:24:35 IST 2026
+lock 31-1-windowed Sun Oct  4 14:25:15 IST 2026
+== --oracle windowed --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 21.76 20.75 20.47 }) 14:25:15
+[sliced profile] build 0.034s  eval c=1 56.647s  eval c=0 54.972s  sort 16.526s  p1 1.527s  collapse 5.910s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+time 135.690 s  peak RSS NaN MiB
+          4279074816  maximum resident set size
+unlock Sun Oct  4 14:27:31 IST 2026
+lock 31-1-windowed-opt Sun Oct  4 14:28:11 IST 2026
+== --oracle windowed-opt --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 19.57 19.88 20.13 }) 14:28:11
+[sliced profile] build 1.027s  eval c=1 36.660s  eval c=0 34.829s  sort 16.579s  p1 1.531s  collapse 5.861s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1040024  toffoli_gates=256006  gate_branch_ops=8.176e13
+time 97.561 s  peak RSS NaN MiB
+          4280041472  maximum resident set size
+unlock Sun Oct  4 14:29:48 IST 2026
+lock 31-2-windowed Sun Oct  4 14:30:28 IST 2026
+== --oracle windowed --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 18.67 18.65 19.54 }) 14:30:28
+[sliced profile] build 0.044s  eval c=1 56.799s  eval c=0 55.284s  sort 16.527s  p1 1.580s  collapse 5.912s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+time 136.221 s  peak RSS NaN MiB
+          4280057856  maximum resident set size
+unlock Sun Oct  4 14:32:45 IST 2026
+lock 31-2-windowed-opt Sun Oct  4 14:33:25 IST 2026
+== --oracle windowed-opt --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 23.86 19.75 19.74 }) 14:33:25
+[sliced profile] build 1.148s  eval c=1 36.654s  eval c=0 35.158s  sort 16.807s  p1 1.611s  collapse 6.133s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1040024  toffoli_gates=256006  gate_branch_ops=8.176e13
+time 98.746 s  peak RSS NaN MiB
+          4281761792  maximum resident set size
+unlock Sun Oct  4 14:35:04 IST 2026
+lock 31-3-windowed Sun Oct  4 14:35:44 IST 2026
+== --oracle windowed --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 22.65 19.82 19.70 }) 14:35:44
+[sliced profile] build 0.036s  eval c=1 62.115s  eval c=0 60.896s  sort 18.038s  p1 1.681s  collapse 6.792s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1704645  toffoli_gates=528178  gate_branch_ops=1.341e14
+time 149.653 s  peak RSS NaN MiB
+          4278943744  maximum resident set size
+unlock Sun Oct  4 14:38:13 IST 2026
+lock 31-3-windowed-opt Sun Oct  4 14:38:53 IST 2026
+== --oracle windowed-opt --f32 --modulus 1537596787 --seed 2 --tries 1 (load { 35.05 24.01 21.26 }) 14:38:53
+[sliced profile] build 1.250s  eval c=1 41.469s  eval c=0 38.550s  sort 18.188s  p1 1.832s  collapse 7.663s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=1040024  toffoli_gates=256006  gate_branch_ops=8.176e13
+time 110.253 s  peak RSS NaN MiB
+          4278321152  maximum resident set size
+unlock Sun Oct  4 14:40:44 IST 2026
+done Sun Oct 4 14:41:24 IST 2026
