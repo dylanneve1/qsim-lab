@@ -101,6 +101,11 @@ enum OracleArg {
     Windowed,
     /// windowed oracle with the superoptimised blocks (exp/superopt)
     WindowedOpt,
+    /// windowed-opt with measurement-based uncomputation: temporary-AND
+    /// lookups, measurement-based unlookup, Gidney adders (exp/mbu-shor)
+    WindowedMbu,
+    /// windowed-opt with measurement-based lookups/unlookups only
+    WindowedMbuLookup,
 }
 
 /// Peak resident set size of this process in MiB (Linux `VmHWM`).
@@ -600,6 +605,8 @@ fn main() {
                         OracleArg::Ripple => shor::Oracle::Ripple,
                         OracleArg::Windowed => shor::Oracle::Windowed(window),
                         OracleArg::WindowedOpt => shor::Oracle::WindowedOpt(window),
+                        OracleArg::WindowedMbu => shor::Oracle::WindowedMbu(window),
+                        OracleArg::WindowedMbuLookup => shor::Oracle::WindowedMbuLookup(window),
                     };
                     let path = qsim_lab::pipeline::choose_shor_path(
                         n,
@@ -664,8 +671,8 @@ fn main() {
                         };
                         for r in &runs {
                             println!(
-                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}  gate_branch_ops={:.3e}",
-                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates, r.work_ops as f64
+                                "a={}  qubits={}  measured={}  order={:?}  factor={:?}  peak_amplitudes={}  peak_amp_bytes={}  total_gates={}  toffoli_gates={}  mbu_measurements={}  gate_branch_ops={:.3e}",
+                                r.a, r.qubits, r.measured, r.order, r.factor, r.peak_stored, r.peak_bytes, r.total_gates, r.toffoli_gates, r.measurements, r.work_ops as f64
                             );
                         }
                         match f {

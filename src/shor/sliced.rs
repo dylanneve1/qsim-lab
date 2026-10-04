@@ -111,8 +111,12 @@ pub struct SlicedProgram {
     /// Number of circuit qubits; word `nq` is the all-ones word.
     pub nq: usize,
     ops: Vec<[u32; 3]>,
-    /// Gates in the source circuit (a SWAP counts once).
+    /// Gates in the source circuit (a SWAP counts once; an X-basis
+    /// measurement and every fix-up Z / CZ count once).
     pub gates: usize,
+    /// The program addresses the sign word `nq + 1` (Z / CZ fix-ups and
+    /// X-basis measurements of measurement-based uncomputation).
+    pub signed: bool,
 }
 
 #[inline(always)]
@@ -170,7 +174,73 @@ impl SlicedProgram {
                 ref g => return Err(format!("gate {g:?} is not a basis-state permutation")),
             }
         }
-        Ok(Self { nq, ops, gates })
+        Ok(Self {
+            nq,
+            ops,
+            gates,
+            signed: false,
+        })
+    }
+
+    /// Compiles a resolved measurement-based block ([`crate::shor_mbu`]).
+    /// Words: `0..nq` qubits, `nq` all ones, `nq + 1` the per-branch sign.
+    /// `Z(q)` is `sign ^= w[q]`, `CZ(a, b)` is `sign ^= w[a] & w[b]`, and an
+    /// X-basis measurement of `q` with outcome `m` followed by a reset is
+    /// `sign ^= m·w[q]; w[q] ^= w[q] & w[q]` (i.e. `w[q] = 0`). This is
+    /// exact when `q` is a deterministic function of the other qubits on
+    /// every branch (then `P(m) = 1/2` and no two branches merge); the
+    /// evaluator checks the consequences (see [`eval_block`]).
+    pub fn compile_ops(nq: usize, src: &[crate::shor_mbu::MbuOp]) -> Result<Self, String> {
+        use crate::shor_mbu::MbuOp;
+        let one = nq as u32;
+        let sign = one + 1;
+        let mut ops = Vec::with_capacity(src.len() + src.len() / 4);
+        let mut signed = false;
+        let q = |i: usize| -> Result<u32, String> {
+            if i < nq {
+                Ok(i as u32)
+            } else {
+                Err(format!("qubit {i} out of range ({nq} qubits)"))
+            }
+        };
+        for op in src {
+            match *op {
+                MbuOp::G(Gate::X(t)) => ops.push([q(t)?, one, one]),
+                MbuOp::G(Gate::Cnot(c, t)) => ops.push([q(t)?, q(c)?, one]),
+                MbuOp::G(Gate::Ccx(c1, c2, t)) => ops.push([q(t)?, q(c1)?, q(c2)?]),
+                MbuOp::G(Gate::Swap(a, b)) => {
+                    let (a, b) = (q(a)?, q(b)?);
+                    ops.push([a, b, one]);
+                    ops.push([b, a, one]);
+                    ops.push([a, b, one]);
+                }
+                MbuOp::G(Gate::Z(t)) => {
+                    signed = true;
+                    ops.push([sign, q(t)?, one]);
+                }
+                MbuOp::G(Gate::Cz(a, b)) => {
+                    signed = true;
+                    ops.push([sign, q(a)?, q(b)?]);
+                }
+                MbuOp::MeasX(t, m) => {
+                    signed = true;
+                    let t = q(t)?;
+                    if m {
+                        ops.push([sign, t, one]);
+                    }
+                    ops.push([t, t, t]);
+                }
+                MbuOp::G(ref g) => {
+                    return Err(format!("gate {g:?} is not a signed basis-state map"))
+                }
+            }
+        }
+        Ok(Self {
+            nq,
+            ops,
+            gates: src.len(),
+            signed,
+        })
     }
 
     /// Number of slice steps.
@@ -185,7 +255,7 @@ impl SlicedProgram {
     /// Applies the program to `w` (`nq + 1` words, the last all ones).
     #[inline]
     pub fn eval<const L: usize>(&self, w: &mut [[u64; L]]) {
-        assert!(w.len() > self.nq);
+        assert!(w.len() > self.nq + usize::from(self.signed));
         assert!(w[self.nq].iter().all(|&x| x == u64::MAX));
         #[cfg(target_arch = "x86_64")]
         if has_avx2() {
@@ -234,7 +304,10 @@ pub enum BlockOut<'a, S: KeySlot> {
 
 /// Evaluates the block on `|ctrl>|x>|0…>` for every `x` in `xs`, gate by
 /// gate on bit slices, and returns the output work-register values.
-/// Panics if any output has a changed control or a non-zero ancilla.
+/// Panics if any output has a changed control or a non-zero ancilla, or
+/// (signed programs, i.e. with measurement-based uncomputation) if any
+/// branch ends with sign `−1`: the phase fix-ups must cancel every
+/// measurement phase exactly.
 pub fn eval_block(prog: &SlicedProgram, io: &SliceIo, ctrl: bool, xs: &[u64]) -> Vec<u64> {
     let mut out = vec![0u64; xs.len()];
     eval_block_into(prog, io, ctrl, xs, BlockOut::Keys(&mut out[..]));
@@ -318,6 +391,13 @@ fn eval_block_l<const L: usize, S: KeySlot>(
                 0,
                 "ancillas did not return to 0 (lane word {l})"
             );
+            if prog.signed {
+                assert_eq!(
+                    w[nq + 1][l] & valid[l],
+                    0,
+                    "measurement-based uncomputation left a relative sign (lane word {l})"
+                );
+            }
         }
         // transpose out
         let mut o = vec![0u64; inp.len()];
@@ -331,7 +411,7 @@ fn eval_block_l<const L: usize, S: KeySlot>(
         }
         o
     };
-    let init = || vec![[0u64; L]; nq + 1];
+    let init = || vec![[0u64; L]; nq + 2];
     match out {
         BlockOut::Keys(out) => {
             assert_eq!(out.len(), xs.len());
@@ -399,6 +479,46 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
     }
 }
 
+/// The controlled-`U_mult` block of any oracle the sliced engine runs, as
+/// resolved ops ([`crate::shor_mbu::MbuOp`]), with its I/O and qubit count.
+/// For the measurement-based oracles the X-basis measurement outcomes are
+/// drawn from a fixed pseudo-random stream seeded by `(N, mult)` (and
+/// `QSIM_MBU_SEED`; `QSIM_MBU_OUTCOMES=zero|one` forces them); a round
+/// applies the *same* outcomes to all of its branches, as one physical
+/// shot would.
+pub fn oracle_ops(inst: &Instance, mult: u64) -> (Vec<crate::shor_mbu::MbuOp>, SliceIo, usize) {
+    use crate::shor_mbu::{MbuLayout, MbuOp, MbuOpts, Outcomes};
+    let mbu = |w: usize, o: MbuOpts| {
+        let lay = MbuLayout::new(inst.m, w, &o);
+        let mut oc = Outcomes::from_env(
+            inst.n_mod.wrapping_mul(0x2545_F491_4F6C_DD1D) ^ mult.rotate_left(17),
+        );
+        let ops = crate::shor_mbu::controlled_ua(&lay, mult, inst.n_mod, &o, &mut oc);
+        let io = SliceIo {
+            ctrl: lay.win.ctrl,
+            x: lay.win.x.clone(),
+        };
+        (ops, io, lay.num_qubits())
+    };
+    match inst.oracle {
+        Oracle::WindowedMbu(w) => mbu(w, MbuOpts::ALL),
+        Oracle::WindowedMbuLookup(w) => mbu(w, MbuOpts::LOOKUPS),
+        _ => {
+            let (c, io) = oracle_block(inst, mult);
+            let nq = c.num_qubits;
+            let ops = c
+                .ops
+                .iter()
+                .map(|op| match op {
+                    Op::Gate(g) => MbuOp::G(*g),
+                    op => panic!("non-gate op {op:?} in a reversible block"),
+                })
+                .collect();
+            (ops, io, nq)
+        }
+    }
+}
+
 /// Exact state of the semiclassical circuit with a reversible oracle,
 /// stored as the work-register support (sorted) and amplitudes.
 #[derive(Clone, Debug)]
@@ -462,7 +582,11 @@ impl<T: Real> SlicedState<T> {
     pub fn new(inst: &Instance) -> Self {
         assert!(matches!(
             inst.oracle,
-            Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
+            Oracle::Ripple
+                | Oracle::Windowed(_)
+                | Oracle::WindowedOpt(_)
+                | Oracle::WindowedMbu(_)
+                | Oracle::WindowedMbuLookup(_)
         ));
         Self {
             keys: vec![1],
@@ -548,9 +672,9 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
         self.support_trace.push(self.keys.len());
         self.final_round = i + 1 == inst.t;
         let t0 = std::time::Instant::now();
-        let (c, io) = oracle_block(inst, mult);
-        let prog = SlicedProgram::compile(&c).expect("reversible oracle");
-        drop(c);
+        let (ops, io, nq) = oracle_ops(inst, mult);
+        let prog = SlicedProgram::compile_ops(nq, &ops).expect("reversible oracle");
+        drop(ops);
         let t1 = std::time::Instant::now();
         assert!(self.keys.len() < u32::MAX as usize);
         // control = 1 branches: the gate-level circuit computes U x
@@ -702,6 +826,33 @@ mod tests {
             for j in 0..64 {
                 assert_eq!((a[j] >> i) & 1, (orig[i] >> j) & 1);
             }
+        }
+    }
+
+    /// A measurement phase without its fix-up must trip the sign check.
+    #[test]
+    #[should_panic(expected = "relative sign")]
+    fn missing_mbu_fixup_is_caught() {
+        use crate::shor_mbu::MbuOp;
+        // qubits: 0 ctrl, 1..=2 x, 3 t = x0 ∧ x1, X-measured with outcome 1
+        let ops = [MbuOp::G(Gate::Ccx(1, 2, 3)), MbuOp::MeasX(3, true)];
+        let prog = SlicedProgram::compile_ops(4, &ops).unwrap();
+        let io = SliceIo { ctrl: 0, x: vec![1, 2] };
+        eval_block(&prog, &io, true, &[0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn mbu_fixup_cancels_the_measurement_phase() {
+        use crate::shor_mbu::MbuOp;
+        for m in [false, true] {
+            let mut ops = vec![MbuOp::G(Gate::Ccx(1, 2, 3)), MbuOp::MeasX(3, m)];
+            if m {
+                ops.push(MbuOp::G(Gate::Cz(1, 2)));
+            }
+            let prog = SlicedProgram::compile_ops(4, &ops).unwrap();
+            assert!(prog.signed);
+            let io = SliceIo { ctrl: 0, x: vec![1, 2] };
+            assert_eq!(eval_block(&prog, &io, true, &[0, 1, 2, 3]), vec![0, 1, 2, 3]);
         }
     }
 

@@ -493,7 +493,10 @@ pub fn choose_shor_path(
         Oracle::Permutation => m + 1,
         Oracle::Beauregard => 2 * m + 3,
         Oracle::Ripple => 3 * m + 4,
-        Oracle::Windowed(w) | Oracle::WindowedOpt(w) => 4 * m + 4 + w.min(m),
+        Oracle::Windowed(w) | Oracle::WindowedOpt(w) | Oracle::WindowedMbuLookup(w) => {
+            4 * m + 4 + w.min(m)
+        }
+        Oracle::WindowedMbu(w) => 5 * m + 3 + w.min(m),
     };
     let (mut sc, mut sp) = (semiclassical, sparse);
     if !sc && !fits(3 * m) {

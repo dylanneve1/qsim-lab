@@ -34,9 +34,21 @@ use std::f64::consts::PI;
 fn theory_oracle() -> Oracle {
     if module_path!().contains("theory_shor_opt") {
         Oracle::WindowedOpt(4)
+    } else if module_path!().contains("theory_shor_mbu") {
+        Oracle::WindowedMbu(4)
     } else {
         Oracle::Windowed(4)
     }
+}
+
+/// The noisy trajectory engine (T3 checks) runs reversible oracles only;
+/// the measurement-based oracle (exp/mbu-shor) skips those checks.
+fn noisy_unsupported() -> bool {
+    let mbu = matches!(theory_oracle(), Oracle::WindowedMbu(_));
+    if mbu {
+        eprintln!("skipped: the noisy engine has no measurement-based uncomputation");
+    }
+    mbu
 }
 
 fn mulmod(a: u64, b: u64, n: u64) -> u64 {
@@ -407,9 +419,9 @@ fn t1_work_counter_identity() {
         let mut y = 0u128;
         let mut w: u128 = 0;
         for i in 0..t {
-            let (c, _) = qsim_lab::shor::sliced::oracle_block(&inst, inst.mults[t - 1 - i]);
+            let (ops, _, _) = qsim_lab::shor::sliced::oracle_ops(&inst, inst.mults[t - 1 - i]);
             let exact = support_closed_form(r_i(r, t, i), i, y);
-            w += 2 * u128::from(exact) * c.ops.len() as u128;
+            w += 2 * u128::from(exact) * ops.len() as u128;
             s.round(&inst, i, y);
             let bit = rng.random::<f64>() < s.prob_one(0);
             s.collapse(0, bit);
@@ -861,6 +873,9 @@ fn random_gate_fault<R: Rng>(
 /// and the window is sharp: some single fault in round t − ν − 1 changes it.
 #[test]
 fn t3_end_window_is_exactly_harmless() {
+    if noisy_unsupported() {
+        return;
+    }
     let mut rng = StdRng::seed_from_u64(6);
     for &(n, a) in &[(15u64, 7u64), (21, 2), (35, 8), (51, 2)] {
         let inst = Instance::new(n, a, theory_oracle());
@@ -942,6 +957,9 @@ fn start_window_bound(t: usize, i: usize, r: u64) -> f64 {
 /// fail much more often).
 #[test]
 fn t3_start_window_lower_bound_for_phase_faults() {
+    if noisy_unsupported() {
+        return;
+    }
     let mut rng = StdRng::seed_from_u64(7);
     let mut worst_margin = f64::INFINITY;
     let mut x_below = 0;
@@ -1032,6 +1050,9 @@ fn eval_prefix(gates: &[Gate], mut s: u128) -> u128 {
 #[test]
 #[allow(clippy::needless_range_loop)]
 fn t3_phase_fault_textbook_formula() {
+    if noisy_unsupported() {
+        return;
+    }
     let mut rng = StdRng::seed_from_u64(8);
     for &(n, a) in &[(15u64, 7u64), (15, 2), (21, 2)] {
         let inst = Instance::new(n, a, theory_oracle());

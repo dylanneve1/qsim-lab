@@ -56,6 +56,14 @@ pub enum Oracle {
     /// [`crate::shor_superopt`] (all of [`crate::shor_superopt::Opts::ALL`]);
     /// same layout, `4n + 4 + w` qubits, X, CNOT, CCX only.
     WindowedOpt(usize),
+    /// The windowed-opt oracle with measurement-based uncomputation
+    /// ([`crate::shor_mbu`], `MbuOpts::ALL`): temporary-AND lookups,
+    /// measurement-based unlookup and Gidney adders; `5n + 3 + w` qubits;
+    /// X, CNOT, CCX, X-basis measurements and classically controlled Z / CZ.
+    WindowedMbu(usize),
+    /// Measurement-based lookups and unlookups only (`MbuOpts::LOOKUPS`):
+    /// same `4n + 4 + w` qubits as the windowed oracle.
+    WindowedMbuLookup(usize),
 }
 
 /// A simulator state that can run semiclassical order finding.
@@ -329,7 +337,10 @@ impl Instance {
             Oracle::Permutation => self.m + 1,
             Oracle::Beauregard => 2 * self.m + 3,
             Oracle::Ripple => 3 * self.m + 4,
-            Oracle::Windowed(w) | Oracle::WindowedOpt(w) => 4 * self.m + 4 + w.min(self.m),
+            Oracle::Windowed(w) | Oracle::WindowedOpt(w) | Oracle::WindowedMbuLookup(w) => {
+                4 * self.m + 4 + w.min(self.m)
+            }
+            Oracle::WindowedMbu(w) => 5 * self.m + 3 + w.min(self.m),
         }
     }
 
@@ -404,6 +415,34 @@ impl Instance {
                 }
                 s.gate(&Gate::H(0));
             }
+            Oracle::WindowedMbu(_) | Oracle::WindowedMbuLookup(_) => {
+                // genuine X-basis measurements: H, project onto the
+                // resolved outcome (its probability must be 1/2), reset
+                let (ops, _, _) = sliced::oracle_ops(self, mult);
+                s.gate(&Gate::H(0));
+                for op in &ops {
+                    match *op {
+                        crate::shor_mbu::MbuOp::G(g) => s.gate(&g),
+                        crate::shor_mbu::MbuOp::MeasX(q, m) => {
+                            s.gate(&Gate::H(q));
+                            let p1 = s.prob_one(q);
+                            let p = if m { p1 } else { 1.0 - p1 };
+                            assert!(
+                                (p - 0.5).abs() < 1e-9,
+                                "X-basis measurement of qubit {q}: P({m}) = {p}, not 1/2"
+                            );
+                            s.collapse(q, m);
+                            if m {
+                                s.gate(&Gate::X(q));
+                            }
+                        }
+                    }
+                }
+                if let Some(g) = corr {
+                    s.gate(&g);
+                }
+                s.gate(&Gate::H(0));
+            }
         }
     }
 }
@@ -425,6 +464,9 @@ pub struct SemiRun {
     pub toffoli_gates: usize,
     /// Gate × branch applications (sliced backend only, else 0).
     pub work_ops: u128,
+    /// Mid-circuit X-basis measurements in the oracle blocks
+    /// (measurement-based uncomputation; 0 for the reversible oracles).
+    pub measurements: usize,
 }
 
 /// One semiclassical order-finding run on the state `s` (which must be the
@@ -438,6 +480,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
     let (mut peak_stored, mut peak_bytes) = (s.stored(), s.bytes());
     let mut total_gates = 0usize;
     let mut toffoli_gates = 0usize;
+    let mut measurements = 0usize;
     for i in 0..inst.t {
         let k = inst.t - 1 - i;
         let mult = inst.mults[k];
@@ -454,6 +497,13 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
                 total_gates += g_tot + 2 + usize::from(y != 0);
                 toffoli_gates += g_tof;
             }
+            Oracle::WindowedMbu(_) | Oracle::WindowedMbuLookup(_) => {
+                let (ops, _, _) = sliced::oracle_ops(inst, mult);
+                let c = crate::shor_mbu::MbuCounts::of(&ops);
+                total_gates += c.total + 2 + usize::from(y != 0);
+                toffoli_gates += c.toffoli;
+                measurements += c.meas;
+            }
         }
         s.round(inst, i, y);
         peak_stored = peak_stored.max(s.stored());
@@ -465,10 +515,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         s.reset_control(bit); // recycle the control qubit
         if bit {
             y |= 1 << i;
-            if matches!(
-                inst.oracle,
-                Oracle::Beauregard | Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
-            ) {
+            if !matches!(inst.oracle, Oracle::Permutation) {
                 total_gates += 1;
             }
         }
@@ -487,6 +534,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
         total_gates,
         toffoli_gates,
         work_ops: s.work_ops(),
+        measurements,
     }
 }
 
