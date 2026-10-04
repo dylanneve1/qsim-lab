@@ -108,8 +108,9 @@ Within Kishony & Fowler's single-auxiliary 6.6.6 design space (arXiv:2603.28852:
   noise (d = 5, p = 0.1 %). **No gain at d = 9** (1.02× [0.94, 1.11], p = 0.3 %).
 - No schedule tried raised the circuit distance; the search is local, so this is not a proof.
 - Audit (§16): the distances and minimum-weight counts were recomputed from **Stim's** DEM of the
-  exported circuits with Stim's own distance search and an independent counter: d = 3, 5 (1 and 5
-  rounds), 7 and 9 (1 round), K–F and LNS schedules, all identical (e.g. 388/197, 883/434, 36/15).
+  exported circuits with Stim's own distance search and an independent counter: d = 3 and 5 (1 and
+  d rounds), 7 (1 and 7 rounds), 9 (1 round), K–F and LNS schedules, all identical (388/197,
+  12,901/6,627, 883/434, 36/15).
   The LER ratios were re-derived from the raw counts.
 
 ## 4. Which exact engine to use: simulability study and planner

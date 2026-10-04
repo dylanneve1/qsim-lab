@@ -1,0 +1,50 @@
+kf_d7_r1.stim stim full-DEM distance 6 (0.1s)
+Z-sector distinct mechanisms 181 Z dets 36
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 883 Z-sector logicals
+kf_d7_r7.stim stim full-DEM distance 0 (0.0s)
+Z-sector distinct mechanisms 1045 Z dets 144
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 12901 Z-sector logicals
+kf_d9_r1.stim stim full-DEM distance 7 (2.2s)
+Z-sector distinct mechanisms 313 Z dets 60
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 0 Z-sector logicals
+weight 7: 36 Z-sector logicals
+lns_d7_r1.stim stim full-DEM distance 6 (0.1s)
+Z-sector distinct mechanisms 176 Z dets 36
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 434 Z-sector logicals
+lns_d7_r7.stim stim full-DEM distance 0 (0.0s)
+Z-sector distinct mechanisms 1010 Z dets 144
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 6627 Z-sector logicals
+lns_d9_r1.stim stim full-DEM distance 7 (1.9s)
+Z-sector distinct mechanisms 311 Z dets 60
+weight 1: 0 Z-sector logicals
+weight 2: 0 Z-sector logicals
+weight 3: 0 Z-sector logicals
+weight 4: 0 Z-sector logicals
+weight 5: 0 Z-sector logicals
+weight 6: 0 Z-sector logicals
+weight 7: 15 Z-sector logicals

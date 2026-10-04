@@ -1,0 +1,63 @@
+=== chunk atlas start 03:28:07Z load { 4.46 11.59 9.01 }
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.2617,"profile_secs":0.2047,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+real 1.89
+user 1.43
+sys 0.03
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.2590,"profile_secs":0.1895,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+real 1.45
+user 1.41
+sys 0.02
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.2619,"profile_secs":0.1915,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+real 1.45
+user 1.41
+sys 0.02
+{"engine":"recycled","spec":"shorwin:nbits=16,w=4,in=one","seed":1,"n":72,"d":72,"secs":0.03435,"f":2,"live_max":0,"absorbed":3216,"element_ops":45676,"compile_secs":0.0220,"evolve_secs":0.0123,"recycle_secs":0.0015}
+{"engine":"recycled","spec":"shorwin:nbits=16,w=4,in=one","seed":1,"n":72,"d":72,"secs":0.03327,"f":2,"live_max":0,"absorbed":3216,"element_ops":45676,"compile_secs":0.0214,"evolve_secs":0.0118,"recycle_secs":0.0014}
+{"engine":"recycled","spec":"shorwin:nbits=16,w=4,in=one","seed":1,"n":72,"d":72,"secs":0.03412,"f":2,"live_max":0,"absorbed":3216,"element_ops":45676,"compile_secs":0.0219,"evolve_secs":0.0122,"recycle_secs":0.0014}
+=== chunk atlas end 03:28:12Z load { 4.26 11.43 8.97 }
+=== chunk sim start 03:31:37Z load { 3.80 9.48 8.81 }
+qaoa24p2 sv
+{"ok":true,"value":6.172090858625671e-19,"secs":1.539026,"size":16777216,"build_secs":0.000258,"note":""}
+qaoa24p2 cstate
+{"ok":true,"value":0.000000000000000e0,"secs":0.626236,"size":22,"build_secs":0.000026,"note":""}
+qaoa24p2 planx
+{"ok":true,"value":0.000000000000000e0,"secs":0.645773,"size":0,"build_secs":0.000024,"note":"engine=cstate aborted=[] plan_secs=0.011553"}
+brick24D3 sv
+{"ok":true,"value":-9.240065419087242e-5,"secs":1.147083,"size":16777216,"build_secs":0.000018,"note":""}
+brick24D3 hsf
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.327413,"size":32,"build_secs":0.000024,"note":""}
+brick24D3 planx
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.323819,"size":0,"build_secs":0.000018,"note":"engine=hsf aborted=[] plan_secs=0.007583"}
+qaoa24p2 sv
+{"ok":true,"value":6.172090858625671e-19,"secs":1.518898,"size":16777216,"build_secs":0.000022,"note":""}
+qaoa24p2 cstate
+{"ok":true,"value":0.000000000000000e0,"secs":0.633455,"size":22,"build_secs":0.000022,"note":""}
+qaoa24p2 planx
+{"ok":true,"value":0.000000000000000e0,"secs":0.636491,"size":0,"build_secs":0.000027,"note":"engine=cstate aborted=[] plan_secs=0.010608"}
+brick24D3 sv
+{"ok":true,"value":-9.240065419087242e-5,"secs":1.143496,"size":16777216,"build_secs":0.000022,"note":""}
+brick24D3 hsf
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.323425,"size":32,"build_secs":0.000028,"note":""}
+brick24D3 planx
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.328310,"size":0,"build_secs":0.000022,"note":"engine=hsf aborted=[] plan_secs=0.006973"}
+qaoa24p2 sv
+{"ok":true,"value":6.172090858625671e-19,"secs":1.536921,"size":16777216,"build_secs":0.000022,"note":""}
+qaoa24p2 cstate
+{"ok":true,"value":0.000000000000000e0,"secs":0.619589,"size":22,"build_secs":0.000020,"note":""}
+qaoa24p2 planx
+{"ok":true,"value":0.000000000000000e0,"secs":0.632892,"size":0,"build_secs":0.000022,"note":"engine=cstate aborted=[] plan_secs=0.010356"}
+brick24D3 sv
+{"ok":true,"value":-9.240065419087242e-5,"secs":1.141497,"size":16777216,"build_secs":0.000021,"note":""}
+brick24D3 hsf
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.318330,"size":32,"build_secs":0.000018,"note":""}
+brick24D3 planx
+{"ok":true,"value":-9.240065419087481e-5,"secs":0.333907,"size":0,"build_secs":0.000023,"note":"engine=hsf aborted=[] plan_secs=0.007288"}
+=== chunk sim end 03:31:51Z load { 3.60 9.25 8.74 }
+=== chunk stim start 03:34:57Z load { 3.86 8.12 8.47 }
+{"circuit": "A_ours_circuit", "d": 7, "shots": 499968, "detectors": 192, "qubits": 97, "machine": "arm64", "stim": "1.16.0", "stim_compile_s": 8.745898958295584e-05, "ours_compile_s": 0.001359, "stim_write_min_s": 0.39537908299826086, "stim_mem_min_s": 0.4024039579089731, "ours_min_s": 0.098401, "ours_sparse_min_s": 0.101001, "ours_sparse_smallrng_min_s": 0.071499, "stim_write_all_s": [0.4058137080864981, 0.39574833400547504, 0.39537908299826086], "stim_mem_all_s": [0.5753518339479342, 0.4093295420752838, 0.4024039579089731], "ours_all_s": [0.098592, 0.098401, 0.099207], "ours_sparse_all_s": [0.101283, 0.101001, 0.101318], "ours_sparse_smallrng_all_s": [0.072559, 0.071923, 0.071499], "ours_best_min_s": 0.071499, "ratio_write": 4.018039278038443, "ratio_write_best": 5.529854725216589, "ratio_mem": 4.089429557717636, "load1": 3.86328125}
+{"circuit": "B_stim_circuit", "d": 7, "shots": 499968, "detectors": 336, "qubits": 118, "machine": "arm64", "stim": "1.16.0", "stim_compile_s": 0.0006059580482542515, "ours_compile_s": 0.0014509999999999998, "stim_write_min_s": 0.4340076670050621, "stim_mem_min_s": 0.5374092089477926, "ours_min_s": 0.180595, "ours_sparse_min_s": 0.167129, "ours_sparse_smallrng_min_s": 0.115662, "stim_write_all_s": [0.4340076670050621, 0.4357673330232501, 0.4340639589354396], "stim_mem_all_s": [0.5520818340592086, 0.5422125830082223, 0.5374092089477926], "ours_all_s": [0.181302, 0.180791, 0.180595], "ours_sparse_all_s": [0.167129, 0.167818, 0.167928], "ours_sparse_smallrng_all_s": [0.116504, 0.115662, 0.118125], "ours_best_min_s": 0.115662, "ratio_write": 2.403209762203063, "ratio_write_best": 3.75237906144682, "ratio_mem": 2.975770142848875, "load1": 3.7939453125}
+=== chunk stim end 03:35:05Z load { 3.79 8.04 8.44 }
+=== chunk noise start 03:38:25Z load { 3.99 7.56 8.26 }
+total 1.22s for 4000 trajectories
+=== chunk noise end 03:38:26Z load { 3.99 7.56 8.26 }
+ALLDONE

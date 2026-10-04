@@ -676,3 +676,142 @@ binaries; = main's 303 + phasefold 16 + repeat 26 + composition 2), clippy
 | exp/repeat | FIX-THEN-MERGE, fixes pushed (exp/repeat-r4) | 6e1f9d0 | rebase compile fix, terminal-measure bug, wide-register fallback regression |
 | exp/zx | DROP | ed45cc6 | wrong unitaries on 94% of random circuits; stale |
 | exp/r4-integrated | ready for Claudius to merge | — | 347 tests green |
+
+## 16. Round 4, second pass (4 Oct 2026) — the five branches merged without an independent audit
+
+Auditor: qsim-r4-auditor (agt_30e22da3). Base: main dd26f4b. Branch: `exp/r4-audit2`. Scope:
+exp/simulability, exp/shor-noise, exp/magic-atlas, exp/qec-r4, exp/planner, which were merged after
+only their authors' tests. For each, I tried to break the headline with a check the author did not
+run. Scripts and outputs: `research/data/r4-audit2/`; helpers `examples/audit_dump_shor_rounds.rs`
+(per-round oracle gate lists) and `examples/audit_dump_states.rs` (states after every gate, or the
+circuit as QASM); regression tests `tests/audit_r4b.rs`. VPS work ran under `nice -n 15`, ≤ 2 threads
+(load 1–57 from other agents; no VPS timing is claimed). Mac timings: one lock hold per chunk
+(`mac_audit_bench.sh`, `mac_bench.log`), 1-min load 3.6–4.5 at chunk start.
+
+### exp/qec-r4 (colour-code schedules; corrected Stim comparison) — verdict **OK**
+- **Circuit distance and N_min, independently.** The K–F and LNS circuits were exported with
+  `color_search export`, Stim built the DEM, `stim.Circuit.search_for_undetectable_logical_errors`
+  gave the full-DEM distance, and my own DFS counter (`cc_check.py`: Z-type detectors identified from
+  the circuit itself — the export writes MX as H·M·H — mechanisms merged by Z-sector signature, every
+  logical enumerated once from each observable-flipping mechanism, deduplicated as sets) counted
+  minimum-weight logicals. Every number in the branch's tables reproduced exactly:
+
+  | circuit | Stim distance | N_min (mine) | branch |
+  |---|---|---|---|
+  | KF d=3, 3 rounds | 2 | 9 | 2, 9 |
+  | KF d=5, 1 / 5 rounds | 4 / 4 | 55 / 388 | 4, 55 / 4, 388 |
+  | LNS d=5, 5 rounds | 4 | 197 | 4, 197 |
+  | KF / LNS-final d=7, 1 round | 6 / 6 | 883 / 434 | same |
+  | KF / LNS-final d=7, 7 rounds | (not run) | 12,901 / 6,627 | same |
+  | KF / LNS-15 d=9, 1 round | 7 / 7 | 36 / 15 | same |
+
+  This is a different DEM builder (Stim's) and a different counter, so the d_circ reproduction of
+  K–F and the "N_min halves" claim both stand.
+- LER ratios and CIs re-derived from the raw `ler_*.jsonl` / `tess_d5.jsonl` counts: identical to
+  the tables (d = 5: 0.696 [0.668, 0.725] … d = 9: 1.022 [0.937, 1.114]).
+- Stim timing table: ratios recomputed from `stim_timing_vps_epyc.jsonl` (B: 1.006, 0.979, 0.895,
+  0.891 vs AVX2-native Stim). Native-CLI times include process start-up (~1–5 ms of 0.2–0.4 s).
+  The fair x86 headline is parity on Stim's own circuit; the 1.6–1.7× on circuit A is Stim's
+  per-instruction overhead on a poorly layered file and compares nothing a Stim user would write.
+  RESULTS.md now leads with parity.
+- **Mac reproduction** (d = 7, 500k shots, single thread, min of 3): Stim write 1.26 / 1.15 Mshot/s
+  (A / B; claimed 1.27 / 1.15), ours sparse+SmallRng 6.99 / 4.32 Mshot/s (claimed 7.00 / 4.32).
+
+### exp/magic-atlas — verdict **FIXED (headline qualified)**
+- **Nullity, independently.** My own ν (numpy, all 4ⁿ Pauli expectations via my own Walsh–Hadamard,
+  `nullity.py`) on states from the repo's reference state vector after every gate, for qaoa n=8, rct
+  n=6, qft-basis n=8, heis n=8, qpe-stab t=4, hhl t=4 m=2, draper bits=3 plusab: **identical to
+  `magic/*.csv` at all 525 checkpoints**. Shor oracle (n=13, x=1): ν = 0 at **all 340** gate
+  boundaries (the branch's csv only samples 115).
+- **Framing.** "d equals ν, so d is a tight magic measure" for 33/33 generic instances: 17 of the 33
+  are at d = n (QFT-graph, HEA, Ising, Grover, QPE-Trotter), where ν = n is what any state without a
+  nontrivial Pauli stabilizer has; 12 are at d = n − 1 with one Z₂ symmetry (QAOA's global X flip,
+  Heisenberg's Sz parity, HHL). Only QPE with a stabilizer eigenstate (4 instances, d = t = n/2)
+  tests the equality away from saturation. The gate-by-gate equality during growth is the real
+  evidence; the headline now says so.
+- **62-bit Shor oracle in 1.3 s.** Reproduced on the Mac: sim_secs 1.259–1.262 s, max error 0. But
+  that state is (|0,1⟩ + |1,a⟩)/√2: a plain two-branch bit-tracking evaluation of the same 256-qubit,
+  85,718-gate list (dumped as QASM) runs in **0.05 s in Python** (`branch_eval.py`, x = 1 → 1 and
+  a = 7, ancillas clean). The achievement is that a generic Clifford+T frame engine finds this
+  structure without being told; it is not a hard simulation. Context added to the headline and §6.
+- The support column (`simulability::support_bound`) was recomputed for all 96 Toffoli rows after the
+  fix below: no value changed.
+
+### exp/shor-noise — verdict **FIXED (wording); numbers confirmed**
+- **`unsafe` review.** `sliced::eval_raw_unchecked` has one caller, `noisy::eval_half`, reached only
+  through `eval_dispatch` from `NoisyState::round`, which always passes the program just built by
+  `NoisyCircuit::program` for the same `nc` (so the same `nq`). `program` asserts (release-active
+  `assert!`) that every index is ≤ nq + 1, and `eval_half` allocates `nq + 2` words per slice. The
+  invariant holds on every path; `nq ≤ 129` is asserted in `NoisyCircuit::new` for the u128 keys.
+  The `eval_body` aliasing (`t == a`) is safe because both operands are copied before the mutable
+  borrow. Sound.
+- **Independent noisy simulator** (`shor_noise_indep.py`): my own big-int bit-sliced evaluator of the
+  dumped round blocks (N = 899, a = 689, 48 qubits, t = 20, L = 181,228 — matches the branch), my own
+  location model (Prep, H1, every gate × arity, Phase, H2, Meas), control algebra, measurement /
+  feed-forward / recycling and peak test. Noiseless peak support 105 (matches).
+  - phase-flip, one fault: S₁ = **0.629 ± 0.006** (6,500 traj.) vs the engine 0.631 ± 0.005 (8,000,
+    fresh seed; branch table 0.630, 400). Exact agreement.
+  - depolarizing, one fault: P(v-capped | X) 0.80 / engine 0.78, P(v-capped | Y) 0.81 / 0.81,
+    P(ok | Z) 0.611 / 0.643, S_lo 0.283 ± 0.008 / 0.268 ± 0.008. The branch's own 600-trajectory
+    entry (S_lo 0.252, v-cap 0.570) is 1.5–2σ off both, i.e. a fluctuation. Independent d at n = 10:
+    0.69–0.72 depending on the v-capped success rate used; branch 0.720 ± 0.018. Consistent.
+  - Mac (NEON, non-AVX2 path through `eval_body`): phase-flip S₁ = 0.626 ± 0.008 (4,000 traj.).
+- **Overclaims corrected in `shor-noise.md`:**
+  1. "The exponential form holds up to ≥ 3 faults; no sign of faults cancelling or compounding":
+     S₃ exceeds S₀(1 − d)³ at 13 of 15 sizes (n = 10: 0.045 vs 0.022; n = 23: 0.082 vs 0.037;
+     mean z ≈ +1.9 per size). There is a few-percent success floor; the joint `dfit` hides it
+     because k = 1 dominates. Effect on p½ < 1 %.
+  2. "A three-rate window model reproduces every instance's d to ±0.02": rms 0.022, max 0.040,
+     6 of 15 instances off by > 0.02, with rates fitted on the same pooled data.
+  3. Willsch et al. 2023's N = 549,755,813,701 is **39 bits** (< 2³⁹), not 40 (also fixed in
+     `shor.md` and `shor-r4-audit.md`).
+- The branch makes no timing claims; none reproduced. The literature framing ("circuit-level noise
+  statistics of a complete gate-level Shor beyond ~10 bits not reported, to our knowledge") is
+  appropriately hedged; I found nothing contradicting it, but did not search exhaustively.
+
+### exp/simulability — verdict **FIXED (code bug; no published number changes)**
+- `fit.py` on `raw/*.csv` reproduces 85.0 % / 1.247 / 91.4 % / worst 161.9 exactly; my own
+  per-family scoring with the same LOFO models: ct 93 % (156 instances!), arith 88 %, brick 70 %,
+  qaoa 71 % (geo 1.08 / 1.07 / 1.51 / 1.96). The pooled figure is ct-weighted; the tableau prior is
+  not what drives it (Clifford instances are 20 of 314). Caveat added to the headline.
+- **Bug: `support_bound` was not an upper bound.** For a Toffoli with one constant control it set
+  the target to "constant" whenever `t ⊕ other-control` cancelled, but `Wire::Const` does not record
+  *which* constant, and with control 0 the target keeps its form. Counterexample
+  `H(1) CX(1,2) CCX(0,1,2) CX(2,1) H(1)` on |000⟩: true support 4, bound 2. Fix: the target becomes
+  opaque (sound: support ≤ 2^{rank + #opaque}). `tests/audit_r4b.rs`: the counterexample plus a
+  4,000-circuit fuzz (n ≤ 6, H/X/CX/CCX/SWAP/T/Rx/CZ) against the state-vector support; both fail on
+  the old code, pass on the new. Recomputing `sup` for all 60 Toffoli instances of the dataset and the
+  96 Toffoli rows of the atlas changes **no** value, so the fit, the phase diagrams and the atlas
+  stand. (The planner author had flagged this as open item 7; now closed.)
+- **Mac reproduction** (1 thread, min of 3): `qaoa:n=24,p=2,deg=3,nn=0` sv 1.52 s, cstate 0.620 s
+  (dataset 1.91 / 0.598); `brick:n=24,D=3,nn=0` sv 1.14 s, hsf 0.318 s (dataset 1.65 / 0.338).
+  Same winners; SV is faster now because of main's newer NEON kernels (the branch's §6.1b already
+  accounts for that).
+
+### exp/planner — verdict **OK**
+- `fit_planner.py` re-run: identical LOFO table (replay[best] 88.2 % / 1.092 / 95.2 % / 12.9×, probe
+  93.0 % / 1.038 / 4.3×, oracle 95.5 %) up to float noise.
+- End-to-end regret re-derived from `mac/plan4_*.csv` against the simulability sweep's best times
+  with my own script: geo 2.51, 41 % within 2×, ε-regret 1.33, worst 31.5× — the branch's 2.52 /
+  41 % / 1.34 / 31×. The "1.20× on best ≥ 0.1 s" row includes the one planner timeout
+  (`brick:n=26,D=16`, SV chosen, > 10 s, MPS 2.3 s) counted as 20 s; without it the row is 1.08×.
+  The doc discloses all of this; RESULTS.md now quotes the plain 2.5× next to the ε-regret.
+- Minor: the replay's unit weights (8, 1000) were grid-searched on the oracle using all families, a
+  small leak into the LOFO numbers; immaterial at these effect sizes.
+- **Mac reproduction**: `planx` on the two instances above chose cstate / hsf (the winners) and took
+  0.633 s / 0.324 s (dataset 0.616 / 0.329), planning 7–12 ms.
+
+### Summary
+
+| branch | verdict | what changed on exp/r4-audit2 |
+|---|---|---|
+| exp/qec-r4 | OK | nothing; all distances/counts reproduced with Stim's DEM + independent counter |
+| exp/magic-atlas | FIXED | headline qualified (d = ν mostly at saturation; 62-bit Shor oracle is a 2-branch state, 0.05 s in Python) |
+| exp/shor-noise | FIXED | wording: k = 3 floor, window-model accuracy, Willsch 39-bit; numbers confirmed by an independent simulator; `unsafe` sound |
+| exp/simulability | FIXED | `support_bound` under-count bug fixed + tests; per-family caveat; no published value changes |
+| exp/planner | OK | none (open item 7 closed by the simulability fix) |
+
+RESULTS.md was rewritten as a single current summary (Shor record with Willsch et al. context, noise
+result, Stim parity, colour code, simulability/planner, atlas, with the audit qualifications inline).
+`cargo fmt` (it also reformatted one line of main's `src/planner.rs`), `clippy --all-targets -D
+warnings` clean.
