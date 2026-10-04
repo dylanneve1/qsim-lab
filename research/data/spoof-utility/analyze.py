@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 """Analysis for research/spoof-utility.md.
 
-Reads the SPD campaign JSONL files in this directory (campaign*.jsonl), the
-Kim et al. exact / MPS curves (kim/*.txt, from the authors' data repository)
-and the experiment values extracted by extract_kim.py (kim_*_experiment.csv);
-writes tables (tables.md) and figures (*.png).
+Inputs (all in this directory):
+  campaign*.jsonl              SPD runs (examples/spoof_utility.rs output)
+  kim/*.txt                    Kim et al. exact / MPS curves (authors' data repo)
+  kim_fig*_experiment.csv      experiment values (extract_kim.py)
+  tindall/*.csv                BP-TNS reference data of Tindall et al. (github.com/JoeyT1994/BP-TNS-Data)
+Outputs: tables.md, figures_kim.png, convergence.png, depth_scan.png, noise.png
 """
-import glob, json, math, os, sys
+import glob, json, math, os
 from collections import defaultdict
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 os.chdir(HERE)
 
-# colours: reference categorical palette, light mode, fixed order
-C_SPD, C_EXP, C_UNMIT, C_MPS = "#2a78d6", "#eb6834", "#1baf7a", "#eda100"
-C_EXACT = "#52514e"
+# reference categorical palette (light), fixed order; grey for references
+C1, C2, C3, C4, C5, C6 = "#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"
+C_REF = "#52514e"
+
+W17_SIGN = -1.0  # Kim et al. store fig3c/fig4a with the sign of our convention; Tindall's W17 has the opposite sign
 
 FIGS = {
-    "3a": ("$M_z$ (5 steps)", "kim/fig3a_exact.txt", +1),
-    "3b": ("weight-10 $X_{13,29,31}Y_{9,30}Z_{8,12,17,28,32}$ (5 steps)", "kim/fig3b_exact.txt", +1),
-    "3c": ("weight-17 $X_{8}Y_{1}Z_{8}$ (5 steps)", "kim/fig3c_exact.txt", +1),
-    "4a": ("weight-17 $X_{8}Y_{8}Z_{1}$ (5 steps + RX)", None, +1),
-    "4b": ("$\\langle Z_{62}\\rangle$ (20 steps)", None, +1),
+    "3a": "$M_z$, 5 steps",
+    "3b": "weight-10 $X_{13,29,31}Y_{9,30}Z_{8,12,17,28,32}$, 5 steps",
+    "3c": "weight-17 $X_{\\{8\\}}Y_{75}Z_{\\{8\\}}$, 5 steps",
+    "4a": "weight-17 $X_{\\{8\\}}Y_{\\{8\\}}Z_{75}$, 5 steps + RX",
+    "4b": "$\\langle Z_{62}\\rangle$, 20 steps",
 }
 
 
@@ -33,147 +37,287 @@ def load_runs():
             line = line.strip()
             if line.startswith("{"):
                 r = json.loads(line)
+                r.setdefault("branch_factor", 1)
+                r.setdefault("stream", 1)
                 r["src"] = f
                 runs.append(r)
     return runs
 
 
-def load_xy(path):
+def load_xy(path, col=1, scale=1.0):
     d = {}
     for line in open(path):
-        a, b = line.split(",")[:2]
-        d[round(float(a), 4)] = float(b)
+        if line[0].isalpha():
+            continue
+        p = line.strip().split(",")
+        d[round(float(p[0]), 4)] = scale * float(p[col])
     return d
 
 
-def load_exp(fig):
-    rows = np.genfromtxt(f"kim_fig{fig}_experiment.csv", delimiter=",", names=True)
-    return rows
-
-
-def converged(runs, fig, lattice=127, steps=None, depol=0.0, max_weight=-1):
-    """theta -> list of (delta, value, seconds, run) sorted by decreasing delta."""
-    by = defaultdict(list)
+def select(runs, fig, lattice=127, steps=None, depol=0.0, max_weight=-1):
+    """theta -> [(delta, value, seconds, run)] by decreasing delta (latest run per delta)."""
+    by = defaultdict(dict)
     for r in runs:
-        if r["fig"] != fig or r["lattice"] != lattice or r["aborted"] or r["depol"] != depol:
+        if r["fig"] != fig or r["lattice"] != lattice or r["aborted"]:
+            continue
+        if abs(r["depol"] - depol) > 1e-12 or r.get("max_weight", -1) != max_weight:
             continue
         if steps is not None and r["steps"] != steps:
             continue
-        if r.get("max_weight", -1) != max_weight:
+        if r["branch_factor"] != 1:
             continue
-        by[round(r["theta"], 4)].append((r["delta"], r["value"], r["seconds"], r))
-    for k in by:
-        # keep the latest run per delta
-        dd = {}
-        for t in by[k]:
-            dd[t[0]] = t
-        by[k] = sorted(dd.values(), key=lambda t: -t[0])
-    return dict(sorted(by.items()))
+        by[round(r["theta"], 4)][r["delta"]] = (r["delta"], r["value"], r["seconds"], r)
+    return {k: sorted(v.values(), key=lambda t: -t[0]) for k, v in sorted(by.items())}
 
 
-def best_and_err(lst):
-    """Smallest-delta value and convergence error estimate |v(δ_min) − v(δ_prev)|."""
-    v = lst[-1][1]
-    e = abs(lst[-1][1] - lst[-2][1]) if len(lst) > 1 else float("nan")
-    return v, e, lst[-1][0], lst[-1][2]
+def deficit(r):
+    """1 − ‖O‖²/‖O_0‖² (norm entering the last layer, relative to the observable's)."""
+    n0 = 1.0 / r["lattice"] if r["fig"] in ("3a", "mz") else 1.0
+    return 1.0 - r["norm2"] / n0
+
+
+def references(fig):
+    """theta -> reference value, and its label."""
+    if fig in ("3a", "3b", "3c"):
+        return load_xy(f"kim/fig{fig}_exact.txt"), "exact (Kim et al.)"
+    if fig == "4a":
+        return load_xy("tindall/w17_6layers_bptns.csv", 1, W17_SIGN), "BP-TNS χ→∞ (Tindall et al.)"
+    if fig == "4b":
+        return load_xy("tindall/z62_20steps_bptns.csv", 1), "BP-TNS χ→∞ (Tindall et al.)"
+    return {}, ""
 
 
 def main():
-    runs = load_runs()
-    out = []
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
-    fig_all, axes = plt.subplots(1, 5, figsize=(22, 4.4))
-    for ax, (fig, (title, exact_path, _)) in zip(axes, FIGS.items()):
-        conv = converged(runs, fig)
-        exact = load_xy(exact_path) if exact_path else {}
-        exp = load_exp(fig)
-        out.append(f"\n### Fig. {fig}: {title}\n")
-        out.append("| θ_h | SPD (δ_min) | conv. err | δ_min | time/pt (s) | exact | SPD−exact | ZNE exp. | exp. 68% CI | exp−SPD |")
-        out.append("|---|---|---|---|---|---|---|---|---|---|")
+    runs = load_runs()
+    out = []
+
+    # ---------------- Kim et al. figures ----------------
+    fig_all, axes = plt.subplots(1, 5, figsize=(23, 4.6))
+    for ax, (fig, title) in zip(axes, FIGS.items()):
+        steps = 20 if fig == "4b" else 5
+        conv = select(runs, fig, steps=steps)
+        ref, reflabel = references(fig)
+        exp = np.genfromtxt(f"kim_fig{fig}_experiment.csv", delimiter=",", names=True)
         expmap = {round(float(r["theta_h"]), 4): r for r in exp}
+        out.append(f"\n### Fig. {fig}: {title}\n")
+        out.append(f"Reference: {reflabel}.\n")
+        out.append("| θ_h | SPD (δ_min) | δ-ladder diff | δ_min | 1−‖O‖² | time/pt (s) | reference | SPD−ref | ZNE exp. | exp. 68% CI | exp−ref |")
+        out.append("|---|---|---|---|---|---|---|---|---|---|---|")
         xs, ys, es = [], [], []
-        maxerr = 0.0
+        maxerr, maxexp = 0.0, 0.0
         for th, lst in conv.items():
-            v, e, d, sec = best_and_err(lst)
+            d, v, sec, r = lst[-1]
+            e = abs(lst[-1][1] - lst[-2][1]) if len(lst) > 1 else float("nan")
             xs.append(th)
             ys.append(v)
-            es.append(e if not math.isnan(e) else 0)
-            ex = exact.get(th)
-            ecell = f"{ex:+.4f}" if ex is not None else "–"
-            dcell = f"{v - ex:+.1e}" if ex is not None else "–"
-            if ex is not None:
-                maxerr = max(maxerr, abs(v - ex))
+            es.append(0 if math.isnan(e) else e)
+            rv = ref.get(th)
+            rcell = f"{rv:+.4f}" if rv is not None else "–"
+            dcell = f"{v - rv:+.1e}" if rv is not None else "–"
+            if rv is not None:
+                maxerr = max(maxerr, abs(v - rv))
             er = expmap.get(th)
             if er is not None:
-                expcell = f"{er['mitigated']:+.3f}"
-                cicell = f"[{er['boot_lo68']:+.3f}, {er['boot_hi68']:+.3f}]"
-                diff = f"{er['mitigated'] - v:+.3f}"
+                ecell = f"{er['mitigated']:+.3f}"
+                ci = f"[{er['boot_lo68']:+.3f}, {er['boot_hi68']:+.3f}]"
+                base = rv if rv is not None else v
+                ediff = f"{er['mitigated'] - base:+.3f}"
+                maxexp = max(maxexp, abs(er["mitigated"] - base))
             else:
-                expcell = cicell = diff = "–"
+                ecell = ci = ediff = "–"
             out.append(
-                f"| {th:.4f} | {v:+.5f} | {e:.1e} | {d:.0e} | {sec:.2f} | {ecell} | {dcell} | {expcell} | {cicell} | {diff} |"
+                f"| {th:.4f} | {v:+.5f} | {e:.1e} | {d:.0e} | {deficit(r):+.1e} | {sec:.2f} | {rcell} | {dcell} | {ecell} | {ci} | {ediff} |"
             )
-        if exact:
-            out.append(f"\nmax |SPD − exact| over the θ grid: **{maxerr:.1e}**\n")
-        # plot
-        if exact:
-            ex_x = sorted(exact)
-            ax.plot(ex_x, [exact[x] for x in ex_x], color=C_EXACT, lw=2.0, label="exact (Kim et al.)", zorder=1)
-        if fig in ("4a", "4b") and os.path.exists(f"kim/fig{fig}_MPS.txt"):
-            m = load_xy(f"kim/fig{fig}_MPS.txt")
-            mx = sorted(m)
-            ax.plot(mx, [m[x] for x in mx], color=C_MPS, lw=1.5, ls="--", label="MPS (Kim et al.)", zorder=1)
-        ax.errorbar(xs, ys, yerr=es, fmt="o", ms=5, color=C_SPD, label="SPD (this work)", zorder=3)
-        th = exp["theta_h"]
-        lo = exp["mitigated"] - exp["boot_lo68"]
-        hi = exp["boot_hi68"] - exp["mitigated"]
-        ax.errorbar(th, exp["mitigated"], yerr=[np.abs(lo), np.abs(hi)], fmt="s", ms=5, color=C_EXP, capsize=2, label="experiment, ZNE", zorder=2)
-        ax.plot(th, exp["unmitigated"], "^", ms=5, mfc="none", color=C_UNMIT, label="experiment, unmitigated", zorder=2)
-        ax.set_title(f"Fig. {fig}: " + title, fontsize=9)
+        out.append(f"\nmax |SPD − reference| = **{maxerr:.1e}**; max |ZNE experiment − reference| = **{maxexp:.3f}**\n")
+        if ref:
+            rx = sorted(ref)
+            ax.plot(rx, [ref[x] for x in rx], color=C_REF, lw=2.0, label=reflabel, zorder=1)
+        ax.errorbar(xs, ys, yerr=es, fmt="o", ms=5, color=C1, label="SPD, this work (M1)", zorder=3)
+        lo = np.abs(exp["mitigated"] - exp["boot_lo68"])
+        hi = np.abs(exp["boot_hi68"] - exp["mitigated"])
+        ax.errorbar(exp["theta_h"], exp["mitigated"], yerr=[lo, hi], fmt="s", ms=5, color=C2, capsize=2, label="experiment, ZNE", zorder=2)
+        ax.plot(exp["theta_h"], exp["unmitigated"], "^", ms=5, mfc="none", color=C3, label="experiment, unmitigated", zorder=2)
+        ax.set_title(f"Kim et al. Fig. {fig}: " + title, fontsize=9)
         ax.set_xlabel("$\\theta_h$")
-        ax.axhline(0, color="#ccc", lw=0.8, zorder=0)
+        ax.axhline(0, color="#ddd", lw=0.8, zorder=0)
         ax.grid(alpha=0.25)
-    axes[0].legend(frameon=False, fontsize=8, loc="lower left")
+        ax.legend(frameon=False, fontsize=7, loc="best")
     fig_all.tight_layout()
-    fig_all.savefig("figures_kim.png", dpi=130)
+    fig_all.savefig("figures_kim.png", dpi=120)
 
-    # convergence plot: |SPD(δ) − exact| (max over θ) vs δ, for 3a–3c
-    fc, ax = plt.subplots(1, 2, figsize=(11, 4.2))
-    for fig, col in zip(["3a", "3b", "3c"], [C_SPD, C_EXP, C_UNMIT]):
-        conv = converged(runs, fig)
-        exact = load_xy(FIGS[fig][1])
+    # ---------------- convergence ----------------
+    fc, ax = plt.subplots(1, 3, figsize=(16, 4.4))
+    for fig, col in zip(["3a", "3b", "3c", "4a"], [C1, C2, C3, C4]):
+        conv = select(runs, fig, steps=5)
+        ref, _ = references(fig)
         errs = defaultdict(float)
         for th, lst in conv.items():
-            if th not in exact:
+            if th not in ref:
                 continue
             for d, v, s, r in lst:
-                errs[d] = max(errs[d], abs(v - exact[th]))
+                errs[d] = max(errs[d], abs(v - ref[th]))
         ds = sorted(errs)
-        ax[0].loglog(ds, [max(errs[d], 1e-12) for d in ds], "o-", color=col, label=f"Fig. {fig}")
+        if ds:
+            ax[0].loglog(ds, [max(errs[d], 1e-12) for d in ds], "o-", color=col, label=f"Fig. {fig}")
     ax[0].set_xlabel("threshold δ")
-    ax[0].set_ylabel("max over θ of |SPD − exact|")
+    ax[0].set_ylabel("max over θ of |SPD − reference|")
+    ax[0].set_title("5 steps: error vs threshold", fontsize=10)
     ax[0].invert_xaxis()
     ax[0].legend(frameon=False)
     ax[0].grid(alpha=0.3, which="both")
-    conv = converged(runs, "4b")
-    sel = [0.3, 0.5, 0.6, 0.7, 0.8, 1.0]
-    cols = [C_SPD, C_EXP, C_UNMIT, C_MPS, "#e87ba4", "#008300"]
-    for th, col in zip(sel, cols):
+    conv = select(runs, "4b", steps=20)
+    ref, _ = references("4b")
+    for th, col in zip([0.3, 0.5, 0.6, 0.7, 0.8, 1.0], [C1, C2, C3, C4, C5, C6]):
         if th in conv:
             lst = conv[th]
             ax[1].semilogx([t[0] for t in lst], [t[1] for t in lst], "o-", color=col, label=f"θ={th}")
+            if th in ref:
+                ax[1].axhline(ref[th], color=col, ls=":", lw=1)
     ax[1].invert_xaxis()
     ax[1].set_xlabel("threshold δ")
     ax[1].set_ylabel("$\\langle Z_{62}\\rangle$, 20 steps")
+    ax[1].set_title("20 steps: SPD vs δ (dotted: BP-TNS)", fontsize=10)
     ax[1].legend(frameon=False, fontsize=8, ncol=2)
     ax[1].grid(alpha=0.3, which="both")
+    # error vs norm deficit, 20 steps
+    pts = []
+    for th, lst in conv.items():
+        if th not in ref:
+            continue
+        for d, v, s, r in lst:
+            pts.append((abs(deficit(r)), abs(v - ref[th]), abs(lst[-1][1] - lst[-2][1]) if len(lst) > 1 else np.nan))
+    if pts:
+        p = np.array(pts)
+        ax[2].loglog(np.maximum(p[:, 0], 1e-8), np.maximum(p[:, 1], 1e-8), "o", color=C1, ms=4, label="|SPD − BP-TNS|")
+        g = np.linspace(-8, 0, 10)
+        ax[2].loglog(10**g, 10**g, "-", color=C_REF, lw=1, label="error = 1 − ‖O‖²")
+        ax[2].set_xlabel("norm deficit 1 − ‖O‖² (discarded weight)")
+        ax[2].set_ylabel("true error vs BP-TNS")
+        ax[2].set_title("20 steps: the norm deficit tracks the error", fontsize=10)
+        ax[2].legend(frameon=False, fontsize=8)
+        ax[2].grid(alpha=0.3, which="both")
     fc.tight_layout()
-    fc.savefig("convergence.png", dpi=130)
+    fc.savefig("convergence.png", dpi=120)
+
+    # ---------------- depth scan ----------------
+    fd, ax = plt.subplots(1, 3, figsize=(16, 4.2))
+    out.append("\n### Depth scan: ⟨Z62⟩ vs Trotter steps (BP-TNS reference: Tindall et al. χ→∞)\n")
+    out.append("| θ_h | steps | SPD δ=1e-4 | SPD δ=3e-5 | 1−‖O‖² (3e-5) | BP-TNS | err (3e-5) |")
+    out.append("|---|---|---|---|---|---|---|")
+    for a, th in zip(ax, [0.6, 0.8, 1.0]):
+        dyn = load_xy(f"tindall/z62_dynamics_theta{th}_bptns.csv")
+        sx = sorted(dyn)
+        a.plot(sx, [dyn[s] for s in sx], "-", color=C_REF, lw=2, label="BP-TNS (Tindall et al.)")
+        for d, col in [(1e-4, C2), (3e-5, C1)]:
+            pts = []
+            for r in runs:
+                if r["fig"] == "4b" and abs(r["theta"] - th) < 1e-6 and r["delta"] == d and not r["aborted"] and r["depol"] == 0 and r.get("max_weight", -1) == -1:
+                    pts.append((r["steps"], r["value"], r["norm2"]))
+            pts = sorted(set(pts))
+            if pts:
+                a.plot([p[0] for p in pts], [p[1] for p in pts], "o-", color=col, ms=4, label=f"SPD δ={d:g}")
+        rows = defaultdict(dict)
+        for r in runs:
+            if r["fig"] == "4b" and abs(r["theta"] - th) < 1e-6 and not r["aborted"] and r["depol"] == 0 and r.get("max_weight", -1) == -1 and r["delta"] in (1e-4, 3e-5):
+                rows[r["steps"]][r["delta"]] = r
+        for s in sorted(rows):
+            r4, r3 = rows[s].get(1e-4), rows[s].get(3e-5)
+            ref = dyn.get(s)
+            out.append(
+                f"| {th} | {s} | {r4['value'] if r4 else float('nan'):+.4f} | {r3['value'] if r3 else float('nan'):+.4f} | {deficit(r3) if r3 else float('nan'):.2e} | {ref:+.4f} | {(r3['value'] - ref) if r3 else float('nan'):+.4f} |"
+            )
+        a.set_title(f"$\\langle Z_{{62}}\\rangle$ vs steps, θ={th}", fontsize=10)
+        a.set_xlabel("Trotter steps")
+        a.grid(alpha=0.3)
+        a.legend(frameon=False, fontsize=8)
+    fd.tight_layout()
+    fd.savefig("depth_scan.png", dpi=120)
+
+    # ---------------- noise ----------------
+    noisy = [r for r in runs if r["depol"] > 0 and not r["aborted"]]
+    if noisy:
+        fn, ax = plt.subplots(1, 4, figsize=(20, 4.2))
+        out.append("\n### Noise-aware SPD vs the unmitigated experiment (p fitted at θ=0 only)\n")
+        for a, (fig, p0) in zip(ax, [("3a", 0.0266), ("3b", 0.0266), ("3c", 0.0266), ("4b", 0.0209)]):
+            exp = np.genfromtxt(f"kim_fig{fig}_experiment.csv", delimiter=",", names=True)
+            ideal = select(runs, fig, steps=20 if fig == "4b" else 5)
+            ref, _ = references(fig)
+            curves = {}
+            for G in (1.0, 1.2, 1.6):
+                c = select(runs, fig, steps=20 if fig == "4b" else 5, depol=round(p0 * G, 6))
+                if not c:
+                    c = {}
+                    for r in noisy:
+                        if r["fig"] == fig and abs(r["depol"] - p0 * G) < 1e-6:
+                            c[round(r["theta"], 4)] = [(r["delta"], r["value"], r["seconds"], r)]
+                curves[G] = {th: lst[-1][1] for th, lst in c.items()}
+            if not curves[1.0]:
+                continue
+            th = sorted(curves[1.0])
+            a.plot(th, [curves[1.0][t] for t in th], "o-", color=C3, ms=4, label=f"SPD + depolarizing p={p0}")
+            a.plot(exp["theta_h"], exp["unmitigated"], "^", mfc="none", color=C3, ms=6, label="experiment, unmitigated")
+            # our own ZNE: exponential fit through G = 1, 1.2, 1.6
+            zne = {}
+            for t in th:
+                if all(t in curves[G] for G in (1.0, 1.2, 1.6)):
+                    ys = np.array([curves[G][t] for G in (1.0, 1.2, 1.6)])
+                    gs = np.array([1.0, 1.2, 1.6])
+                    if np.all(ys > 1e-9) or np.all(ys < -1e-9):
+                        sgn = np.sign(ys[0])
+                        b, la = np.polyfit(gs, np.log(np.abs(ys)), 1)
+                        zne[t] = sgn * math.exp(la)
+                    else:
+                        zne[t] = np.polyval(np.polyfit(gs, ys, 1), 0.0)
+            if zne:
+                a.plot(sorted(zne), [zne[t] for t in sorted(zne)], "s--", color=C2, ms=4, label="exp. ZNE of the noisy SPD model")
+            if ref:
+                rx = sorted(ref)
+                a.plot(rx, [ref[x] for x in rx], "-", color=C_REF, lw=1.5, label="noise-free reference")
+            a.set_title(f"Fig. {fig}: noise-aware SPD", fontsize=10)
+            a.set_xlabel("$\\theta_h$")
+            a.grid(alpha=0.3)
+            a.legend(frameon=False, fontsize=7)
+            out.append(f"\nFig. {fig} (p = {p0}): θ, noisy SPD, unmitigated exp., model-ZNE, noise-free ref")
+            em = {round(float(r['theta_h']), 4): r for r in exp}
+            out.append("| θ_h | noisy SPD (G=1) | unmitigated exp. | diff | model ZNE | noise-free |")
+            out.append("|---|---|---|---|---|---|")
+            for t in th:
+                u = em.get(t)
+                rv = ref.get(t)
+                out.append(
+                    f"| {t:.4f} | {curves[1.0][t]:+.4f} | {u['unmitigated'] if u is not None else float('nan'):+.4f} | {(curves[1.0][t] - u['unmitigated']) if u is not None else float('nan'):+.4f} | {zne.get(t, float('nan')):+.4f} | {rv if rv is not None else float('nan'):+.4f} |"
+                )
+        fn.tight_layout()
+        fn.savefig("noise.png", dpi=120)
+
+    # ---------------- larger lattices ----------------
+    out.append("\n### Larger heavy-hex lattices\n")
+    out.append("| observable | lattice | steps | θ_h | δ | value | 1−‖O‖² | light cone | words | peak terms | time (s) |")
+    out.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in sorted(runs, key=lambda r: (r["fig"], r["lattice"], r["steps"], r["theta"], -r["delta"])):
+        if (r["fig"] in ("mz", "z215", "z559") or (r["fig"] == "z62")) and r["depol"] == 0 and r.get("max_weight", -1) == -1:
+            out.append(
+                f"| {r['fig']} | {r['lattice']} | {r['steps']} | {r['theta']:.4f} | {r['delta']:.0e} | {r['value']:+.5f} | {deficit(r):+.1e} | {r['cone']} | {r['words']} | {r['peak_terms']} | {r['seconds']:.2f} |"
+            )
+
+    # ---------------- weight cap ----------------
+    wc = [r for r in runs if r.get("max_weight", -1) != -1]
+    if wc:
+        ref, _ = references("4b")
+        out.append("\n### 20-step ⟨Z62⟩ with an added Pauli-weight cap\n")
+        out.append("| θ_h | max weight | δ | value | BP-TNS | err | 1−‖O‖² | peak terms | time (s) | aborted |")
+        out.append("|---|---|---|---|---|---|---|---|---|---|")
+        for r in sorted(wc, key=lambda r: (r["theta"], r["max_weight"], -r["delta"])):
+            rv = ref.get(round(r["theta"], 4), float("nan"))
+            out.append(
+                f"| {r['theta']:.2f} | {r['max_weight']} | {r['delta']:.0e} | {r['value']:+.4f} | {rv:+.4f} | {r['value'] - rv:+.4f} | {deficit(r):+.2e} | {r['peak_terms']} | {r['seconds']:.1f} | {r['aborted']} |"
+            )
 
     open("tables.md", "w").write("\n".join(out) + "\n")
     print("\n".join(out))
