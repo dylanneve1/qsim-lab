@@ -219,6 +219,9 @@ fn probe_or_solve_is_exact() {
             debug_reference: true,
             probe_cap: Some(cap),
             probe_frac: 1e9,
+            sv_shortcut_secs: 0.0,
+            mps_feature_min_secs: 0.0,
+            hsf_feature_min_secs: 0.0,
             ..PlannerConfig::default()
         };
         for (name, c) in corpus() {
@@ -382,10 +385,22 @@ fn dataset_regret_no_worse_than_published() {
         Engine::Compressed => "cstate",
         Engine::Zero => "zero",
     };
+    // the model's choice (staging off: every feature computed)
     let cfg = PlannerConfig {
+        use_certificate: false,
+        sv_shortcut_secs: 0.0,
+        mps_feature_min_secs: 0.0,
+        hsf_feature_min_secs: 0.0,
+        ..PlannerConfig::default()
+    };
+    // the shipped, staged planner (skips features that cannot pay off):
+    // judged by the epsilon-regret (+1 ms on both sides), since staging
+    // only gives up sub-millisecond differences.
+    let staged = PlannerConfig {
         use_certificate: false,
         ..PlannerConfig::default()
     };
+    let mut eps_log = 0.0f64;
     let (mut n, mut top1, mut logsum) = (0usize, 0usize, 0.0f64);
     let mut worst = (1.0f64, String::new());
     let mut keys: Vec<_> = inst.keys().cloned().collect();
@@ -418,13 +433,29 @@ fn dataset_regret_no_worse_than_published() {
         top1 += usize::from(chosen == wname);
         let reg = t / wt;
         logsum += reg.log10();
+        let ps = planner::plan(
+            &c,
+            &PlanRequest::Expectation((0..c.num_qubits).collect()),
+            &staged,
+        )
+        .unwrap();
+        let ts = match runs.get(name(ps.engine)) {
+            Some((s, t)) if s == "ok" => *t,
+            _ => 2.0 * timeout,
+        };
+        eps_log += ((ts + 1e-3) / (wt + 1e-3)).log10();
         if reg > worst.0 {
             worst = (reg, format!("{} -> {chosen} (best {wname})", key.0));
         }
     }
     let geo = 10f64.powf(logsum / n as f64);
     let acc = top1 as f64 / n as f64;
-    eprintln!("planner on dataset: n={n} top1={acc:.3} geo regret={geo:.3} worst={worst:?}");
+    let geo_eps_staged = 10f64.powf(eps_log / n as f64);
+    eprintln!(
+        "planner on dataset: n={n} top1={acc:.3} geo regret={geo:.3} worst={worst:?}; \
+         staged geo eps-regret={geo_eps_staged:.3}"
+    );
+    assert!(geo_eps_staged <= 1.15, "staged eps-regret {geo_eps_staged}");
     assert!(n >= 300);
     // published (held-out): 1.25x, 85 %, worst 161x. In-sample with the
     // replayed MPS work this is 1.09x / 88 % / 12.9x; guard with margin.
