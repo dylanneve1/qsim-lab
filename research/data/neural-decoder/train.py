@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+"""Train the sparse-token decoder on an endless FastSampler stream.
+
+usage: train.py <prefix-for-geometry> <out-dir> [--train-stim a.stim,b.stim] [--steps N] [--batch B]
+                [--H 128] [--L 4] [--lr 1e-3] [--tmax 64] [--val <val.ptb64>] [--seed S] [--resume ckpt]
+Training stims must share <prefix>'s detector layout (same code/schedule, other p). Mixed p:
+each step draws its 1024-shot blocks round-robin from the listed stims."""
+import argparse, json, os, time
+import numpy as np
+import mlx.core as mx
+import mlx.nn as nn
+import mlx.optimizers as optim
+from mlx.utils import tree_flatten
+from nd_common import *
+from nd_model import Decoder
+
+ap = argparse.ArgumentParser()
+ap.add_argument("prefix"); ap.add_argument("out")
+ap.add_argument("--train-stim", default=None)
+ap.add_argument("--steps", type=int, default=20000)
+ap.add_argument("--batch", type=int, default=1024)
+ap.add_argument("--H", type=int, default=128); ap.add_argument("--L", type=int, default=4)
+ap.add_argument("--heads", type=int, default=4)
+ap.add_argument("--readout", default="cls")
+ap.add_argument("--lr", type=float, default=1e-3)
+ap.add_argument("--tmax", type=int, default=64)
+ap.add_argument("--val", default=None)
+ap.add_argument("--val-shots", type=int, default=1 << 15)
+ap.add_argument("--seed", type=int, default=1000)
+ap.add_argument("--resume", default=None)
+ap.add_argument("--eval-every", type=int, default=2000)
+ap.add_argument("--max-minutes", type=float, default=45.0)  # hard wall-clock cap (incl. pauses)
+a = ap.parse_args()
+os.makedirs(a.out, exist_ok=True)
+if mem_available_gb() < 4.0:
+    raise SystemExit(f"refusing to start: free+inactive {mem_available_gb():.1f} GB < 4 GB")
+meta = load_meta(a.prefix)
+nd = meta.shape[0]
+stims = (a.train_stim or a.prefix + ".stim").split(",")
+streams = [Stream(s, nd, a.seed + 17 * i) for i, s in enumerate(stims)]
+mx.random.seed(a.seed)
+model = Decoder(meta, H=a.H, L=a.L, heads=a.heads, readout=a.readout)
+if a.resume:
+    model.load_weights(a.resume)
+nparams = sum(v.size for _, v in tree_flatten(model.parameters()))
+WU = min(1000, a.steps // 10)
+sched = optim.join_schedules([optim.linear_schedule(1e-6, a.lr, WU),
+                              optim.cosine_decay(a.lr, a.steps - WU, a.lr * 0.02)], [WU])
+opt = optim.AdamW(learning_rate=sched, weight_decay=1e-4)
+
+
+def loss_fn(m, tok, y):
+    return nn.losses.binary_cross_entropy(m(tok), y, with_logits=True, reduction="mean")
+
+
+lg = nn.value_and_grad(model, loss_fn)
+
+
+EMA = [None]
+SKIPPED = [0]
+
+
+def step(tok, y):
+    """one AdamW step; a batch whose loss exceeds 8x the running mean + 0.05 is skipped (spike guard)"""
+    loss, g = lg(model, tok, y)
+    mx.eval(loss)
+    lv = loss.item()
+    # the running mean includes skipped batches (an EMA of accepted batches only drifts low and then skips
+    # ever more of the hard batches: seen in the first d = 7 continuation, 4% skipped)
+    spike = EMA[0] is not None and lv > 8 * EMA[0] + 0.05
+    EMA[0] = lv if EMA[0] is None else 0.99 * EMA[0] + 0.01 * lv
+    if spike:
+        SKIPPED[0] += 1
+        return loss
+    g, _ = optim.clip_grad_norm(g, 1.0)
+    opt.update(model, g)
+    return loss
+
+
+def batch_tokens(dets, tmax):
+    tok, cnt = tokens(dets, tmax, nd)
+    T = int(min(tmax, max(8, -(-cnt.max() // 8) * 8)))
+    return tok[:, :T], cnt
+
+
+def predict(m, dets, bs=1024):
+    """logits for every shot; shots sorted by weight so T stays small; no shot dropped"""
+    cnt = dets.sum(1, dtype=np.int64)
+    order = np.argsort(cnt, kind="stable")
+    out = np.empty(len(cnt), np.float32)
+    for i in range(0, len(order), bs):
+        idx = order[i:i + bs]
+        T = max(8, -(-int(cnt[idx].max()) // 8) * 8)
+        tok, _ = tokens(dets[idx], T, nd)
+        out[idx] = np.array(m(mx.array(tok)))
+    return out
+
+
+val = None
+if a.val:
+    vb = read_ptb64(a.val, nd + 1)[:a.val_shots]
+    val = (vb[:, :nd], vb[:, nd])
+log = open(os.path.join(a.out, "log.jsonl"), "a")
+log.write(json.dumps(dict(args=vars(a), params=int(nparams))) + "\n")
+json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=0, shots=0),
+          open(os.path.join(a.out, "cfg.json"), "w"))
+BEST = [1 << 62]
+t0 = time.time(); paused = 0.0; seen = 0; dropped = 0; run = []
+BUF = {}
+
+
+def next_batch(s, n):
+    """n shots from stream s (1024-shot blocks are buffered and sliced)"""
+    d, o = BUF.get(id(s), (None, None))
+    if d is None or len(o) < n:
+        nd_, no_ = s.read(max(1, -(-n // 1024)))
+        d = nd_ if d is None else np.concatenate([d, nd_])
+        o = no_ if o is None else np.concatenate([o, no_])
+    BUF[id(s)] = (d[n:], o[n:])
+    return d[:n], o[:n]
+
+
+for it in range(1, a.steps + 1):
+    paused += wait_lock([s.p for s in streams])
+    if it % 50 == 0:
+        paused += wait_memory(3.0, [s.p for s in streams])
+        w = mem_report().get("wired_gb")
+        if w is not None and w > 4.0:  # parent's hard rule: stop at once if wired memory passes 4 GB
+            model.save_weights(os.path.join(a.out, "model.safetensors"))
+            raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
+    s = streams[it % len(streams)]
+    dets, obs = next_batch(s, a.batch)
+    tok, cnt = batch_tokens(dets, a.tmax)
+    dropped += int((cnt > a.tmax).sum())
+    keep = cnt <= a.tmax
+    if not keep.all():
+        tok, obs = tok[keep], obs[keep]
+    loss = step(mx.array(tok), mx.array(obs.astype(np.float32)))
+    mx.eval(model.parameters(), opt.state, loss)
+    run.append(loss.item()); seen += len(obs)
+    if it % 200 == 0:
+        print(f"it {it} loss {np.mean(run):.5f} shots {seen} {seen / (time.time() - t0 - paused):.0f}/s "
+              f"lr {sched(opt.step).item():.2e} dropped {dropped} skipped {SKIPPED[0]} paused {paused:.0f}s", flush=True)
+        run = []
+    over = time.time() - t0 > 60 * a.max_minutes
+    if it % 200 == 0:
+        print(json.dumps(mem_report()), flush=True)
+    if (it % a.eval_every == 0 or it == a.steps or over):
+        rec = dict(it=it, shots=seen, train_s=round(time.time() - t0 - paused, 1), wall_s=round(time.time() - t0, 1),
+                   params=int(nparams), **mem_report())
+        best = False
+        if val is not None:
+            pr = predict(model, val[0]) > 0
+            f = int((pr != val[1].astype(bool)).sum())
+            rec.update(val_fails=f, val_shots=len(pr), val_pL=f / len(pr), skipped=SKIPPED[0])
+            best = f < BEST[0]
+            if best:
+                BEST[0] = f
+        rec["best"] = best
+        print(json.dumps(rec), flush=True)
+        log.write(json.dumps(rec) + "\n"); log.flush()
+        model.save_weights(os.path.join(a.out, "last.safetensors"))
+        if best or val is None:  # model.safetensors = best validation checkpoint
+            model.save_weights(os.path.join(a.out, "model.safetensors"))
+        if best or val is None:
+            json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=it,
+                           shots=seen), open(os.path.join(a.out, "cfg.json"), "w"))
+    if over:
+        print(f"wall-clock cap {a.max_minutes} min reached at it {it}", flush=True)
+        break
+for s in streams:
+    s.close()

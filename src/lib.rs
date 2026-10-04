@@ -66,6 +66,7 @@ pub mod shor_superopt;
 pub mod shor_window;
 pub mod simulability;
 pub mod sparse;
+pub mod stab_rank;
 pub mod stabilizer;
 pub mod statevector;
 pub mod stim_io;

@@ -13,7 +13,7 @@ audit before merge (see [research/audit.md](research/audit.md)).
 - **Results summary:** [RESULTS.md](RESULTS.md)
 - **Architecture:** [research/ARCHITECTURE.md](research/ARCHITECTURE.md)
 - **Lab notebooks:** [research/](research/), indexed [below](#research-index)
-- **Python API:** in progress (`qsimlab`, PyO3 + maturin; see `python/` once merged)
+- **Python API:** `qsimlab` (PyO3 + maturin, abi3 wheels, numpy in/out): [quickstart](#python-quickstart), contract in [python/API.md](python/API.md)
 
 ## Highlights
 
@@ -95,6 +95,46 @@ On macOS, `cargo build --release --features metal` adds the GPU backend.
 CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`,
 `cargo clippy --all-targets -- -D warnings` and the test suite. Merges to
 `main` additionally require the full release suite to pass locally.
+
+## Python quickstart
+
+The `qsimlab` package (in [`python/`](python/)) exposes the engines to Python:
+a typed `Circuit` builder, one `simulate()` entry point routed through the
+planner, numpy results, and converters for Qiskit, Cirq, Stim and OpenQASM 2.
+The full contract (conventions, errors, threading, stability) is
+[python/API.md](python/API.md).
+
+```sh
+python -m venv .venv && . .venv/bin/activate
+pip install maturin numpy pytest
+cd python && maturin develop --release     # or: pip install -e python
+pytest                                     # tests + doctests
+```
+
+```python
+import qsimlab as qs
+
+c = qs.Circuit(3).h(0).cx(0, 1).cx(1, 2)             # GHZ; qubit 0 = least significant bit
+qs.simulate(c, qs.statevector()).state               # complex128 ndarray, global phase kept
+qs.simulate(c, qs.amplitudes(["000", "111"]))        # bitstrings: rightmost char = qubit 0
+qs.simulate(c, qs.expectation(["Z0 Z2", "X0 X1 X2"])).values      # -> array([1., 1.])
+
+r = qs.simulate(c.copy().measure_all(), qs.samples(10_000), seed=1, explain=True)
+r.counts()          # {'000': ..., '111': ...}
+r.engine            # engine the planner ran; r.explanation lists predicted costs
+qs.plan(c, qs.samples(10_000))                       # predict only
+
+# noisy Clifford circuits (e.g. from Stim) go to the batched SymPhase sampler
+surface = qs.interop.from_stim(stim_circuit)         # detectors/observables kept
+r = qs.simulate(surface, qs.samples(100_000))
+r.parity(surface.detectors[0])
+
+qs.simulate(c, qs.statevector(), engine="mps")        # force an engine
+qs.interop.from_qiskit(qc); qs.interop.from_cirq(cc)  # optional dependencies
+```
+
+Wheels for Linux x86_64/aarch64 and macOS arm64 are built by
+`.github/workflows/python-wheels.yml`.
 
 ## Research index
 
