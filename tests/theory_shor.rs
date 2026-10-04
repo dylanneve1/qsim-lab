@@ -269,7 +269,7 @@ fn t1_support_law_on_gate_level_tree() {
                 "P(prefix) N={n} a={a} i={i} y={y}: {norm2} vs {prob}"
             );
             let g = powmod(a, 1u128 << (t - i), n);
-            let mut sim: Vec<(u64, Complex64)> = s.work().map(|(k, v)| (k, v)).collect();
+            let mut sim: Vec<(u64, Complex64)> = s.work().collect();
             sim.sort_by_key(|e| e.0);
             let mut nonzero = 0u64;
             let sc = 1.0 / prob.sqrt();
@@ -1030,6 +1030,7 @@ fn eval_prefix(gates: &[Gate], mut s: u128) -> u128 {
 /// σ(x) = (−1)^{f(x_{t−1−i}, a^{2^{t−i}⌊x/2^{t−i}⌋})} and f(c, w) the value of
 /// qubit q after gate g on input |c⟩|w⟩|0…0⟩.
 #[test]
+#[allow(clippy::needless_range_loop)]
 fn t3_phase_fault_textbook_formula() {
     let mut rng = StdRng::seed_from_u64(8);
     for &(n, a) in &[(15u64, 7u64), (15, 2), (21, 2)] {
