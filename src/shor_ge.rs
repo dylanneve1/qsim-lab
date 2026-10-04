@@ -317,6 +317,24 @@ pub fn eval_e_inplace<T: Real>(
     }
 }
 
+/// Evaluates the `e = 0` block on every input branch (same checks as
+/// [`eval_e`]) and returns whether it is the identity on every branch,
+/// without storing the outputs (chunk-wise copies).
+pub fn eval_e_identity<T: Real>(
+    prog: &SlicedProgram,
+    eq: &[usize],
+    xq: &[usize],
+    inp: &[(u64, Complex<T>)],
+) -> bool {
+    const B: usize = 1 << 14;
+    inp.par_chunks(B)
+        .map(|c| {
+            let out = eval_e(prog, eq, xq, 0, c);
+            out.iter().zip(c).all(|(o, i)| o.0 == i.0)
+        })
+        .reduce(|| true, |a, b| a && b)
+}
+
 fn eval_e_l<const L: usize, T: Real>(
     prog: &SlicedProgram,
     eq: &[usize],
@@ -423,6 +441,10 @@ pub struct WindowArrays<T: Real> {
     /// Window bits `w`.
     pub w: usize,
     pub ent: std::sync::Arc<Vec<(u64, Complex<T>)>>,
+    /// `ent[..split]` and `ent[split..]` are each sorted (`split > 0`: the
+    /// `e = 0` branches are `ψ` itself, already sorted, and only the others
+    /// were sorted).
+    pub split: usize,
     /// Measured levels, highest exponent bit first: `(±e^{iφ}, 1/√(2p))`.
     pub levels: Vec<(Complex64, f64)>,
 }
@@ -436,41 +458,78 @@ impl<T: Real> WindowArrays<T> {
     pub fn branches(&self) -> usize {
         self.ent.len()
     }
-    /// Chunk boundaries of `ent` at key-group boundaries.
-    fn chunks(&self) -> Vec<(usize, usize)> {
-        let n = self.ent.len();
-        let p = (rayon::current_num_threads() * 8).max(1);
+    /// Aligned chunks `(a_lo, a_hi, b_lo, b_hi)` of the two sorted runs
+    /// `A = ent[..split]`, `B = ent[split..]`, cut at work-register key
+    /// boundaries.
+    fn chunks(&self) -> Vec<(usize, usize, usize, usize)> {
+        let ent = &self.ent;
+        let (sa, n) = (self.split, ent.len());
         let w = self.w;
-        let mut b: Vec<usize> = (0..=p)
-            .map(|j| {
-                let mut i = n * j / p;
-                while i > 0 && i < n && self.ent[i].0 >> w == self.ent[i - 1].0 >> w {
-                    i += 1;
-                }
-                i
+        let p = (rayon::current_num_threads() * 8).max(1);
+        let nb = n - sa;
+        let mut cuts: Vec<u64> = (1..p)
+            .filter_map(|j| {
+                let i = sa + nb * j / p;
+                (i > sa && i < n).then(|| ent[i].0 >> w)
             })
             .collect();
-        b.dedup();
-        b.windows(2).map(|x| (x[0], x[1])).collect()
+        cuts.dedup();
+        let mut out = Vec::with_capacity(cuts.len() + 1);
+        let (mut a0, mut b0) = (0, sa);
+        for &k in &cuts {
+            let a1 = ent[..sa].partition_point(|v| v.0 >> w < k);
+            let b1 = sa + ent[sa..].partition_point(|v| v.0 >> w < k);
+            if a1 > a0 || b1 > b0 {
+                out.push((a0, a1, b0, b1));
+            }
+            (a0, b0) = (a1, b1);
+        }
+        out.push((a0, sa, b0, n));
+        out
     }
-    /// Calls `f(key, vals)` for every work-register key in `[lo, hi)`,
+    /// Visits the entries of one chunk in packed-key order (a 2-way merge
+    /// of the two runs).
+    #[inline]
+    fn stream(&self, (a0, a1, b0, b1): (usize, usize, usize, usize), mut f: impl FnMut(&(u64, Complex<T>))) {
+        let ent: &[(u64, Complex<T>)] = &self.ent;
+        let (mut i, mut j) = (a0, b0);
+        while i < a1 && j < b1 {
+            if ent[i].0 < ent[j].0 {
+                f(&ent[i]);
+                i += 1;
+            } else {
+                f(&ent[j]);
+                j += 1;
+            }
+        }
+        for v in &ent[i..a1] {
+            f(v);
+        }
+        for v in &ent[j..b1] {
+            f(v);
+        }
+    }
+    /// Calls `f(key, vals)` for every work-register key of a chunk,
     /// `vals[e]` = the amplitude of `(e, key)` (0 if absent).
     #[inline]
-    fn groups(&self, (lo, hi): (usize, usize), mut f: impl FnMut(u64, &mut [Complex64])) {
+    fn groups(&self, ch: (usize, usize, usize, usize), mut f: impl FnMut(u64, &mut [Complex64])) {
         let w = self.w;
         let mask = (1u64 << w) - 1;
         let mut vals = vec![Complex64::zero(); 1 << w];
-        let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
-        let n = ent.len();
-        let mut i = 0;
-        while i < n {
-            let key = ent[i].0 >> w;
-            vals.iter_mut().for_each(|v| *v = Complex64::zero());
-            while i < n && ent[i].0 >> w == key {
-                vals[(ent[i].0 & mask) as usize] = c64(ent[i].1);
-                i += 1;
+        let mut cur: Option<u64> = None;
+        self.stream(ch, |v| {
+            let key = v.0 >> w;
+            if cur != Some(key) {
+                if let Some(k) = cur {
+                    f(k, &mut vals);
+                    vals.iter_mut().for_each(|v| *v = Complex64::zero());
+                }
+                cur = Some(key);
             }
-            f(key, &mut vals);
+            vals[(v.0 & mask) as usize] = c64(v.1);
+        });
+        if let Some(k) = cur {
+            f(k, &mut vals);
         }
     }
     /// Applies the initial `2^{−w/2}` and the measured levels to the values
@@ -585,12 +644,11 @@ impl<T: Real> WindowArrays<T> {
         let mask = (1u64 << w) - 1;
         self.chunks()
             .into_par_iter()
-            .map(|(lo, hi)| {
-                let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
+            .map(|ch| {
                 let mut acc = vec![0.0f64; nb];
                 let mut amp = vec![Complex64::zero(); nb];
-                let mut key = ent.first().map_or(0, |v| v.0 >> w);
-                for v in ent {
+                let mut key = u64::MAX;
+                self.stream(ch, |v| {
                     let k = v.0 >> w;
                     if k != key {
                         for (a, z) in acc.iter_mut().zip(amp.iter_mut()) {
@@ -604,7 +662,7 @@ impl<T: Real> WindowArrays<T> {
                     for (b, z) in amp.iter_mut().enumerate() {
                         *z += mat[b * ne + e] * x;
                     }
-                }
+                });
                 for (a, z) in acc.iter_mut().zip(amp.iter()) {
                     *a += z.norm_sqr();
                 }
@@ -632,20 +690,17 @@ impl<T: Real> WindowArrays<T> {
     /// (exact zeros dropped).
     pub fn materialize(&self) -> Vec<Arr<T>> {
         let nl = 1usize << self.bits_left();
-        let w = self.w;
-        let ne = 1usize << w;
-        let mask = (1u64 << w) - 1;
+        let ne = 1usize << self.w;
         let parts: Vec<Vec<Arr<T>>> = self
             .chunks()
             .into_par_iter()
-            .map(|(lo, hi)| {
-                let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
+            .map(|ch| {
+                let est = (ch.1 - ch.0) + (ch.3 - ch.2);
                 let mut out: Vec<Arr<T>> = (0..nl)
-                    .map(|_| Vec::with_capacity(ent.len() / ne + 16))
+                    .map(|_| Vec::with_capacity(est / ne + 16))
                     .collect();
-                let mut vals = [Complex64::zero(); 64];
-                let mut flush = |key: u64, vals: &mut [Complex64; 64]| {
-                    let len = self.reduce(&mut vals[..ne]);
+                self.groups(ch, |key, vals| {
+                    let len = self.reduce(vals);
                     debug_assert_eq!(len, nl);
                     for (o, v) in out.iter_mut().zip(vals[..nl].iter()) {
                         let z = cvt::<T>(*v);
@@ -653,20 +708,7 @@ impl<T: Real> WindowArrays<T> {
                             o.push((key, z));
                         }
                     }
-                    vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
-                };
-                let mut key = ent.first().map_or(0, |v| v.0 >> w);
-                for v in ent {
-                    let k = v.0 >> w;
-                    if k != key {
-                        flush(key, &mut vals);
-                        key = k;
-                    }
-                    vals[(v.0 & mask) as usize] = c64(v.1);
-                }
-                if !ent.is_empty() {
-                    flush(key, &mut vals);
-                }
+                });
                 out
             })
             .collect();
@@ -744,27 +786,37 @@ impl<T: Real> GeState<T> {
         let ne = 1usize << w_used;
         let n_in = self.psi.len();
         let mut t_eval = 0.0;
+        // e = 0: evaluated on every branch; when it is the identity (exact
+        // arithmetic) ψ itself is the e = 0 run, already sorted
+        let ta = std::time::Instant::now();
+        let id = eval_e_identity(&wp.prog, &wp.e, &wp.x, &self.psi);
+        t_eval += ta.elapsed().as_secs_f64();
         let mut ent = std::mem::take(&mut self.psi);
         ent.reserve_exact((ne - 1) * n_in);
-        for e in (1..ne).chain(std::iter::once(0)) {
-            if e > 0 {
-                ent.extend_from_within(0..n_in);
-            }
-            let seg = if e > 0 { ent.len() - n_in } else { 0 };
+        for e in 1..ne {
+            ent.extend_from_within(0..n_in);
+            let seg = ent.len() - n_in;
             let ta = std::time::Instant::now();
             eval_e_inplace(&wp.prog, &wp.e, &wp.x, e as u64, &mut ent[seg..seg + n_in]);
             t_eval += ta.elapsed().as_secs_f64();
-            let tag = e as u64;
-            let wsh = w_used;
-            ent[seg..seg + n_in].par_iter_mut().for_each(|v| {
-                assert!(v.0 >> (64 - wsh.max(1)) == 0 || wsh == 0, "key too wide");
-                v.0 = (v.0 << wsh) | tag;
-            });
         }
-        ent.par_sort_unstable_by_key(|v| v.0);
+        if !id {
+            let ta = std::time::Instant::now();
+            eval_e_inplace(&wp.prog, &wp.e, &wp.x, 0, &mut ent[..n_in]);
+            t_eval += ta.elapsed().as_secs_f64();
+        }
+        let wsh = w_used as u32;
+        ent.par_chunks_mut(n_in.max(1)).enumerate().for_each(|(e, seg)| {
+            for v in seg.iter_mut() {
+                assert!(v.0 >> (64 - wsh) == 0, "key too wide to pack the exponent value");
+                v.0 = (v.0 << wsh) | e as u64;
+            }
+        });
+        let split = if id { n_in } else { 0 };
+        ent[split..].par_sort_unstable_by_key(|v| v.0);
         // V^e is a permutation: no (e, key) may appear twice
         assert!(
-            ent.par_windows(2).all(|w| w[0].0 != w[1].0),
+            ent[split..].par_windows(2).all(|w| w[0].0 != w[1].0),
             "window block is not injective on the support"
         );
         self.gate_branch_ops += (ne * n_in) as u128 * wp.prog.gates as u128;
@@ -774,6 +826,7 @@ impl<T: Real> GeState<T> {
         WindowArrays {
             w: w_used,
             ent: std::sync::Arc::new(ent),
+            split,
             levels: Vec::new(),
         }
     }
@@ -781,22 +834,35 @@ impl<T: Real> GeState<T> {
     /// Takes the state back from a fully measured window.
     pub fn finish(&mut self, wa: WindowArrays<T>) {
         assert_eq!(wa.bits_left(), 0);
-        let chunks = wa.chunks();
+        let chunks: Vec<(usize, usize)> = wa.chunks().iter().map(|c| (c.2, c.3)).collect();
         let levels = wa.levels.clone();
-        let w = wa.w;
-        self.psi = match std::sync::Arc::try_unwrap(wa.ent) {
-            // sole owner: compute the new state in place (no second buffer)
-            Ok(ent) => {
-                let tmp = WindowArrays {
-                    w,
-                    ent: std::sync::Arc::new(Vec::new()),
-                    levels,
-                };
-                finish_in_place(&tmp, ent, &chunks)
-            }
-            Err(ent) => {
-                let tmp = WindowArrays { w, ent, levels };
-                tmp.materialize().pop().unwrap()
+        let (w, split) = (wa.w, wa.split);
+        self.psi = if split > 0 {
+            // two runs: out of place
+            let m = wa.materialize().pop().unwrap();
+            drop(wa);
+            m
+        } else {
+            match std::sync::Arc::try_unwrap(wa.ent) {
+                // sole owner, one run: the new state in place
+                Ok(ent) => {
+                    let tmp = WindowArrays {
+                        w,
+                        ent: std::sync::Arc::new(Vec::new()),
+                        split: 0,
+                        levels,
+                    };
+                    finish_in_place(&tmp, ent, &chunks)
+                }
+                Err(ent) => {
+                    let tmp = WindowArrays {
+                        w,
+                        ent,
+                        split: 0,
+                        levels,
+                    };
+                    tmp.materialize().pop().unwrap()
+                }
             }
         };
         self.peak = self.peak.max(self.psi.len());
