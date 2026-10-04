@@ -14,3 +14,45 @@ m_d5_p0.002_hf (18, 98304, 2) 166.3 s
 m_d5_p0.002_kfflag (2, 49152, 1) 182.6 s
 m_d5_p0.001_kf (4, 49152, 1) 36.3 s
 m_d5_p0.001_hf (0, 49152, 1) 62.2 s
+m_d5_p0.003_kf (161, 98304, 4) 70.1 s
+m_d5_p0.003_hf (43, 98304, 4) 88.0 s
+m_d5_p0.003_kfflag (47, 98304, 4) 120.7 s
+m_d5_p0.002_kf (96, 147456, 3) 83.1 s
+m_d5_p0.002_hf (24, 147456, 3) 163.0 s
+m_d5_p0.002_kfflag (10, 98304, 2) 211.2 s
+m_d5_p0.001_kf (8, 98304, 2) 52.0 s
+m_d5_p0.001_hf (1, 98304, 2) 85.9 s
+m_d5_p0.003_hf (48, 122880, 5) 157.2 s
+m_d5_p0.003_kfflag (61, 122880, 5) 174.0 s
+m_d5_p0.002_kf (142, 196608, 4) 107.3 s
+m_d5_p0.002_hf (28, 196608, 4) 138.0 s
+m_d5_p0.002_kfflag (15, 147456, 3) 151.6 s
+m_d5_p0.001_kf (13, 147456, 3) 55.4 s
+m_d5_p0.001_hf (2, 147456, 3) 74.1 s
+m_d5_p0.001_kfflag (1, 49152, 1) 83.9 s
+m_d7_p0.003_kf (3, 8192, 1) 171.2 s
+m_d7_p0.003_hf (0, 8192, 1) 182.1 s
+m_d7_p0.003_kfflag (0, 8192, 1) 212.1 s
+m_d7_p0.002_kf (0, 16384, 1) 146.2 s
+m_d7_p0.002_hf (0, 16384, 1) 181.1 s
+Traceback (most recent call last):
+  File "/tmp/qsim-wt/colour-flags/research/data/colour-flags/campaign.py", line 79, in <module>
+    r = run(job, seed)
+        ^^^^^^^^^^^^^^
+  File "/tmp/qsim-wt/colour-flags/research/data/colour-flags/campaign.py", line 41, in run
+    r = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['nice', '-n', '15', '/tmp/cf-venv/bin/python', '/tmp/qsim-wt/colour-flags/research/data/colour-flags/ler_tess.py', '9', '9', 'cnot', '0.005', 'kf', '3072', '112611344855088501', '3', 'z']' died with <Signals.SIGTERM: 15>.
+m_d5_p0.003_hf (58, 147456, 6) 86.2 s
+m_d5_p0.003_kfflag (68, 147456, 6) 117.2 s
+m_d5_p0.002_hf (35, 245760, 5) 120.4 s
+m_d5_p0.002_kfflag (20, 196608, 4) 150.6 s
+m_d5_p0.001_kf (16, 196608, 4) 46.2 s
+m_d5_p0.001_hf (3, 196608, 4) 64.7 s
+m_d5_p0.001_kfflag (2, 98304, 2) 79.2 s
+m_d7_p0.003_kf (5, 20480, 2) 261.0 s
+m_d7_p0.003_hf (1, 20480, 2) 265.0 s
+m_d7_p0.003_kfflag (1, 20480, 2) 266.4 s
+m_d9_p0.005_kf (1, 3072, 1) 898.0 s
