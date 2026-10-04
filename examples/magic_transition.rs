@@ -4,7 +4,7 @@
 //!   key=value options:
 //!     n, depth (default 4n), pm (comma list), pt (number) or ptn (c: p_t = c/n),
 //!     samples, seed0, mode (dim|exact), maxd (exact register cap, default 26),
-//!     ent (none|half|i3), magic (0|1: ν, M2 of the register when d <= 10),
+//!     ent (none|half|i3), magic (0|1: ν, M2 of the register when d <= magicmax=10),
 //!     window (time-average window for d, default n layers), series (0|1)
 //! cargo run --release --example magic_transition -- validate n=18 seeds=4
 //!   state-vector cross-check at larger n (same seeds, Born outcomes).
@@ -64,6 +64,7 @@ fn scan(m: &HashMap<String, String>) {
     let maxd: usize = get(m, "maxd", 26);
     let ent = m.get("ent").cloned().unwrap_or("half".into());
     let magic: u32 = get(m, "magic", 0);
+    let magicmax: usize = get(m, "magicmax", 10);
     let window: usize = get(m, "window", n).min(depth);
     let series: u32 = get(m, "series", 0);
     let tag = m.get("tag").cloned().unwrap_or_default();
@@ -142,7 +143,7 @@ fn scan(m: &HashMap<String, String>) {
                 }
             }
             let (mut nu, mut m2) = (f64::NAN, f64::NAN);
-            if magic == 1 && !failed && sim.d() <= 10 {
+            if magic == 1 && !failed && sim.d() <= magicmax {
                 if let Some(a) = &sim.amp {
                     let sm = state_magic(a);
                     nu = sm.nullity;
