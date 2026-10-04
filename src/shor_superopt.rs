@@ -894,6 +894,14 @@ mod tests {
             peephole: true,
             ..Opts::BASELINE
         });
+        v.push(Opts {
+            block_passes: false,
+            ..Opts::ALL
+        });
+        v.push(Opts {
+            window_dp: true,
+            ..Opts::ALL
+        });
         for i in 0..6 {
             let mut o = Opts::BASELINE;
             match i {
