@@ -10,6 +10,12 @@ readme = "README.md"
 keywords = ["quantum", "simulator", "stabilizer", "mps"]
 categories = ["science", "simulation"]
 
+[workspace]
+members = [".", "python"]
+# `cargo build/test/clippy` in the root still act on the engine crate only;
+# the Python extension needs a Python interpreter to build (see python/).
+default-members = ["."]
+
 [lib]
 name = "qsim_lab"
 path = "src/lib.rs"
