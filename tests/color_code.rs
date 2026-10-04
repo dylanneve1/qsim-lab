@@ -194,13 +194,23 @@ fn load_schedule(text: &str) -> qsim_lab::qec::color::ColorSchedule {
 #[test]
 fn lns_d5_schedule_is_valid_and_has_fewer_min_weight_logicals() {
     let cc = ColorCode::new(5);
-    let s = load_schedule(include_str!("../research/data/qec-r4/schedules/d5_lns_r5.sched"));
+    let s = load_schedule(include_str!(
+        "../research/data/qec-r4/schedules/d5_lns_r5.sched"
+    ));
     assert_eq!(s.len(), cc.plaquettes.len());
     assert!(cc.collisions(&s).is_empty());
     check_deterministic(&cc, &s, 5);
-    let (r, cert) = cc.memory(&s, 5, ColorNoise::Cnot(0.001)).z_distance(u64::MAX, u64::MAX);
+    let (r, cert) = cc
+        .memory(&s, 5, ColorNoise::Cnot(0.001))
+        .z_distance(u64::MAX, u64::MAX);
     assert!(cert);
     assert_eq!((r.weight, r.count), (Some(4), 197));
-    let (k, _) = cc.memory(&cc.uniform_schedule(KF_SCHEDULE), 5, ColorNoise::Cnot(0.001)).z_distance(u64::MAX, u64::MAX);
+    let (k, _) = cc
+        .memory(
+            &cc.uniform_schedule(KF_SCHEDULE),
+            5,
+            ColorNoise::Cnot(0.001),
+        )
+        .z_distance(u64::MAX, u64::MAX);
     assert_eq!((k.weight, k.count), (Some(4), 388));
 }

@@ -600,9 +600,10 @@ impl SymPhaseSampler {
                 j += 1;
             }
             let cells = (j - i) * 64;
+            let ln_q = (1.0 - p).ln();
             let mut c = 0usize;
             loop {
-                c += geometric_skip(p, rng);
+                c += geometric_skip(p, ln_q, rng);
                 if c >= cells {
                     break;
                 }
@@ -716,13 +717,15 @@ pub struct ColumnView {
 }
 
 /// Number of failures before the next success of a Bernoulli(`p`) process.
-fn geometric_skip<R: Rng + ?Sized>(p: f64, rng: &mut R) -> usize {
+/// `ln_q = ln(1 - p)` is passed in (hoisted out of the per-fault loop; the
+/// arithmetic is unchanged, so draws are bit-identical to recomputing it).
+fn geometric_skip<R: Rng + ?Sized>(p: f64, ln_q: f64, rng: &mut R) -> usize {
     if p >= 1.0 {
         return 0;
     }
     // U in (0, 1]
     let u: f64 = 1.0 - rng.random::<f64>();
-    let k = (u.ln() / (1.0 - p).ln()).floor();
+    let k = (u.ln() / ln_q).floor();
     if k >= usize::MAX as f64 {
         usize::MAX / 2
     } else {
