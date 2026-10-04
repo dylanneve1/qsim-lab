@@ -107,7 +107,10 @@ impl Lattice {
     /// (1121).
     pub fn ibm_heavy_hex(rows: usize, row_len: usize) -> Self {
         assert!(rows >= 2 && row_len >= 3 && row_len % 4 == 3);
-        assert!(rows % 2 == 1, "the last gap must be odd so the last row can lack offset 0");
+        assert!(
+            rows % 2 == 1,
+            "the last gap must be odd so the last row can lack offset 0"
+        );
         let mut idx = vec![vec![usize::MAX; row_len]; rows];
         let mut edges = Vec::new();
         let mut next = 0usize;
@@ -132,7 +135,10 @@ impl Lattice {
             row_ids(g + 1, &mut next, &mut idx);
             for (o, b) in bridges {
                 let (u, d) = (idx[g][o], idx[g + 1][o]);
-                assert!(u != usize::MAX && d != usize::MAX, "bridge to missing qubit");
+                assert!(
+                    u != usize::MAX && d != usize::MAX,
+                    "bridge to missing qubit"
+                );
                 edges.push((u, b));
                 edges.push((b, d));
             }
@@ -622,7 +628,10 @@ pub fn simulate(model: &KickedIsing, obs: &PauliObs, opt: &SpdOptions) -> SpdRes
     let t0 = Instant::now();
     let lat = &model.lattice;
     let support = obs.support();
-    assert!(support.iter().all(|&q| q < lat.n), "observable outside lattice");
+    assert!(
+        support.iter().all(|&q| q < lat.n),
+        "observable outside lattice"
+    );
     // Light cone: ball of radius `steps` (the final RX layer adds nothing).
     let keep: Vec<usize> = if opt.light_cone {
         let d = lat.distances_from(&support);
