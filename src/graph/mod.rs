@@ -12,7 +12,9 @@
 pub mod compiled;
 pub mod observable;
 pub mod param;
+pub mod rewrite;
 
 pub use compiled::{BoundCircuit, CompiledCircuit, GraphOptions, GraphStats};
 pub use observable::{Observable, PauliTerm};
 pub use param::{Angle, POp, ParamCircuit};
+pub use rewrite::{phase_regions, RewriteOptions, RewriteStats};

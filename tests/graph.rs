@@ -33,7 +33,7 @@ fn rand_angle(rng: &mut StdRng, np: usize) -> Angle {
 pub fn random_param_circuit(rng: &mut StdRng, n: usize, np: usize, len: usize) -> ParamCircuit {
     let mut pc = ParamCircuit::new(n, np);
     for _ in 0..len {
-        let k = rng.random_range(0..12);
+        let k = rng.random_range(0..14);
         let op = match k {
             0..=2 => POp::Fixed(random_gate(rng, n, false, true)),
             3 => POp::Rx(edge_qubit(rng, n), rand_angle(rng, np)),
@@ -54,6 +54,17 @@ pub fn random_param_circuit(rng: &mut StdRng, n: usize, np: usize, len: usize) -
                     _ => POp::Rxx(a, b, rand_angle(rng, np)),
                 }
             }
+            11 => {
+                let mut qs: Vec<usize> = (0..n).filter(|_| rng.random_bool(0.5)).collect();
+                if qs.is_empty() {
+                    qs.push(edge_qubit(rng, n));
+                }
+                for i in (1..qs.len()).rev() {
+                    qs.swap(i, rng.random_range(0..=i));
+                }
+                POp::ZString(qs, rand_angle(rng, np))
+            }
+            12 => POp::Global(rand_angle(rng, np)),
             _ => POp::Fixed(random_gate(rng, n, false, true)),
         };
         pc.push(op);
@@ -126,8 +137,14 @@ fn ref_run(c: &Circuit) -> RefSv {
     s
 }
 
+/// Reference state of `pc` at `p`, global-phase ops included.
 fn reference(pc: &ParamCircuit, p: &[f64]) -> RefSv {
-    ref_run(&pc.bind(p).unwrap())
+    let mut r = ref_run(&pc.bind(p).unwrap());
+    let g = Complex64::from_polar(1.0, pc.global_phase(p));
+    for a in r.a.iter_mut() {
+        *a *= g;
+    }
+    r
 }
 
 fn rand_observable(rng: &mut StdRng, n: usize, terms: usize) -> (Observable, Vec<(f64, String)>) {
@@ -288,4 +305,122 @@ fn qaoa_ring_light_cone_and_components() {
     let want = r.pauli_expectation("ZZIIIIIIII") + 0.5 * r.pauli_expectation("IIIIIIZZII");
     let got = cc.bind(&p).unwrap().expectation().unwrap();
     assert!((got - want).abs() < 1e-12);
+}
+
+fn region_heavy(rng: &mut StdRng, n: usize, np: usize, len: usize) -> ParamCircuit {
+    let mut pc = ParamCircuit::new(n, np);
+    for _ in 0..len {
+        let q = edge_qubit(rng, n);
+        let op = match rng.random_range(0..14) {
+            0..=3 if n >= 2 => {
+                let (a, b) = edge_pair(rng, n);
+                POp::Fixed(Gate::Cnot(a, b))
+            }
+            4 => POp::Fixed(Gate::X(q)),
+            5 => POp::Fixed(Gate::Y(q)),
+            6 if n >= 2 => {
+                let (a, b) = edge_pair(rng, n);
+                POp::Fixed(Gate::Swap(a, b))
+            }
+            7 => POp::Rz(q, rand_angle(rng, np)),
+            8 => POp::Phase(q, rand_angle(rng, np)),
+            9 if n >= 2 => {
+                let (a, b) = edge_pair(rng, n);
+                match rng.random_range(0..4) {
+                    0 => POp::CPhase(a, b, rand_angle(rng, np)),
+                    1 => POp::Rzz(a, b, rand_angle(rng, np)),
+                    2 => POp::Fixed(Gate::Cz(a, b)),
+                    _ => POp::ZString(vec![a, b], rand_angle(rng, np)),
+                }
+            }
+            10 => POp::Fixed(
+                [
+                    Gate::Z(q),
+                    Gate::S(q),
+                    Gate::Sdg(q),
+                    Gate::T(q),
+                    Gate::Tdg(q),
+                ][rng.random_range(0..5)],
+            ),
+            11 if n >= 3 => {
+                let (a, b, c) = distinct3(rng, n);
+                POp::ZString(vec![a, b, c], rand_angle(rng, np))
+            }
+            12 => POp::Fixed(Gate::H(q)),
+            _ => POp::Rx(q, rand_angle(rng, np)),
+        };
+        pc.push(op);
+    }
+    pc
+}
+
+#[test]
+fn phase_regions_exact() {
+    use qsim_lab::graph::{phase_regions, RewriteOptions};
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a15);
+    let mut rewritten = 0;
+    for case in 0..200 * iters() {
+        let n = 1 + case % 7;
+        let np = rng.random_range(0..4);
+        let len = rng.random_range(0..60);
+        let pc = region_heavy(&mut rng, n, np, len);
+        for (reorder, w) in [(true, 6), (false, 6), (true, 1)] {
+            let (rc, st) = phase_regions(
+                &pc,
+                &RewriteOptions {
+                    reorder,
+                    max_weight: w,
+                },
+            );
+            rewritten += st.rewritten;
+            for gopts in [GraphOptions::default(), {
+                let mut o = GraphOptions::default();
+                o.max_zstring = 2;
+                o
+            }] {
+                let cc = CompiledCircuit::compile(&rc, None, &gopts).unwrap();
+                for _ in 0..2 {
+                    let p = rand_params(&mut rng, np);
+                    let r = reference(&pc, &p);
+                    // the rewritten circuit's own bound form, up to its global phase
+                    let r2 = reference(&rc, &p);
+                    let d2 = max_amp_diff(&r.a, r2.a.iter().copied());
+                    assert!(
+                        d2 < 1e-10,
+                        "case {case} bound rewrite diff {d2}\n{pc:?}\n{rc:?}"
+                    );
+                    let sv = cc.bind(&p).unwrap().statevector().unwrap();
+                    let d = max_amp_diff(&r.a, sv.amplitudes().iter().copied());
+                    assert!(d < 1e-10, "case {case} diff {d}\n{pc:?}\n{rc:?}\n{p:?}");
+                }
+            }
+        }
+    }
+    assert!(rewritten > 100, "only {rewritten} regions rewritten");
+}
+
+#[test]
+fn gadget_ladders_collapse() {
+    use qsim_lab::graph::{phase_regions, RewriteOptions};
+    // ladder · Rz · ladder^-1 written out gate by gate
+    let n = 6;
+    let mut pc = ParamCircuit::new(n, 1);
+    for w in [[0usize, 1, 2, 3], [2, 3, 4, 5]] {
+        for i in 0..3 {
+            pc.gate(Gate::Cnot(w[i], w[i + 1]));
+        }
+        pc.rz(w[3], Angle::param(0));
+        for i in (0..3).rev() {
+            pc.gate(Gate::Cnot(w[i], w[i + 1]));
+        }
+    }
+    let (rc, st) = phase_regions(&pc, &RewriteOptions::default());
+    assert_eq!(st.perm_ops_after, 0, "{st:?} {rc:?}");
+    assert_eq!(
+        rc.ops
+            .iter()
+            .filter(|o| matches!(o, POp::ZString(..)))
+            .count(),
+        2
+    );
 }

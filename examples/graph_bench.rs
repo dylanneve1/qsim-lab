@@ -6,7 +6,10 @@
 
 use qsim_lab::blocked::BlockConfig;
 use qsim_lab::graph::observable::{diagonal_expectation, pauli_expectation};
-use qsim_lab::graph::{Angle, CompiledCircuit, GraphOptions, Observable, ParamCircuit};
+use qsim_lab::graph::{
+    phase_regions, Angle, CompiledCircuit, GraphOptions, Observable, POp, ParamCircuit,
+    RewriteOptions,
+};
 use qsim_lab::pipeline::{self, Budget, Output, Request};
 use qsim_lab::{Gate, StateVectorF64};
 use rand::rngs::StdRng;
@@ -236,6 +239,170 @@ fn bind_bench(w: &str, n: usize, p: usize, binds: usize, pipe: bool) {
     );
 }
 
+/// QAOA with the cost layer written as `CNOT · Rz · CNOT` (as transpilers
+/// emit it).
+pub fn qaoa_cx(n: usize, p: usize) -> (ParamCircuit, Observable) {
+    let (pc, o) = qaoa(n, p);
+    let mut out = ParamCircuit::new(n, pc.num_params);
+    for op in pc.ops {
+        match op {
+            POp::Rzz(a, b, ang) => {
+                out.gate(Gate::Cnot(a, b));
+                out.rz(b, ang);
+                out.gate(Gate::Cnot(a, b));
+            }
+            op => {
+                out.push(op);
+            }
+        }
+    }
+    (out, o)
+}
+
+/// Trotterised random Pauli Hamiltonian (weights 2..=4, JW-like strings
+/// with X/Y ends and a Z run between), each term a gadget written out:
+/// basis change, CNOT ladder, Rz(2 c dt), ladder⁻¹, basis change⁻¹.
+/// Parameter: dt. Observable: the Z part of the Hamiltonian.
+pub fn pauli_trotter(n: usize, steps: usize) -> (ParamCircuit, Observable) {
+    let mut rng = StdRng::seed_from_u64(99 + n as u64);
+    let mut terms: Vec<(Vec<(usize, char)>, f64)> = Vec::new();
+    for _ in 0..3 * n {
+        let a = rng.random_range(0..n - 1);
+        let b = (a + rng.random_range(1..4)).min(n - 1);
+        let mut s: Vec<(usize, char)> = Vec::new();
+        let ends = ['X', 'Y', 'Z'];
+        let ea = ends[rng.random_range(0..3)];
+        let eb = if ea == 'Z' {
+            'Z'
+        } else {
+            ends[rng.random_range(0..2)]
+        };
+        s.push((a, ea));
+        for q in a + 1..b {
+            s.push((q, 'Z'));
+        }
+        s.push((b, eb));
+        terms.push((s, rng.random_range(-1.0..1.0)));
+    }
+    let mut pc = ParamCircuit::new(n, 1);
+    let into = |pc: &mut ParamCircuit, q: usize, ch: char, inv: bool| match (ch, inv) {
+        ('X', _) => {
+            pc.gate(Gate::H(q));
+        }
+        ('Y', false) => {
+            pc.gate(Gate::Sdg(q));
+            pc.gate(Gate::H(q));
+        }
+        ('Y', true) => {
+            pc.gate(Gate::H(q));
+            pc.gate(Gate::S(q));
+        }
+        _ => {}
+    };
+    for _ in 0..steps {
+        for (s, c) in &terms {
+            for &(q, ch) in s {
+                into(&mut pc, q, ch, false);
+            }
+            for w in s.windows(2) {
+                pc.gate(Gate::Cnot(w[0].0, w[1].0));
+            }
+            pc.rz(s.last().unwrap().0, Angle::scaled(0, 2.0 * c));
+            for w in s.windows(2).rev() {
+                pc.gate(Gate::Cnot(w[0].0, w[1].0));
+            }
+            for &(q, ch) in s {
+                into(&mut pc, q, ch, true);
+            }
+        }
+    }
+    let mut o = Observable::new();
+    for (s, c) in &terms {
+        if s.iter().all(|x| x.1 == 'Z') {
+            let st: Vec<String> = s.iter().map(|(q, _)| format!("Z{q}")).collect();
+            o.add(*c, &st.join(" ")).unwrap();
+        }
+    }
+    if o.terms.is_empty() {
+        o.add(1.0, "Z0").unwrap();
+    }
+    // start from a non-trivial product state
+    let mut full = ParamCircuit::new(n, 1);
+    for q in 0..n {
+        full.ry(q, 0.3 + 0.1 * q as f64);
+    }
+    full.ops.extend(pc.ops);
+    (full, o)
+}
+
+fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
+    let (pc, o) = match w {
+        "qaoa-cx" => qaoa_cx(n, p),
+        "pauli" => pauli_trotter(n, p),
+        _ => build(w, n, p),
+    };
+    let (rc, st) = phase_regions(&pc, &RewriteOptions::default());
+    let mut rng = StdRng::seed_from_u64(12);
+    let ps: Vec<Vec<f64>> = (0..binds)
+        .map(|_| {
+            (0..pc.num_params)
+                .map(|_| rng.random_range(-1.5..1.5))
+                .collect()
+        })
+        .collect();
+    let opts = GraphOptions::default();
+    let mut best = [f64::INFINITY; 5];
+    let mut vals = [0.0; 3];
+    for _ in 0..reps() {
+        let (t, v) = time(|| ps.iter().map(|p| baseline(&pc, &o, p)).sum::<f64>());
+        best[0] = best[0].min(t / binds as f64);
+        vals[0] = v;
+        let cc = CompiledCircuit::compile(&pc, Some(&o), &opts).unwrap();
+        let (t, v) = time(|| {
+            ps.iter()
+                .map(|p| cc.bind(p).unwrap().expectation().unwrap())
+                .sum::<f64>()
+        });
+        best[1] = best[1].min(t / binds as f64);
+        vals[1] = v;
+        let (tr, (rc2, _)) = time(|| phase_regions(&pc, &RewriteOptions::default()));
+        best[3] = best[3].min(tr);
+        let cr = CompiledCircuit::compile(&rc2, Some(&o), &opts).unwrap();
+        let (t, v) = time(|| {
+            ps.iter()
+                .map(|p| cr.bind(p).unwrap().expectation().unwrap())
+                .sum::<f64>()
+        });
+        best[2] = best[2].min(t / binds as f64);
+        vals[2] = v;
+    }
+    assert!(
+        (vals[0] - vals[1]).abs() < 1e-8 * binds as f64
+            && (vals[0] - vals[2]).abs() < 1e-8 * binds as f64,
+        "{vals:?}"
+    );
+    let ccr = CompiledCircuit::compile(&rc, Some(&o), &opts).unwrap();
+    let cco = CompiledCircuit::compile(&pc, Some(&o), &opts).unwrap();
+    println!(
+        "{w} n={n} p={p} ops {}->{} regions {}/{} perm ops {}->{} gadgets {} | kops/stages {:?} -> {:?} | per-bind: baseline {:.3}ms compiled {:.3}ms rewritten {:.3}ms | rewrite vs compiled {:.2}x, vs baseline {:.2}x | rewrite pass {:.2}ms",
+        pc.ops.len(),
+        rc.ops.len(),
+        st.rewritten,
+        st.regions,
+        st.perm_ops_before,
+        st.perm_ops_after,
+        st.gadgets_after,
+        cco.stats().parts.iter().map(|p| (p.1, p.2)).collect::<Vec<_>>(),
+        ccr.stats().parts.iter().map(|p| (p.1, p.2)).collect::<Vec<_>>(),
+        best[0] * 1e3,
+        best[1] * 1e3,
+        best[2] * 1e3,
+        best[1] / best[2],
+        best[0] / best[2],
+        best[3] * 1e3
+    );
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let pipe = std::env::var("PIPE").is_ok();
@@ -261,6 +428,26 @@ fn main() {
                 bind_bench(w, n, p, b, pipe);
             }
         }
-        _ => eprintln!("usage: graph_bench bind [workload n p binds]"),
+        Some("rewrite") if args.len() >= 6 => {
+            rewrite_bench(
+                &args[2],
+                args[3].parse().unwrap(),
+                args[4].parse().unwrap(),
+                args[5].parse().unwrap(),
+            );
+        }
+        Some("rewrite") => {
+            for &(w, n, p, b) in &[
+                ("qaoa-cx", 12, 3, 200),
+                ("qaoa-cx", 20, 3, 5),
+                ("pauli", 12, 4, 50),
+                ("pauli", 20, 2, 3),
+                ("trotter", 12, 20, 200),
+                ("hea", 12, 4, 200),
+            ] {
+                rewrite_bench(w, n, p, b);
+            }
+        }
+        _ => eprintln!("usage: graph_bench bind|rewrite [workload n p binds]"),
     }
 }
