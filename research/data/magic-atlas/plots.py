@@ -126,6 +126,10 @@ def minof(rs, key):
     return best
 
 atlas_by_spec = {r["spec"]: r for r in atlas}
+for r in rows("eng_profiles.csv"):
+    atlas_by_spec.setdefault(r["spec"], r)
+# ns per amplitude update of the compressed state (Mac, 1 thread), fitted in law
+NS_OP = 2.3e-9
 if eng:
     import subprocess
     best = minof(eng, lambda r: (r["spec"], r["engine"]))
@@ -134,7 +138,7 @@ if eng:
         if r["spec"] not in specs:
             specs.append(r["spec"])
     out.append("\n### Measured (Mac M1 Pro, 1 thread, min of 3): seconds per engine, with the predicted work\n")
-    out.append("| instance | n | d | f | f_rec | log2 G·2^n | log2 W_d | log2 W_f | SV s | cstate s | factored s | recycled s | best/SV |")
+    out.append("| instance | n | d | f | f_rec | log2 G·2^n | log2 W_d | predicted cstate s (2.3 ns·W_d) | SV s | cstate s | factored s | recycled s | SV / best |")
     out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for s in specs:
         g = {e: best.get((s, e)) for e in ["sv", "cstate", "factored", "recycled"]}
@@ -144,9 +148,9 @@ if eng:
         ts = {e: (g[e]["secs"] if g[e] else None) for e in g}
         bestt = min(t for t in ts.values() if t is not None)
         lg = math.log2(int(a["lowered"])) + int(a["n"]) if a else float("nan")
-        out.append("| `{}` | {} | {} | {} | {} | {:.1f} | {} | {} | {} | {} | {} | {} | {} |".format(
+        out.append("| `{}` | {} | {} | {} | {} | {:.1f} | {} | {:.3g} | {} | {} | {} | {} | {} |".format(
             s, n, a["d"] if a else "", a["f"] if a else "", fr, lg,
-            a["log2_work"] if a else "", a["log2_work_f"] if a else "",
+            a["log2_work"] if a else "", NS_OP * 2 ** float(a["log2_work"]) if a else float("nan"),
             *[("%.4f" % ts[e]) if ts[e] is not None else "fail" for e in ["sv", "cstate", "factored", "recycled"]],
             ("%.2g×" % (ts["sv"] / bestt)) if ts["sv"] else "–"))
 
@@ -192,7 +196,7 @@ for lab, s in reps:
         continue
     n = int(a["n"])
     fr = frec(s)
-    frv = (17 / n if fr == ">16" else (fr / n if isinstance(fr, int) else float("nan")))
+    frv = ("cap" if fr == ">16" else (fr / n if isinstance(fr, int) else float("nan")))
     labels.append(f"{lab}  (n={n})")
     vals.append((int(a["d"]) / n, int(a["f"]) / n, frv, int(a["support"]) / n))
 if labels:
@@ -201,8 +205,12 @@ if labels:
     h = 0.19
     for j in range(4):
         ys = [i + (j - 1.5) * h for i in range(len(labels))]
-        xs = [v[j] for v in vals]
+        xs = [v[j] if v[j] != "cap" else 0 for v in vals]
         ax.barh(ys, xs, height=h * 0.85, color=C[j], label=names[j])
+        if j == 2:
+            for y, v in zip(ys, vals):
+                if v[j] == "cap":
+                    ax.text(0.005, y, "f_rec > 16 (simulation cap)", va="center", fontsize=6.5, color=INK2)
     ax.set_yticks(range(len(labels)))
     ax.set_yticklabels(labels)
     ax.invert_yaxis()
@@ -236,7 +244,11 @@ if profs:
         n, G = int(a["n"]), int(a["gates"])
         xs = [int(r["gate"]) / G for r in rowsr]
         ax.plot(xs, [int(r["d"]) / n for r in rowsr], color=C[0], label="d_k/n")
-        ax.plot(xs, [int(r["f"]) / n for r in rowsr], color=C[1], linewidth=1.5, label="f_k/n")
+        fmax, fs = 0, []
+        for r in rowsr:
+            fmax = max(fmax, int(r["f"]))
+            fs.append(fmax / n)
+        ax.plot(xs, fs, color=C[1], linewidth=1.5, label="f_k/n (largest factor so far)")
         ax.set_title(a["spec"], fontsize=7.5, color=INK)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1.05)
@@ -256,11 +268,13 @@ if magic:
     xs = [int(r["d"]) for r in magic if r.get("d")]
     ys = [fnum(r["nullity_max"]) for r in magic if r.get("d")]
     ax.plot([0, 14], [0, 14], color=INK2, linewidth=1, linestyle="--")
-    ax.scatter(xs, ys, s=22, color=C[0], edgecolor="white", linewidth=0.8, zorder=3)
-    for r in magic:
-        if r.get("d") and fnum(r["nullity_max"]) <= int(r["d"]) - 4:
-            ax.annotate(r["spec"].split(":")[0], (int(r["d"]), fnum(r["nullity_max"])), fontsize=6.5,
-                        color=INK2, xytext=(3, -3), textcoords="offset points")
+    arith = ("cuccaro", "gidney", "draper", "shorwin", "walk")
+    for j, (lab, sel) in enumerate([("adders, Shor oracle, walk (Toffoli / arithmetic)", lambda f: f in arith),
+                                    ("QFT, Trotter, QAOA, HEA, QPE, HHL, Grover, Clifford+T", lambda f: f not in arith)]):
+        pts = [(int(r["d"]), fnum(r["nullity_max"])) for r in magic if r.get("d") and sel(r["family"])]
+        ax.scatter([p[0] + (0.12 if j else -0.12) for p in pts], [p[1] for p in pts], s=22, color=C[j],
+                   edgecolor="white", linewidth=0.8, zorder=3, label=lab)
+    ax.legend(fontsize=6, loc="upper left")
     ax.set_xlabel("active dimension d (final)")
     ax.set_ylabel("max stabilizer nullity ν along the circuit")
     ax.set_title("ν ≤ d always; gap = classical structure", fontsize=8)

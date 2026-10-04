@@ -1,0 +1,14 @@
+{"chunk":"demo1","load":"{ 3.23 3.94 4.95 }","date":"2026-10-04T02:00:55Z"}
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.3517,"profile_secs":0.1960,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+{"demo":"qft-basis","n":1024,"gates":525826,"rotations":117468,"d":1023,"f":1,"sim_secs":0.5494,"checked_qubits":65,"max_err":1.118e-11}
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.3471,"profile_secs":0.2005,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+{"demo":"qft-basis","n":1024,"gates":525826,"rotations":117468,"d":1023,"f":1,"sim_secs":0.5371,"checked_qubits":65,"max_err":1.118e-11}
+{"demo":"shor-oracle","N":4611686014132420609,"a":7,"n":256,"gates":85718,"toffolis":27150,"t_count":190050,"d":256,"support":1,"register_max":2,"live_at_boundaries_max":0,"absorbed":27150,"compactions":10969,"sim_secs":1.2901,"profile_secs":0.2048,"check_paulis":258,"check_secs":0.0003,"max_err":0.000e0}
+{"demo":"qft-basis","n":1024,"gates":525826,"rotations":117468,"d":1023,"f":1,"sim_secs":0.5148,"checked_qubits":65,"max_err":1.118e-11}
+{"chunk_end":"demo1","load":"{ 3.49 3.97 4.95 }","date":"2026-10-04T02:01:03Z"}
+{"chunk":"demo2","load":"{ 3.49 3.97 4.95 }","date":"2026-10-04T02:01:03Z"}
+{"chunk_end":"demo2","load":"{ 4.28 4.15 4.95 }","date":"2026-10-04T02:01:59Z"}
+{"chunk":"demo2","load":"{ 2.79 3.61 4.57 }","date":"2026-10-04T02:05:11Z"}
+{"demo":"qpe-stab","t":23,"s":256,"n":279,"gates":59354,"rotations":12535,"t_count":66,"d":23,"log2_work":33.80,"sim_secs":13.3701,"evolve_secs":13.3342,"check_secs":0.0573,"threads":8,"max_err":6.881e-12}
+{"demo":"qpe-stab","t":23,"s":256,"n":279,"gates":59354,"rotations":12535,"t_count":66,"d":23,"log2_work":33.80,"sim_secs":13.3355,"evolve_secs":13.3033,"check_secs":0.0564,"threads":8,"max_err":6.902e-12}
+{"chunk_end":"demo2","load":"{ 3.79 3.78 4.60 }","date":"2026-10-04T02:05:38Z"}
