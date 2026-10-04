@@ -43,6 +43,7 @@ pub mod dag;
 pub mod gate;
 pub mod hsf;
 pub mod magic_atlas;
+pub mod monitored;
 pub mod mps;
 pub mod mps_cost;
 pub mod noise;
