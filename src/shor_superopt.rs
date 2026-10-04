@@ -56,6 +56,9 @@ pub struct Opts {
     /// Choose the window sizes (each at most `lay.w`) per multiplier by an
     /// exact gate-count DP instead of uniform windows.
     pub window_dp: bool,
+    /// Apply the SAT-derived window rewrite rules
+    /// ([`sat_peephole`], `src/shor_superopt_rules.txt`).
+    pub sat_rules: bool,
 }
 
 impl Opts {
@@ -69,6 +72,7 @@ impl Opts {
         keep_chain: false,
         peephole: false,
         window_dp: false,
+        sat_rules: false,
     };
     /// Everything on.
     pub const ALL: Opts = Opts {
@@ -79,7 +83,8 @@ impl Opts {
         direct_first: true,
         keep_chain: true,
         peephole: true,
-        window_dp: true,
+        window_dp: false,
+        sat_rules: true,
     };
 }
 
@@ -461,7 +466,198 @@ pub fn controlled_ua(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circui
     if o.peephole {
         c = reversible_peephole(&c);
     }
+    if o.sat_rules {
+        c = sat_peephole(&c, lay.n + 1);
+        if o.peephole {
+            c = reversible_peephole(&c);
+        }
+    }
     c
+}
+
+/// Local gate of a rewrite rule (wire indices inside the window).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Lg {
+    X(u8),
+    Cx(u8, u8),
+    Ccx(u8, u8, u8),
+}
+
+type RuleKey = (usize, Vec<Lg>, Vec<Option<bool>>);
+
+/// Window shape of the SAT peephole (must match `tools/superopt/peep.py`).
+pub const SAT_Q: usize = 5;
+pub const SAT_LMAX: usize = 10;
+
+fn parse_lgs(s: &str) -> Vec<Lg> {
+    s.split(';')
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let p: Vec<&str> = t.split_whitespace().collect();
+            let n = |i: usize| p[i].parse::<u8>().unwrap();
+            match p[0] {
+                "X" => Lg::X(n(1)),
+                "CX" => Lg::Cx(n(1), n(2)),
+                "CCX" => Lg::Ccx(n(1), n(2), n(3)),
+                g => panic!("bad gate {g}"),
+            }
+        })
+        .collect()
+}
+
+fn sim_lgs(gs: &[Lg], mut v: u32) -> u32 {
+    for g in gs {
+        match *g {
+            Lg::X(q) => v ^= 1 << q,
+            Lg::Cx(c, t) => v ^= ((v >> c) & 1) << t,
+            Lg::Ccx(a, b, t) => v ^= ((v >> a) & (v >> b) & 1) << t,
+        }
+    }
+    v
+}
+
+/// The rule table, parsed once and **verified**: every rule's replacement
+/// is checked against its pattern on every input consistent with the
+/// rule's known constants, so correctness does not rest on the SAT solver.
+fn sat_rules() -> &'static std::collections::HashMap<RuleKey, Vec<Lg>> {
+    static R: std::sync::OnceLock<std::collections::HashMap<RuleKey, Vec<Lg>>> =
+        std::sync::OnceLock::new();
+    R.get_or_init(|| {
+        let mut m = std::collections::HashMap::new();
+        for line in include_str!("shor_superopt_rules.txt").lines() {
+            if line.trim().is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let f: Vec<&str> = line.split('|').collect();
+            let nw: usize = f[0].parse().unwrap();
+            let consts: Vec<Option<bool>> = f[1]
+                .chars()
+                .map(|ch| match ch {
+                    '0' => Some(false),
+                    '1' => Some(true),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(consts.len(), nw);
+            let (pat, rep) = (parse_lgs(f[2]), parse_lgs(f[3]));
+            assert!(rep.len() < pat.len(), "rule does not shrink: {line}");
+            for v in 0u32..1 << nw {
+                let ok = consts
+                    .iter()
+                    .enumerate()
+                    .all(|(i, c)| !matches!(c, Some(b) if ((v >> i) & 1 == 1) != *b));
+                if ok {
+                    assert_eq!(sim_lgs(&pat, v), sim_lgs(&rep, v), "invalid rule {line}");
+                }
+            }
+            m.insert((nw, pat, consts), rep);
+        }
+        m
+    })
+}
+
+fn gate_qs(g: &Gate) -> ([usize; 3], usize) {
+    match *g {
+        Gate::X(q) => ([q, 0, 0], 1),
+        Gate::Cnot(c, t) => ([c, t, 0], 2),
+        Gate::Ccx(a, b, t) => ([a, b, t], 3),
+        _ => panic!("sat_peephole: X/CNOT/CCX only"),
+    }
+}
+
+fn const_step(val: &mut [Option<bool>], g: &Gate) {
+    let flip = |val: &mut [Option<bool>], t: usize| {
+        if let Some(b) = val[t] {
+            val[t] = Some(!b);
+        }
+    };
+    match *g {
+        Gate::X(q) => flip(val, q),
+        Gate::Cnot(c, t) => match val[c] {
+            Some(false) => {}
+            Some(true) => flip(val, t),
+            None => val[t] = None,
+        },
+        Gate::Ccx(a, b, t) => match (val[a], val[b]) {
+            (Some(false), _) | (_, Some(false)) => {}
+            (Some(true), Some(true)) => flip(val, t),
+            _ => val[t] = None,
+        },
+        _ => unreachable!(),
+    }
+}
+
+/// Rewrites the circuit with the SAT-derived window rules: from each gate,
+/// the longest run of consecutive gates on at most [`SAT_Q`] wires (and at
+/// most [`SAT_LMAX`] gates) is looked up, together with the wires whose
+/// value is a known constant at that point (constant propagation from
+/// "qubits `>= anc_from` start at 0"), and replaced by the rule's shorter
+/// equivalent. Repeated until nothing changes.
+pub fn sat_peephole(c: &Circuit, anc_from: usize) -> Circuit {
+    let rules = sat_rules();
+    let mut gates: Vec<Gate> = c.gates().copied().collect();
+    for _pass in 0..8 {
+        let mut val: Vec<Option<bool>> = (0..c.num_qubits)
+            .map(|q| if q < anc_from { None } else { Some(false) })
+            .collect();
+        let mut out: Vec<Gate> = Vec::with_capacity(gates.len());
+        let mut changed = false;
+        let mut i = 0;
+        while i < gates.len() {
+            let mut wires: Vec<usize> = Vec::new();
+            let mut j = i;
+            while j < gates.len() && j - i < SAT_LMAX {
+                let (qs, k) = gate_qs(&gates[j]);
+                let new: Vec<usize> = qs[..k].iter().copied().filter(|q| !wires.contains(q)).collect();
+                if wires.len() + new.len() > SAT_Q {
+                    break;
+                }
+                wires.extend(new);
+                j += 1;
+            }
+            if j - i >= 2 {
+                let idx = |q: usize| wires.iter().position(|&w| w == q).unwrap() as u8;
+                let local: Vec<Lg> = gates[i..j]
+                    .iter()
+                    .map(|g| match *g {
+                        Gate::X(q) => Lg::X(idx(q)),
+                        Gate::Cnot(c, t) => Lg::Cx(idx(c), idx(t)),
+                        Gate::Ccx(a, b, t) => Lg::Ccx(idx(a), idx(b), idx(t)),
+                        _ => unreachable!(),
+                    })
+                    .collect();
+                let consts: Vec<Option<bool>> = wires.iter().map(|&q| val[q]).collect();
+                if let Some(rep) = rules.get(&(wires.len(), local, consts)) {
+                    for g in rep {
+                        let g = match *g {
+                            Lg::X(q) => Gate::X(wires[q as usize]),
+                            Lg::Cx(c, t) => Gate::Cnot(wires[c as usize], wires[t as usize]),
+                            Lg::Ccx(a, b, t) => {
+                                Gate::Ccx(wires[a as usize], wires[b as usize], wires[t as usize])
+                            }
+                        };
+                        const_step(&mut val, &g);
+                        out.push(g);
+                    }
+                    i = j;
+                    changed = true;
+                    continue;
+                }
+            }
+            const_step(&mut val, &gates[i]);
+            out.push(gates[i]);
+            i += 1;
+        }
+        gates = out;
+        if !changed {
+            break;
+        }
+    }
+    let mut r = Circuit::new(c.num_qubits);
+    for g in gates {
+        r.gate(g);
+    }
+    r
 }
 
 /// The peephole pass restricted to X/CNOT/CCX circuits. Its output equals
@@ -625,6 +821,12 @@ mod tests {
             v.push(o);
         }
         v
+    }
+
+    #[test]
+    fn sat_rules_parse_and_verify() {
+        // panics on any rule whose replacement differs from its pattern
+        let _ = sat_rules().len();
     }
 
     #[test]

@@ -1,0 +1,1 @@
+# SAT-derived window rewrite rules (tools/superopt/peep.py, Q=5, LMAX=10); verified on load

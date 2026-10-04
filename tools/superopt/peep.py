@@ -11,7 +11,7 @@ replacement is re-verified by simulation on all window inputs consistent
 with the known constants. Non-overlapping improvements are applied greedily
 left to right and the saving is reported.
 
-usage: peep.py gates.txt Q LMAX [max_windows]
+usage: peep.py gates.txt Q LMAX [max_windows] [rules_out.txt]
 """
 import itertools
 import json
@@ -107,6 +107,7 @@ def best_replacement(nw, rows, L, log):
 def main():
     path, Q, LMAX = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
     maxw = int(sys.argv[4]) if len(sys.argv) > 4 else 10 ** 9
+    rules_out = sys.argv[5] if len(sys.argv) > 5 else None
     gates, nq, anc_from = parse(path)
     snaps = const_prop(gates, nq, anc_from)
     cache = {}
@@ -138,6 +139,22 @@ def main():
         g = cache[key]
         if g is not None:
             found.append((i, j, L - len(g), g, wires))
+    if rules_out:
+        def rfmt(gs):
+            out = []
+            for g in gs:
+                if g[0] == 'X':
+                    out.append(f'X {g[1]}')
+                elif g[0] == 'CNOT':
+                    out.append(f'CX {g[1]} {g[2]}')
+                else:
+                    out.append(f'CCX {g[1]} {g[2]} {g[3]}')
+            return ';'.join(out)
+        with open(rules_out, 'a') as f:
+            for (nw, local, consts), g in cache.items():
+                if g is not None:
+                    cs = ''.join('-' if c is None else str(c) for c in consts)
+                    f.write(f'{nw}|{cs}|{rfmt(local)}|{rfmt(g)}\n')
     # greedy non-overlapping, by saving density
     found.sort(key=lambda f: (-f[2], f[0]))
     used = [False] * len(gates)

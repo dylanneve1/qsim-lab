@@ -21,7 +21,8 @@ fn main() {
         // dump round-0 controlled-U (baseline and all) as text gate lists
         let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
         let lay = WindowLayout::new(inst.m, w);
-        for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL)] {
+        let nosat = Opts { sat_rules: false, ..Opts::ALL };
+        for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL), ("allnosat", nosat)] {
             let c = controlled_ua(&lay, inst.mults[0], n_mod, &o);
             let mut out = format!("# N={n_mod} mult={} n={} w={w} qubits={} ancillas_from={}\n",
                 inst.mults[0], inst.m, lay.num_qubits(), inst.m + 1);
@@ -46,8 +47,8 @@ fn main() {
         for ww in 1..=8usize {
             let lay = WindowLayout::new(inst.m, ww);
             let mut row = format!("n={} w={ww} qubits={}", inst.m, lay.num_qubits());
-            let nodp = Opts { window_dp: false, ..Opts::ALL };
-            for (name, o) in [("baseline", Opts::BASELINE), ("all-uniform", nodp), ("all", Opts::ALL)] {
+            let dp = Opts { window_dp: true, ..Opts::ALL };
+            for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL), ("all+dp", dp)] {
                 let (mut g, mut t) = (0, 0);
                 for &mult in &inst.mults {
                     let (gg, tt) = gate_counts(&controlled_ua(&lay, mult, n_mod, &o));
@@ -73,7 +74,8 @@ fn main() {
         ("unary+keep_chain", Opts { unary: true, keep_chain: true, ..b }),
         ("peephole only", Opts { peephole: true, ..b }),
         ("all but peephole", Opts { peephole: false, ..Opts::ALL }),
-        ("all but window_dp", Opts { window_dp: false, ..Opts::ALL }),
+        ("all but sat_rules", Opts { sat_rules: false, ..Opts::ALL }),
+        ("all + window_dp", Opts { window_dp: true, ..Opts::ALL }),
         ("all", Opts::ALL),
     ];
     println!(
