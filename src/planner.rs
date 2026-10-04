@@ -123,8 +123,8 @@ impl CostModel {
                 b: 0.8422,
             },
             mps: EngineModel {
-                a: -13.7198,
-                b: 0.2697,
+                a: -18.7136,
+                b: 0.4755,
             },
             hsf: EngineModel {
                 a: -19.6338,
@@ -135,7 +135,7 @@ impl CostModel {
                 b: 0.9788,
             },
             mps_svd_weight: 8.0,
-            mps_call_overhead: 2000.0,
+            mps_call_overhead: 1000.0,
         }
     }
 
@@ -175,6 +175,14 @@ pub struct PlannerConfig {
     pub debug_tol: f64,
     /// Answer 0 without simulating when the x-span certificate fires.
     pub use_certificate: bool,
+    /// Probe-or-solve: when MPS is not the first choice, run the MPS with
+    /// bond cap `probe_cap` for at most `probe_frac` × the best predicted
+    /// time. If it finishes without truncating, it *is* the exact answer;
+    /// if it truncates, its bond trace (exact below the cap, extrapolated
+    /// above it) replaces the bound in the MPS prediction and the engines
+    /// are re-ranked. `None` (default) plans from the bounds alone.
+    pub probe_cap: Option<u32>,
+    pub probe_frac: f64,
 }
 
 impl Default for PlannerConfig {
@@ -188,6 +196,8 @@ impl Default for PlannerConfig {
             debug_max_qubits: 20,
             debug_tol: 1e-6,
             use_certificate: true,
+            probe_cap: None,
+            probe_frac: 0.2,
         }
     }
 }
@@ -212,6 +222,10 @@ pub struct Plan {
     pub features: PlanFeatures,
     /// Seconds spent planning.
     pub plan_secs: f64,
+    /// Probe-or-solve answered the request during planning (MPS, exact).
+    pub solved: Option<f64>,
+    /// What the probe did: `(finished, truncated)`.
+    pub probe: Option<(bool, bool)>,
 }
 
 impl Plan {
@@ -262,11 +276,10 @@ fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool
     match e {
         Engine::StateVector | Engine::Hsf => n <= cap,
         Engine::Compressed => f.base.d <= cap.min(30) && matches!(req, PlanRequest::Expectation(_)),
-        Engine::Sparse => n <= 64 && (f.base.sup as u32) < 64 && (48u128 << f.base.sup) <= mem,
-        Engine::Mps => {
-            let chi = f.mps_max_bond as u128;
-            (n as u128) * 32 * chi.saturating_mul(chi) <= mem / 4
-        }
+        // sparse and MPS check their memory at run time (and abort); the
+        // bounds are too loose to exclude them up front.
+        Engine::Sparse => n <= 64,
+        Engine::Mps => true,
         Engine::Tableau => f.clifford,
         Engine::Zero => false,
     }
@@ -304,6 +317,46 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
                 limit: cfg.mem_bytes,
             });
         };
+    let mut engine = engine;
+    let mut f = f;
+    let mut solved = None;
+    let mut probe = None;
+    if let (Some(cap), PlanRequest::Expectation(obs)) = (cfg.probe_cap, req) {
+        let best_t = ranked.first().map_or(0.0, |x| x.1);
+        let budget = cfg.probe_frac * best_t;
+        if !matches!(engine, Engine::Zero | Engine::Tableau | Engine::Mps)
+            && budget >= cfg.min_deadline_secs
+        {
+            let tp = Instant::now();
+            let mut m = Mps::new(n, cap as usize);
+            m.enable_trace();
+            let mut finished = true;
+            for g in c.gates() {
+                m.apply_gate(g)?;
+                if tp.elapsed().as_secs_f64() > budget {
+                    finished = false;
+                    break;
+                }
+            }
+            let truncated = m.truncation_count() > 0;
+            probe = Some((finished, truncated));
+            if finished && !truncated {
+                solved = Some(m.expectation_z_product(obs));
+                engine = Engine::Mps;
+            } else if finished {
+                let r = mps_cost::replay(c, BondSource::ProbeExtrapolate(m.trace(), cap))?;
+                f.mps_r = mps_work_log2(&r.stats, &cfg.model);
+                let mm = cfg.model.mps;
+                for x in ranked.iter_mut() {
+                    if x.0 == Engine::Mps {
+                        x.1 = (mm.a + mm.b * f.mps_r).exp2();
+                    }
+                }
+                ranked.sort_by(|a, b| a.1.total_cmp(&b.1));
+                engine = ranked[0].0;
+            }
+        }
+    }
     if matches!(engine, Engine::Zero | Engine::Tableau) {
         ranked.insert(0, (engine, 0.0));
     }
@@ -312,6 +365,8 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
         ranked,
         features: f,
         plan_secs: t0.elapsed().as_secs_f64(),
+        solved,
+        probe,
     })
 }
 
@@ -422,8 +477,11 @@ pub fn execute_expectation(
         order.retain(|x| x.0 != plan.engine);
         order.insert(0, (plan.engine, 0.0));
     }
-    let mut result = None;
+    let mut result = plan.solved.map(|v| (v, Engine::Mps));
     for i in 0..order.len() {
+        if result.is_some() {
+            break;
+        }
         let e = order[i].0;
         let speculative = matches!(e, Engine::Mps | Engine::Sparse) && cfg.speculate > 0.0;
         let deadline = if speculative {

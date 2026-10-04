@@ -145,6 +145,9 @@ pub struct Mps {
     stats: MpsStats,
     /// Kept bond dimension after every SVD, in order (if enabled).
     trace: Option<Vec<u32>>,
+    /// Per-SVD rank caps (see [`Mps::set_step_caps`]) and the SVD counter.
+    step_caps: Option<Vec<u32>>,
+    svd_step: usize,
 }
 
 impl Mps {
@@ -166,6 +169,8 @@ impl Mps {
             truncations: 0,
             stats: MpsStats::default(),
             trace: None,
+            step_caps: None,
+            svd_step: 0,
         }
     }
 
@@ -175,6 +180,18 @@ impl Mps {
     }
 
     /// Starts recording the kept bond dimension of every SVD.
+    /// Caps the kept rank of the `k`-th SVD at `caps[k]` (SVDs counted
+    /// from construction or [`Mps::reset_all`]). With caps that upper-bound
+    /// the exact Schmidt ranks step by step, e.g. the trace of
+    /// `mps_cost::replay_traced(c, BondSource::Bound(Estimator::Best))`,
+    /// only numerical noise is discarded: rounding otherwise leaves
+    /// spurious singular values above the relative cutoff on long
+    /// Clifford-heavy circuits (research/planner.md §2.4), which inflates
+    /// the bond and the work.
+    pub fn set_step_caps(&mut self, caps: Vec<u32>) {
+        self.step_caps = Some(caps);
+    }
+
     pub fn enable_trace(&mut self) {
         self.trace = Some(Vec::new());
     }
@@ -207,6 +224,7 @@ impl Mps {
         self.fidelity = 1.0;
         self.truncations = 0;
         self.stats = MpsStats::default();
+        self.svd_step = 0;
         if let Some(t) = &mut self.trace {
             t.clear();
         }
@@ -362,12 +380,18 @@ impl Mps {
         let mut kept_w = 0.0;
         for &s in &sv {
             let w = s * s;
-            if keep >= self.max_bond || (keep > 0 && w / total < self.cutoff) {
+            let cap = self
+                .step_caps
+                .as_ref()
+                .and_then(|c| c.get(self.svd_step))
+                .map_or(usize::MAX, |&c| (c as usize).max(1));
+            if keep >= self.max_bond.min(cap) || (keep > 0 && w / total < self.cutoff) {
                 break;
             }
             keep += 1;
             kept_w += w;
         }
+        self.svd_step += 1;
         if let Some(t) = &mut self.trace {
             t.push(keep as u32);
         }

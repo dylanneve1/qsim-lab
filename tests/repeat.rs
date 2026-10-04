@@ -478,6 +478,7 @@ fn ro() -> SimOptions {
             min_saved_gates: 8,
             ..Default::default()
         }),
+        ..Default::default()
     }
 }
 

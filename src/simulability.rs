@@ -858,8 +858,17 @@ pub fn run_engine_obs(
                 .sum();
             run.size = s.peak_nnz() as f64;
         }
-        "mps" => {
+        "mps" | "mpsb" => {
             let mut m = Mps::new(n, 1 << 20);
+            if engine == "mpsb" {
+                // bound-capped: drop singular values beyond the rigorous
+                // Schmidt-rank bound (numerical noise only).
+                let b = crate::mps_cost::replay_traced(
+                    c,
+                    crate::mps_cost::BondSource::Bound(crate::mps_cost::Estimator::Best),
+                )?;
+                m.set_step_caps(b.trace);
+            }
             for g in c.gates() {
                 m.apply_gate(g)?;
                 if m.bytes() as u128 > mem_bytes / 4 {
@@ -952,12 +961,13 @@ pub fn run_engine_obs(
                 r.dense_ops
             );
         }
-        "plan" | "planx" => {
+        "plan" | "planx" | "planp" => {
             // Planner v0 end to end (planning + speculation included);
             // `planx` without the vanishing certificate (state engines only).
             let cfg = crate::planner::PlannerConfig {
                 mem_bytes,
                 use_certificate: engine == "plan",
+                probe_cap: (engine == "planp").then_some(16),
                 ..Default::default()
             };
             let r = crate::planner::expectation(c, &all, &cfg)?;

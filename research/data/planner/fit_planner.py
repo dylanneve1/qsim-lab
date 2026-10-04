@@ -31,12 +31,12 @@ def lg(x):
     return math.log2(max(x, 1.0))
 
 
-def probe_stats(d, cap):
+def probe_stats(d, cap, key="pred"):
     """Probe prediction if the probe finished, else the best bound."""
     try:
         pr = d["m"]["trace"]["probes"][cap]
         if pr["done"]:
-            return pr["pred"]["stats"]
+            return pr[key]["stats"]
     except (KeyError, TypeError):
         pass
     return d["m"]["cost"]["best"]["stats"]
@@ -129,6 +129,8 @@ def main():
     for cap in ["8", "16", "32"]:
         feats[f"probe χ≤{cap} + best"] = (
             lambda d, cap=cap: lg(total(probe_stats(d, cap), W, K)))
+        feats[f"probe χ≤{cap} extrapolated"] = (
+            lambda d, cap=cap: lg(total(probe_stats(d, cap, "predx"), W, K)))
     rep["features"] = {}
     for name, fn in feats.items():
         try:
@@ -181,6 +183,9 @@ def main():
                 out[F] = fit.evaluate(m.choose, te, m.predict)
                 for d in te:
                     d.setdefault("pred", {})[name] = m.choose(d["f"])
+                    d.setdefault("ranked", {})[name] = sorted(
+                        ((2 ** m.predict(e, d["f"]), e) for e in fit.ENGINES
+                         if math.isfinite(m.predict(e, d["f"]))))
             full = fit.Model()
             full.fit(data)
             out["coef"] = {e: list(map(float, p[1])) for e, p in full.p.items()}
@@ -196,13 +201,42 @@ def main():
             max_regret=max(out[F]["max_regret"] for F in FAMS),
             max_eps_regret=max(out[F]["max_eps_regret"] for F in FAMS),
             mps_lofo_rmse={F: out[F]["rmse_log10"].get("mps", (0, None))[1] for F in FAMS})
+        out["speculative"] = speculate(name)
         return out
+
+    def speculate(name, kappa=1.0, floor=2e-3):
+        """Regret if MPS/sparse choices are aborted after kappa x the
+        runner-up's predicted time (then the runner-up runs)."""
+        logs, worst, n = [], 1.0, 0
+        for d in data:
+            w = fit.winner(d)
+            if not w or name not in d.get("ranked", {}):
+                continue
+            rk = d["ranked"][name]
+            c = d["pred"][name]
+            t = fit.actual_time(d, c) or fit.PENALTY * d["timeout"]
+            if c in ("mps", "sparse"):
+                others = [(p, e) for p, e in rk if e != c]
+                if others:
+                    pru, eru = others[0]
+                    dl = max(kappa * pru, floor)
+                    if t > dl:
+                        tru = fit.actual_time(d, eru) or fit.PENALTY * d["timeout"]
+                        t = dl + tru
+            r = t / w[1]
+            logs.append(math.log10(r))
+            worst = max(worst, r)
+            n += 1
+        return dict(n=n, geo_regret=10 ** float(np.mean(logs)), max_regret=worst,
+                    within2=float(np.mean([x <= math.log10(2) for x in logs])))
 
     rep["decisions"] = {
         "old mps_l": with_mps("old", lambda d: d["f"]["mps_l"]),
         "replay[best]": with_mps("best", lambda d: lg(total(d["m"]["cost"]["best"]["stats"], W, K))),
         "replay[cross]": with_mps("cross", lambda d: lg(total(d["m"]["cost"]["cross"]["stats"], W, K))),
         "probe16": with_mps("probe16", lambda d: lg(total(probe_stats(d, "16"), W, K))),
+        "probe16x": with_mps("probe16x", lambda d: lg(total(probe_stats(d, "16", "predx"), W, K))),
+        "probe8x": with_mps("probe8x", lambda d: lg(total(probe_stats(d, "8", "predx"), W, K))),
         "oracle": with_mps("oracle", lambda d: lg(total(d["m"]["trace"]["stats"], W, K))
                            if d["m"].get("trace", {}).get("done") else lg(total(d["m"]["cost"]["best"]["stats"], W, K))),
     }
@@ -231,6 +265,8 @@ def main():
         print(f"{k:14s} top1 {p['acc']:.3f} geo {p['geo_regret']:.3f} w2 {p['within2']:.3f} "
               f"eps {p['geo_eps_regret']:.3f} max {p['max_regret']:.1f} maxeps {p['max_eps_regret']:.1f} "
               f"mpsRMSE {p['mps_lofo_rmse']}")
+        sp = v["speculative"]
+        print(f"{'':14s} + speculation: geo {sp['geo_regret']:.3f} max {sp['max_regret']:.1f} w2 {sp['within2']:.3f}")
     for k, v in rep["worst"].items():
         print(k, [(round(x[0], 1), x[2], x[3], x[4]) for x in v[:5]])
     try:

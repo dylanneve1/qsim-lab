@@ -6,7 +6,10 @@
 //! simulate(circuit, Request, Budget)
 //!   -> compile (src/compile): peephole, SWAP elimination, state propagation,
 //!      light cone of the request, connected components, classical suffix
-//!   -> per component, rule-based choice (thresholds below):
+//!   -> expectation values: per component, Planner v0 ([`crate::planner`]):
+//!      vanishing certificate, tableau, or the state engine with the lowest
+//!      fitted cost (state vector, sparse, MPS, HSF, compressed state)
+//!   -> samples / amplitudes: per component, rule-based choice (thresholds below):
 //!        Clifford                        -> stabilizer tableau
 //!        terminal sampling, few outputs  -> Pauli-path marginals
 //!        Clifford+T, small active dim d  -> compressed state ([`crate::adaptive`])
@@ -143,6 +146,10 @@ fn check_budget(stats: &CompileStats, budget: &Budget) -> Result<(), SimError> {
 pub struct SimOptions {
     /// Exploit repeated blocks (`compile::repeat`), or `None`.
     pub repeat: Option<RepeatOptions>,
+    /// Planner debug mode for expectation values: every planned component
+    /// with at most 20 qubits is also run on the reference state vector,
+    /// and a disagreement panics (research/planner.md).
+    pub planner_debug: bool,
 }
 
 /// Options of the repeat pass (see `research/repeat.md`).
@@ -202,11 +209,11 @@ pub fn simulate_with(
     opts: &SimOptions,
 ) -> Result<Simulation, SimError> {
     if let Some(ro) = &opts.repeat {
-        if let Some(r) = repeat_path(circuit, request, budget, ro) {
+        if let Some(r) = repeat_path(circuit, request, budget, ro, opts.planner_debug) {
             return r;
         }
     }
-    simulate_plain(circuit, request, budget)
+    simulate_plain(circuit, request, budget, opts.planner_debug)
 }
 
 fn is_terminal_unitary(c: &Circuit) -> bool {
@@ -227,6 +234,7 @@ fn repeat_path(
     request: &Request,
     budget: &Budget,
     ro: &RepeatOptions,
+    debug: bool,
 ) -> Option<Result<Simulation, SimError>> {
     use crate::compile::repeat::{cliff, detect, exec, rewrite, Node};
     validate(circuit).ok()?;
@@ -328,7 +336,7 @@ fn repeat_path(
                 }));
             }
             let rw = rewrite(&prog, ro.clifford_power);
-            Some(simulate_plain(&rw.circuit, request, budget))
+            Some(simulate_plain(&rw.circuit, request, budget, debug))
         }
         Request::Amplitudes(xs) => {
             // The global phase matters: no Clifford power.
@@ -357,7 +365,7 @@ fn repeat_path(
                 return None;
             }
             let rw = rewrite(&prog, ro.clifford_power);
-            Some(simulate_plain(&rw.circuit, request, budget))
+            Some(simulate_plain(&rw.circuit, request, budget, debug))
         }
     }
 }
@@ -390,6 +398,7 @@ fn simulate_plain(
     circuit: &Circuit,
     request: &Request,
     budget: &Budget,
+    debug: bool,
 ) -> Result<Simulation, SimError> {
     let opts = plan_options();
     match request {
@@ -413,6 +422,15 @@ fn simulate_plain(
             })
         }
         Request::Expectation(qs) => {
+            // Expectation values go through Planner v0 (research/planner.md).
+            let opts = PlanOptions {
+                planner: Some(crate::planner::PlannerConfig {
+                    mem_bytes: budget.mem_bytes.min(MAX_STATE_BYTES),
+                    debug_reference: debug,
+                    ..Default::default()
+                }),
+                ..opts
+            };
             let v = expectation_z_product(circuit, qs, opts)?;
             Ok(Simulation {
                 output: Output::Expectation(v),
