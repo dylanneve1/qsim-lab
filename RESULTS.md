@@ -33,18 +33,52 @@ Other caveats:
 - qsim and Aer times include their Python front end and returning the state.
 - Both are built for large servers and GPUs.
 
-### Surface-code sampling: qsim-lab SymPhase detector sampler vs Stim (1.16.0), single thread
-Rotated surface-code memory, rounds = d, circuit-level noise p = 0.3%, bit-packed output, min-of-5 through `bench.sh`. Both simulators sampled the **exact same exported circuit** (`examples/stim_export.rs`) with matching gate order, noise placement (`DEPOLARIZE1`, `DEPOLARIZE2`, `X_ERROR` after reset, `MZ` readout error), and identical detector/observable definitions. All per-detector and observable firing rates agree within Bonferroni bounds (max |z| ≤ 3.34 across 1,004 statistical checks; 0 disagreements).
+### Surface-code sampling: qsim-lab SymPhase detector sampler vs Stim 1.16.0, single thread (corrected 4 Oct 2026)
 
-| distance | qubits | detectors | qsim-lab (shots/s) | Stim (shots/s) | ratio (qsim/Stim) |
+**Correction.** The earlier claim here, "4.0–6.5× faster than Stim", is withdrawn. It timed Stim through `sample(bit_packed=True)`, its slow in-memory numpy path, and qsim-lab without storing output. It also used a hand-written re-implementation of the circuit (`examples/stim_export.rs`). `research/qec-r4.md` Part 1 has the full redo.
+
+**Equivalence.** Both simulators now sample **identical circuits, in both directions**:
+- qsim-lab's surface-code `Circuit` serialised op by op (`stim_io::to_stim`);
+- Stim's own `surface_code:rotated_memory_z`, parsed into qsim-lab (`stim_io::parse_stim`).
+
+At d = 3, 7, 11, 15 with 10⁶ shots per side, every per-detector rate, every DEM-correlated detector pair and the observable rate agree: 0 rejections in 69,476 tests at 1% family-wise error. The DEM supports are identical. A deliberate +10% error on one noise channel is rejected at |z| = 17.
+
+**Timing.** Same `.stim` file and the same output layout (ptb64, 64-shot words per detector), single thread, min of 3, interleaved. Throughput is in Mshots/s. "A" is qsim-lab's sequential circuit; "B" is Stim's generated, layer-parallel circuit.
+
+**x86: VPS EPYC-Rome, 1-minute load 3.5–4.2.** pip's Stim wheel runs its SSE2 build; "native" is Stim built from source with `-DSIMD_WIDTH=256` (AVX2), via `stim detect`.
+
+| d | circuit | Stim pip (SSE2) | Stim native (AVX2) | qsim-lab | qsim-lab / best Stim |
 |---|---|---|---|---|---|
-| 3 | 17 | 16 | **5.51×10⁷** | 8.44×10⁶ | **6.53×** |
-| 5 | 49 | 72 | **1.21×10⁷** | 2.80×10⁶ | **4.33×** |
-| 7 | 97 | 192 | **4.57×10⁶** | 1.03×10⁶ | **4.44×** |
-| 11 | 241 | 720 | **9.63×10⁵** | 2.28×10⁵ | **4.22×** |
-| 15 | 449 | 1792 | **4.40×10⁵** | 1.09×10⁵ | **4.05×** |
+| 3 | A (ours) | 30.57 | 26.59 | 48.79 | **1.60×** |
+| 3 | B (Stim) | 22.26 | 26.38 | 26.54 | **1.01×** |
+| 7 | A (ours) | 2.46 | 2.75 | 4.40 | **1.60×** |
+| 7 | B (Stim) | 2.28 | 2.55 | 2.50 | **0.98×** |
+| 11 | A (ours) | 0.59 | 0.70 | 1.17 | **1.66×** |
+| 11 | B (Stim) | 0.58 | 0.69 | 0.62 | **0.89×** |
+| 15 | A (ours) | 0.24 | 0.27 | 0.44 | **1.66×** |
+| 15 | B (Stim) | 0.23 | 0.26 | 0.24 | **0.89×** |
 
-Audited apples-to-apples comparison confirms qsim-lab SymPhase is **4.0×–6.5× faster** than Stim 1.16 across all tested distances on the development VM (see `research/audit.md` §13).
+**Apple M1 Pro, load about 3, under the Mac bench lock.** Caveat: Stim has **no NEON backend**. Both the pip wheel (`_stim_polyfill`) and a `-mcpu=native` source build use 64-bit words, so these ratios flatter qsim-lab and should not be generalised.
+
+| d | circuit | Stim pip | Stim native | qsim-lab (sparse, SmallRng) | qsim-lab / best Stim |
+|---|---|---|---|---|---|
+| 3 | A (ours) | 17.25 | 16.77 | 77.32 | 4.48× |
+| 3 | B (Stim) | 14.29 | 13.88 | 42.87 | 3.00× |
+| 7 | A (ours) | 1.27 | 1.28 | 7.00 | 5.48× |
+| 7 | B (Stim) | 1.15 | 1.16 | 4.32 | 3.73× |
+| 11 | A (ours) | 0.32 | 0.32 | 1.75 | 5.45× |
+| 11 | B (Stim) | 0.30 | 0.30 | 1.16 | 3.87× |
+| 15 | A (ours) | 0.12 | 0.12 | 0.69 | 5.62× |
+| 15 | B (Stim) | 0.12 | 0.12 | 0.47 | 4.02× |
+
+**Summary.**
+- On x86, on Stim's own circuit, qsim-lab and Stim are **at parity (0.89–1.01× against AVX2 Stim)**.
+- On qsim-lab's sequential circuit we are **1.6–1.7×** faster, because Stim pays per-instruction overhead for its about 2,000 one-gate lines.
+- 72–82% of our time goes to drawing noise variables (about 45 ns per fault event: RNG, `ln` for the geometric skip, Pauli choice), not to the GF(2) evaluation.
+- The bit-identical sparse path with `SmallRng` gains 5–25% on x86 and 30–45% on M1.
+- Our compile step costs 35–45 ms at d = 15, against about 1 ms for Stim.
+
+Data: `research/data/qec-r4/stim_*`.
 
 ## Engine-by-engine speedups (interleaved A/B against the previous implementation; independently reproduced where noted)
 | engine | workload | speedup | audited |
@@ -55,7 +89,7 @@ Audited apples-to-apples comparison confirms qsim-lab SymPhase is **4.0×–6.5�
 | compiler passes | Bernstein–Vazirani-23 / GHZ-24 / noisy repetition code | 298× / 90× / 604× | pre-port version reproduced (745×, 148×) |
 | adaptive (frame → compressed SV) | 22 qubits, 40 T vs full SV | 24 s → 0.005 s | pending |
 | HSF | 20 qubits, cut of 4 gates vs old SV | ~20× (amplitudes 100×+) | reproduced; smaller vs the blocked SV |
-| SymPhase | per-shot vs tableau, d=3–15 | 190–890× | exact-distribution check passed on 190 circuits |
+| SymPhase | per-shot vs tableau, d=3–15 | 190–890× | exact-distribution check passed on 190 circuits; vs Stim: parity on x86 (see above) |
 
 ## Things it can do now
 - **Shor's algorithm:** factors 1,005,973 = 997 × 1009 in 0.024 s / 10 MB, using one recycled control qubit (21 qubits) and an exact sparse state. Dense f32 goes to 26-bit N. **The full gate-level circuit at N ≈ 10⁶:** with a ripple-carry modular multiplier built only from X, CNOT and Toffoli gates, which keeps the exact sparse state at ≤ 2r amplitudes, 1,005,973 = 997 × 1009 factors in **10.8 s / 14 MB**. That's 64 qubits and 1,148,440 gates (415,498 Toffolis), with the same measured value and period as the oracle version. With a permutation oracle at this size, the cost tracks the classical period-finding difficulty (see `research/shor.md`).

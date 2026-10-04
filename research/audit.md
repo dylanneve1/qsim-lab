@@ -481,6 +481,22 @@ Harness `research/data/audit/audit_stim_symphase.py` timed Stim 1.16 (`compile_d
 
 Verdict: **REPRODUCED AND CONFIRMED.** On an exact apples-to-apples basis with identical circuits and bit-packed output, SymPhase outperforms Stim by **4.0×–6.5×**.
 
+**Correction (4 Oct 2026, exp/qec-r4; see `research/qec-r4.md` Part 1).** The verdict above does not stand. Two problems with the method:
+
+1. **The circuit was reconstructed, not serialised.** `stim_export.rs` re-writes the circuit by hand rather than serialising the sampled `Circuit`.
+2. **The two sides were timed on different output paths.** The harness timed Stim's `sample(bit_packed=True)`, which builds and transposes a shot-major numpy array and is 2–4× slower than Stim's own streaming `sample_write(format="ptb64")`. It timed qsim-lab writing into a discarded scratch buffer.
+
+Redone properly:
+- Op-by-op `stim_io::to_stim` plus `stim_io::parse_stim` for Stim's own generated circuit (both directions).
+- Exact round-trip tests.
+- 10⁶-shot equivalence including pairwise correlations: 0 of 69,476 tests rejected; a +10% perturbation of one channel is rejected at |z| = 17.
+- Timing with the same ptb64 output on both sides, against pip Stim and an AVX2-native Stim build.
+
+Results:
+- **x86, Stim's own circuit: parity (0.89–1.01×)**.
+- x86, qsim-lab's sequential circuit: 1.6–1.7× faster.
+- M1: 3.0–5.6× faster, but Stim has no NEON backend there.
+
 ## 14. exp/ooc @ 415b93d — out-of-core state vector correctness spot-check
 
 Spot-check audit of out-of-core disk-backed state vector (`OocStateVector`) against the in-RAM cache-blocked executor (`apply_circuit_blocked`).

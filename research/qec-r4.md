@@ -88,15 +88,43 @@ The mean of z² over the marginals is 0.64–1.32 in every cell, as expected und
 
 **VPS (EPYC, AVX2).** Note that pip's Stim wheel runs its SSE2 build (AVX2 is disabled in the wheel; Stim issue #432).
 
-(VPS table: see §1.5 for the final run.)
-
 **Mac (M1 Pro).** pip's Stim on arm64 runs `_stim_polyfill`, i.e. **64-bit words with no NEON**. A native `-mcpu=native` build is no faster, because Stim has no NEON SIMD backend. The Mac ratios therefore flatter us and should not be generalised.
-
-(Mac table: see §1.5.)
 
 ### 1.5 Results
 
-FILLED BELOW
+**VPS (EPYC-Rome, AVX2), 1-min load 3.5–4.2; ours = dense path, StdRng**
+
+| circuit | d | shots | Stim sample_write ptb64 (Mshot/s) | Stim sample() numpy (Mshot/s) | Stim native CLI ptb64 (Mshot/s) | ours dense (Mshot/s) | ours/Stim (write) | ours/Stim (numpy) | ours/Stim native | load |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A (ours) | 3 | 2000000 | 30.57 | 10.48 | 26.59 | 48.79 | 1.60× | 4.65× | 1.84× | 3.5 |
+| B (Stim gen.) | 3 | 2000000 | 22.26 | 8.00 | 26.38 | 26.54 | 1.19× | 3.32× | 1.01× | 3.5 |
+| A (ours) | 7 | 499968 | 2.46 | 1.12 | 2.75 | 4.40 | 1.78× | 3.91× | 1.60× | 3.6 |
+| B (Stim gen.) | 7 | 499968 | 2.28 | 0.73 | 2.55 | 2.50 | 1.09× | 3.41× | 0.98× | 3.8 |
+| A (ours) | 11 | 200000 | 0.59 | 0.29 | 0.70 | 1.17 | 1.96× | 4.01× | 1.66× | 3.9 |
+| B (Stim gen.) | 11 | 200000 | 0.58 | 0.18 | 0.69 | 0.62 | 1.06× | 3.47× | 0.89× | 4.0 |
+| A (ours) | 15 | 99968 | 0.24 | 0.12 | 0.27 | 0.44 | 1.83× | 3.66× | 1.66× | 4.0 |
+| B (Stim gen.) | 15 | 99968 | 0.23 | 0.05 | 0.26 | 0.24 | 1.03× | 4.51× | 0.89× | 4.2 |
+**Mac M1 Pro, load 2.8–3.1, under the bench lock; ratios use our best variant**
+
+| circuit | d | shots | Stim sample_write ptb64 (Mshot/s) | Stim sample() numpy (Mshot/s) | Stim native CLI ptb64 (Mshot/s) | ours dense (Mshot/s) | ours sparse+SmallRng (Mshot/s) | ours/Stim (write) | ours/Stim (numpy) | ours/Stim native | load |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A (ours) | 3 | 2000000 | 17.25 | 15.15 | 16.77 | 59.71 | 77.32 | 4.48× | 5.10× | 4.61× | 2.9 |
+| B (Stim gen.) | 3 | 2000000 | 14.29 | 11.61 | 13.88 | 32.29 | 42.87 | 3.00× | 3.69× | 3.09× | 2.9 |
+| A (ours) | 7 | 499968 | 1.27 | 1.23 | 1.28 | 5.01 | 7.00 | 5.53× | 5.71× | 5.48× | 2.9 |
+| B (Stim gen.) | 7 | 499968 | 1.15 | 0.93 | 1.16 | 2.82 | 4.32 | 3.75× | 4.65× | 3.73× | 2.8 |
+| A (ours) | 11 | 200000 | 0.32 | 0.31 | 0.32 | 1.27 | 1.75 | 5.51× | 5.59× | 5.45× | 3.1 |
+| B (Stim gen.) | 11 | 200000 | 0.30 | 0.24 | 0.30 | 0.75 | 1.16 | 3.89× | 4.86× | 3.87× | 3.0 |
+| A (ours) | 15 | 99968 | 0.12 | 0.12 | 0.12 | 0.50 | 0.69 | 5.62× | 5.67× | 5.62× | 3.1 |
+| B (Stim gen.) | 15 | 99968 | 0.12 | 0.09 | 0.12 | 0.30 | 0.47 | 4.07× | 5.37× | 4.02× | 3.1 |
+The pip "write" path and the native build agree on the Mac (`stim_timing_mac_m1_v2_nativecli.jsonl`), as expected with no SIMD backend there.
+
+**Honest ratios.**
+- **x86, Stim's own circuit (B): 0.89–1.01× against AVX2-native Stim, 1.03–1.19× against pip Stim.** This is parity; at d ≥ 11 Stim is about 11% faster.
+- **x86, qsim-lab's sequential circuit (A): 1.6–1.8× faster than either Stim.**
+- **M1: 3.0–5.6× faster**, an artefact of Stim having no NEON path.
+- Against Stim's numpy path, which is what the old claim used, we are 3.3–4.7× faster on x86. That is where "4–6.5×" came from.
+
+A later VPS run at load 15, with the sparse path and SmallRng, is indicative only: sparse + SmallRng is 0.97× / 0.75× of the dense time on A / B at d = 15.
 
 ### 1.6 Where our time goes
 
