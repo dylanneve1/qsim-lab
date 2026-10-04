@@ -535,9 +535,7 @@ mod tests {
             let l2 = m.noise.loc;
             m.s(1, b);
             let l3 = m.noise.loc;
-            if m.noise.suspended {
-                eprintln!("boundaries {l0} {l1} {l2} {l3}");
-            }
+            eprintln!("boundaries {l0} {l1} {l2} {l3}");
             m.noise.suspended = true;
             m.ec(1, a);
             m.ec(1, b);
