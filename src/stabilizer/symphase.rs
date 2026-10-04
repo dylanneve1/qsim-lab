@@ -487,6 +487,16 @@ impl SymPhaseSampler {
         out
     }
 
+    /// Reports every row relative to the noiseless reference sample (random
+    /// outcomes forced to 0), i.e. Stim's detection-event convention: a
+    /// deterministic detector whose noiseless parity is 1 then reads 0 in a
+    /// noiseless shot. For rows with a coin the constant offset does not
+    /// change the distribution.
+    pub fn relative_to_reference(mut self) -> SymPhaseSampler {
+        self.reference.iter_mut().for_each(|b| *b = false);
+        self
+    }
+
     /// Drops variable groups that no row uses and renumbers the rest.
     fn prune(&mut self) {
         let mut used = vec![false; self.num_vars];

@@ -38,13 +38,11 @@ fn compile(
 ) -> SymPhaseSampler {
     let sets: Vec<Vec<usize>> = dets.iter().chain(obs.iter()).cloned().collect();
     let s = SymPhaseSampler::new(c, noise).expect("compile");
-    let ds = s.with_parities(&sets);
-    // deterministic detectors: no reference flips (Stim reports events relative to noiseless)
-    assert!(
-        ds.reference().iter().all(|&b| !b),
-        "non-zero reference parity"
-    );
-    ds
+    // Stim reports detector and observable values relative to the noiseless
+    // reference sample, whatever the noiseless parity is (audit: Stim's
+    // decomposed colour code has detectors with noiseless parity 1, which
+    // used to panic here)
+    s.with_parities(&sets).relative_to_reference()
 }
 
 fn sample_to<W: Write>(s: &SymPhaseSampler, shots: usize, seed: u64, w: &mut W) {
