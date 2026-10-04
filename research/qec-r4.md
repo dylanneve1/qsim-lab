@@ -201,4 +201,93 @@ I looked at three candidates:
 
 ### 2.3 Reproducing Kishony–Fowler
 
-PART2_RESULTS
+Exact Z-memory circuit distance under the noisy-CNOT model. N_min is the number of distinct minimum-weight logical fault sets in the merged Z-sector DEM. Every value is certified, i.e. it lifts to the full DEM. Times are single-core on the VPS.
+
+| schedule | d | rounds | d_circ (ours) | K–F formula d − ⌊(d+3)/6⌋ | N_min | solver time | independent cross-check |
+|---|---|---|---|---|---|---|---|
+| KF | 3 | 3 | 2 | 2 | 9 | < 1 ms | full-DEM ILP (HiGHS) on our DEM and on Stim's DEM of the exported circuit: 2 |
+| KF | 5 | 1 | 4 | 4 | 55 | 1 ms | Z-sector MaxSAT (RC2): 4 |
+| KF | 5 | 5 | 4 | 4 | 388 | 10 ms | full-DEM ILP on our DEM and on Stim's DEM: 4; full-DEM MaxSAT: 4 |
+| KF | 7 | 1 | 6 | 6 | 883 | 0.1 s | RC2: 6 |
+| KF | 7 | 7 | 6 | 6 | 12,901 | 4.8 s | RC2 (Z sector): 6 in 367 s |
+| KF | 9 | 1 | 7 | 7 | 36 | 2 s | RC2: 7 in 381 s |
+| KF | 9 | 9 | 7 | 7 | 492 | 156 s | — |
+| KF | 11 | 1 | 9 | 9 | 612 | 257 s | — |
+| tri-optimal (uniform) | 3 / 5 / 7 / 9 | 1 | 2 / 3 / 4 / 5 | — | 2 / 4 / 7 / 12 | ≤ 0.03 s | distance-halving, as K–F state |
+
+- **The formula is reproduced exactly, including at the full d = 9, 9-round circuit.** That is independent confirmation by a different generator, DEM builder and solver.
+- Under the uniform depolarizing model (idle, readout and reset noise added), d_circ and N_min are identical. The extra fault locations only duplicate existing Z-sector signatures.
+- The count is *per distinct merged mechanism set*, not weighted by how many physical faults produce each mechanism.
+- Rounds = 1 is a valid upper bound for screening: any logical in the 1-round circuit maps onto the last round of a longer one. It equalled the full-rounds value in every case checked (d = 5, 7, 9).
+
+**Where K–F's minimum-weight logicals live (d = 9).** All 36 weight-7 logicals (1 round) run from the observable boundary (y = 0, the red boundary) to the opposite corner. Every one uses two mechanisms on the apex plaquettes 27/28/29. Most also use a weight-3 middle hook or a boundary weight-2 hook near the bottom. So the deficit is corner-anchored, not only boundary-hugging (`DUMP_ALL=1 color_search distance 9 1 kf`).
+
+### 2.4 Schedule search: results
+
+**Search space.**
+- One auxiliary per plaquette.
+- The same 6-step schedule for the Z half (CX data→anc) and the X half (CX anc→data).
+- Every plaquette's steps are a permutation of 1..6 restricted to its present positions.
+- The whole circuit is collision-free: no data qubit is in two CNOTs at the same step.
+
+So depth and qubit count are identical to K–F's. "Free" plaquettes are those touching a data qubit that lies on the boundary; at d = 5 that is all 9. Plaquettes not free keep K–F's colour schedule. Objective: (d_circ, −N_min), lexicographic.
+
+**Method.** LNS from K–F (§2.2): exhaustive over every DEM-equivalence class of every single involved plaquette, then every adjacent involved pair. It moves to the best class of the first neighbourhood that improves, and repeats until no neighbourhood improves (a local optimum). Distances and counts are exact (§2.2).
+
+| d | rounds in objective | K–F (d_circ, N_min) | LNS result (d_circ, N_min) | status | moves | file |
+|---|---|---|---|---|---|---|
+| 5 | 5 | (4, 388) | **(4, 197)** | local optimum: no single (9) or pair (15) re-schedule improves | 20 | `schedules/d5_lns_r5.sched`, `lns_d5_r5.jsonl` |
+| 5 | 1 | (4, 55) | (4, 36) | local optimum (9 singles, 10 pairs) | 7 | `lns_d5_r1.jsonl` |
+| 7 | 1 | (6, 883) | D7_RESULT | D7_STATUS | | `lns_d7_r1.jsonl` |
+| 9 | 1 | (7, 36) | D9_RESULT | D9_STATUS | | `lns_d9_r1_*.jsonl` |
+
+Earlier random local search (`color_schedule_search.py`, 6 seeds × about 60 evaluations at d = 9) and exhaustive enumeration of the apex pair {28, 29} at d = 9 (140 of 1003 classes before it was stopped) found nothing above d_circ = 7. Exhaustive per-colour (uniform) schedules are K–F's own search (864 zero-collision, all d_circ = 6 at d = 7).
+
+**Circuit distance.**
+- **No schedule in this space beat K–F's d_circ.** At d = 5, where every plaquette is free, no single or pair move reaches 5. This is consistent with K–F's observation that every hook on a corner plaquette is malign, so d_circ ≤ d − 1 for any single-auxiliary schedule.
+- At d = 9, a gain over K–F would mean d_circ = 8, i.e. eliminating every weight-7 logical. The LNS reduced their number but has not removed them; see the table.
+- This is a negative result for the distance question within single and pair moves. It is not a proof over the whole space.
+
+**Entropy.** Non-uniform boundary schedules roughly **halve the number of minimum-weight logicals at the same d_circ and depth** (d = 5: 388 → 197 over 5 rounds; d = 7 and d = 9 in the table). K–F's arbitrary pick among colour-uniform schedules is far from optimal on this second-order metric.
+
+### 2.5 Does it matter? Logical error rate per round, K–F vs LNS (d = 5, rounds = 5)
+
+Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for BP+OSD (order 100, Z sector); 128k shots per arm for Tesseract (K–F's decoder and settings) on our samples and DEM. Per-round p_L = (1 − (1 − 2P)^{1/r})/2. Ratio CIs use the log-ratio normal approximation (`ler_compare.py`; `ler_d5_bposd.jsonl`, `tess_d5.jsonl`).
+
+| noise | p | decoder | K–F p_L/round | LNS p_L/round | ratio LNS/K–F [95% CI] |
+|---|---|---|---|---|---|
+| noisy CNOT | 0.3% | BP+OSD | 1.125×10⁻³ (5600 fails) | 7.83×10⁻⁴ (3903) | **0.697 [0.669, 0.726]** |
+| noisy CNOT | 0.3% | Tesseract | 3.79×10⁻⁴ (242) | 2.60×10⁻⁴ (166) | **0.686 [0.563, 0.836]** |
+| noisy CNOT | 0.2% | BP+OSD | 4.62×10⁻⁴ (4606) | 3.17×10⁻⁴ (3162) | **0.686 [0.656, 0.718]** |
+| noisy CNOT | 0.2% | Tesseract | TESS02 |
+| noisy CNOT | 0.1% | BP+OSD | 1.09×10⁻⁴ (2184) | 8.27×10⁻⁵ (1653) | **0.757 [0.710, 0.807]** |
+| uniform depolarizing | 0.3% | BP+OSD | 1.89×10⁻² (87661) | 1.79×10⁻² (83221) | 0.949 [0.940, 0.958] |
+| uniform depolarizing | 0.1% | BP+OSD | 1.358×10⁻³ (27017) | 1.189×10⁻³ (23662) | **0.876 [0.861, 0.891]** |
+
+- Under noisy-CNOT noise, K–F's own headline model where hooks matter most, the re-scheduled circuit has **about 30% lower logical error per round at p = 0.1–0.3%**. Two different decoders agree: BP+OSD 0.70 [0.67, 0.73] and Tesseract 0.69 [0.56, 0.84] at p = 0.3%.
+- Under uniform depolarizing noise at p = 0.3% this d = 5 BP+OSD point is far from the low-p regime: about 9% failure per shot, roughly at threshold for this decoder. The gain shrinks to 5%, as expected once higher-weight failures dominate.
+
+### 2.6 What is known vs what is new
+
+**Known.**
+- Uniform single-auxiliary colour-code circuits halve the circuit distance (Beverland et al.; Lee et al.). Reproduced here: tri-optimal gives d_circ = (d+1)/2.
+- K–F's colour-dependent schedule keeps the bulk distance. Their boundary loses ⌊(d+3)/6⌋, verified to d = 13 by ILP. Corner hooks are always malign.
+- Their search covered the 864 colour-uniform zero-collision schedules.
+
+**New here.**
+1. **Independent reproduction** of K–F's d_circ at d = 3, 5, 7, 9 (all rounds) and d = 11 (1 round). It uses a different generator (`src/qec/color.rs`), DEM builder (SymPhase) and solver (an exact branch and bound that is about 100–200× faster than MaxSAT/ILP on these instances).
+2. **Exact minimum-weight-logical counts N_min**, which K–F do not report: 388 (d = 5), 12,901 (d = 7) and 492 (d = 9) over d rounds. The d = 9 minimum-weight logicals are corner-anchored strings from the observable boundary to the opposite corner.
+3. **Per-plaquette (non-uniform) boundary scheduling inside K–F's exact design space** (same qubits, same 6+6 CNOT layers, collision-free):
+   - it **does not raise d_circ** under any single- or pair-plaquette change we tried (d = 5–9);
+   - it **halves N_min** (d = 5: 388 → 197);
+   - it lowers the d = 5 logical error per round by **about 30% under noisy-CNOT noise at p = 0.1–0.3%**, with two decoders agreeing;
+   - it lowers it by **12% under uniform depolarizing noise at p = 0.1%**.
+
+   K–F flagged "the alternatives" as future work; this measures them. A free improvement for the single-auxiliary colour code: no extra qubits or depth.
+
+**Caveats.**
+- The search is local (single and pair moves). "No distance gain" is not a proof over the whole space.
+- N_min counts merged-DEM mechanism sets, not weighted by fault multiplicity.
+- Only Z-memory is optimised. The schedule is the same for both halves, but the X-memory distance and LER of the new schedules are not checked: the circuit is not symmetric under the colour code's 3-fold rotation once boundary plaquettes are individualised.
+- Our BP+OSD is 2.5–3× weaker than Tesseract in absolute terms. The schedule ratios agree between the two decoders where both were run (d = 5, p = 0.3%).
+- SI1000 noise was not run.

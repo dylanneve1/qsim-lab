@@ -109,12 +109,13 @@ fn main() {
             let node_limit: u64 = a.get(6).map_or(u64::MAX, |x| x.parse().unwrap());
             let noise_kind = a.get(7).map_or("cnot", |x| x.as_str());
             let t = std::time::Instant::now();
-            let m = cc.memory(&s, rounds, noise(noise_kind, 0.001));
+            let x_basis = a.get(8).is_some_and(|b| b == "x");
+            let m = cc.memory_basis(&s, rounds, noise(noise_kind, 0.001), x_basis);
             let dem = circuit_dem(&m.circuit, &m.noise, &m.detectors, &m.observables);
             let mut zmap = vec![u32::MAX; m.detectors.len()];
             let mut nz = 0u32;
             for (i, inf) in m.detector_info.iter().enumerate() {
-                if !inf.1 {
+                if inf.1 == x_basis {
                     zmap[i] = nz;
                     nz += 1;
                 }
@@ -158,7 +159,7 @@ fn main() {
             let zinfo: Vec<(usize, usize)> = m
                 .detector_info
                 .iter()
-                .filter(|i| !i.1)
+                .filter(|i| i.1 == x_basis)
                 .map(|i| (i.0, i.2))
                 .collect();
             let ex: Vec<String> = r

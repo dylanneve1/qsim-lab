@@ -82,8 +82,13 @@ fn kf_schedule_is_collision_free() {
 }
 
 fn check_deterministic(cc: &ColorCode, s: &qsim_lab::qec::color::ColorSchedule, rounds: usize) {
-    for noise in [ColorNoise::Cnot(0.0), ColorNoise::Uniform(0.0)] {
-        let m = cc.memory(s, rounds, noise);
+    for (noise, xb) in [
+        (ColorNoise::Cnot(0.0), false),
+        (ColorNoise::Uniform(0.0), false),
+        (ColorNoise::Cnot(0.0), true),
+        (ColorNoise::Uniform(0.0), true),
+    ] {
+        let m = cc.memory_basis(s, rounds, noise, xb);
         let sets: Vec<Vec<usize>> = m.detectors.iter().chain(&m.observables).cloned().collect();
         let smp = SymPhaseSampler::new(&m.circuit, &m.noise)
             .unwrap()
@@ -213,4 +218,22 @@ fn lns_d5_schedule_is_valid_and_has_fewer_min_weight_logicals() {
         )
         .z_distance(u64::MAX, u64::MAX);
     assert_eq!((k.weight, k.count), (Some(4), 388));
+}
+
+/// X-basis memory: same distance as Z-basis for Kishony-Fowler (self-dual
+/// code, same schedule in both halves).
+#[test]
+fn x_basis_memory_distance() {
+    for d in [3usize, 5, 7] {
+        let cc = ColorCode::new(d);
+        let m = cc.memory_basis(
+            &cc.uniform_schedule(KF_SCHEDULE),
+            1,
+            ColorNoise::Cnot(0.001),
+            true,
+        );
+        let (r, cert) = m.z_distance(u64::MAX, u64::MAX);
+        assert!(cert);
+        assert_eq!(r.weight, Some(d - (d + 3) / 6), "d={d}");
+    }
 }
