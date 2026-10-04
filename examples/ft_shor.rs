@@ -12,11 +12,49 @@
 
 use qsim_lab::ft::backends::FrameBackend;
 use qsim_lab::ft::core::{Noise, ALL_COMPS, COMP_NAMES, N_COMP};
-use qsim_lab::ft::logical::{Encoded, MagicMode, Unencoded};
+use qsim_lab::ft::backends::FrameBackend as FB;
+use qsim_lab::ft::logical::{Encoded, Logical, MagicMode, Unencoded};
 use qsim_lab::ft::machine::{ideal_logical, FtConfig, Machine};
 use qsim_lab::ft::shor::{ideal_distribution, run_shor15, NLOG15};
-use qsim_lab::shor::postprocess;
 use std::time::Instant;
+
+/// Encoded frame machine that records logical faults after every operation.
+struct Checked(Encoded<FB>);
+impl Logical for Checked {
+    fn prep(&mut self, q: usize, b: bool) {
+        self.0.prep(q, b);
+        self.0.check_frames();
+    }
+    fn h(&mut self, q: usize) {
+        self.0.h(q);
+        self.0.check_frames();
+    }
+    fn s(&mut self, q: usize) {
+        self.0.s(q);
+        self.0.check_frames();
+    }
+    fn sdg(&mut self, q: usize) {
+        self.0.sdg(q);
+        self.0.check_frames();
+    }
+    fn t(&mut self, q: usize) {
+        self.0.t(q);
+        self.0.check_frames();
+    }
+    fn tdg(&mut self, q: usize) {
+        self.0.tdg(q);
+        self.0.check_frames();
+    }
+    fn cnot(&mut self, c: usize, t: usize) {
+        self.0.cnot(c, t);
+        self.0.check_frames();
+    }
+    fn meas(&mut self, q: usize) -> bool {
+        let r = self.0.meas(q);
+        self.0.check_frames();
+        r
+    }
+}
 
 /// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
 fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
@@ -38,6 +76,14 @@ fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64
     let (px, py, pz) = (nx as f64 / t, ny as f64 / t, nz as f64 / t);
     let acc = trials as f64 / m.stats.inject_attempts.max(1) as f64;
     (px, py, pz, pz + 0.5 * (px + py), acc)
+}
+
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 fn main() {
@@ -66,7 +112,7 @@ fn main() {
             let t = 3usize;
             let ideal = ideal_distribution(base, t);
             let mut hist = [0u64; 8];
-            let mut factor = 0u64;
+            let mut lfault = 0u64;
             let start = Instant::now();
             let mut eps_in = 0.0;
             let mut eps_out = 0.0;
@@ -94,8 +140,12 @@ fn main() {
                 noise.mask = mask;
                 let y = match mode {
                     "enc" => {
-                        let mut e = Encoded::frame(level, NLOG15, noise, FtConfig::default(), mm, sd);
-                        let y = run_shor15(&mut e, base, t);
+                        let mut ce = Checked(Encoded::frame(level, NLOG15, noise, FtConfig::default(), mm, sd));
+                        let y = run_shor15(&mut ce, base, t);
+                        let e = ce.0;
+                        if e.counts.logical_fault {
+                            lfault += 1;
+                        }
                         locs += e.m.noise.loc;
                         for c in 0..N_COMP {
                             faults[c] += e.m.noise.faults[c];
@@ -115,6 +165,9 @@ fn main() {
                     "unenc" | "unenc-ccx" => {
                         let mut u = Unencoded::new(NLOG15, noise, mode == "unenc-ccx", sd);
                         let y = run_shor15(&mut u, base, t);
+                        if u.noise.faults.iter().sum::<u64>() > 0 {
+                            lfault += 1;
+                        }
                         locs += u.locations;
                         for c in 0..N_COMP {
                             faults[c] += u.noise.faults[c];
@@ -125,24 +178,31 @@ fn main() {
                     _ => panic!("mode"),
                 };
                 hist[y as usize] += 1;
-                if let (Some(_), Some(_)) = postprocess(15, base, y as u128, t as u32) {
-                    factor += 1;
-                }
             }
             let n = shots as f64;
             let peak: u64 = (0..8).filter(|&y| ideal[y] > 0.0).map(|y| hist[y]).sum();
+            // y whose continued fraction gives r directly (s/r in lowest terms)
+            let r = ideal.iter().filter(|&&v| v > 0.0).count() as u64;
+            let order: u64 = (0..8u64)
+                .filter(|&y| ideal[y as usize] > 0.0 && {
+                    let s = y * r / 8;
+                    gcd(s, r) == 1
+                })
+                .map(|y| hist[y as usize])
+                .sum();
             let tvd: f64 = 0.5 * (0..8).map(|y| (hist[y] as f64 / n - ideal[y]).abs()).sum::<f64>();
             let fs: Vec<String> = (0..N_COMP)
                 .map(|c| format!("f_{}={:.4} l_{}={:.0}", COMP_NAMES[c], faults[c] as f64 / n, COMP_NAMES[c], comp_locs[c] as f64 / n))
                 .collect();
             println!(
                 "kind=shor mode={mode} level={level} magic={magic} p={p:e} shots={shots} seed={seed} a={base} mask={mask} \
-                 peak={peak} P_peak={:.6} factor={factor} P_factor={:.6} tvd={tvd:.6} hist={} \
+                 peak={peak} P_peak={:.6} order={order} P_order={:.6} lfault={lfault} P_lfault={:.6} tvd={tvd:.6} hist={} \
                  eps_in={eps_in:.4e} eps_out={eps_out:.4e} locs_per_shot={:.1} phys_qubits={qubits} \
                  prep_per_shot={:.1} g1_per_shot={:.1} g2_per_shot={:.1} meas_per_shot={:.1} \
                  prep_rej_per_shot={:.2} inj_rej_per_shot={:.3} t_gadgets_per_shot={:.2} {} secs={:.2}",
                 peak as f64 / n,
-                factor as f64 / n,
+                order as f64 / n,
+                lfault as f64 / n,
                 hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join(","),
                 locs as f64 / n,
                 phys.0 as f64 / n,

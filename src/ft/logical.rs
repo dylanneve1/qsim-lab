@@ -16,7 +16,7 @@
 
 use super::backends::{DenseBackend, FrameBackend};
 use super::core::*;
-use super::machine::{FtConfig, Machine, Phys};
+use super::machine::{ideal_logical, FtConfig, Machine, Phys};
 use num_complex::Complex64;
 
 /// Small dense logical state (≤ ~16 qubits).
@@ -183,6 +183,11 @@ pub enum MagicMode {
 pub struct RunCounts {
     pub t_gadgets: u64,
     pub logical_gates: u64,
+    /// Frame mode: set as soon as any logical-level error is present (a
+    /// non-zero decoded flip of a top-level measurement, or a data block whose
+    /// residual frame decodes to a logical Pauli after a top-level operation).
+    /// Conservative: some of these errors are harmless for the output.
+    pub logical_fault: bool,
 }
 
 /// Encoded logical machine at level `k` (1 = Steane [[7,1,3]], 2 = [[49,1,9]]).
@@ -226,6 +231,21 @@ impl Encoded<DenseBackend> {
             mrng: Xoshiro::new(seed ^ 0x5EED_CAFE),
             magic,
             counts: RunCounts::default(),
+        }
+    }
+}
+
+impl Encoded<FrameBackend> {
+    /// Update `counts.logical_fault` from the data blocks' frames.
+    pub fn check_frames(&mut self) {
+        if self.counts.logical_fault {
+            return;
+        }
+        for &b in &self.blocks {
+            if ideal_logical(&self.m.b.frame, self.k, b) != (false, false) {
+                self.counts.logical_fault = true;
+                return;
+            }
         }
     }
 }
@@ -282,6 +302,9 @@ impl<B: Phys> Encoded<B> {
     /// Measure block `b` holding logical slot `slot`: recorded outcome.
     fn meas_block(&mut self, slot: usize, b: usize) -> bool {
         let r = self.m.meas_z(self.k, b);
+        if r && self.sv.is_some() {
+            self.counts.logical_fault = true;
+        }
         match &mut self.sv {
             Some(sv) => sv.measure(slot, &mut self.mrng) ^ r,
             None => r,
