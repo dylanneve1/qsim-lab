@@ -18,7 +18,8 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
   - The old claim came from timing Stim's numpy output path.
 - **Part 2: in Kishony–Fowler's single-auxiliary colour-code design space, per-plaquette boundary schedules found by exact search keep their circuit distance but halve the minimum-weight logicals.**
   - The minimum-weight logical count drops 388 → 197 (d = 5), 12,901 → 6,627 (d = 7) and 492 → 255 (d = 9), all over d rounds.
-  - Logical error per round falls by **22–31% at p = 0.2–0.3% under noisy-CNOT noise**: d = 5, 0.69–0.70× with BP+OSD (CI ±4%) and 0.69× [0.56, 0.84] / 0.78× [0.64, 0.96] with Tesseract; d = 7, 0.74–0.76× [0.66, 0.84].
+  - Logical error per round falls by **22–31% at d = 5 and 7, p = 0.2–0.3%, under noisy-CNOT noise**: d = 5, 0.69–0.70× with BP+OSD (CI ±4%) and 0.69× [0.56, 0.84] / 0.78× [0.64, 0.96] with Tesseract; d = 7, 0.74–0.76× [0.66, 0.84].
+  - **At d = 9 there is no measurable gain** (1.02× [0.94, 1.11] at p = 0.3%) despite the halved N_min. The boundary-local benefit fades with distance at these error rates.
   - X-memory improves too, although only Z-memory was optimised.
   - No change tried raised the circuit distance above K–F's d − ⌊(d+3)/6⌋, which we reproduce exactly up to d = 9 over 9 rounds (and at d = 11 over 1 round).
 
@@ -288,7 +289,7 @@ Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for B
 | X basis | 5 | noisy CNOT | 0.1% | BP+OSD | 1.024×10⁻⁴ (512) | 8.20×10⁻⁵ (410) | **0.801 [0.703, 0.912]** |
 | Z basis | 7 (snapshot) | noisy CNOT | 0.3% | BP+OSD | 3.527×10⁻⁴ (2464) | 2.694×10⁻⁴ (1883) | **0.764 [0.720, 0.811]** |
 | Z basis | 7 (snapshot) | noisy CNOT | 0.2% | BP+OSD | 9.11×10⁻⁵ (637) | 6.75×10⁻⁵ (472) | **0.741 [0.658, 0.835]** |
-| Z basis | 9 (count-18 schedule) | noisy CNOT | 0.3% | BP+OSD | D9LER |
+| Z basis | 9 (N_min-18 schedule; 255 over 9 rounds) | noisy CNOT | 0.3% | BP+OSD | 1.882×10⁻⁴ (1015) | 1.923×10⁻⁴ (1037) | **1.022 [0.937, 1.114]**: no gain |
 
 X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201). The gain transfers to the basis that was not optimised, as self-duality suggests.
 
@@ -309,10 +310,11 @@ X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201)
    - it **does not raise d_circ** under any single- or pair-plaquette change we tried (d = 5–9);
    - it **roughly halves N_min**: 388 → 197 (d = 5), 12,901 → 6,627 (d = 7), 492 → 255 (d = 9), all over d rounds;
    - it lowers the logical error per round under noisy-CNOT noise by 22–31% at p = 0.2–0.3% (d = 5 and 7; two decoders agree at d = 5) and by 24% at p = 0.1% (d = 5);
+   - **at d = 9 it shows no LER gain** at p = 0.3% (1.02× [0.94, 1.11], BP+OSD) despite N_min 492 → 255. At this p, failures at d = 9 are dominated by paths above minimum weight and by the bulk, where the schedule is K–F's. This matches K–F's expectation that boundary effects fade with distance, and limits the practical value to small codes (d ≤ 7) or very low p, where N_min dominates;
    - it lowers it by 12% under uniform depolarizing noise at p = 0.1%;
    - the gain carries over to X-memory (N_min 399 → 201 at d = 5 and 13,120 → 6,856 at d = 7; LER 0.72× at d = 5, p = 0.3%) although only Z-memory was optimised.
 
-   K–F flagged "the alternatives" as future work; this measures them. A free improvement for the single-auxiliary colour code: no extra qubits or depth.
+   K–F flagged "the alternatives" as future work; this measures them. The improvement is free (no extra qubits or depth), measurable at d = 5–7, and not detectable at d = 9, p = 0.3%.
 
 **Caveats.**
 - The search is local (single and pair moves). "No distance gain" is not a proof over the whole space.
