@@ -298,20 +298,35 @@ fn cmd_plan(variant: &str, req_name: &str, c: &Circuit, mem: u128, seed: u64) ->
     let (plan, rule) =
         if forced.is_some() || (variant == "rule" && !matches!(req, PlanRequest::Expectation(_))) {
             let e = forced.unwrap_or_else(|| rule_engine(c, &req));
-            let mut p = planner::plan(
-                c,
-                &PlanRequest::Expectation(vec![]),
-                &PlannerConfig {
-                    tiered: true,
-                    voi: f64::INFINITY,
-                    cache: false,
-                    ..cfg
-                },
-            )
-            .expect("plan");
-            p.engine = e;
-            p.ranked = vec![(e, 0.0)];
-            (p, true)
+            if forced.is_some() {
+                // the oracle: no planning at all
+                let p = planner::Plan {
+                    engine: e,
+                    ranked: vec![(e, 0.0)],
+                    features: PlanFeatures::default(),
+                    plan_secs: 0.0,
+                    solved: None,
+                    probe: None,
+                    stage_secs: [0.0; 4],
+                    cached: false,
+                };
+                (p, true)
+            } else {
+                let mut p = planner::plan(
+                    c,
+                    &PlanRequest::Expectation(vec![]),
+                    &PlannerConfig {
+                        tiered: true,
+                        voi: f64::INFINITY,
+                        cache: false,
+                        ..cfg
+                    },
+                )
+                .expect("plan");
+                p.engine = e;
+                p.ranked = vec![(e, 0.0)];
+                (p, true)
+            }
         } else {
             (planner::plan(c, &req, &cfg).expect("plan"), false)
         };
