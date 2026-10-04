@@ -87,6 +87,9 @@ if a.val:
     vb = read_ptb64(a.val, nd + 1)[:a.val_shots]
     val = (vb[:, :nd], vb[:, nd])
 log = open(os.path.join(a.out, "log.jsonl"), "a")
+log.write(json.dumps(dict(args=vars(a), params=int(nparams))) + "\n")
+json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=0, shots=0),
+          open(os.path.join(a.out, "cfg.json"), "w"))
 t0 = time.time(); paused = 0.0; seen = 0; dropped = 0; run = []
 blocks_per = a.batch // 1024
 for it in range(1, a.steps + 1):
