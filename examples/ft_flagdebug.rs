@@ -20,6 +20,9 @@ impl W {
         let mut bad = self.e.counts.logical_fault;
         let mut which = String::new();
         for (i, &b) in self.e.blocks.iter().enumerate() {
+            if !self.e.live[i] {
+                continue;
+            }
             let l = ideal_logical(&self.e.m.b.frame, self.e.k, b);
             if l != (false, false) {
                 bad = true;
