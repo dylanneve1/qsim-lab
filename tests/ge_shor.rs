@@ -165,9 +165,11 @@ fn windowed_support_law_on_trees() {
                 let i = i0 + j;
                 *nodes += 1;
                 let want = support_closed(n_mod, a, t, i, y);
-                assert_eq!(wa.c.len(), 1 << (w - j));
+                let cs = wa.materialize();
+                assert_eq!(cs.len(), 1 << (w - j));
+                assert_eq!(wa.bits_left(), w - j);
                 let mut ref_amps: Option<Vec<(i64, i64)>> = None;
-                for c in &wa.c {
+                for c in &cs {
                     assert_eq!(c.len(), want, "N={n_mod} i={i} j={j} y={y}");
                     let mut am: Vec<(i64, i64)> = c
                         .iter()
@@ -291,7 +293,7 @@ fn eh_distribution_matches_textbook() {
 /// exactly (total variation distance), not assumed.
 #[test]
 fn coset_deviation_shrinks_with_padding() {
-    let (n_mod, a) = (15u64, 7u64);
+    let (n_mod, a) = (21u64, 2u64);
     let full = shor::full_qft_distribution(n_mod, a);
     let mut tv = Vec::new();
     for c in [1usize, 2, 4] {
@@ -308,7 +310,8 @@ fn coset_deviation_shrinks_with_padding() {
         eprintln!("coset N={n_mod} c={c}: TV = {t:.5}");
         tv.push(t);
     }
-    assert!(tv[2] < tv[0], "{tv:?}");
+    // measured (Mac, exact): TV = 0.2454 / 0.1673 / 0.0712 for c = 1 / 2 / 4
+    assert!(tv[0] > 0.1 && tv[2] < tv[1] && tv[1] < tv[0], "{tv:?}");
 }
 
 /// Same measured integer as the reversible-oracle engine with the same RNG

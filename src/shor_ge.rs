@@ -304,6 +304,24 @@ pub fn eval_e<T: Real>(
     }
 }
 
+/// Evaluates the `e = 0` block on every input branch (same checks as
+/// [`eval_e`]) and returns whether it is the identity on every branch,
+/// without storing the outputs.
+pub fn eval_e_identity<T: Real>(
+    prog: &SlicedProgram,
+    eq: &[usize],
+    xq: &[usize],
+    inp: &[(u64, Complex<T>)],
+) -> bool {
+    const B: usize = 1 << 16;
+    inp.par_chunks(B)
+        .map(|c| {
+            let out = eval_e(prog, eq, xq, 0, c);
+            out.iter().zip(c).all(|(o, i)| o.0 == i.0)
+        })
+        .reduce(|| true, |a, b| a && b)
+}
+
 fn eval_e_l<const L: usize, T: Real>(
     prog: &SlicedProgram,
     eq: &[usize],
@@ -396,14 +414,11 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
     Complex64::new(z.re.to_f64(), z.im.to_f64())
 }
 
-/// Splits the key ranges of two sorted arrays into aligned chunks.
-fn chunks2<T: Real>(a: &Arr<T>, b: &Arr<T>) -> Vec<(usize, usize, usize, usize)> {
+/// Aligned chunks of several sorted arrays: `ranges[c][i]` is the index
+/// range of array `i` in chunk `c` (the key ranges are disjoint and ordered).
+fn chunks_k<T: Real>(arrs: &[&Arr<T>]) -> Vec<Vec<(usize, usize)>> {
     let p = (rayon::current_num_threads() * 8).max(1);
-    let (big, small_is_a) = if a.len() >= b.len() {
-        (a, true)
-    } else {
-        (b, false)
-    };
+    let big = arrs.iter().max_by_key(|a| a.len()).unwrap();
     let n = big.len();
     let mut bounds: Vec<u64> = if n == 0 {
         Vec::new()
@@ -411,128 +426,175 @@ fn chunks2<T: Real>(a: &Arr<T>, b: &Arr<T>) -> Vec<(usize, usize, usize, usize)>
         (1..p).map(|i| big[n * i / p].0).collect()
     };
     bounds.dedup();
-    let _ = small_is_a;
     let mut out = Vec::with_capacity(bounds.len() + 1);
-    let (mut a0, mut b0) = (0, 0);
+    let mut lo = vec![0usize; arrs.len()];
     for &k in &bounds {
-        let a1 = a.partition_point(|e| e.0 < k);
-        let b1 = b.partition_point(|e| e.0 < k);
-        out.push((a0, a1, b0, b1));
-        (a0, b0) = (a1, b1);
+        let hi: Vec<usize> = arrs.iter().map(|a| a.partition_point(|e| e.0 < k)).collect();
+        out.push(lo.iter().copied().zip(hi.iter().copied()).collect());
+        lo = hi;
     }
-    out.push((a0, a.len(), b0, b.len()));
+    out.push(
+        lo.iter()
+            .copied()
+            .zip(arrs.iter().map(|a| a.len()))
+            .collect(),
+    );
     out
 }
 
-fn merge_range<T: Real>(
-    a: &Arr<T>,
-    b: &Arr<T>,
-    (a0, a1, b0, b1): (usize, usize, usize, usize),
-    mut f: impl FnMut(u64, Complex64, Complex64),
+/// k-way merge of the sorted arrays on one chunk: calls `f(key, vals)` for
+/// every key of the union, `vals[i]` = the value in array `i` (or 0).
+fn merge_k<T: Real>(
+    arrs: &[&Arr<T>],
+    rng: &[(usize, usize)],
+    mut f: impl FnMut(u64, &mut [Complex64]),
 ) {
-    let z = Complex64::zero();
-    let (mut i, mut j) = (a0, b0);
-    while i < a1 || j < b1 {
-        let ka = if i < a1 { a[i].0 } else { u64::MAX };
-        let kb = if j < b1 { b[j].0 } else { u64::MAX };
-        if i < a1 && (j >= b1 || ka < kb) {
-            f(ka, c64(a[i].1), z);
-            i += 1;
-        } else if j < b1 && (i >= a1 || kb < ka) {
-            f(kb, z, c64(b[j].1));
-            j += 1;
-        } else {
-            f(ka, c64(a[i].1), c64(b[j].1));
-            i += 1;
-            j += 1;
-        }
-    }
-}
-
-/// `Σ ‖a + ph·b‖²` and `Σ ‖a − ph·b‖²`.
-fn pair_norms<T: Real>(a: &Arr<T>, b: &Arr<T>, ph: Complex64) -> (f64, f64) {
-    chunks2(a, b)
-        .into_par_iter()
-        .map(|ch| {
-            let (mut p, mut m) = (0.0, 0.0);
-            merge_range(a, b, ch, |_, x, y| {
-                p += (x + ph * y).norm_sqr();
-                m += (x - ph * y).norm_sqr();
-            });
-            (p, m)
-        })
-        .reduce(|| (0.0, 0.0), |u, v| (u.0 + v.0, u.1 + v.1))
-}
-
-/// `(a + ph·b)·k`, dropping exact zeros.
-fn combine<T: Real>(a: &Arr<T>, b: &Arr<T>, ph: Complex64, k: f64) -> Arr<T> {
-    let parts: Vec<Arr<T>> = chunks2(a, b)
-        .into_par_iter()
-        .map(|ch| {
-            let mut v = Vec::with_capacity((ch.1 - ch.0) + (ch.3 - ch.2));
-            merge_range(a, b, ch, |key, x, y| {
-                let z = cvt::<T>((x + ph * y) * k);
-                if z != Complex::zero() {
-                    v.push((key, z));
+    let k = arrs.len();
+    let mut pos: Vec<usize> = rng.iter().map(|r| r.0).collect();
+    let mut vals = vec![Complex64::zero(); k];
+    loop {
+        let mut key = u64::MAX;
+        let mut any = false;
+        for i in 0..k {
+            if pos[i] < rng[i].1 {
+                let ki = arrs[i][pos[i]].0;
+                if !any || ki < key {
+                    key = ki;
+                    any = true;
                 }
-            });
-            v
-        })
-        .collect();
-    let total: usize = parts.iter().map(Vec::len).sum();
-    let mut out = Vec::with_capacity(total);
-    for p in parts {
-        out.extend(p);
+            }
+        }
+        if !any {
+            return;
+        }
+        for i in 0..k {
+            vals[i] = if pos[i] < rng[i].1 && arrs[i][pos[i]].0 == key {
+                let v = c64(arrs[i][pos[i]].1);
+                pos[i] += 1;
+                v
+            } else {
+                Complex64::zero()
+            };
+        }
+        f(key, &mut vals);
     }
-    out
 }
 
-/// The branches of one window after the block: `C_e` for every `e`
-/// (`C_e = 2^{−w/2}·V^e ψ`), the semiclassical measurement in progress.
+/// The branches of one window after the block, and the semiclassical
+/// measurement of its exponent qubits in progress.
+///
+/// `arrs[e]` holds `V^e ψ` (sorted; `arrs[0]` is `ψ` itself when the `e = 0`
+/// block is the identity). The measurement is applied **lazily**: for every
+/// work-register key the `2^w` values are combined level by level exactly
+/// as `C' = (C_lo ± e^{iφ} C_hi)/√(2p)` would combine materialised arrays
+/// (the same floating-point operations in the same order), so nothing but
+/// the `2^w` evaluated arrays and, at the end, the new state is stored.
 #[derive(Clone, Debug)]
 pub struct WindowArrays<T: Real> {
-    /// `c[e']` for the not-yet-measured low exponent bits `e'`.
-    pub c: Vec<Arr<T>>,
+    pub arrs: std::sync::Arc<Vec<Arr<T>>>,
+    /// Measured levels, highest exponent bit first: `(±e^{iφ}, 1/√(2p))`.
+    pub levels: Vec<(Complex64, f64)>,
 }
 
 impl<T: Real> WindowArrays<T> {
     /// Number of exponent qubits still unmeasured.
     pub fn bits_left(&self) -> usize {
-        self.c.len().trailing_zeros() as usize
+        self.arrs.len().trailing_zeros() as usize - self.levels.len()
     }
-    /// Total number of `(e', x)` branches.
+    /// Total number of evaluated `(e, x)` branches.
     pub fn branches(&self) -> usize {
-        self.c.iter().map(Vec::len).sum()
+        self.arrs.iter().map(Vec::len).sum()
+    }
+    /// Applies the initial `2^{−w/2}` and the measured levels to the values
+    /// at one key; returns how many entries of `vals` are live.
+    #[inline]
+    fn reduce(&self, vals: &mut [Complex64]) -> usize {
+        let norm = (1.0 / vals.len() as f64).sqrt();
+        for v in vals.iter_mut() {
+            *v = cvt::<T>(*v * norm).into_c64();
+        }
+        let mut len = vals.len();
+        for &(ph, k) in &self.levels {
+            let h = len / 2;
+            for e in 0..h {
+                vals[e] = cvt::<T>((vals[e] + ph * vals[e + h]) * k).into_c64();
+            }
+            len = h;
+        }
+        len
     }
     /// Outcome probabilities `(P(0), P(1))` of measuring the highest
     /// remaining exponent qubit after the phase `φ` on its `|1⟩` and `H`.
     pub fn probs(&self, phi: f64) -> (f64, f64) {
-        let h = self.c.len() / 2;
+        assert!(self.bits_left() > 0);
         let ph = Complex64::from_polar(1.0, phi);
-        let (mut p0, mut p1) = (0.0, 0.0);
-        for e in 0..h {
-            let (p, m) = pair_norms(&self.c[e], &self.c[e + h], ph);
-            p0 += p / 2.0;
-            p1 += m / 2.0;
-        }
-        (p0, p1)
+        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
+        chunks_k(&refs)
+            .into_par_iter()
+            .map(|ch| {
+                let (mut p0, mut p1) = (0.0, 0.0);
+                merge_k(&refs, &ch, |_, vals| {
+                    let len = self.reduce(vals);
+                    let h = len / 2;
+                    for e in 0..h {
+                        p0 += (vals[e] + ph * vals[e + h]).norm_sqr() / 2.0;
+                        p1 += (vals[e] - ph * vals[e + h]).norm_sqr() / 2.0;
+                    }
+                });
+                (p0, p1)
+            })
+            .reduce(|| (0.0, 0.0), |u, v| (u.0 + v.0, u.1 + v.1))
     }
-    /// Collapses the highest remaining exponent qubit onto `bit` (whose
-    /// probability is `p`).
+    /// Records the outcome `bit` (probability `p`) of the highest remaining
+    /// exponent qubit.
     pub fn collapse(&mut self, phi: f64, bit: bool, p: f64) {
         assert!(p > 0.0, "cannot collapse onto a zero-probability outcome");
-        let h = self.c.len() / 2;
+        assert!(self.bits_left() > 0);
         let ph = Complex64::from_polar(1.0, phi) * if bit { -1.0 } else { 1.0 };
-        let k = 1.0 / (2.0 * p).sqrt();
-        let mut it = std::mem::take(&mut self.c).into_iter();
-        let lo: Vec<Arr<T>> = it.by_ref().take(h).collect();
-        let hi: Vec<Arr<T>> = it.collect();
-        // build one combination at a time; its inputs are dropped right away
-        let mut out = Vec::with_capacity(h);
-        for (a, b) in lo.into_iter().zip(hi) {
-            out.push(combine(&a, &b, ph, k));
-        }
-        self.c = out;
+        self.levels.push((ph, 1.0 / (2.0 * p).sqrt()));
+    }
+    /// The arrays `C_{e''}` of the not-yet-measured exponent values `e''`
+    /// (exact zeros dropped).
+    pub fn materialize(&self) -> Vec<Arr<T>> {
+        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
+        let nl = 1usize << self.bits_left();
+        let parts: Vec<Vec<Arr<T>>> = chunks_k(&refs)
+            .into_par_iter()
+            .map(|ch| {
+                let mut out: Vec<Arr<T>> = vec![Vec::new(); nl];
+                merge_k(&refs, &ch, |key, vals| {
+                    let len = self.reduce(vals);
+                    debug_assert_eq!(len, nl);
+                    for (o, &v) in out.iter_mut().zip(vals.iter()) {
+                        let z = cvt::<T>(v);
+                        if z != Complex::zero() {
+                            o.push((key, z));
+                        }
+                    }
+                });
+                out
+            })
+            .collect();
+        (0..nl)
+            .map(|e| {
+                let total: usize = parts.iter().map(|p| p[e].len()).sum();
+                let mut v = Vec::with_capacity(total);
+                for p in &parts {
+                    v.extend_from_slice(&p[e]);
+                }
+                v
+            })
+            .collect()
+    }
+}
+
+trait IntoC64 {
+    fn into_c64(self) -> Complex64;
+}
+impl<T: Real> IntoC64 for Complex<T> {
+    #[inline]
+    fn into_c64(self) -> Complex64 {
+        c64(self)
     }
 }
 
@@ -588,40 +650,63 @@ impl<T: Real> GeState<T> {
         }
     }
 
-    /// Runs the window block on every `(e, x)` branch (`e < 2^w`, `w` = the
-    /// number of exponent qubits of `wp`, of which only the low `w_used`
-    /// carry a window bit; the others stay 0) and returns `C_e` sorted.
+    /// Runs the window block on every `(e, x)` branch (`e < 2^w`) and
+    /// returns the evaluated arrays `V^e ψ` (sorted). The `e = 0` block is
+    /// evaluated too; when it is the identity (exact arithmetic; checked on
+    /// every branch) `ψ` itself is kept as `arrs[0]` instead of a copy.
     pub fn window(&mut self, wp: &WindowProg, w_used: usize) -> WindowArrays<T> {
         let t0 = std::time::Instant::now();
         let ne = 1usize << w_used;
-        let norm = (1.0 / ne as f64).sqrt();
-        let mut c = Vec::with_capacity(ne);
+        let mut arrs = Vec::with_capacity(ne);
         let mut t_eval = 0.0;
-        for e in 0..ne as u64 {
+        let n_in = self.psi.len();
+        let psi = std::mem::take(&mut self.psi);
+        // e = 0 first, checked in place
+        let ta = std::time::Instant::now();
+        let id = eval_e_identity(&wp.prog, &wp.e, &wp.x, &psi);
+        t_eval += ta.elapsed().as_secs_f64();
+        let a0 = if id {
+            None
+        } else {
+            Some(eval_e(&wp.prog, &wp.e, &wp.x, 0, &psi))
+        };
+        for e in 1..ne as u64 {
             let ta = std::time::Instant::now();
-            let mut a = eval_e(&wp.prog, &wp.e, &wp.x, e, &self.psi);
+            let a = eval_e(&wp.prog, &wp.e, &wp.x, e, &psi);
             t_eval += ta.elapsed().as_secs_f64();
-            a.par_sort_unstable_by_key(|v| v.0);
+            arrs.push(a);
+        }
+        let mut arrs: Vec<Arr<T>> = match a0 {
+            None => std::iter::once(psi).chain(arrs).collect(),
+            Some(a) => {
+                drop(psi);
+                std::iter::once(a).chain(arrs).collect()
+            }
+        };
+        for (e, a) in arrs.iter_mut().enumerate() {
+            if e > 0 || !id {
+                a.par_sort_unstable_by_key(|v| v.0);
+            }
             assert!(
                 a.par_windows(2).all(|w| w[0].0 != w[1].0),
                 "window block is not injective on the support"
             );
-            let k = T::from_f64(norm);
-            a.par_iter_mut().for_each(|v| v.1 = v.1 * k);
-            c.push(a);
         }
-        self.gate_branch_ops += (ne * self.psi.len()) as u128 * wp.prog.gates as u128;
-        self.peak_branches = self.peak_branches.max(ne * self.psi.len());
-        self.psi = Vec::new();
+        self.gate_branch_ops += (ne * n_in) as u128 * wp.prog.gates as u128;
+        self.peak_branches = self.peak_branches.max(ne * n_in);
         self.prof[1] += t_eval;
         self.prof[2] += t0.elapsed().as_secs_f64() - t_eval;
-        WindowArrays { c }
+        WindowArrays {
+            arrs: std::sync::Arc::new(arrs),
+            levels: Vec::new(),
+        }
     }
 
     /// Takes the state back from a fully measured window.
-    pub fn finish(&mut self, mut wa: WindowArrays<T>) {
-        assert_eq!(wa.c.len(), 1);
-        self.psi = wa.c.pop().unwrap();
+    pub fn finish(&mut self, wa: WindowArrays<T>) {
+        assert_eq!(wa.bits_left(), 0);
+        let mut m = wa.materialize();
+        self.psi = m.pop().unwrap();
         self.peak = self.peak.max(self.psi.len());
     }
 }
@@ -757,13 +842,11 @@ pub fn run<T: Real>(
                 if bit {
                     y |= 1 << i;
                 }
-                if final_window && j + 1 == w {
-                    wa.c.clear();
-                    break;
-                }
                 wa.collapse(phi, bit, if bit { p1 } else { p0 });
             }
-            if !wa.c.is_empty() {
+            // the measured integer is complete after the last P(1): the
+            // final state (the largest support) is not materialised
+            if !final_window {
                 st.finish(wa);
             }
             st.prof[3] += tm.elapsed().as_secs_f64();
