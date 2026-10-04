@@ -122,6 +122,12 @@ fn main() {
             // exact run
             let t1 = Instant::now();
             let mut m = Mps::new(c.num_qubits, 1 << 20);
+            if let Some(cut) = std::env::var("MPS_CUTOFF")
+                .ok()
+                .and_then(|s| s.parse().ok())
+            {
+                m.set_cutoff(cut);
+            }
             m.enable_trace();
             let mut done = true;
             for g in c.gates() {
@@ -132,6 +138,36 @@ fn main() {
                 }
             }
             let secs = t1.elapsed().as_secs_f64();
+            // bound-capped exact run
+            let bt = qsim_lab::mps_cost::replay_traced(&c, BondSource::Bound(Estimator::Best))
+                .expect("replay");
+            let t2 = Instant::now();
+            let mut mb = Mps::new(c.num_qubits, 1 << 20);
+            mb.set_step_caps(bt.trace.clone());
+            mb.enable_trace();
+            let mut bdone = true;
+            for g in c.gates() {
+                mb.apply_gate(g).expect("gate");
+                if t2.elapsed().as_secs_f64() > max_secs {
+                    bdone = false;
+                    break;
+                }
+            }
+            let bsecs = t2.elapsed().as_secs_f64();
+            let capped = format!(
+                "{{\"done\":{},\"secs\":{:.6},\"trace_max\":{},\"discarded\":{:.3e},\"stats\":{},\"zall_diff\":{:.3e}}}",
+                bdone,
+                bsecs,
+                mb.trace().iter().max().copied().unwrap_or(1),
+                1.0 - mb.fidelity_estimate(),
+                stats_json(&mb.stats()),
+                if done && bdone {
+                    let all: Vec<usize> = (0..c.num_qubits).collect();
+                    (m.expectation_z_product(&all) - mb.expectation_z_product(&all)).abs()
+                } else {
+                    f64::NAN
+                }
+            );
             let mut check = String::from("null");
             let mut viol = String::from("null");
             if done {
@@ -140,11 +176,25 @@ fn main() {
                 // the best bound must dominate the real trace step by step
                 let b = qsim_lab::mps_cost::replay_traced(&c, BondSource::Bound(Estimator::Best))
                     .expect("replay");
-                let v = b.trace.iter().zip(m.trace()).filter(|(x, y)| x < y).count();
+                let bad: Vec<(usize, u32, u32)> = b
+                    .trace
+                    .iter()
+                    .zip(m.trace())
+                    .enumerate()
+                    .filter(|(_, (x, y))| x < y)
+                    .map(|(i, (x, y))| (i, *x, *y))
+                    .collect();
+                if !bad.is_empty() {
+                    eprintln!(
+                        "violations (step, bound, real): {:?}",
+                        &bad[..bad.len().min(12)]
+                    );
+                }
+                let v = bad.len();
                 viol = format!("{}", v + usize::from(b.trace.len() != m.trace().len()));
             }
             println!(
-                "{{\"done\":{},\"secs\":{:.6},\"max_bond_final\":{},\"trace_max\":{},\"trace_sum_log\":{:.3},\"stats\":{},\"replay_matches\":{},\"bound_violations\":{},\"probes\":{{{}}}}}",
+                "{{\"done\":{},\"secs\":{:.6},\"max_bond_final\":{},\"trace_max\":{},\"trace_sum_log\":{:.3},\"stats\":{},\"replay_matches\":{},\"bound_violations\":{},\"capped\":{},\"probes\":{{{}}}}}",
                 done,
                 secs,
                 m.max_bond_dim(),
@@ -153,6 +203,7 @@ fn main() {
                 stats_json(&m.stats()),
                 check,
                 viol,
+                capped,
                 probes.join(",")
             );
         }

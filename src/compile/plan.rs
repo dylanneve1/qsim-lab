@@ -42,6 +42,11 @@ pub struct PlanOptions {
     /// that would otherwise need a dense state vector: `None` (the
     /// default here) never picks it; [`crate::pipeline`] enables it.
     pub adaptive: Option<AdaptiveRule>,
+    /// Planner v0 ([`crate::planner`]) for expectation values: every
+    /// non-trivial component goes to the engine the fitted cost models pick
+    /// (certificate, tableau, state vector, sparse, MPS, HSF, compressed
+    /// state). `None` keeps the rule-based dispatch above.
+    pub planner: Option<crate::planner::PlannerConfig>,
 }
 
 /// When a component that would run on a dense state vector runs on the
@@ -91,6 +96,7 @@ impl Default for PlanOptions {
             state_prop: true,
             dispatch: true,
             adaptive: None,
+            planner: None,
         }
     }
 }
@@ -109,6 +115,7 @@ impl PlanOptions {
             state_prop: false,
             dispatch: false,
             adaptive: None,
+            planner: None,
         }
     }
 }
@@ -1053,6 +1060,10 @@ pub fn expectation_z_product(
             continue; // <0|Z..Z|0> = 1
         }
         let n = sub.num_qubits;
+        if let (Some(cfg), true) = (opts.planner, opts.dispatch) {
+            value *= crate::planner::expectation(&sub, &local, &cfg)?.value;
+            continue;
+        }
         let t = non_clifford_count(&sub) as u32;
         let use_pauli = opts.dispatch
             && t <= 24

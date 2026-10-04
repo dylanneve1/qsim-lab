@@ -210,6 +210,42 @@ fn every_planned_and_forced_engine_is_exact() {
 }
 
 #[test]
+fn probe_or_solve_is_exact() {
+    // small caps exercise both outcomes: solved by the probe, and re-ranked
+    // after a truncated probe.
+    let (mut solved, mut reranked) = (0, 0);
+    for cap in [2u32, 4, 16] {
+        let cfg = PlannerConfig {
+            debug_reference: true,
+            probe_cap: Some(cap),
+            probe_frac: 1e9,
+            ..PlannerConfig::default()
+        };
+        for (name, c) in corpus() {
+            let n = c.num_qubits;
+            let obs: Vec<usize> = (0..n).step_by(2).collect();
+            let want = ref_z(&c, &obs);
+            let p = planner::plan(&c, &PlanRequest::Expectation(obs.clone()), &cfg).unwrap();
+            match p.probe {
+                Some((true, false)) => solved += 1,
+                Some((true, true)) => reranked += 1,
+                _ => {}
+            }
+            let r = planner::execute_expectation(&p, &c, &obs, &cfg).unwrap();
+            assert!(
+                (r.value - want).abs() < 1e-6,
+                "{name} cap {cap}: {} vs {want}",
+                r.value
+            );
+        }
+    }
+    assert!(
+        solved > 0 && reranked > 0,
+        "solved {solved} reranked {reranked}"
+    );
+}
+
+#[test]
 fn speculative_mps_falls_back_exactly() {
     // A tiny deadline forces the abort path: the runner-up must answer.
     let c = build(&Spec::parse("brick:n=12,D=8,nn=0").unwrap(), 3).unwrap();
@@ -390,6 +426,9 @@ fn dataset_regret_no_worse_than_published() {
     let acc = top1 as f64 / n as f64;
     eprintln!("planner on dataset: n={n} top1={acc:.3} geo regret={geo:.3} worst={worst:?}");
     assert!(n >= 300);
-    assert!(geo <= 1.25, "geo regret {geo}");
+    // published (held-out): 1.25x, 85 %, worst 161x. In-sample with the
+    // replayed MPS work this is 1.09x / 88 % / 12.9x; guard with margin.
+    assert!(geo <= 1.15, "geo regret {geo}");
     assert!(acc >= 0.85, "top-1 {acc}");
+    assert!(worst.0 <= 20.0, "worst {worst:?}");
 }
