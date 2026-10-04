@@ -56,7 +56,7 @@ def atlas_specs():
                 S.append(("qaoa", f"qaoa:n={n},p={p},graph={g}"))
         for L in [1, 2, 4]:
             S.append(("hea", f"hea:n={n},layers={L}"))
-    for t in [4, 8, 12, 16, 20, 24]:
+    for t in [4, 8, 12, 16, 20, 23]:
         for s in [16, 64, 256]:
             S.append(("qpe", f"qpe:t={t},s={s},kind=stab"))
     for t in [2, 3, 4, 5]:
@@ -79,7 +79,7 @@ PROFILE = {
     "cuccaro:bits=64,in=plusa", "gidney:bits=64,in=plusa", "draper:bits=64,in=plusa",
     "shorwin:nbits=16,w=4,in=one", "shor:nbits=8,w=2", "grover:n=64,it=4",
     "ising:n=128,steps=8,dt=0.1", "heis:n=128,steps=8,dt=0.1", "qaoa:n=128,p=2,graph=reg3",
-    "hea:n=128,layers=2", "qpe:t=24,s=256,kind=stab", "walk:m=16,steps=4", "hhl:t=8,m=7",
+    "hea:n=128,layers=2", "qpe:t=23,s=256,kind=stab", "walk:m=16,steps=4", "hhl:t=8,m=7",
     "rct:n=128,L=64,t=128",
 }
 
@@ -142,8 +142,11 @@ def main():
                 r = run(["timeout", "120", "nice", "-n", "15", binp, "time", "recycled", spec, "1", "16"])
             except Exception as e:
                 r = {"error": str(e)}
-            if "error" in r and "TooLarge" in r["error"]:
+            # a TooLarge panic (factor > 2^16) ends with rustc's backtrace note
+            if "error" in r:
                 r = {"f_rec": ">16"}
+            else:
+                r["f_rec"] = r.get("f")
             r["family"] = fam
             r["spec"] = spec
             return r

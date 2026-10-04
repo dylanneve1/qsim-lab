@@ -398,22 +398,23 @@ fn main() {
             let t0 = Instant::now();
             let cs = CompressedState::new(&c, t.max(1)).unwrap();
             let secs = t0.elapsed().as_secs_f64();
-            // eigenphase from the builder's draws (same rng order)
-            let mut rng = StdRng::seed_from_u64(seed);
-            let theta: f64 = rng.random_range(0.1..3.0);
-            let phis: f64 = (0..s - 1).map(|_| rng.random_range(0.1..3.0)).sum();
-            let omega = -(theta + phis) / (2.0 * std::f64::consts::PI);
+            // eigenphase e^{2πi M/2^40}; P(y) = sin²(πA) / (4^t sin²(π(ω - y/2^t))),
+            // A = ω 2^t = M / 2^{40-t} (exact in f64), ω = M / 2^40
+            let mm = families::qpe_stab_phase(s, seed);
+            let big = (1u64 << families::QPE_BITS) as f64;
+            let omega = mm as f64 / big;
             let tt = (1u64 << t) as f64;
-            // analytic P(y) = |sin(π 2^t δ) / (2^t sin(π δ))|², δ = ω - y/2^t
+            let a_frac = (mm % (1u64 << (families::QPE_BITS - t as u32))) as f64
+                / (1u64 << (families::QPE_BITS - t as u32)) as f64;
+            let sa = (std::f64::consts::PI * a_frac).sin();
             let mut zexp = vec![0.0f64; t];
             for y in 0..1u64 << t {
                 let delta = omega - y as f64 / tt;
                 let sd = (std::f64::consts::PI * delta).sin();
-                let py = if sd.abs() < 1e-15 {
+                let py = if sd.abs() < 1e-300 {
                     1.0
                 } else {
-                    let r = (std::f64::consts::PI * delta * tt).sin() / (tt * sd);
-                    r * r
+                    (sa / (tt * sd)).powi(2)
                 };
                 for (k, z) in zexp.iter_mut().enumerate() {
                     *z += if y >> k & 1 == 1 { -py } else { py };

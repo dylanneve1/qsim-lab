@@ -290,11 +290,8 @@ fn qpe_stab_reads_the_eigenphase() {
     for (i, a) in sv.amplitudes().iter().enumerate() {
         py[i & ((1 << t) - 1)] += a.norm_sqr();
     }
-    // recover Φ from the circuit's angles the same way the builder drew them
-    let mut rng = StdRng::seed_from_u64(9);
-    let theta: f64 = rng.random_range(0.1..3.0);
-    let phis: f64 = (0..s - 1).map(|_| rng.random_range(0.1..3.0)).sum();
-    let phi = -(theta + phis) / (2.0 * std::f64::consts::PI);
+    let m = families::qpe_stab_phase(s, 9);
+    let phi = m as f64 / (1u64 << families::QPE_BITS) as f64;
     let tt = (1 << t) as f64;
     for (y, &p) in py.iter().enumerate() {
         let delta = phi - y as f64 / tt;

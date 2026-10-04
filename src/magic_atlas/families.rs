@@ -130,6 +130,9 @@ pub fn build(spec: &str, seed: u64) -> Result<Circuit, String> {
         }
         "qpe" => {
             let t: usize = sp.take(u, "t", 8)?;
+            if t > 23 {
+                return Err("qpe: t <= 23".into());
+            }
             let s: usize = sp.take(u, "s", 8)?;
             let kind: String = sp.take(u, "kind", "stab".to_string())?;
             qpe(t, s, &kind, &mut rng)?
@@ -663,6 +666,20 @@ fn hea(n: usize, layers: usize, rng: &mut StdRng) -> Circuit {
     c
 }
 
+/// Bits of the binary-fraction angles of `qpe:kind=stab` (`t <= 23`).
+pub const QPE_BITS: u32 = 40;
+
+/// The eigenphase of `qpe:kind=stab` built with `seed`: `U|ψ> = e^{2πi M /
+/// 2^40}|ψ>`; returns `M` (the counting register reads `≈ M·2^t/2^40`).
+pub fn qpe_stab_phase(s: usize, seed: u64) -> u64 {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut tot: u64 = rng.random_range(1u64 << 36..1u64 << 39);
+    for _ in 0..s - 1 {
+        tot += rng.random_range(1u64 << 36..1u64 << 39);
+    }
+    (1u64 << QPE_BITS).wrapping_sub(tot % (1u64 << QPE_BITS)) % (1u64 << QPE_BITS)
+}
+
 /// Phase estimation with `t` counting qubits on an `s`-qubit system.
 /// `kind=stab`: the system is a GHZ state, an eigenstate of
 /// `U = exp(-iθ X^{⊗s}) Π_i exp(-iφ_i Z_i Z_{i+1})` (random angles);
@@ -682,18 +699,24 @@ fn qpe(t: usize, s: usize, kind: &str, rng: &mut StdRng) -> Result<Circuit, Stri
             for w in sys.windows(2) {
                 c.cnot(w[0], w[1]);
             }
-            let theta: f64 = rng.random_range(0.1..3.0);
-            let phis: Vec<f64> = (0..s - 1).map(|_| rng.random_range(0.1..3.0)).collect();
+            // Angles are exact binary fractions θ = 2π m / 2^40 (m random), so
+            // the angle of U^{2^k} is reduced mod 2π exactly in integers.
+            let m_theta: u64 = rng.random_range(1u64 << 36..1u64 << 39);
+            let m_phis: Vec<u64> = (0..s - 1)
+                .map(|_| rng.random_range(1u64 << 36..1u64 << 39))
+                .collect();
+            let ang = |m: u64, k: usize| -> f64 {
+                2.0 * PI * ((m << k) & ((1u64 << QPE_BITS) - 1)) as f64 / (1u64 << QPE_BITS) as f64
+            };
             for k in 0..t {
-                let f = (1u64 << k.min(62)) as f64;
-                // controlled exp(-i f θ X^{⊗s}): H all, CNOT parity onto last
+                // controlled exp(-i 2^k θ X^{⊗s}): H all, CNOT parity onto last
                 for &q in &sys {
                     c.h(q);
                 }
                 for w in sys.windows(2) {
                     c.cnot(w[0], w[1]);
                 }
-                crz(&mut c, k, sys[s - 1], 2.0 * f * theta);
+                crz(&mut c, k, sys[s - 1], 2.0 * ang(m_theta, k));
                 for w in sys.windows(2).rev() {
                     c.cnot(w[0], w[1]);
                 }
@@ -702,7 +725,7 @@ fn qpe(t: usize, s: usize, kind: &str, rng: &mut StdRng) -> Result<Circuit, Stri
                 }
                 for (i, w) in sys.windows(2).enumerate() {
                     c.cnot(w[0], w[1]);
-                    crz(&mut c, k, w[1], 2.0 * f * phis[i]);
+                    crz(&mut c, k, w[1], 2.0 * ang(m_phis[i], k));
                     c.cnot(w[0], w[1]);
                 }
             }

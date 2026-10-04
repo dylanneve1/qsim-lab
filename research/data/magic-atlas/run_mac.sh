@@ -34,7 +34,7 @@ demo1)
   done ;;
 demo2)
   for rep in 1 2; do
-    perl -e "alarm shift; exec @ARGV" 120 "$B" demo-qpe 24 256 >> "$OUT"
+    perl -e "alarm shift; exec @ARGV" 120 "$B" demo-qpe 23 256 >> "$OUT"
   done ;;
 esac
 echo "{\"chunk_end\":\"$CHUNK\",\"load\":\"$(sysctl -n vm.loadavg)\",\"date\":\"$(date -u +%FT%TZ)\"}" >> "$OUT"
