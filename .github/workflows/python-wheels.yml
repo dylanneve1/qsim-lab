@@ -28,6 +28,9 @@ jobs:
   wheels:
     name: wheel ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    # linux-aarch64: rustc dies with SIGTRAP compiling qsim-lab inside the
+    # manylinux_2_28 container (issue tracked separately); don't block merges.
+    continue-on-error: ${{ matrix.platform == 'linux-aarch64' }}
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +88,9 @@ jobs:
   test:
     name: test ${{ matrix.platform }} / py${{ matrix.python }}
     needs: wheels
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.platform == 'linux-aarch64' }}
     strategy:
       fail-fast: false
       matrix:
