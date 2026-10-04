@@ -27,6 +27,10 @@ ENGINE_MONO = {
     "auto": {"ct": ["t"], "brick": ["n", "D"], "arith": ["h", "reps"], "qaoa": ["n", "p"]},
     "tableau": {},
 }
+for _e in ENGINE_MONO:
+    if _e != "tableau":
+        ENGINE_MONO[_e]["hea"] = ["n", "D"] if _e != "sv" else ["n"]
+        ENGINE_MONO[_e]["qft"] = ["n"]
 
 
 def grid(name):
@@ -63,6 +67,10 @@ def grid(name):
         add("arith", bits=[6, 8, 10, 12], h=[0, 1, 2, 4, 6], reps=[1, 2, 4])
     elif name == "qaoa":
         add("qaoa", n=[12, 16, 20, 24], p=[1, 2, 3], deg=[2, 3], nn=[0, 1])
+    elif name == "hea":  # held-out family for the planner study
+        add("hea", n=[12, 16, 20, 24], D=[1, 2, 3, 4, 6, 8])
+    elif name == "qft":  # held-out family for the planner study
+        add("qft", n=[10, 14, 18, 22], h=[0, 2, 5])
     elif name == "small":  # dev grid for the VPS (n <= 16)
         add("ct", n=[12, 16], L=[1, 4, 16], t=[0, 4, 12, 24], nn=[1])
         add("brick", n=[12, 16], D=[1, 3, 6, 12], nn=[1])
