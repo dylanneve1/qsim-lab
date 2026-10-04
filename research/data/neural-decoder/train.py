@@ -21,6 +21,7 @@ ap.add_argument("--steps", type=int, default=20000)
 ap.add_argument("--batch", type=int, default=2048)
 ap.add_argument("--H", type=int, default=128); ap.add_argument("--L", type=int, default=4)
 ap.add_argument("--heads", type=int, default=4)
+ap.add_argument("--readout", default="cls")
 ap.add_argument("--lr", type=float, default=1e-3)
 ap.add_argument("--tmax", type=int, default=64)
 ap.add_argument("--val", default=None)
@@ -35,7 +36,7 @@ nd = meta.shape[0]
 stims = (a.train_stim or a.prefix + ".stim").split(",")
 streams = [Stream(s, nd, a.seed + 17 * i) for i, s in enumerate(stims)]
 mx.random.seed(a.seed)
-model = Decoder(meta, H=a.H, L=a.L, heads=a.heads)
+model = Decoder(meta, H=a.H, L=a.L, heads=a.heads, readout=a.readout)
 if a.resume:
     model.load_weights(a.resume)
 nparams = sum(v.size for _, v in tree_flatten(model.parameters()))
@@ -110,7 +111,7 @@ for it in range(1, a.steps + 1):
         print(json.dumps(rec), flush=True)
         log.write(json.dumps(rec) + "\n"); log.flush()
         model.save_weights(os.path.join(a.out, "model.safetensors"))
-        json.dump(dict(H=a.H, L=a.L, heads=a.heads, prefix=a.prefix, stims=stims, it=it, shots=seen),
+        json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=it, shots=seen),
                   open(os.path.join(a.out, "cfg.json"), "w"))
 for s in streams:
     s.close()

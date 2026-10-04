@@ -12,7 +12,7 @@ name = sys.argv[5] if len(sys.argv) > 5 else "nn"
 cfg = json.load(open(os.path.join(md, "cfg.json")))
 meta = load_meta(cfg["prefix"])
 nd = meta.shape[0]
-m = Decoder(meta, H=cfg["H"], L=cfg["L"], heads=cfg["heads"])
+m = Decoder(meta, H=cfg["H"], L=cfg["L"], heads=cfg["heads"], readout=cfg.get("readout", "cls"))
 m.load_weights(os.path.join(md, "model.safetensors"))
 bits = read_ptb64(test, nd + 1)
 dets, obs = bits[:, :nd], bits[:, nd].astype(bool)

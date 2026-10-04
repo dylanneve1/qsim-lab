@@ -54,8 +54,9 @@ class Block(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, meta, H=128, L=4, heads=4):
+    def __init__(self, meta, H=128, L=4, heads=4, readout="cls"):
         super().__init__()
+        self.readout = readout
         nd = meta.shape[0]
         self.nd, self.L, self.heads = nd, L, heads
         self.feat = mx.array(np.concatenate([det_features(meta), np.zeros((2, 7), np.float32)]))  # pad, cls
@@ -90,4 +91,13 @@ class Decoder(nn.Module):
         for l, blk in enumerate(self.blocks):
             bias = pb[:, l * self.heads:(l + 1) * self.heads] + keymask
             x = blk(x, bias)
-        return self.head(self.lnf(x[:, 0]))[:, 0]
+        if self.readout == "cls":
+            return self.head(self.lnf(x[:, 0]))[:, 0]
+        # 'xor': every token (CLS included) emits a flip logit l_i; the observable flips with
+        # P = (1 - prod_i(1 - 2 q_i)) / 2, q_i = sigmoid(l_i), i.e. a soft parity of local claims
+        # ('my chain crosses the logical'). Returned as a logit: -2 atanh(prod(-tanh(l_i/2))).
+        l = self.head(self.lnf(x))[..., 0]
+        t = -mx.tanh(l / 2)
+        t = mx.where(tok == self.nd, 1.0, t)
+        z = mx.clip(mx.prod(t, axis=1), -1 + 1e-6, 1 - 1e-6)
+        return -2 * mx.arctanh(z)
