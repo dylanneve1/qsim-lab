@@ -1,0 +1,50 @@
+[
+{
+"dec": "tess",
+"d": 7,
+"R": 7,
+"noise": "cnot",
+"p": 0.002,
+"spec": "kf",
+"chunk": 40960,
+"workers": 6,
+"basis": "z",
+"orders": 1,
+"beam": 5,
+"fails": 100,
+"max_shots": 3000000,
+"tag": "t_d7_p0.002_kf"
+},
+{
+"dec": "tess",
+"d": 7,
+"R": 7,
+"noise": "cnot",
+"p": 0.002,
+"spec": "schedules/d7_hf_T6.sched",
+"chunk": 40960,
+"workers": 6,
+"basis": "z",
+"orders": 1,
+"beam": 5,
+"fails": 100,
+"max_shots": 3000000,
+"tag": "t_d7_p0.002_hf"
+},
+{
+"dec": "tess",
+"d": 7,
+"R": 7,
+"noise": "cnot",
+"p": 0.002,
+"spec": "kf+bflags",
+"chunk": 40960,
+"workers": 6,
+"basis": "z",
+"orders": 1,
+"beam": 5,
+"fails": 100,
+"max_shots": 3000000,
+"tag": "t_d7_p0.002_kfflag"
+}
+]
