@@ -52,6 +52,9 @@ pub struct GraphOptions {
     pub block: BlockConfig,
     /// Largest dense register (bytes).
     pub mem_bytes: u128,
+    /// Phase gadgets (`POp::ZString`) up to this width become diagonal
+    /// terms; wider ones run as CNOT ladders.
+    pub max_zstring: usize,
 }
 
 impl Default for GraphOptions {
@@ -63,8 +66,33 @@ impl Default for GraphOptions {
             prefix_cache: true,
             block: BlockConfig::default(),
             mem_bytes: MAX_STATE_BYTES,
+            max_zstring: 6,
         }
     }
+}
+
+/// Rewrites phase gadgets wider than `max_k` (and of width 1) into
+/// CNOT ladders around an `Rz`, so only narrow gadgets become diagonal
+/// terms (`2^(k-1)` phase terms each).
+fn expand_wide(ops: &[POp], max_k: usize) -> Vec<POp> {
+    let mut out = Vec::with_capacity(ops.len());
+    for op in ops {
+        match op {
+            POp::ZString(qs, a) if qs.len() == 1 => out.push(POp::Rz(qs[0], a.clone())),
+            POp::ZString(qs, _) if qs.is_empty() => {}
+            POp::ZString(qs, a) if qs.len() > max_k => {
+                for w in qs.windows(2) {
+                    out.push(POp::Fixed(Gate::Cnot(w[0], w[1])));
+                }
+                out.push(POp::Rz(*qs.last().expect("nonempty"), a.clone()));
+                for w in qs.windows(2).rev() {
+                    out.push(POp::Fixed(Gate::Cnot(w[0], w[1])));
+                }
+            }
+            _ => out.push(op.clone()),
+        }
+    }
+    out
 }
 
 /// What a compiled op's numbers are made of.
@@ -220,8 +248,30 @@ impl DenseProgram {
                 rec.push(Some(Recipe::U1(folded)));
             }
         };
+        let push_phase = |kops: &mut Vec<KOp>,
+                          rec: &mut Vec<Option<Recipe>>,
+                          mask: usize,
+                          pat: usize,
+                          a: &Angle| {
+            if a.is_const() {
+                kops.push(KOp::Phase {
+                    mask,
+                    pat,
+                    f: Complex64::from_polar(1.0, a.c0),
+                });
+                rec.push(None);
+            } else {
+                kops.push(KOp::Phase {
+                    mask,
+                    pat,
+                    f: Complex64::new(0.6, 0.8),
+                });
+                rec.push(Some(Recipe::Phase(C1, a.clone())));
+            }
+        };
+        let ops = expand_wide(ops, opts.max_zstring);
         let mut tmp = Vec::new();
-        for op in ops {
+        for op in &ops {
             // single-qubit ops accumulate
             match op {
                 POp::Fixed(g) if g.arity() == 1 => {
@@ -247,10 +297,8 @@ impl DenseProgram {
             }
             let h = Gate::H(0).matrix_1q().expect("H");
             if let POp::Rxx(a, b, _) = op {
-                if op.is_param() {
-                    pending[*a].push(Fac::Const(h));
-                    pending[*b].push(Fac::Const(h));
-                }
+                pending[*a].push(Fac::Const(h));
+                pending[*b].push(Fac::Const(h));
             }
             for q in op.qubits() {
                 flush(q, &mut pending[q], &mut kops, &mut rec, &mut global);
@@ -264,57 +312,38 @@ impl DenseProgram {
                         rec.push(None);
                     }
                 }
-                POp::CPhase(a, b, ang) | POp::Rzz(a, b, ang) | POp::Rxx(a, b, ang)
-                    if !op.is_param() =>
-                {
-                    let _ = (a, b, ang);
-                    let mut gs = Vec::new();
-                    op.bind_into(&[], &mut gs);
-                    for g in gs {
-                        tmp.clear();
-                        lower_gate(&g, &mut tmp);
-                        for k in &tmp {
-                            kops.push(*k);
-                            rec.push(None);
-                        }
-                    }
-                }
                 POp::CPhase(a, b, ang) => {
                     let m = (1 << a) | (1 << b);
-                    kops.push(KOp::Phase {
-                        mask: m,
-                        pat: m,
-                        f: Complex64::new(0.6, 0.8),
-                    });
-                    rec.push(Some(Recipe::Phase(C1, ang.clone())));
+                    push_phase(&mut kops, &mut rec, m, m, ang);
                 }
-                POp::Rzz(a, b, ang) => {
-                    // e^{-iθ/2} diag(1, e^{iθ}, e^{iθ}, 1)
+                POp::Rzz(a, b, ang) | POp::Rxx(a, b, ang) => {
+                    // e^{-iθ/2} diag(1, e^{iθ}, e^{iθ}, 1) (Rxx: H⊗H queued
+                    // before and after, see above)
                     global.1 = global.1.plus(&ang.times(-0.5));
                     let m = (1 << a) | (1 << b);
                     for pat in [1 << a, 1 << b] {
-                        kops.push(KOp::Phase {
-                            mask: m,
-                            pat,
-                            f: Complex64::new(0.6, 0.8),
-                        });
-                        rec.push(Some(Recipe::Phase(C1, ang.clone())));
+                        push_phase(&mut kops, &mut rec, m, pat, ang);
+                    }
+                    if matches!(op, POp::Rxx(..)) {
+                        let h = Gate::H(0).matrix_1q().expect("H");
+                        pending[*a].push(Fac::Const(h));
+                        pending[*b].push(Fac::Const(h));
                     }
                 }
-                POp::Rxx(a, b, ang) => {
-                    // H⊗H already queued (and flushed) before the phases
-                    let m = (1 << a) | (1 << b);
+                POp::ZString(qs, ang) => {
+                    // e^{-iθ/2} on even parity, e^{iθ/2} on odd parity
                     global.1 = global.1.plus(&ang.times(-0.5));
-                    for pat in [1 << a, 1 << b] {
-                        kops.push(KOp::Phase {
-                            mask: m,
-                            pat,
-                            f: Complex64::new(0.6, 0.8),
-                        });
-                        rec.push(Some(Recipe::Phase(C1, ang.clone())));
+                    let m: usize = qs.iter().map(|&q| 1usize << q).sum();
+                    let k = qs.len();
+                    for sub in 0..1usize << k {
+                        if sub.count_ones() & 1 == 1 {
+                            let pat: usize = (0..k)
+                                .filter(|j| sub >> j & 1 == 1)
+                                .map(|j| 1usize << qs[j])
+                                .sum();
+                            push_phase(&mut kops, &mut rec, m, pat, ang);
+                        }
                     }
-                    pending[*a].push(Fac::Const(h));
-                    pending[*b].push(Fac::Const(h));
                 }
                 _ => unreachable!("single-qubit ops handled above"),
             }
@@ -457,6 +486,7 @@ pub struct CompiledCircuit {
     /// Qubits with no surviving op (state |0>).
     idle: Vec<usize>,
     obs: Option<Observable>,
+    gphase: Angle,
     stats: GraphStats,
 }
 
@@ -464,6 +494,7 @@ pub struct CompiledCircuit {
 pub struct BoundCircuit<'a> {
     cc: &'a CompiledCircuit,
     parts: Vec<BoundPart>,
+    gphase: Complex64,
 }
 
 impl CompiledCircuit {
@@ -481,7 +512,19 @@ impl CompiledCircuit {
                 what: "graph compiler: more than 128 qubits",
             });
         }
-        let mut keep = vec![true; pc.ops.len()];
+        // global phase ops are not part of the graph
+        let mut gphase = Angle::constant(0.0);
+        let mut keep: Vec<bool> = pc
+            .ops
+            .iter()
+            .map(|o| match o {
+                POp::Global(a) => {
+                    gphase = gphase.plus(a);
+                    false
+                }
+                _ => true,
+            })
+            .collect();
         if let (Some(o), true) = (obs, opts.light_cone || opts.diagonal_suffix) {
             let sup = o.support();
             let mut live: Vec<bool> = (0..n).map(|q| sup >> q & 1 == 1).collect();
@@ -491,6 +534,9 @@ impl CompiledCircuit {
             // qubits whose remaining suffix is diagonal (Z observable)
             let mut diag_tail = vec![opts.diagonal_suffix && o.is_diagonal(); n];
             for (i, op) in pc.ops.iter().enumerate().rev() {
+                if !keep[i] {
+                    continue;
+                }
                 let qs = op.qubits();
                 if !qs.iter().any(|&q| live[q]) {
                     keep[i] = false;
@@ -589,6 +635,7 @@ impl CompiledCircuit {
             parts,
             idle,
             obs: obs.cloned(),
+            gphase,
             stats,
         })
     }
@@ -611,6 +658,7 @@ impl CompiledCircuit {
         Ok(BoundCircuit {
             cc: self,
             parts: self.parts.iter().map(|(_, p)| p.bind(params)).collect(),
+            gphase: Complex64::from_polar(1.0, self.gphase.eval(params)),
         })
     }
 
@@ -731,7 +779,7 @@ impl BoundCircuit<'_> {
             });
         }
         let states = self.part_states()?;
-        let mut phase = C1;
+        let mut phase = self.gphase;
         for b in &self.parts {
             phase *= b.phase;
         }
@@ -771,7 +819,7 @@ impl BoundCircuit<'_> {
     pub fn amplitudes(&self, xs: &[u128]) -> Result<Vec<Complex64>, SimError> {
         self.check_full()?;
         let states = self.part_states()?;
-        let mut phase = C1;
+        let mut phase = self.gphase;
         for b in &self.parts {
             phase *= b.phase;
         }

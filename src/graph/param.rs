@@ -113,6 +113,12 @@ pub enum POp {
     Rxx(usize, usize, Angle),
     /// `U(θ, φ, λ)`.
     U(usize, Angle, Angle, Angle),
+    /// `exp(-i θ/2 Z⊗…⊗Z)` on the listed qubits (a phase gadget); bound as a
+    /// CNOT ladder, `Rz(θ)` on the last qubit and the reversed ladder.
+    ZString(Vec<usize>, Angle),
+    /// Global phase `e^{iα}` (acts on no qubit; produced by rewrites so
+    /// amplitudes stay exact).
+    Global(Angle),
 }
 
 impl POp {
@@ -124,6 +130,8 @@ impl POp {
                 vec![*q]
             }
             POp::CPhase(a, b, _) | POp::Rzz(a, b, _) | POp::Rxx(a, b, _) => vec![*a, *b],
+            POp::ZString(qs, _) => qs.clone(),
+            POp::Global(_) => vec![],
         }
     }
 
@@ -137,7 +145,9 @@ impl POp {
             | POp::Phase(_, a)
             | POp::CPhase(_, _, a)
             | POp::Rzz(_, _, a)
-            | POp::Rxx(_, _, a) => vec![a],
+            | POp::Rxx(_, _, a)
+            | POp::ZString(_, a)
+            | POp::Global(a) => vec![a],
             POp::U(_, a, b, c) => vec![a, b, c],
         }
     }
@@ -155,7 +165,12 @@ impl POp {
                 g if g.arity() == 1 => g.diagonal_1q().is_some(),
                 _ => false,
             },
-            POp::Rz(..) | POp::Phase(..) | POp::CPhase(..) | POp::Rzz(..) => true,
+            POp::Rz(..)
+            | POp::Phase(..)
+            | POp::CPhase(..)
+            | POp::Rzz(..)
+            | POp::ZString(..)
+            | POp::Global(_) => true,
             _ => false,
         }
     }
@@ -172,6 +187,8 @@ impl POp {
             POp::Rzz(x, y, a) => POp::Rzz(f(*x), f(*y), a.clone()),
             POp::Rxx(x, y, a) => POp::Rxx(f(*x), f(*y), a.clone()),
             POp::U(q, a, b, c) => POp::U(f(*q), a.clone(), b.clone(), c.clone()),
+            POp::ZString(qs, a) => POp::ZString(qs.iter().map(|&q| f(q)).collect(), a.clone()),
+            POp::Global(a) => POp::Global(a.clone()),
         }
     }
 
@@ -197,6 +214,19 @@ impl POp {
                 out.push(Gate::Cnot(*x, *y));
                 out.push(Gate::H(*x));
                 out.push(Gate::H(*y));
+            }
+            // no gate: see ParamCircuit::global_phase
+            POp::Global(_) => {}
+            POp::ZString(qs, a) => {
+                for w in qs.windows(2) {
+                    out.push(Gate::Cnot(w[0], w[1]));
+                }
+                if let Some(&last) = qs.last() {
+                    out.push(Gate::Rz(last, a.eval(params)));
+                }
+                for w in qs.windows(2).rev() {
+                    out.push(Gate::Cnot(w[0], w[1]));
+                }
             }
             POp::U(q, a, b, c) => {
                 out.push(Gate::U(*q, a.eval(params), b.eval(params), c.eval(params)))
@@ -241,6 +271,10 @@ impl ParamCircuit {
     /// Appends an op (checks qubits and parameter indices).
     pub fn push(&mut self, op: POp) -> &mut Self {
         let qs = op.qubits();
+        assert!(
+            !qs.is_empty() || matches!(op, POp::Global(_)),
+            "op without qubits"
+        );
         for (i, &q) in qs.iter().enumerate() {
             assert!(q < self.num_qubits, "qubit {q} out of range");
             assert!(!qs[..i].contains(&q), "repeated qubit {q}");
@@ -278,6 +312,9 @@ impl ParamCircuit {
     pub fn rxx(&mut self, x: usize, y: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Rxx(x, y, a.into()))
     }
+    pub fn zstring(&mut self, qs: &[usize], a: impl Into<Angle>) -> &mut Self {
+        self.push(POp::ZString(qs.to_vec(), a.into()))
+    }
 
     /// The fixed circuit at `params`.
     pub fn bind(&self, params: &[f64]) -> Result<Circuit, SimError> {
@@ -295,6 +332,18 @@ impl ParamCircuit {
             c.gate(g);
         }
         Ok(c)
+    }
+
+    /// Sum of the [`POp::Global`] angles at `params`: the bound circuit of
+    /// [`ParamCircuit::bind`] equals this circuit up to `e^{i·global_phase}`.
+    pub fn global_phase(&self, params: &[f64]) -> f64 {
+        self.ops
+            .iter()
+            .map(|o| match o {
+                POp::Global(a) => a.eval(params),
+                _ => 0.0,
+            })
+            .sum()
     }
 
     /// Number of ops that depend on a parameter.
