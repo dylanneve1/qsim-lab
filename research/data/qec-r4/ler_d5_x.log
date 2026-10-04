@@ -1,0 +1,2 @@
+p=0.003: kf p_L/round=1.118e-03 (5566 fails)  lns 8.084e-04 (4029)  ratio lns/kf = 0.724 [0.695, 0.754]
+p=0.001: kf p_L/round=1.024e-04 (512 fails)  lns 8.203e-05 (410)  ratio lns/kf = 0.801 [0.703, 0.912]

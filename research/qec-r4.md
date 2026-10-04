@@ -8,6 +8,20 @@ Machines:
 
 Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
 
+**Headlines.**
+- **Part 1: SymPhase is at parity with Stim, not 4–6.5× ahead.**
+  - The equivalence holds both ways: identical circuits in both directions, 10⁶ shots, 0 of 69,476 tests rejected.
+  - Single-thread, same output format, x86:
+    - on Stim's own circuit, qsim-lab / Stim = 0.89–1.01× against AVX2-native Stim and 1.03–1.19× against pip Stim;
+    - on qsim-lab's sequential circuit, 1.6–1.8×.
+  - M1: 3.0–5.6×, but Stim has no NEON backend there.
+  - The old claim came from timing Stim's numpy output path.
+- **Part 2: in Kishony–Fowler's single-auxiliary colour-code design space, per-plaquette boundary schedules found by exact search keep their circuit distance but halve the minimum-weight logicals.**
+  - The minimum-weight logical count drops 388 → 197 (d = 5), 12,901 → 7,509 (d = 7) and 492 → 255 (d = 9), all over d rounds.
+  - Logical error per round falls by **24–31% at p = 0.2–0.3% under noisy-CNOT noise**: d = 5, 0.70× [0.67, 0.73] (BP+OSD) and 0.69× [0.56, 0.84] (Tesseract); d = 7, 0.76× [0.72, 0.81].
+  - X-memory improves too, although only Z-memory was optimised.
+  - No change tried raised the circuit distance above K–F's d − ⌊(d+3)/6⌋, which we reproduce exactly up to d = 9 over 9 rounds (and at d = 11 over 1 round).
+
 ---
 
 ## Part 1. Is the SymPhase detector sampler really faster than Stim?
@@ -238,8 +252,10 @@ So depth and qubit count are identical to K–F's. "Free" plaquettes are those t
 |---|---|---|---|---|---|---|
 | 5 | 5 | (4, 388) | **(4, 197)** | local optimum: no single (9) or pair (15) re-schedule improves | 20 | `schedules/d5_lns_r5.sched`, `lns_d5_r5.jsonl` |
 | 5 | 1 | (4, 55) | (4, 36) | local optimum (9 singles, 10 pairs) | 7 | `lns_d5_r1.jsonl` |
-| 7 | 1 | (6, 883) | D7_RESULT | D7_STATUS | | `lns_d7_r1.jsonl` |
-| 9 | 1 | (7, 36) | D9_RESULT | D9_STATUS | | `lns_d9_r1_*.jsonl` |
+| 7 | 1 | (6, 883) | **(6, 505)** at the snapshot used below; the run continued | all 18 singles exhausted; pairs in progress | 12 at the snapshot | `schedules/d7_lns_r1_snapshot.sched`, `lns_d7_r1.jsonl` |
+| 7 | 7 (check) | (6, 12,901) | **(6, 7,509)** for the same snapshot | exact, certified | | `d7_snapshot_r7_distance.txt` |
+| 9 | 1 | (7, 36) | **(7, 18)** after singles, then (7, 15) after a pair move | singles exhausted at 18; 4 of about 60 pairs done when stopped (about 17 min per pair on the Mac) | 4 | `schedules/d9_lns_r1_singles.sched` (the 18 version), `lns_d9_r1_part1/2.jsonl` |
+| 9 | 9 (check) | (7, 492) | **(7, 255)** for the count-18 schedule | exact, certified (408 s) | | `d9_lns_r9_distance.txt` |
 
 Earlier random local search (`color_schedule_search.py`, 6 seeds × about 60 evaluations at d = 9) and exhaustive enumeration of the apex pair {28, 29} at d = 9 (140 of 1003 classes before it was stopped) found nothing above d_circ = 7. Exhaustive per-colour (uniform) schedules are K–F's own search (864 zero-collision, all d_circ = 6 at d = 7).
 
@@ -259,10 +275,21 @@ Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for B
 | noisy CNOT | 0.3% | BP+OSD | 1.125×10⁻³ (5600 fails) | 7.83×10⁻⁴ (3903) | **0.697 [0.669, 0.726]** |
 | noisy CNOT | 0.3% | Tesseract | 3.79×10⁻⁴ (242) | 2.60×10⁻⁴ (166) | **0.686 [0.563, 0.836]** |
 | noisy CNOT | 0.2% | BP+OSD | 4.62×10⁻⁴ (4606) | 3.17×10⁻⁴ (3162) | **0.686 [0.656, 0.718]** |
-| noisy CNOT | 0.2% | Tesseract | TESS02 |
+| noisy CNOT | 0.2% | Tesseract | 1.33×10⁻⁴ (212) | 1.04×10⁻⁴ (166) | **0.783 [0.639, 0.959]** |
 | noisy CNOT | 0.1% | BP+OSD | 1.09×10⁻⁴ (2184) | 8.27×10⁻⁵ (1653) | **0.757 [0.710, 0.807]** |
 | uniform depolarizing | 0.3% | BP+OSD | 1.89×10⁻² (87661) | 1.79×10⁻² (83221) | 0.949 [0.940, 0.958] |
 | uniform depolarizing | 0.1% | BP+OSD | 1.358×10⁻³ (27017) | 1.189×10⁻³ (23662) | **0.876 [0.861, 0.891]** |
+
+**The same comparison at other settings.**
+
+| memory | d | noise | p | decoder | K–F p_L/round | LNS p_L/round | ratio [95% CI] |
+|---|---|---|---|---|---|---|---|
+| **X basis** (the schedule was optimised for Z only) | 5 | noisy CNOT | 0.3% | BP+OSD | 1.118×10⁻³ (5566) | 8.08×10⁻⁴ (4029) | **0.724 [0.695, 0.754]** |
+| X basis | 5 | noisy CNOT | 0.1% | BP+OSD | 1.024×10⁻⁴ (512) | 8.20×10⁻⁵ (410) | **0.801 [0.703, 0.912]** |
+| Z basis | 7 (snapshot) | noisy CNOT | 0.3% | BP+OSD | 3.527×10⁻⁴ (2464) | 2.694×10⁻⁴ (1883) | **0.764 [0.720, 0.811]** |
+| Z basis | 9 (count-18 schedule) | noisy CNOT | 0.3% | BP+OSD | D9LER |
+
+X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201). The gain transfers to the basis that was not optimised, as self-duality suggests.
 
 - Under noisy-CNOT noise, K–F's own headline model where hooks matter most, the re-scheduled circuit has **about 30% lower logical error per round at p = 0.1–0.3%**. Two different decoders agree: BP+OSD 0.70 [0.67, 0.73] and Tesseract 0.69 [0.56, 0.84] at p = 0.3%.
 - Under uniform depolarizing noise at p = 0.3% this d = 5 BP+OSD point is far from the low-p regime: about 9% failure per shot, roughly at threshold for this decoder. The gain shrinks to 5%, as expected once higher-weight failures dominate.
@@ -279,15 +306,37 @@ Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for B
 2. **Exact minimum-weight-logical counts N_min**, which K–F do not report: 388 (d = 5), 12,901 (d = 7) and 492 (d = 9) over d rounds. The d = 9 minimum-weight logicals are corner-anchored strings from the observable boundary to the opposite corner.
 3. **Per-plaquette (non-uniform) boundary scheduling inside K–F's exact design space** (same qubits, same 6+6 CNOT layers, collision-free):
    - it **does not raise d_circ** under any single- or pair-plaquette change we tried (d = 5–9);
-   - it **halves N_min** (d = 5: 388 → 197);
-   - it lowers the d = 5 logical error per round by **about 30% under noisy-CNOT noise at p = 0.1–0.3%**, with two decoders agreeing;
-   - it lowers it by **12% under uniform depolarizing noise at p = 0.1%**.
+   - it **roughly halves N_min**: 388 → 197 (d = 5), 12,901 → 7,509 (d = 7), 492 → 255 (d = 9), all over d rounds;
+   - it lowers the logical error per round under noisy-CNOT noise by 24–31% at p = 0.2–0.3% (d = 5 and 7, two decoders agreeing at d = 5) and by 24% at p = 0.1% (d = 5);
+   - it lowers it by 12% under uniform depolarizing noise at p = 0.1%;
+   - the gain carries over to X-memory (N_min 399 → 201; LER 0.72× at p = 0.3%) although only Z-memory was optimised.
 
    K–F flagged "the alternatives" as future work; this measures them. A free improvement for the single-auxiliary colour code: no extra qubits or depth.
 
 **Caveats.**
 - The search is local (single and pair moves). "No distance gain" is not a proof over the whole space.
 - N_min counts merged-DEM mechanism sets, not weighted by fault multiplicity.
-- Only Z-memory is optimised. The schedule is the same for both halves, but the X-memory distance and LER of the new schedules are not checked: the circuit is not symmetric under the colour code's 3-fold rotation once boundary plaquettes are individualised.
-- Our BP+OSD is 2.5–3× weaker than Tesseract in absolute terms. The schedule ratios agree between the two decoders where both were run (d = 5, p = 0.3%).
+- Only Z-memory is optimised. X-memory was checked only at d = 5, where it also improves. Individualised boundary plaquettes break the 3-fold rotation symmetry, so check each basis before use.
+- Our BP+OSD is 2.5–3× weaker than Tesseract in absolute terms. The schedule ratios agree between the two decoders where both were run (d = 5, p = 0.2% and 0.3%).
+- The d = 7 and d = 9 schedules are snapshots of searches that were still improving when stopped (d = 9 reached N_min = 15 over 1 round after a pair move).
 - SI1000 noise was not run.
+
+### 2.7 Reproduce
+
+```bash
+cargo build --release --example stim_compare --example color_search --example color_ler
+# Part 1
+python research/data/qec-r4/stim_equivalence.py 1000000 3,7,11,15          # needs stim
+python research/data/qec-r4/stim_equivalence_negative_control.py
+STIM_CLI=/path/to/native/stim python research/data/qec-r4/stim_timing.py target/release/examples/stim_compare /tmp/w 15 100000 3
+# Part 2: exact distance and min-weight count (K-F schedule, or a schedule file)
+target/release/examples/color_search distance 9 9 kf
+target/release/examples/color_search distance 5 5 research/data/qec-r4/schedules/d5_lns_r5.sched 10000000 18446744073709551615 cnot x   # X basis
+# search
+python research/data/qec-r4/color_lns.py target/release/examples/color_search 5 5 2 out.jsonl --pairs 20
+# logical error rate, same decoder on both arms
+python research/data/qec-r4/ler_compare.py target/release/examples/color_ler 5 5 cnot 0.003 1000000 2 100 out.jsonl kf=kf lns=research/data/qec-r4/schedules/d5_lns_r5.sched
+python research/data/qec-r4/tesseract_ler.py target/release/examples/color_search target/release/examples/stim_compare 5 5 cnot 0.003 kf 128000 77 2   # needs tesseract-decoder
+```
+
+Tests: `tests/stim_io.rs` (exact round trips), `tests/color_code.rs` (generator validation, K–F distance formula and counts, the d = 5 LNS schedule, X basis), `tests/symphase.rs::sparse_sampling_path_is_identical_to_dense`, `src/qec/distance.rs` (brute-force check of weights and counts), `src/qec/bposd.rs`.
