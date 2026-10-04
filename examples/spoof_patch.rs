@@ -34,7 +34,7 @@ fn main() {
     }
     for steps in [5, 10, 15, 20, 25, 30]
         .into_iter()
-        .filter(|&s| s <= max_steps && only_steps.is_none_or(|o| o == s))
+        .filter(|&s| s <= max_steps && only_steps.map_or(true, |o| o == s))
     {
         let m = KickedIsing::new(patch.clone(), steps, theta);
         for &delta in &deltas {
