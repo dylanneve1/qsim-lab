@@ -86,6 +86,8 @@ pub struct ColorMemory {
     pub detector_info: Vec<(usize, bool, usize)>,
     /// Memory basis: false = Z (|0>, Z logical), true = X (|+>, X logical).
     pub x_basis: bool,
+    /// Per detector: whether it is a flag-qubit detector.
+    pub flag_detector: Vec<bool>,
 }
 
 impl ColorCode {
@@ -200,11 +202,122 @@ impl ColorCode {
         noise: ColorNoise,
         x_basis: bool,
     ) -> ColorMemory {
+        self.memory_flagged(s, &[], rounds, noise, x_basis)
+    }
+
+    /// Plaquettes that touch a boundary data qubit (a data qubit in fewer
+    /// than three plaquettes): `3d - 6` of them for `d >= 5`.
+    pub fn boundary_plaquettes(&self) -> Vec<bool> {
+        let mut deg = vec![0usize; self.data.len()];
+        for p in &self.plaquettes {
+            for q in p.data.iter().flatten() {
+                deg[*q] += 1;
+            }
+        }
+        self.plaquettes
+            .iter()
+            .map(|p| p.data.iter().flatten().any(|&q| deg[q] < 3))
+            .collect()
+    }
+
+    /// Flag-CNOT slots for the flagged plaquettes (see [`Self::memory_flagged`]):
+    /// per plaquette `None` (unflagged) or `Some((s1, s2))` with `s1 < t_2`
+    /// and `s2 > t_{w-1}` (`t_k` = the plaquette's k-th data-CNOT step), each
+    /// a step at which the auxiliary is idle. Step `0` is an extra CNOT layer
+    /// before the data layers, step `T + 1` one after them (`T` = data layers
+    /// per half). Idle in-schedule steps are preferred (no extra depth), then
+    /// the step closest to the protected window.
+    pub fn flag_slots(&self, s: &ColorSchedule, flagged: &[bool]) -> Vec<Option<(u8, u8)>> {
+        let t = self.num_steps(s) as u8;
+        self.plaquettes
+            .iter()
+            .enumerate()
+            .map(|(pi, p)| {
+                if !flagged.get(pi).copied().unwrap_or(false) {
+                    return None;
+                }
+                let mut ts: Vec<u8> = (0..6)
+                    .filter(|&k| p.data[k].is_some())
+                    .map(|k| s[pi][k])
+                    .collect();
+                ts.sort_unstable();
+                let w = ts.len();
+                assert!(w >= 4, "flag on a plaquette of weight {w}");
+                let busy = |x: u8| ts.contains(&x);
+                // s1 in [0, t_2): latest idle in-schedule step, else 0
+                let s1 = (1..ts[1]).rev().find(|&x| !busy(x)).unwrap_or(0);
+                // s2 in (t_{w-1}, T+1]: earliest idle in-schedule step, else
+                // T+1. (Not just after t_{w-2}: an X/Z error on the auxiliary
+                // right after the second flag CNOT, e.g. from that CNOT's own
+                // DEPOLARIZE2, would otherwise spread unflagged to the data
+                // qubits of the remaining two CNOTs.)
+                let s2 = (ts[w - 2] + 1..=t).find(|&x| !busy(x)).unwrap_or(t + 1);
+                Some((s1, s2))
+            })
+            .collect()
+    }
+
+    /// Data-CNOT layers per half-round: the largest step used, at least 6.
+    pub fn num_steps(&self, s: &ColorSchedule) -> usize {
+        self.plaquettes
+            .iter()
+            .enumerate()
+            .flat_map(|(pi, p)| {
+                (0..6)
+                    .filter(move |&k| p.data[k].is_some())
+                    .map(move |k| s[pi][k] as usize)
+            })
+            .max()
+            .unwrap_or(6)
+            .max(6)
+    }
+
+    /// Memory experiment with one flag qubit on each plaquette with
+    /// `flagged[pi]` (empty slice: no flags; the circuit is then exactly
+    /// [`Self::memory_basis`]'s).
+    ///
+    /// A flagged plaquette's flag qubit is reset and measured together with
+    /// its auxiliary and serves both halves of a round:
+    /// - Z half (auxiliary in |0>, `CX data->anc`): flag in |+> (`RX`),
+    ///   `CX flag->anc` at the two flag slots, flag measured in X. It catches
+    ///   a Z error on the auxiliary between the slots (a Z hook; X-type
+    ///   sector).
+    /// - X half (auxiliary in |+>, `CX anc->data`): flag in |0>,
+    ///   `CX anc->flag` at the same slots, flag measured in Z. It catches an X
+    ///   error on the auxiliary between the slots (an X hook; Z-type sector).
+    ///
+    /// Slots come from [`Self::flag_slots`]: every auxiliary error that
+    /// would spread to `2..=w-2` data qubits (all multi-qubit hooks up to
+    /// stabilizer equivalence), including errors from the flag CNOTs
+    /// themselves, flips the flag. Every flag measurement is its own
+    /// detector. Flag CNOTs carry the same `DEPOLARIZE2` as data CNOTs.
+    pub fn memory_flagged(
+        &self,
+        s: &ColorSchedule,
+        flagged: &[bool],
+        rounds: usize,
+        noise: ColorNoise,
+        x_basis: bool,
+    ) -> ColorMemory {
         assert!(rounds >= 1);
         assert_eq!(s.len(), self.plaquettes.len());
         let nd = self.data.len();
         let np = self.plaquettes.len();
-        let n = nd + np;
+        let slots = self.flag_slots(s, flagged);
+        let flag_of: Vec<Option<usize>> = {
+            let mut k = 0;
+            slots
+                .iter()
+                .map(|sl| {
+                    sl.map(|_| {
+                        k += 1;
+                        nd + np + k - 1
+                    })
+                })
+                .collect()
+        };
+        let nf = flag_of.iter().flatten().count();
+        let n = nd + np + nf;
         let anc = |pi: usize| nd + pi;
         let (p2, p_idle, p_meas, p_reset) = match noise {
             ColorNoise::Cnot(p) => (p, 0.0, 0.0, 0.0),
@@ -221,20 +334,11 @@ impl ColorCode {
                 }
             }
         };
-        let nsteps = self
-            .plaquettes
-            .iter()
-            .enumerate()
-            .flat_map(|(pi, p)| {
-                (0..6)
-                    .filter(move |&k| p.data[k].is_some())
-                    .map(move |k| s[pi][k] as usize)
-            })
-            .max()
-            .unwrap_or(6)
-            .max(6);
+        let nsteps = self.num_steps(s);
         assert!(nsteps <= MAX_STEP, "step {nsteps} > MAX_STEP");
-        let mut cx_layers: Vec<Vec<(usize, usize)>> = vec![Vec::new(); nsteps + 1]; // (data, plaquette)
+        // layer index = step (0 = pre-layer, nsteps + 1 = post-layer);
+        // entries (other qubit, plaquette): a data qubit or a flag qubit
+        let mut cx_layers: Vec<Vec<(usize, usize)>> = vec![Vec::new(); nsteps + 2];
         for (pi, p) in self.plaquettes.iter().enumerate() {
             for k in 0..6 {
                 if let Some(q) = p.data[k] {
@@ -242,6 +346,17 @@ impl ColorCode {
                 }
             }
         }
+        let mut is_flag = vec![false; n];
+        for (pi, sl) in slots.iter().enumerate() {
+            if let (Some((s1, s2)), Some(f)) = (sl, flag_of[pi]) {
+                cx_layers[*s1 as usize].push((f, pi));
+                cx_layers[*s2 as usize].push((f, pi));
+                is_flag[f] = true;
+            }
+        }
+        let used_layers: Vec<usize> = (0..nsteps + 2)
+            .filter(|&l| (1..=nsteps).contains(&l) || !cx_layers[l].is_empty())
+            .collect();
         let reset_moment = |ops: &mut Vec<Op>, qs: &[(usize, bool)]| {
             let mut busy = vec![false; n];
             for &(q, x_basis) in qs {
@@ -288,34 +403,53 @@ impl ColorCode {
             idle(ops, &busy);
         };
         let ancs: Vec<usize> = (0..np).map(anc).collect();
+        let flags: Vec<usize> = flag_of.iter().flatten().copied().collect();
         let all: Vec<usize> = (0..n).collect();
         let mut num_meas = 0usize;
         let mut z_rec = vec![vec![0usize; np]; rounds];
         let mut x_rec = vec![vec![0usize; np]; rounds];
-        let init: Vec<(usize, bool)> = all.iter().map(|&q| (q, x_basis && q < nd)).collect();
+        // flag records per round: Z-half flags (X-measured), X-half flags (Z-measured)
+        let mut fz_rec = vec![vec![0usize; nf]; rounds];
+        let mut fx_rec = vec![vec![0usize; nf]; rounds];
+        // initial reset: data in the memory basis, Z-half flags in |+>
+        let init: Vec<(usize, bool)> = all
+            .iter()
+            .map(|&q| (q, (x_basis && q < nd) || is_flag[q]))
+            .collect();
         reset_moment(&mut ops, &init);
-        let anc_z: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, false)).collect();
-        let anc_x: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, true)).collect();
+        // Z half: auxiliaries |0>, flags |+>; X half: auxiliaries |+>, flags |0>
+        let z_half_q: Vec<(usize, bool)> = ancs
+            .iter()
+            .map(|&q| (q, false))
+            .chain(flags.iter().map(|&q| (q, true)))
+            .collect();
+        let x_half_q: Vec<(usize, bool)> = ancs
+            .iter()
+            .map(|&q| (q, true))
+            .chain(flags.iter().map(|&q| (q, false)))
+            .collect();
         for r in 0..rounds {
             if r > 0 {
-                reset_moment(&mut ops, &anc_z);
+                reset_moment(&mut ops, &z_half_q);
             }
-            for layer in &cx_layers[1..=nsteps] {
-                cx_moment(&mut ops, layer, true);
+            for &l in &used_layers {
+                cx_moment(&mut ops, &cx_layers[l], true);
             }
-            let zm: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, false)).collect();
-            measure_moment(&mut ops, &zm);
+            measure_moment(&mut ops, &z_half_q);
             for (pi, rec) in z_rec[r].iter_mut().enumerate() {
                 *rec = num_meas + pi;
             }
-            num_meas += np;
-            reset_moment(&mut ops, &anc_x);
-            for layer in &cx_layers[1..=nsteps] {
-                cx_moment(&mut ops, layer, false);
+            for (k, rec) in fz_rec[r].iter_mut().enumerate() {
+                *rec = num_meas + np + k;
+            }
+            num_meas += np + nf;
+            reset_moment(&mut ops, &x_half_q);
+            for &l in &used_layers {
+                cx_moment(&mut ops, &cx_layers[l], false);
             }
             // the last X measurement shares its moment with the final data
             // measurement (as in Kishony-Fowler's circuit)
-            let mut xm: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, true)).collect();
+            let mut xm = x_half_q.clone();
             if r + 1 == rounds {
                 xm.extend((0..nd).map(|q| (q, x_basis)));
             }
@@ -323,11 +457,16 @@ impl ColorCode {
             for (pi, rec) in x_rec[r].iter_mut().enumerate() {
                 *rec = num_meas + pi;
             }
-            num_meas += np;
+            for (k, rec) in fx_rec[r].iter_mut().enumerate() {
+                *rec = num_meas + np + k;
+            }
+            num_meas += np + nf;
         }
+        let flag_plaq: Vec<usize> = (0..np).filter(|&pi| flag_of[pi].is_some()).collect();
         let data_base = num_meas;
         let mut detectors = Vec::new();
         let mut info = Vec::new();
+        let mut flag_det: Vec<bool> = Vec::new();
         // own type (deterministic from round 0) first, then the other type
         let (own, other) = if x_basis {
             (&x_rec, &z_rec)
@@ -349,6 +488,16 @@ impl ColorCode {
                     info.push((pi, !x_basis, r));
                 }
             }
+            // flag detectors (single deterministic measurements): the X-half
+            // flag sees X errors (Z-type sector), the Z-half flag Z errors
+            for (k, &pi) in flag_plaq.iter().enumerate() {
+                detectors.push(vec![fx_rec[r][k]]);
+                info.push((pi, false, r));
+                detectors.push(vec![fz_rec[r][k]]);
+                info.push((pi, true, r));
+                flag_det.resize(detectors.len() - 2, false);
+                flag_det.extend([true, true]);
+            }
         }
         for (pi, p) in self.plaquettes.iter().enumerate() {
             let mut v: Vec<usize> = p.data.iter().flatten().map(|&q| data_base + q).collect();
@@ -356,6 +505,7 @@ impl ColorCode {
             detectors.push(v);
             info.push((pi, x_basis, rounds));
         }
+        flag_det.resize(detectors.len(), false);
         let observables = vec![self
             .logical_support()
             .iter()
@@ -371,6 +521,7 @@ impl ColorCode {
             observables,
             detector_info: info,
             x_basis,
+            flag_detector: flag_det,
         }
     }
 }
@@ -564,5 +715,73 @@ impl ColorMemory {
         );
         let cert = !r.example.is_empty() && r.example.iter().all(|&j| z.pure[j]);
         (r, cert)
+    }
+}
+
+/// Parses a schedule spec: `kf`, `tri`, or a file with one line per
+/// plaquette `t_a t_b t_c t_d t_e t_f [F]` (absent positions: anything, e.g.
+/// 0; a trailing `F` flags the plaquette). A `+bflags` suffix (e.g.
+/// `kf+bflags`) additionally flags every boundary-touching plaquette.
+/// Returns the schedule and the per-plaquette flag mask.
+pub fn parse_schedule_spec(cc: &ColorCode, spec: &str) -> (ColorSchedule, Vec<bool>) {
+    let (base, bflags) = match spec.strip_suffix("+bflags") {
+        Some(b) => (b, true),
+        None => (spec, false),
+    };
+    let np = cc.plaquettes.len();
+    let (s, mut f) = match base {
+        "kf" => (cc.uniform_schedule(KF_SCHEDULE), vec![false; np]),
+        "tri" => (cc.uniform_schedule([TRI_OPTIMAL; 3]), vec![false; np]),
+        path => {
+            let text = std::fs::read_to_string(path).expect("schedule file");
+            let mut s = ColorSchedule::new();
+            let mut f = Vec::new();
+            for l in text.lines().filter(|l| !l.trim().is_empty()) {
+                let tok: Vec<&str> = l.split_whitespace().collect();
+                let v: Vec<u8> = tok[..6].iter().map(|t| t.parse().unwrap()).collect();
+                s.push([v[0], v[1], v[2], v[3], v[4], v[5]]);
+                f.push(tok.get(6).is_some_and(|t| *t == "F"));
+            }
+            assert_eq!(s.len(), np, "schedule lines != plaquettes");
+            (s, f)
+        }
+    };
+    if bflags {
+        for (x, b) in f.iter_mut().zip(cc.boundary_plaquettes()) {
+            *x |= b;
+        }
+    }
+    (s, f)
+}
+
+/// Resource count of a (possibly flagged) memory circuit, per round.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColorResources {
+    pub data: usize,
+    pub aux: usize,
+    pub flags: usize,
+    /// CNOT layers per round (both halves).
+    pub cnot_layers: usize,
+    /// CNOTs per round (both halves).
+    pub cnots: usize,
+}
+
+impl ColorCode {
+    /// Qubits, CNOT layers and CNOT count per round of
+    /// [`Self::memory_flagged`] with this schedule and flag mask.
+    pub fn resources(&self, s: &ColorSchedule, flagged: &[bool]) -> ColorResources {
+        let t = self.num_steps(s);
+        let slots = self.flag_slots(s, flagged);
+        let pre = slots.iter().flatten().any(|sl| sl.0 == 0);
+        let post = slots.iter().flatten().any(|sl| sl.1 as usize == t + 1);
+        let nf = slots.iter().flatten().count();
+        let data_cx: usize = self.plaquettes.iter().map(|p| p.weight()).sum();
+        ColorResources {
+            data: self.data.len(),
+            aux: self.plaquettes.len(),
+            flags: nf,
+            cnot_layers: 2 * (t + pre as usize + post as usize),
+            cnots: 2 * (data_cx + 2 * nf),
+        }
     }
 }

@@ -1,0 +1,8 @@
+/tmp/cf-work/d7hf_r3_z.stim: stim DEM z-sector, 604 mechanisms, 117 dets: logical of weight <= 6: none -> d_circ >= 7 (2s)
+/tmp/cf-work/d7hf_r3_z.stim: stim upper bound 7 (77.4s, ev<=4, deg<=10)
+/tmp/cf-work/d7hf_r3_x.stim: stim DEM x-sector, 604 mechanisms, 117 dets: logical of weight <= 6: none -> d_circ >= 7 (3s)
+/tmp/cf-work/d7hf_r3_x.stim: stim upper bound 7 (102.1s, ev<=4, deg<=10)
+/tmp/cf-work/d9hf_r1_z.stim: stim DEM z-sector, 376 mechanisms, 81 dets: logical of weight <= 8: none -> d_circ >= 9 (20s)
+/tmp/cf-work/d9hf_r1_z.stim: stim upper bound 9 (2.4s, ev<=4, deg<=10)
+/tmp/cf-work/d9hf_r1_x.stim: stim DEM x-sector, 376 mechanisms, 81 dets: logical of weight <= 8: none -> d_circ >= 9 (15s)
+/tmp/cf-work/d9hf_r1_x.stim: stim upper bound 9 (8.9s, ev<=4, deg<=10)
