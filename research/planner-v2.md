@@ -59,8 +59,10 @@ Data and scripts: `research/data/planner-v2/` (all Mac, M1 Pro, one thread, benc
    the engine it informs could beat the best prediction so far by more than `voi` × the feature's predicted cost,
    using lower bounds available from one O(gates) pass. HSF is first priced on the plain line split in O(gates); the
    4 ms Kernighan–Lin partition runs only when it could pay off, and the HSF engine then reuses it.
-   - Median planning time for expectations, Mac, same session as v1: 0.47 ms → 0.17 ms; p90 7.1 ms → 1.9 ms.
-   - **End-to-end ε-regret for expectations against an in-session oracle: v1 1.32 → v2 1.15** (§4).
+   - Median planning time for expectations, Mac, same session as v1: 0.45 ms → 0.11 ms; p90 6.7 ms → 1.4 ms.
+   - **End-to-end geo ε-regret for expectations against an in-session oracle: v1 1.32 → v2 1.13** (§4; target
+     ≤ 1.15).
+   - End to end for the new requests: 1000 samples 1.12, 100 000 samples 1.07, 1000 amplitudes 1.11.
    - A plan cache keyed on structure and Clifford class reuses decisions across parameter sweeps: 6 ms → 6 µs per
      plan.
 3. **The 12-bit adder Auto misfire is fixed.** `Strategy::Auto` now explores past a switch decision for 30 % of
@@ -278,7 +280,31 @@ Session 2 (`mac/e2e2.jsonl`, v2 before HSF line-split pricing and the n < cap HS
 | s100k | v2 | 345 | 1.14 | 95 % | **1.133** | 0.10 / 5.8 ms | 2 |
 | a1k | v2 | 347 | 1.38 | 88 % | **1.254** | 0.22 / 6.9 ms | 2 |
 
-FINAL_SESSION_TABLE
+**Final session** (`mac/e2e4.jsonl`, the shipped v2: line-split HSF with nominal bits, KL reused by the engine,
+HSF full output only for `n < cap`, `voi` 8 / 4). Mac load was 15–35 when the lock was taken (other agents' processes
+were not under the lock), so treat individual ratios with care. The planner and the oracle ran side by side.
+
+| request | variant | n | geo regret | ≤ 2× | **geo ε-regret** | oracle ≥ 1 ms (ε) | oracle ≥ 0.1 s (geo) | plan median / p90 | aborts |
+|---|---|---|---|---|---|---|---|---|---|
+| e | v1 | 348 | 2.38 | 43 % | **1.324** | 1.436 | 1.14 | 0.45 / 6.7 ms | 9 |
+| e | **v2** | 348 | 1.38 | 83 % | **1.126** | 1.250 | 1.23 | 0.11 / 1.4 ms | 9 |
+| s1k | v2 | 348 | 1.22 | 93 % | **1.117** | 1.197 | 1.08 | 0.14 / 2.1 ms | 15 |
+| s100k | v2 | 345 | 1.07 | 96 % | **1.066** | 1.066 | 1.05 | 0.13 / 5.7 ms | 0 |
+| a1k | v2 | 347 | 1.18 | 93 % | **1.114** | 1.163 | 1.26 | 0.23 / 7.0 ms | 4 |
+
+Session 3 (`mac/e2e3.jsonl`, before the two HSF corrections of §3, load 6–8) gave expectations v1 1.341 → v2 1.147,
+s1k 1.108, s100k 1.041 and a1k 1.131. Its a1k worst case (75×) was HSF on the line split of a random-graph QAOA.
+
+**Before → after, end to end, expectations: geo ε-regret 1.32 → 1.13 (target ≤ 1.15).** The same holds in all three
+sessions with an oracle or interleaving: 1.32 → 1.15, 1.34 → 1.15 and 1.32 → 1.13. Samples and amplitudes have no
+"before" planner; their old hand rules are 3–50× at choice level (§2).
+
+On the 20 expectation instances whose oracle takes ≥ 0.1 s, v2 (1.23) is behind v1 (1.14). Two QAOA instances on
+random graphs (n = 24, p = 1–2) account for it:
+- p = 1: MPS was chosen, aborted, and HSF ran instead of the compressed state, 5.0× against v1's 3.0×;
+- p = 2: HSF was chosen over the compressed state, 2.4×.
+
+The refitted constants rank HSF slightly higher than v1's. The other 18 instances are within ±10 % of each other.
 
 Where the remaining end-to-end regret comes from (session 2, expectations):
 1. Runs where the oracle takes ≥ 0.1 s are about 1.4× for both v1 and v2. The planner's choice is the oracle's on 15
@@ -406,8 +432,8 @@ python3 fit_v2.py fit_v2 mac/feat_mac.jsonl mac/req.jsonl mac/hsfamp.jsonl
 python3 readout_accuracy.py mac/feat_mac.jsonl mac/req.jsonl mac/hsfamp.jsonl
 $B feat instances.txt > feat_voi.jsonl && python3 tune_voi.py feat_voi.jsonl mac/feat_mac.jsonl mac/req.jsonl mac/hsfamp.jsonl
 python3 gen_e2e_jobs.py mac/feat_mac.jsonl mac/req.jsonl mac/hsfamp.jsonl > e2e_jobs.txt
-python3 collect_req.py --bin $B --instances instances.txt --jobs e2e_jobs.txt --out mac/e2e3.jsonl
-python3 eval_oracle.py eval_oracle_final.txt mac/e2e3.jsonl
+python3 collect_req.py --bin $B --instances instances.txt --jobs e2e_jobs.txt --out mac/e2e4.jsonl
+python3 eval_oracle.py eval_oracle_final.txt mac/e2e4.jsonl
 python3 compare_autoab.py
 cargo test --release --test planner_v2 --test planner --test pipeline
 ```

@@ -1,20 +1,20 @@
-e      v1    n=348 geo=2.395 within2=0.43 geo_eps=1.341 worst_eps=10.25 (ct:n=24,L=16,t=48,nn=1) aborts=8 plan med/p90 0.431/6.43 ms
-          oracle>=0.001s n=106 geo=1.608 geo_eps=1.505
-          oracle>=0.01s n=50 geo=1.382 geo_eps=1.370
-          oracle>=0.1s n=20 geo=1.165 geo_eps=1.164
-e      v2nc  n=348 geo=1.408 within2=0.85 geo_eps=1.147 worst_eps=4.97 (qaoa:n=24,p=1,deg=3,nn=0) aborts=10 plan med/p90 0.111/1.46 ms
-          oracle>=0.001s n=106 geo=1.324 geo_eps=1.291
-          oracle>=0.01s n=50 geo=1.326 geo_eps=1.318
-          oracle>=0.1s n=20 geo=1.249 geo_eps=1.248
-s1k    v2nc  n=348 geo=1.203 within2=0.93 geo_eps=1.108 worst_eps=4.01 (qft:n=22,h=5) aborts=14 plan med/p90 0.150/1.60 ms
-          oracle>=0.001s n=170 geo=1.210 geo_eps=1.176
-          oracle>=0.01s n=60 geo=1.169 geo_eps=1.167
-          oracle>=0.1s n=28 geo=1.067 geo_eps=1.067
-s100k  v2nc  n=345 geo=1.043 within2=0.97 geo_eps=1.041 worst_eps=6.41 (ct:n=24,L=1,t=0,nn=1) aborts=0 plan med/p90 0.136/1.61 ms
-          oracle>=0.001s n=345 geo=1.043 geo_eps=1.041
-          oracle>=0.01s n=222 geo=1.020 geo_eps=1.021
-          oracle>=0.1s n=67 geo=1.002 geo_eps=1.002
-a1k    v2nc  n=347 geo=1.193 within2=0.93 geo_eps=1.131 worst_eps=74.65 (qaoa:n=24,p=2,deg=2,nn=0) aborts=1 plan med/p90 0.235/4.84 ms
-          oracle>=0.001s n=198 geo=1.159 geo_eps=1.187
-          oracle>=0.01s n=68 geo=1.304 geo_eps=1.302
-          oracle>=0.1s n=28 geo=1.252 geo_eps=1.252
+e      v1    n=348 geo=2.378 within2=0.43 geo_eps=1.324 worst_eps=6.58 (brick:n=16,D=12,nn=1) aborts=9 plan med/p90 0.445/6.65 ms
+          oracle>=0.001s n=104 geo=1.518 geo_eps=1.436
+          oracle>=0.01s n=50 geo=1.249 geo_eps=1.262
+          oracle>=0.1s n=20 geo=1.140 geo_eps=1.139
+e      v2nc  n=348 geo=1.383 within2=0.83 geo_eps=1.126 worst_eps=5.02 (qaoa:n=24,p=1,deg=3,nn=0) aborts=9 plan med/p90 0.114/1.43 ms
+          oracle>=0.001s n=104 geo=1.283 geo_eps=1.250
+          oracle>=0.01s n=50 geo=1.161 geo_eps=1.179
+          oracle>=0.1s n=20 geo=1.227 geo_eps=1.227
+s1k    v2nc  n=348 geo=1.218 within2=0.93 geo_eps=1.117 worst_eps=7.89 (qaoa:n=20,p=3,deg=2,nn=1) aborts=15 plan med/p90 0.143/2.06 ms
+          oracle>=0.001s n=169 geo=1.236 geo_eps=1.197
+          oracle>=0.01s n=59 geo=1.218 geo_eps=1.212
+          oracle>=0.1s n=28 geo=1.075 geo_eps=1.075
+s100k  v2nc  n=345 geo=1.071 within2=0.96 geo_eps=1.066 worst_eps=5.84 (ct:n=20,L=1,t=0,nn=0) aborts=0 plan med/p90 0.132/5.65 ms
+          oracle>=0.001s n=345 geo=1.071 geo_eps=1.066
+          oracle>=0.01s n=222 geo=1.039 geo_eps=1.039
+          oracle>=0.1s n=66 geo=1.050 geo_eps=1.050
+a1k    v2nc  n=347 geo=1.181 within2=0.93 geo_eps=1.114 worst_eps=23.78 (ct:n=32,L=32,t=32,nn=1) aborts=4 plan med/p90 0.230/6.98 ms
+          oracle>=0.001s n=197 geo=1.153 geo_eps=1.163
+          oracle>=0.01s n=68 geo=1.231 geo_eps=1.227
+          oracle>=0.1s n=28 geo=1.259 geo_eps=1.259
