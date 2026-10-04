@@ -65,6 +65,7 @@ fn brute_count(kind: &str, n: usize, k: usize) -> usize {
 
 /// Glue: from all rank-k decompositions at n-1 to all rank-k decompositions at n (as sets of
 /// canonical vector keys).  Valid when chi(psi^{⊗(n-1)}) = k (plateau lemma).
+#[allow(clippy::type_complexity)]
 fn glue_sets(t: &Table, d: &[Dec], kind: &str, n: usize) -> (Vec<(Vec<Vec<C>>, Vec<C>)>, usize) {
     let g = glue(t, d, &psi1(kind), n);
     let mut sets: HashSet<Vec<Vec<i64>>> = HashSet::new();
