@@ -4,42 +4,45 @@ Branch `exp/metal`. The code sits behind the `metal` cargo feature and only comp
 
 ## Verdict
 
-**Positive result. The kill criterion is not met.** On the M1 Pro (14-core GPU, 16 GB unified memory), the fused Metal backend beats our best CPU path (NEON FMA + 1 MiB cache-blocked executor, 8 threads):
+**Positive result. The kill criterion is not met.** On the M1 Pro (14-core GPU, 16 GB unified memory), the fused Metal backend beats our best CPU path (NEON FMA + 1 MiB cache-blocked executor, 8 threads, f32). Measured against **quiet** CPU baselines for identical circuits (`research/mac-m1.md`, same `qft(n)` and `random_brickwork(n, 20, seed 42)`):
 
-- **QFT: 1.64-1.85x at 26-29 qubits.**
-- **Random brickwork, depth 20: 2.6-2.8x at 26-28 qubits.**
-- 2-3x at 22-24 qubits.
-
-Against the quieter CPU numbers in `research/mac-m1.md`, the speedups are QFT-26 1.85x, brickwork-26 about 2.6x and brickwork-28 about 2.4x.
+- **QFT: 1.7-1.85x at 26-28 qubits.**
+- **Random brickwork, depth 20: 2.4-2.6x at 26-28 qubits.**
+- 2.1-3.2x at 22-24 qubits.
 
 **Single precision only.** Apple GPUs have no f64 arithmetic. The CPU baseline in every comparison is also f32.
 
-| workload | n | CPU 8t (s) | **GPU (s)** | **GPU speedup** | CPU quiet ref. (mac-m1.md) | GPU passes / CPU passes | GPU % of 178 GB/s roof | CPU % of 162 GB/s roof | setup (s) |
-|---|---|---|---|---|---|---|---|---|---|
-| QFT | 20 | 0.0044 | **0.0025** | 1.76x | | 8 / 3 | 30% | | 0.0014 |
-| QFT | 22 | 0.0150 | **0.0070** | 2.14x | 0.0154 | 9 / 4 | 48% | | 0.0014 |
-| QFT | 24 | 0.0792* | **0.0297** | 2.67x | 0.0620 (→ 2.09x) | 10 / 5 | 51% | | 0.0078 |
-| QFT | 26 | 0.2278 | **0.1235** | **1.84x** | 0.2285 (→ 1.85x) | 11 / 5 | 54% | 15% | 0.020 |
-| QFT | 28 | 0.9414 | **0.5378** | **1.75x** | 1.0182 (FMA, 256 KiB block) | 12 / 6 | 54% | 17% | 0.083 |
-| QFT | 29 | 1.8484 | **1.1256** | **1.64x** | | 12 / 6 | 51% | 17% | 0.228 |
-| brickwork d20 | 20 | (0.134*) | **0.0121** | (load-affected) | | 73 / 29 | 57% | | 0.0015 |
-| brickwork d20 | 22 | 0.1674 | **0.0521** | 3.21x | 0.1687 (→ 3.24x) | 83 / 36 | 60% | | 0.0014 |
-| brickwork d20 | 24 | 0.7102 | **0.2291** | 3.10x | 0.6699 (→ 2.92x) | 93 / 42 | 61% | 10% | 0.010 |
-| brickwork d20 | 26 | 2.8383 | **1.0141** | **2.80x** | ≈2.67 (→ ≈2.6x) | 103 / 49 | 61% | 11% | 0.033 |
-| brickwork d20 | 28 | 11.7506 | **4.4914** | **2.62x** | ≈10.7 (→ ≈2.4x) | 113 / 56 | 61% | 13% | 0.100 |
+**Fairness.** No quiet window was available during this run. The Mac's 1-min load was 15-25 throughout, from other agents' unlocked campaigns. A loaded machine penalises the 8-thread CPU baseline far more than the GPU, so the **headline column uses the quiet CPU numbers from mac-m1.md**: load 5-14, mostly from its own runs. The same-run CPU/GPU ratio is given only as an **upper bound**. The GPU times themselves were taken under load 15-25, so they are if anything pessimistic.
+
+| workload | n | GPU (s) | load at GPU run | quiet CPU 8t (s), mac-m1.md | **GPU speedup vs quiet CPU** | same-run CPU (s) | same-run ratio (upper bound) | GPU / CPU passes | GPU % of 178 GB/s roof | setup (s) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| QFT | 20 | 0.0025 | 17.3 | — | — | 0.0044 | ≤1.76x | 8 / 3 | 30% | 0.0014 |
+| QFT | 22 | 0.0070 | 17.3 | 0.0154 | **2.20x** | 0.0150 | ≤2.14x | 9 / 4 | 48% | 0.0014 |
+| QFT | 24 | 0.0297 | 24.6 | 0.0620 | **2.09x** | 0.0792 | ≤2.67x | 10 / 5 | 51% | 0.0078 |
+| QFT | 26 | 0.1235 | 24.6 | 0.2285 | **1.85x** | 0.2278 | ≤1.84x | 11 / 5 | 54% | 0.020 |
+| QFT | 28 | 0.5378 | 17.9 | ≈0.919 (d) | **≈1.71x** | 0.9414 | ≤1.75x | 12 / 6 | 54% | 0.083 |
+| QFT | 29 | 1.1256 | 18.8 | — | — | 1.8484 | ≤1.64x | 12 / 6 | 51% | 0.228 |
+| brickwork d20 | 20 | 0.0121 | 24.8 | — | — | (0.134, load-hit) | — | 73 / 29 | 57% | 0.0015 |
+| brickwork d20 | 22 | 0.0521 | 24.8 | 0.1687 | **3.24x** | 0.1674 | ≤3.21x | 83 / 36 | 60% | 0.0014 |
+| brickwork d20 | 24 | 0.2291 | 19.5 | 0.6699 | **2.92x** | 0.7102 | ≤3.10x | 93 / 42 | 61% | 0.010 |
+| brickwork d20 | 26 | 1.0141 | 15.0 | ≈2.668 (d) | **≈2.63x** | 2.8383 | ≤2.80x | 103 / 49 | 61% | 0.033 |
+| brickwork d20 | 28 | 4.4914 | 19.3 | ≈10.65 (d) | **≈2.37x** | 11.7506 | ≤2.62x | 113 / 56 | 61% | 0.100 |
 
 How the table was measured:
+- **Load.** The load column is the macOS 1-min load average logged when each locked chunk started (block headers in `clean.out` / `scale.out`).
+- **Quiet CPU references.** These are the "FMA + 1 MiB" numbers of `mac-m1.md` §5. That is the configuration main now defaults to on aarch64, so it is exactly the CPU path benchmarked here.
+- **(d) = derived.** Section 5 has no n = 28 QFT or n = 26/28 brickwork rows, so these are the §2 8-thread `fma` (256 KiB block) times divided by the §3 measured 1 MiB-block gain for the same cell: QFT-28 1.0182/1.108, brickwork-26 2.7637/1.036, brickwork-28 11.5736/1.087.
+- **Sanity check.** Where a same-run CPU cell exists at a moderate load it matches the quiet reference: QFT-26 0.2278 vs 0.2285, brickwork-22 0.1674 vs 0.1687. So these cells were not badly hit, but they are still listed as bounds.
 - **Timing.** Min of 5 (n ≤ 26 QFT, n ≤ 22 brickwork) or 3 runs, interleaved: every repetition runs CPU and GPU once, and the order rotates each repetition. Both work on the same shared `MTLBuffer`, reset to |0> on the GPU before each run.
 - **What a time covers.** GPU time is plan (lowering, fusion, stage planning, diagonal tables; 0.3-1 ms, included) plus command-buffer submit to completion. CPU time is `BlockedChunkExecutor::from_kops` (its planning) plus `apply_to_chunk` on the same memory, as in `apply_circuit_blocked`.
 - **Setup.** `setup` is the `MTLBuffer` allocation plus |0> initialisation on the GPU, including the OS's first-touch page zeroing. It is done once per n and is not in the run times.
 - **Sources.** Rows come from `clean.out`, except QFT-29 and brickwork-28, which come from `scale.out`.
-- **The two roof columns.** "% of roof" is `passes × 16 B × 2^n / BW / time`, the fraction of the time the DRAM traffic alone would take at the measured streaming bandwidth. CPU passes come from `plan_stages` with the CPU's f32 parameters (2^17-amplitude block, 6 slots).
-- **Quiet references.** These are the "FMA + 1 MiB" rows of `mac-m1.md` §5. For n = 26/28 brickwork they are the 256 KiB-block numbers divided by the measured 1 MiB gain (§3), hence ≈.
-- `*` marks CPU cells visibly slowed by machine load (see Caveats).
+- **Roof column.** "% of roof" is `passes × 16 B × 2^n / BW / time`, the fraction of the time the DRAM traffic alone would take at the measured streaming bandwidth. CPU passes come from `plan_stages` with the CPU's f32 parameters (2^17-amplitude block, 6 slots).
+- **Lock gaps.** Chunks were 4-60 s, but the gaps between my own locked chunks were 30 s. The 60 s gap rule arrived during the run and I only read it afterwards.
 
 ![roofline](data/metal/roofline.png)
 
-The roofline above plots amplitude updates per second against amplitude updates per DRAM byte. The memory roofs are the measured streaming bandwidths: 178 GB/s for the GPU (in-place `scale4` kernel, n = 26-29) and 162 GB/s for the CPU (rayon in-place loop, n = 29). The GPU compute roof is the measured rate of register-local single-qubit gates, 137 G amplitude updates per second. The plot shows the main finding: **the CPU path is compute-bound** at 10-17% of its memory roof, while **the GPU runs at 51-61% of its memory roof** but makes 2.0-2.5x more passes. The two machines stream at similar speeds (178 vs 125-162 GB/s), so the GPU's advantage is arithmetic throughput, not bandwidth.
+The roofline above plots amplitude updates per second against amplitude updates per DRAM byte. The memory roofs are the measured streaming bandwidths: 178 GB/s for the GPU (in-place `scale4` kernel, n = 26-29) and 162 GB/s for the CPU (rayon in-place loop, n = 29). The GPU compute roof is the measured rate of register-local single-qubit gates, 137 G amplitude updates per second. The CPU points use the same-run (loaded) times; with the quiet references they move up by at most 10% and the picture doesn't change. The plot shows the main finding: **the CPU path is compute-bound** at 10-17% of its memory roof, while **the GPU runs at 51-61% of its memory roof** but makes 2.0-2.5x more passes. The two machines stream at similar speeds (178 vs 125-162 GB/s), so the GPU's advantage is arithmetic throughput, not bandwidth.
 
 ## Design
 
@@ -157,7 +160,7 @@ What would move it (not done here):
 
 - **Machine load.** The Mac was heavily shared during every run. The 1-min load was 15-25, sometimes 50, from other agents' campaigns run without the lock (`dem_distance`, `color_search`, `bin2`, superopt `python`/`qsim` at up to 650% CPU) and from Logic Pro at about 85% of one core. Every timing holds `/tmp/qsim-mac-bench.lock` and is interleaved, and each block header in the `.out` files logs the load, the top processes and a `rustc`/`cargo` contamination flag. A load gate (wait for load < 6) timed out after 15 minutes, so the "clean" pass ran at load 15-25.
   - The CPU baseline suffers from this more than the GPU. Most CPU cells nevertheless agree with mac-m1.md's quieter numbers to within 0-10%: QFT-26 0.2278 vs 0.2285, brickwork-22 0.1674 vs 0.1687, brickwork-24 0.7102 vs 0.6699.
-  - CPU brickwork-20 (0.134 s) and QFT-24 (0.079 s vs 0.062 s) are clearly inflated. Speedups against the quiet references are given in the table and are the conservative figures.
+  - CPU brickwork-20 (0.134 s) and QFT-24 (0.079 s vs 0.062 s) are clearly inflated. That is why the headline uses the quiet references and the same-run ratios are only upper bounds.
 - **30 qubits was not run.** An f32 state at n = 30 is 8 GiB. The device limit allows it (`maxBufferLength` 9.53 GB, recommended working set 12.7 GB), but free plus inactive RAM was 6.5-8.5 GB, with 2 GB of swap already in use, Logic Pro running and other agents' jobs resident. Running it would have pushed Dylan's laptop into heavy swapping. n = 29 (4 GiB) ran fine.
 - **Indices are 32-bit in the kernels**, so `MAX_QUBITS = 30`.
 - **f32 only.** Long circuits accumulate about 1e-7 per op of relative error, the same as the CPU f32 path. Use the CPU f64 path when precision matters.
