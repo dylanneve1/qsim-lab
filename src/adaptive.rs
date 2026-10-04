@@ -1202,6 +1202,12 @@ pub struct AdaptiveOptions {
     /// observed, as long as a rotation costs less in the frame than in the
     /// dense register.
     pub flat_evidence: bool,
+    /// When [`Strategy::Auto`] decides to switch, it first keeps sweeping
+    /// for this fraction of `min(cost of switching now, cost of a dense run
+    /// from scratch)`; if the frame has not finished by then it hands over
+    /// (if still cheaper than a restart) or restarts densely. `0`: off (the
+    /// round-4 behaviour).
+    pub explore_frac: f64,
 }
 
 impl Default for AdaptiveOptions {
@@ -1214,6 +1220,7 @@ impl Default for AdaptiveOptions {
             term_secs_per_visit: 6e-8,
             growth_prior: 0.5,
             flat_evidence: true,
+            explore_frac: 0.3,
         }
     }
 }
@@ -1233,6 +1240,9 @@ pub struct AdaptiveReport {
     pub dense_ops: u64,
     pub frame_secs: f64,
     pub dense_secs: f64,
+    /// [`Strategy::Auto`] explored past a switch decision, ran out of its
+    /// budget and restarted on the dense register from scratch.
+    pub restarted: bool,
 }
 
 /// Cost-model decision for [`Strategy::Auto`] at stage `k` (rotations
@@ -1349,6 +1359,10 @@ pub fn expectation(
         last: None,
     };
     let mut sweep_start: Option<Instant> = None;
+    let mut dense_total = f64::NAN;
+    let mut exploring: Option<(Instant, f64)> = None;
+    let mut explored = false;
+    let restart = std::cell::Cell::new(false);
     let mut policy = |k: usize, t: usize, d: &[usize], visits: u64| -> bool {
         match strategy {
             Strategy::Frame => false,
@@ -1356,6 +1370,32 @@ pub fn expectation(
             Strategy::SwitchAt(s) => (k <= s || t == usize::MAX) && d[k] <= max_d,
             Strategy::Auto => {
                 let start = *sweep_start.get_or_insert_with(Instant::now);
+                if dense_total.is_nan() {
+                    // first call: every rotation remains; the cost of a
+                    // dense run from scratch (infinite if it cannot run)
+                    let m = d.len() - 1;
+                    dense_total = if d[m] <= max_d {
+                        let ev: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
+                        opt.dense_secs_per_op * (ev + (1u64 << d[m].min(62)) as f64)
+                    } else {
+                        f64::INFINITY
+                    };
+                }
+                if let Some((t_dec, budget)) = exploring {
+                    if t != usize::MAX && t_dec.elapsed().as_secs_f64() < budget {
+                        return false;
+                    }
+                    // budget spent: hand over or restart, whichever is cheaper
+                    exploring = None;
+                    let dim = (1u64 << d[k].min(62)) as f64;
+                    let evolve: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
+                    let s_now = opt.dense_secs_per_op * (evolve + (t as f64) * dim);
+                    if t != usize::MAX && s_now <= dense_total && d[k] <= max_d {
+                        return true;
+                    }
+                    restart.set(true);
+                    return true;
+                }
                 let visit = if visits > 100_000 {
                     start.elapsed().as_secs_f64() / visits as f64
                 } else {
@@ -1377,7 +1417,23 @@ pub fn expectation(
                         return false;
                     }
                 }
-                auto_decide(k, t, d, visit, meter.growth(), opt)
+                let sw = auto_decide(k, t, d, visit, meter.growth(), opt);
+                if sw && opt.explore_frac > 0.0 && !explored && dense_total.is_finite() {
+                    // Ski-rental exploration past the switch (research/
+                    // planner-v2.md §5): the growth forecast is pessimistic on
+                    // circuits whose terms grow slowly (12-bit adders: frame
+                    // 10-30 ms, hand-over to a 25-qubit register 2-5 s), so
+                    // keep sweeping for `explore_frac` of the cheaper of
+                    // switching now and restarting densely; then hand over if
+                    // that is still cheaper than a dense restart, else restart.
+                    let dim = (1u64 << d[k].min(62)) as f64;
+                    let evolve: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
+                    let s_now = opt.dense_secs_per_op * (evolve + (t as f64) * dim);
+                    explored = true;
+                    exploring = Some((Instant::now(), opt.explore_frac * s_now.min(dense_total)));
+                    return false;
+                }
+                sw
             }
         }
     };
@@ -1392,6 +1448,29 @@ pub fn expectation(
             frame_secs,
             ..Default::default()
         }),
+        Staged::Switched(sp) if restart.get() => {
+            // exploration failed: run the dense register from scratch
+            let t1 = Instant::now();
+            let dense = expectation(
+                circuit,
+                observable,
+                &AdaptiveOptions {
+                    strategy: Strategy::Dense,
+                    ..*opt
+                },
+            )?;
+            Ok(AdaptiveReport {
+                value: dense.value,
+                switched_at: dense.switched_at,
+                dense_qubits: dense.dense_qubits,
+                handover_terms: 0,
+                frame_stats: sp.stats,
+                dense_ops: dense.dense_ops,
+                frame_secs,
+                dense_secs: t1.elapsed().as_secs_f64(),
+                restarted: true,
+            })
+        }
         Staged::Switched(sp) => {
             let t1 = Instant::now();
             let k = sp.stage;
@@ -1413,6 +1492,7 @@ pub fn expectation(
                 dense_ops: ops + eops,
                 frame_secs,
                 dense_secs: t1.elapsed().as_secs_f64(),
+                restarted: false,
             })
         }
     }

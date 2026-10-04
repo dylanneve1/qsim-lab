@@ -641,7 +641,10 @@ impl<T: Real> StateVector<T> {
     /// Each sample is a basis index (bit `q` = outcome of qubit `q`).
     ///
     /// Cost: one parallel pass to get block weights, then a single merged
-    /// walk over sorted random numbers, so `O(2^n + shots log shots)`.
+    /// walk over sorted random numbers, so `O(2^n + shots)`: the sorted
+    /// uniforms are drawn directly as normalised partial sums of `shots + 1`
+    /// standard exponentials (their joint law is exactly that of the order
+    /// statistics of `shots` uniforms), and the outcomes are shuffled.
     pub fn sample<R: Rng + ?Sized>(&self, shots: usize, rng: &mut R) -> Vec<usize> {
         let len = self.amps.len();
         let bs = BLOCK.min(len);
@@ -651,8 +654,7 @@ impl<T: Real> StateVector<T> {
             .map(|c| c.iter().map(|a| a.norm_sqr().to_f64()).sum())
             .collect();
         let total: f64 = sums.iter().sum();
-        let mut rs: Vec<f64> = (0..shots).map(|_| rng.random::<f64>() * total).collect();
-        rs.sort_by(|a, b| a.partial_cmp(b).expect("no NaN"));
+        let rs = sorted_uniforms(shots, total, rng);
         let mut out = Vec::with_capacity(shots);
         let (mut ci, mut acc_c) = (0usize, 0.0f64);
         let (mut j, mut acc_j) = (0usize, 0.0f64);
@@ -717,6 +719,26 @@ impl<T: Real> Simulator for StateVector<T> {
         self.reset_all();
         Ok(())
     }
+}
+
+/// `shots` sorted uniforms on `[0, total)` in `O(shots)`: normalised partial
+/// sums of `shots + 1` i.i.d. standard exponentials (Rényi's
+/// representation of uniform order statistics).
+pub fn sorted_uniforms<R: Rng + ?Sized>(shots: usize, total: f64, rng: &mut R) -> Vec<f64> {
+    let mut rs = Vec::with_capacity(shots);
+    let mut acc = 0.0f64;
+    let exp1 = |rng: &mut R| -(1.0 - rng.random::<f64>()).ln();
+    for _ in 0..shots {
+        acc += exp1(rng);
+        rs.push(acc);
+    }
+    let norm = acc + exp1(rng);
+    let k = total / norm;
+    for r in rs.iter_mut() {
+        // strictly below `total` (the walk treats `total` as past the end)
+        *r = (*r * k).min(total * (1.0 - f64::EPSILON));
+    }
+    rs
 }
 
 #[cfg(test)]

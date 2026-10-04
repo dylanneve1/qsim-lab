@@ -596,10 +596,22 @@ pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
     if n < 2 {
         return Ok(());
     }
-    let gates = gate_list(c);
     let th = Instant::now();
     let opts = HsfOptions::default();
     let in_a = hsf::auto_partition(c, &opts)?;
+    hsf_split_features(c, f, &in_a)?;
+    f.secs_hsf = th.elapsed().as_secs_f64();
+    Ok(())
+}
+
+/// The HSF fields of [`Features`] for a given partition `in_a` (O(gates);
+/// [`add_hsf_features`] uses the Kernighan–Lin partition, the planner also
+/// prices the plain line split `[0, n/2) | [n/2, n)` this way).
+pub fn hsf_split_features(c: &Circuit, f: &mut Features, in_a: &[bool]) -> Result<(), SimError> {
+    let n = c.num_qubits;
+    let gates = gate_list(c);
+    let opts = HsfOptions::default();
+    let in_a = in_a.to_vec();
     f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
     f.hsf_na = in_a.iter().filter(|&&x| x).count();
     f.hsf_nb = n - f.hsf_na;
@@ -610,7 +622,6 @@ pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
     let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
     f.hsf_l = cost(f.hsf_keff as f64);
     f.hsf_l0 = cost(f.hsf_k as f64);
-    f.secs_hsf = th.elapsed().as_secs_f64();
     Ok(())
 }
 
@@ -936,7 +947,7 @@ pub fn run_engine_obs(
             run.value = st.expectation(&PauliSum::z_product(n, &all));
             run.size = st.active_qubits() as f64;
         }
-        "frame" | "dense" | "auto" => {
+        "frame" | "dense" | "auto" | "auto0" => {
             let max_d = ((mem_bytes / 16).max(1).ilog2() as usize).min(30);
             let strategy = match engine {
                 "frame" => Strategy::Frame,
@@ -944,6 +955,14 @@ pub fn run_engine_obs(
                 _ => Strategy::Auto,
             };
             let opt = AdaptiveOptions {
+                // QSIM_EXPLORE_FRAC: ablation of Auto's exploration budget
+                // `auto0`: Auto without the v2 exploration past a switch
+                // (the round-4 behaviour), for A/B timings
+                explore_frac: if engine == "auto0" {
+                    0.0
+                } else {
+                    AdaptiveOptions::default().explore_frac
+                },
                 strategy,
                 max_dense_qubits: max_d,
                 frame: FrameOptions {
@@ -961,12 +980,14 @@ pub fn run_engine_obs(
                 _ => r.dense_qubits as f64,
             };
             run.note = format!(
-                "switched_at={:?} dense_qubits={} peak_terms={} term_visits={} dense_ops={}",
+                "switched_at={:?} dense_qubits={} peak_terms={} term_visits={} dense_ops={} frame_secs={:.6} restarted={}",
                 r.switched_at,
                 r.dense_qubits,
                 r.frame_stats.peak_terms,
                 r.frame_stats.term_visits,
-                r.dense_ops
+                r.dense_ops,
+                r.frame_secs,
+                r.restarted
             );
         }
         "plan" | "planx" | "planp" => {

@@ -6,15 +6,18 @@
 //! simulate(circuit, Request, Budget)
 //!   -> compile (src/compile): peephole, SWAP elimination, state propagation,
 //!      light cone of the request, connected components, classical suffix
-//!   -> expectation values: per component, Planner v0 ([`crate::planner`]):
+//!   -> expectation values: per component, the planner ([`crate::planner`]):
 //!      vanishing certificate, tableau, or the state engine with the lowest
 //!      fitted cost (state vector, sparse, MPS, HSF, compressed state)
-//!   -> samples / amplitudes: per component, rule-based choice (thresholds below):
-//!        Clifford                        -> stabilizer tableau
-//!        terminal sampling, few outputs  -> Pauli-path marginals
-//!        Clifford+T, small active dim d  -> compressed state ([`crate::adaptive`])
-//!        everything else                 -> dense state vector, run through
-//!                                           the cache-blocked executor
+//!   -> terminal samples: per component, the rules below pick tableau (Clifford)
+//!      and Pauli-path marginals (few outputs); every other component (<= 128
+//!      qubits) goes to Planner v2, which ranks state vector, sparse, MPS
+//!      perfect sampling, HSF and the compressed sampler by evolution +
+//!      read-out cost for the requested number of shots
+//!   -> amplitudes: per component (<= 63 qubits), Planner v2 over the
+//!      engines that keep the global phase (state vector, sparse, MPS, HSF
+//!      path sums for the requested basis states)
+//!   -> mid-circuit measurements: rule-based (tableau or state vector, shot by shot)
 //!   -> combine (product of components, classical suffix)
 //! ```
 //!
@@ -22,7 +25,7 @@
 //! the compile passes keep amplitudes (up to the tracked global phase, which
 //! [`Request::Amplitudes`] restores) and outcome distributions unchanged.
 //!
-//! # Rule thresholds (seed for the learned planner)
+//! # Rule thresholds (still used for tableau / Pauli paths / mid-circuit runs)
 //!
 //! * **Tableau** when the component is Clifford (any size).
 //! * **Pauli paths** (terminal sampling only) when `needed <= 12` measured
@@ -401,19 +404,45 @@ fn simulate_plain(
     debug: bool,
 ) -> Result<Simulation, SimError> {
     let opts = plan_options();
+    let planner_cfg = crate::planner::PlannerConfig {
+        mem_bytes: budget.mem_bytes.min(MAX_STATE_BYTES),
+        debug_reference: debug,
+        ..Default::default()
+    };
     match request {
         Request::Samples { shots, seed } => {
+            // Planner v2 (research/planner-v2.md) picks the engine of every
+            // terminal component that would otherwise need a state vector
+            // or the compressed state; it respects the budget itself.
+            let opts = PlanOptions {
+                planner: Some(planner_cfg),
+                ..opts
+            };
             let plan = compile_sampling(circuit, opts)?;
-            check_budget(&plan.stats, budget)?;
+            let mut unplanned = plan.stats.clone();
+            unplanned.components = plan
+                .components()
+                .iter()
+                .filter(|c| c.circuit.num_gates() > 0 && !plan.planned(c))
+                .map(|c| (c.qubits.len(), c.circuit.num_gates(), c.backend))
+                .collect();
+            check_budget(&unplanned, budget)?;
             let mut rng = StdRng::seed_from_u64(*seed);
-            let out = plan.sample::<f64, _>(*shots, &mut rng)?;
+            let (out, engines) = plan.sample_report::<f64, _>(*shots, &mut rng)?;
             Ok(Simulation {
                 output: Output::Samples(out),
-                engines: plan.stats.components.clone(),
+                engines,
             })
         }
         Request::Amplitudes(xs) => {
             let plan = compile_unitary(circuit, opts)?;
+            if plan.components().iter().all(|c| c.qubits.len() <= 63) {
+                let (amps, engines) = plan.amplitudes_planned(xs, &planner_cfg)?;
+                return Ok(Simulation {
+                    output: Output::Amplitudes(amps),
+                    engines,
+                });
+            }
             check_budget(&plan.stats, budget)?;
             let state = plan.factored::<f64>()?;
             Ok(Simulation {
@@ -424,11 +453,7 @@ fn simulate_plain(
         Request::Expectation(qs) => {
             // Expectation values go through Planner v0 (research/planner.md).
             let opts = PlanOptions {
-                planner: Some(crate::planner::PlannerConfig {
-                    mem_bytes: budget.mem_bytes.min(MAX_STATE_BYTES),
-                    debug_reference: debug,
-                    ..Default::default()
-                }),
+                planner: Some(planner_cfg),
                 ..opts
             };
             let v = expectation_z_product(circuit, qs, opts)?;

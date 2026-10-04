@@ -1,0 +1,81 @@
+{"spec": "ct:n=32,L=4,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0124245, "a1": 0.0125775, "a1k": 0.0139805, "wall": 0.04575014114379883}
+{"spec": "ct:n=24,L=32,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0050488, "a1": 0.7480743, "a1k": 0.7907014, "wall": 1.54958176612854}
+{"spec": "ct:n=32,L=16,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0132525, "a1": 0.2763503, "a1k": 0.2900709, "wall": 0.5863111019134521}
+{"spec": "ct:n=32,L=2,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0124822, "a1": 0.0068879, "a1k": 0.0077722, "wall": 0.03319501876831055}
+{"spec": "ct:n=32,L=16,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0133218, "a1": 0.3502502, "a1k": 0.3295714, "wall": 0.699800968170166}
+{"spec": "ct:n=24,L=32,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0055851, "a1": 0.3455498, "a1k": 0.3575458, "wall": 0.7156059741973877}
+{"spec": "ct:n=32,L=2,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0133179, "a1": 0.0062914, "a1k": 0.0054427, "wall": 0.03179001808166504}
+{"spec": "ct:n=32,L=8,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0127684, "a1": 0.0281804, "a1k": 0.0283728, "wall": 0.0757899284362793}
+{"spec": "brick:n=26,D=1,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0030748, "a1": 0.0011505, "a1k": 0.0010817, "wall": 0.011848211288452148}
+{"spec": "ct:n=32,L=16,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0129351, "a1": 0.1022656, "a1k": 0.1049764, "wall": 0.22753095626831055}
+{"spec": "ct:n=32,L=4,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0127505, "a1": 0.0105882, "a1k": 0.0107987, "wall": 0.04044532775878906}
+{"spec": "ct:n=32,L=1,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0053145, "a1": 0.0055307, "a1k": 0.0059009, "wall": 0.024209260940551758}
+{"spec": "ct:n=32,L=4,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0127408, "a1": 0.0085967, "a1k": 0.0109692, "wall": 0.03881216049194336}
+{"spec": "ct:n=32,L=4,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0127796, "a1": 0.0138898, "a1k": 0.0138517, "wall": 0.04805707931518555}
+{"spec": "ct:n=32,L=16,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0126587, "a1": 0.0911281, "a1k": 0.0907009, "wall": 0.20107269287109375}
+{"spec": "qaoa:n=24,p=3,deg=3,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 68719476736, "evolve": 0.0060511, "a1": 0.3333455, "a1k": 0.967085, "wall": 1.3134040832519531}
+{"spec": "ct:n=32,L=8,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0126066, "a1": 0.0197273, "a1k": 0.0180166, "wall": 0.056900978088378906}
+{"spec": "ct:n=20,L=8,t=24,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=16,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0126696, "a1": 0.3002388, "a1k": 0.2890251, "wall": 0.6088120937347412}
+{"spec": "ct:n=32,L=1,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0057264, "a1": 0.0031774, "a1k": 0.0019198, "wall": 0.01768803596496582}
+{"spec": "ct:n=32,L=1,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.005384, "a1": 0.0035292, "a1k": 0.0038637, "wall": 0.019639253616333008}
+{"spec": "brick:n=26,D=3,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0072803, "a1": 0.0038088, "a1k": 0.0029732, "wall": 0.022172212600708008}
+{"spec": "ct:n=32,L=2,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.013796, "a1": 0.0048355, "a1k": 0.0068435, "wall": 0.03184914588928223}
+{"spec": "ct:n=32,L=1,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.005547, "a1": 0.0055657, "a1k": 0.0051862, "wall": 0.023030757904052734}
+{"spec": "ct:n=32,L=4,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0135432, "a1": 0.0133717, "a1k": 0.0124002, "wall": 0.04625391960144043}
+{"spec": "qaoa:n=24,p=2,deg=3,nn=0", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1048576, "evolve": 0.0089884, "a1": 1.4589957, "a1k": 1.2054283, "wall": 2.6809298992156982}
+{"spec": "ct:n=24,L=32,t=2,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0055804, "a1": 0.694404, "a1k": 0.710182, "wall": 1.4179949760437012}
+{"spec": "ct:n=32,L=16,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.012721, "a1": 0.1745622, "a1k": 0.1737307, "wall": 0.3678603172302246}
+{"spec": "brick:n=26,D=6,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 8, "evolve": 0.0070869, "a1": 0.0043952, "a1k": 0.0047021, "wall": 0.023869037628173828}
+{"spec": "ct:n=32,L=2,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0128793, "a1": 0.0056679, "a1k": 0.0062556, "wall": 0.0315089225769043}
+{"spec": "ct:n=32,L=1,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0056677, "a1": 0.0113569, "a1k": 0.0071821, "wall": 0.03197598457336426}
+{"spec": "ct:n=32,L=32,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=2,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0127425, "a1": 0.0068636, "a1k": 0.0083474, "wall": 0.03547811508178711}
+{"spec": "brick:n=26,D=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0070408, "a1": 0.0073973, "a1k": 0.0080123, "wall": 0.029722929000854492}
+{"spec": "brick:n=24,D=6,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=24,L=8,t=0,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=16,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0137311, "a1": 0.4112739, "a1k": 0.395895, "wall": 0.8291709423065186}
+{"spec": "qaoa:n=24,p=3,deg=3,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=32,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=32,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=8,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0126345, "a1": 0.0305289, "a1k": 0.0264673, "wall": 0.07704615592956543}
+{"spec": "brick:n=26,D=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0070579, "a1": 0.0792633, "a1k": 0.0963626, "wall": 0.19226694107055664}
+{"spec": "ct:n=32,L=4,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0123917, "a1": 0.0116539, "a1k": 0.0131725, "wall": 0.046029090881347656}
+{"spec": "ct:n=32,L=2,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0124703, "a1": 0.0046723, "a1k": 0.00585, "wall": 0.02995610237121582}
+{"spec": "ct:n=24,L=8,t=8,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=20,L=8,t=32,nn=0", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1048576, "evolve": 0.0120442, "a1": 1.3924657, "a1k": 1.6384348, "wall": 3.0540931224823}
+{"spec": "ct:n=24,L=32,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0050497, "a1": 1.1687519, "a1k": 1.2357092, "wall": 2.4160501956939697}
+{"spec": "ct:n=32,L=32,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=20,L=8,t=4,nn=0", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4194304, "evolve": 0.009114, "a1": 0.5047327, "a1k": 0.5401122, "wall": 1.0621602535247803}
+{"spec": "ct:n=32,L=2,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0128395, "a1": 0.0122559, "a1k": 0.0127223, "wall": 0.044259071350097656}
+{"spec": "ct:n=24,L=8,t=16,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=20,L=8,t=0,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=20,L=8,t=16,nn=0", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1048576, "evolve": 0.0102623, "a1": 1.107151, "a1k": 1.2417149, "wall": 2.3662800788879395}
+{"spec": "ct:n=32,L=8,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0128822, "a1": 0.0238619, "a1k": 0.0250687, "wall": 0.06914186477661133}
+{"spec": "ct:n=24,L=8,t=24,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=8,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.012411, "a1": 0.0346773, "a1k": 0.030292, "wall": 0.08529210090637207}
+{"spec": "ct:n=32,L=1,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.005555, "a1": 0.007791, "a1k": 0.0039947, "wall": 0.02385401725769043}
+{"spec": "brick:n=26,D=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0066152, "a1": 0.0024185, "a1k": 0.0026155, "wall": 0.01848912239074707}
+{"spec": "ct:n=32,L=8,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0133448, "a1": 0.0261051, "a1k": 0.0246162, "wall": 0.07053375244140625}
+{"spec": "ct:n=32,L=32,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=24,L=32,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0050611, "a1": 1.3105015, "a1k": 1.3529248, "wall": 2.675264835357666}
+{"spec": "brick:n=26,D=2,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0065031, "a1": 0.0010905, "a1k": 0.0012294, "wall": 0.016194820404052734}
+{"spec": "ct:n=32,L=8,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0123973, "a1": 0.0319678, "a1k": 0.0283538, "wall": 0.07911109924316406}
+{"spec": "brick:n=26,D=12,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 64, "evolve": 0.006976, "a1": 0.0211954, "a1k": 0.0256543, "wall": 0.0603480339050293}
+{"spec": "ct:n=32,L=4,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.0124779, "a1": 0.0141128, "a1k": 0.0137505, "wall": 0.04683399200439453}
+{"spec": "ct:n=24,L=32,t=48,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0050342, "a1": 1.264761, "a1k": 1.3312171, "wall": 2.607896089553833}
+{"spec": "ct:n=32,L=32,t=16,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=32,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=1,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0053511, "a1": 0.004842, "a1k": 0.003408, "wall": 0.020756959915161133}
+{"spec": "ct:n=24,L=32,t=12,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.004983, "a1": 1.3475369, "a1k": 1.4242565, "wall": 2.7840802669525146}
+{"spec": "ct:n=32,L=4,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 4, "evolve": 0.012276, "a1": 0.0110002, "a1k": 0.0077988, "wall": 0.037567138671875}
+{"spec": "ct:n=24,L=8,t=4,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=24,L=32,t=32,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0051562, "a1": 0.6371667, "a1k": 0.6697932, "wall": 1.3194968700408936}
+{"spec": "ct:n=32,L=16,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 256, "evolve": 0.0125715, "a1": 0.0838263, "a1k": 0.100642, "wall": 0.2034459114074707}
+{"spec": "ct:n=32,L=1,t=8,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 1, "evolve": 0.0058166, "a1": 0.0036428, "a1k": 0.0045249, "wall": 0.020097970962524414}
+{"spec": "ct:n=24,L=8,t=32,nn=0", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=24,L=32,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0053914, "a1": 2.4616714, "a1k": 2.6055088, "wall": 5.079955339431763}
+{"spec": "ct:n=24,L=32,t=24,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 65536, "evolve": 0.0051283, "a1": 1.184117, "a1k": 1.2379559, "wall": 2.434159994125366}
+{"spec": "ct:n=32,L=32,t=0,nn=1", "seed": "1", "job": "hsfamp", "ok": false, "error": "timeout", "wall": 8.0}
+{"spec": "ct:n=32,L=2,t=4,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 2, "evolve": 0.0125306, "a1": 0.0047816, "a1k": 0.0062913, "wall": 0.03288006782531738}
+{"spec": "ct:n=32,L=8,t=64,nn=1", "seed": "1", "job": "hsfamp", "ok": true, "hsf_paths": 16, "evolve": 0.0127282, "a1": 0.0403346, "a1k": 0.0464953, "wall": 0.10715913772583008}

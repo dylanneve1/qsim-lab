@@ -1,0 +1,22 @@
+round-4 Auto (auto2): n=287 geo=1.322 median=1.219 p90=2.25 max=338.5 | best>=1ms n=99 geo=1.417 max=338.5
+v2 Auto (auto3): n=287 geo=1.198 median=1.230 p90=2.27 max=256.9 | best>=1ms n=99 geo=1.152 max=6.7
+worst v2 Auto:
+     256.9x arith:bits=6,h=0,reps=1  auto3 0.0483s  auto2 0.000845s  best(frame,dense) 0.000188s
+      57.9x arith:bits=6,h=0,reps=2  auto3 0.01911s  auto2 0.000871s  best(frame,dense) 0.00033s
+       6.7x qaoa:n=16,p=1,deg=2,nn=1  auto3 0.008122s  auto2 0.007744s  best(frame,dense) 0.001209s
+       5.9x qaoa:n=20,p=1,deg=2,nn=1  auto3 0.1064s  auto2 0.1004s  best(frame,dense) 0.01795s
+       4.2x arith:bits=6,h=1,reps=1  auto3 0.001139s  auto2 0.001385s  best(frame,dense) 0.000269s
+       3.8x ct:n=20,L=1,t=16,nn=0  auto3 0.000338s  auto2 0.000171s  best(frame,dense) 8.9e-05s
+       3.3x brick:n=12,D=3,nn=1  auto3 0.001651s  auto2 0.001513s  best(frame,dense) 0.0005s
+       3.1x brick:n=12,D=1,nn=1  auto3 0.000756s  auto2 0.000663s  best(frame,dense) 0.000247s
+largest changes (auto2/auto3):
+    269.29x arith:bits=12,h=6,reps=1  auto2 3.589s -> auto3 0.01333s  best 0.01369s
+    201.50x arith:bits=12,h=4,reps=1  auto2 1.695s -> auto3 0.008414s  best 0.005009s
+      0.02x arith:bits=6,h=0,reps=1  auto2 0.000845s -> auto3 0.0483s  best 0.000188s
+     34.56x arith:bits=10,h=4,reps=1  auto2 0.1102s -> auto3 0.003188s  best 0.004534s
+     25.61x arith:bits=10,h=6,reps=1  auto2 0.2253s -> auto3 0.008796s  best 0.008901s
+      0.05x arith:bits=6,h=0,reps=2  auto2 0.000871s -> auto3 0.01911s  best 0.00033s
+      3.07x arith:bits=8,h=4,reps=1  auto2 0.007782s -> auto3 0.002533s  best 0.002987s
+      0.37x qaoa:n=24,p=1,deg=3,nn=0  auto2 0.000283s -> auto3 0.000763s  best 0.000281s
+      0.51x ct:n=20,L=1,t=16,nn=0  auto2 0.000171s -> auto3 0.000338s  best 8.9e-05s
+      1.83x brick:n=24,D=1,nn=0  auto2 4.533s -> auto3 2.479s  best 1.675s
