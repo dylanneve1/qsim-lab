@@ -122,3 +122,24 @@ def wait_memory(min_gb=4.0, procs=()):
     for p in procs:
         p.send_signal(signal.SIGCONT)
     return time.time() - t0
+
+
+def mem_report():
+    """peak RSS of this process (MB), system wired memory (GB), MLX peak/active (MB)"""
+    import resource
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20  # bytes on macOS
+    wired = None
+    try:
+        out = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
+        ps = int(out.split("page size of ")[1].split()[0])
+        wired = round(int(out.split("Pages wired down:")[1].split()[0].rstrip(".")) * ps / 2**30, 2)
+    except Exception:
+        pass
+    r = dict(peak_rss_mb=round(rss, 1), wired_gb=wired, free_inactive_gb=round(mem_available_gb(), 2))
+    try:
+        import mlx.core as mx
+        r.update(mlx_peak_mb=round(mx.get_peak_memory() / 2**20, 1), mlx_active_mb=round(mx.get_active_memory() / 2**20, 1),
+                 mlx_cache_mb=round(mx.get_cache_memory() / 2**20, 1))
+    except Exception:
+        pass
+    return r

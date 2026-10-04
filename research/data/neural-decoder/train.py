@@ -29,6 +29,7 @@ ap.add_argument("--val-shots", type=int, default=1 << 17)
 ap.add_argument("--seed", type=int, default=1000)
 ap.add_argument("--resume", default=None)
 ap.add_argument("--eval-every", type=int, default=2000)
+ap.add_argument("--max-minutes", type=float, default=45.0)  # hard wall-clock cap (incl. pauses)
 a = ap.parse_args()
 os.makedirs(a.out, exist_ok=True)
 if mem_available_gb() < 4.0:
@@ -106,8 +107,12 @@ for it in range(1, a.steps + 1):
         print(f"it {it} loss {np.mean(run):.5f} shots {seen} {seen / (time.time() - t0 - paused):.0f}/s "
               f"lr {sched(opt.step).item():.2e} dropped {dropped} paused {paused:.0f}s", flush=True)
         run = []
-    if (it % a.eval_every == 0 or it == a.steps):
-        rec = dict(it=it, shots=seen, train_s=round(time.time() - t0 - paused, 1), params=int(nparams))
+    over = time.time() - t0 > 60 * a.max_minutes
+    if it % 200 == 0:
+        print(json.dumps(mem_report()), flush=True)
+    if (it % a.eval_every == 0 or it == a.steps or over):
+        rec = dict(it=it, shots=seen, train_s=round(time.time() - t0 - paused, 1), wall_s=round(time.time() - t0, 1),
+                   params=int(nparams), **mem_report())
         if val is not None:
             pr = predict(model, val[0]) > 0
             f = int((pr != val[1].astype(bool)).sum())
@@ -117,5 +122,8 @@ for it in range(1, a.steps + 1):
         model.save_weights(os.path.join(a.out, "model.safetensors"))
         json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=it, shots=seen),
                   open(os.path.join(a.out, "cfg.json"), "w"))
+    if over:
+        print(f"wall-clock cap {a.max_minutes} min reached at it {it}", flush=True)
+        break
 for s in streams:
     s.close()
