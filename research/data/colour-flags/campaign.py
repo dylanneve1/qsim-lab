@@ -26,13 +26,15 @@ if os.path.exists(out):
 
 def run(job, seed):
     if job["dec"] == "tess":
-        env = dict(os.environ, TESS_ORDERS=str(job.get("orders", 16)), TESS_BEAM=str(job.get("beam", 15)), CS=CS)
+        env = dict(os.environ, TESS_ORDERS=str(job.get("orders", 16)), TESS_BEAM=str(job.get("beam", 15)), CS=CS,
+                   OWN_LOCK="1")
         cmd = [PY, os.path.join(HERE, "ler_tess.py"), str(job["d"]), str(job["R"]), job["noise"], str(job["p"]),
                job["spec"], str(job["chunk"]), str(seed), str(job["workers"]), job.get("basis", "z")]
     else:
         env = dict(os.environ, BASIS=job.get("basis", "z"))
         cmd = [LER, str(job["d"]), str(job["R"]), job["noise"], str(job["p"]), job["spec"], str(job["chunk"]),
                str(seed), str(job["workers"]), str(job.get("osd", 100))]
+    cmd = ["nice", "-n", os.environ.get("NICE", "10")] + cmd
     r = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
     return json.loads(r.stdout.strip().splitlines()[-1])
 

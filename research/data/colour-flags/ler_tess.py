@@ -39,7 +39,8 @@ def make():
 
 
 def work_chunk(idx):
-    while os.path.isdir("/tmp/qsim-mac-bench.lock"):  # never decode during a peer's timing run
+    while os.environ.get("OWN_LOCK") != "1" and os.path.isdir("/tmp/qsim-mac-bench.lock"):
+        # never decode during a peer's timing run (campaign.py holds the lock itself: OWN_LOCK=1)
         time.sleep(5)
     dec = make()
     sl = slice(idx[0], idx[1])
