@@ -1,0 +1,1 @@
+{"spec":"shorwin:nbits=8,w=2,in=half","env":"RANK_PM_MAXR=4096","cap":8192,"result":"killed by timeout 1200 s with no output (pair merges at r in the thousands are too slow)"}
