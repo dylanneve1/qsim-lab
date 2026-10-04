@@ -1,5 +1,7 @@
 //! Per-gadget logical failure rates (1-exRec style) at levels 1 and 2:
-//! ft_exrec <level> <p> <trials> <seed>
+//! ft_exrec <level> <p> <trials> <seed> [gadget]
+//! Each trial: perfect inputs, a noisy leading EC, the gadget (with its
+//! trailing EC), then ideal decoding.
 use qsim_lab::ft::backends::FrameBackend;
 use qsim_lab::ft::core::Noise;
 use qsim_lab::ft::machine::{ideal_logical, FtConfig, Machine};
@@ -11,7 +13,13 @@ fn main() {
     let n: u64 = a[3].parse().unwrap();
     let seed: u64 = a[4].parse().unwrap();
     let names = ["prep0", "prep+", "ec", "h", "s", "id", "cnot", "measZ", "measX", "inject"];
+    let only: Option<String> = a.get(5).cloned();
     for (oi, name) in names.iter().enumerate() {
+        if let Some(o) = &only {
+            if o != name {
+                continue;
+            }
+        }
         let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed + oi as u64), FtConfig::default(), k);
         let x = m.alloc(k);
         let y = m.alloc(k);
@@ -23,6 +31,11 @@ fn main() {
             m.prep0(k, y);
             m.noise.suspended = false;
             let l0 = m.noise.loc;
+            // leading EC on the input blocks (1-exRec = leading EC + gadget + trailing EC)
+            if oi != 9 {
+                m.ec(k, x);
+                m.ec(k, y);
+            }
             let mut flip = false;
             match oi {
                 0 => m.prep0(k, x),

@@ -1,16 +1,14 @@
 #!/bin/sh
 # FT-Shor campaign (Mac, 2 workers). Usage: campaign.sh <jobfile> <outfile>
-# Each job line: arguments to ft_shor. Workers pause (SIGSTOP) while the
+# Each job line: an example binary name + its arguments. Workers pause (SIGSTOP) while the
 # swarm bench lock is held.
-B=${B:-$HOME/qsim-ft-target/release/examples/ft_shor}
+BIN=${BIN:-$HOME/qsim-ft-target/release/examples}
 JOBS=$1; OUT=$2
-run() { $B $@ >> "$OUT"; }
-export -f run 2>/dev/null
-cat "$JOBS" | xargs -P 2 -I{} sh -c "$B {} >> $OUT" &
+cat "$JOBS" | xargs -P 2 -I{} sh -c "$BIN/{} >> $OUT" &
 XP=$!
 while kill -0 $XP 2>/dev/null; do
-  if [ -d /tmp/qsim-mac-bench.lock ]; then pkill -STOP -f "examples/ft_shor"; else pkill -CONT -f "examples/ft_shor"; fi
+  if [ -d /tmp/qsim-mac-bench.lock ]; then pkill -STOP -f "examples/ft_"; else pkill -CONT -f "examples/ft_"; fi
   sleep 5
 done
-pkill -CONT -f "examples/ft_shor"
+pkill -CONT -f "examples/ft_"
 echo DONE >> "$OUT.done"
