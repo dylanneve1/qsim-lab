@@ -6,15 +6,18 @@
 //! simulate(circuit, Request, Budget)
 //!   -> compile (src/compile): peephole, SWAP elimination, state propagation,
 //!      light cone of the request, connected components, classical suffix
-//!   -> expectation values: per component, Planner v0 ([`crate::planner`]):
+//!   -> expectation values: per component, the planner ([`crate::planner`]):
 //!      vanishing certificate, tableau, or the state engine with the lowest
 //!      fitted cost (state vector, sparse, MPS, HSF, compressed state)
-//!   -> samples / amplitudes: per component, rule-based choice (thresholds below):
-//!        Clifford                        -> stabilizer tableau
-//!        terminal sampling, few outputs  -> Pauli-path marginals
-//!        Clifford+T, small active dim d  -> compressed state ([`crate::adaptive`])
-//!        everything else                 -> dense state vector, run through
-//!                                           the cache-blocked executor
+//!   -> terminal samples: per component, the rules below pick tableau (Clifford)
+//!      and Pauli-path marginals (few outputs); every other component (<= 128
+//!      qubits) goes to Planner v2, which ranks state vector, sparse, MPS
+//!      perfect sampling, HSF and the compressed sampler by evolution +
+//!      read-out cost for the requested number of shots
+//!   -> amplitudes: per component (<= 63 qubits), Planner v2 over the
+//!      engines that keep the global phase (state vector, sparse, MPS, HSF
+//!      path sums for the requested basis states)
+//!   -> mid-circuit measurements: rule-based (tableau or state vector, shot by shot)
 //!   -> combine (product of components, classical suffix)
 //! ```
 //!
@@ -22,7 +25,7 @@
 //! the compile passes keep amplitudes (up to the tracked global phase, which
 //! [`Request::Amplitudes`] restores) and outcome distributions unchanged.
 //!
-//! # Rule thresholds (seed for the learned planner)
+//! # Rule thresholds (still used for tableau / Pauli paths / mid-circuit runs)
 //!
 //! * **Tableau** when the component is Clifford (any size).
 //! * **Pauli paths** (terminal sampling only) when `needed <= 12` measured
