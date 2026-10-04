@@ -1,0 +1,5 @@
+validate n=20 seed=0 p_m=0.1 p_t=0.1 depth=40: meas=85 max|Δp|=3.37e-13 fidelity-1=1.89e-13 d_final=13 d_max=18 S2_half=Some(4.7773102294137715) [0, 7] (37.2s)
+validate n=20 seed=1 p_m=0.2 p_t=0.05 depth=40: meas=176 max|Δp|=1.15e-11 fidelity-1=1.88e-13 d_final=1 d_max=6 S2_half=Some(0.9999999999999993) [0, 1] (70.6s)
+validate n=20 seed=2 p_m=0.3 p_t=0.2 depth=40: meas=273 max|Δp|=1.57e-13 fidelity-1=2.00e-13 d_final=7 d_max=14 S2_half=Some(0.999999999999999) [0, 3] (58.2s)
+validate n=22 seed=0 p_m=0.1 p_t=0.1 depth=44: meas=97 max|Δp|=9.95e-14 fidelity-1=2.28e-13 d_final=14 d_max=18 S2_half=Some(3.729220894835973) [0, 9] (50.3s)
+validate n=22 seed=1 p_m=0.2 p_t=0.05 depth=44: meas=188 max|Δp|=1.98e-13 fidelity-1=1.96e-13 d_final=4 d_max=10 S2_half=Some(1.0131285961994663) [0, 3] (48.5s)
