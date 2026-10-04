@@ -379,6 +379,22 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
                 },
             )
         }
+        Oracle::WindowedOpt(w) => {
+            let lay = crate::shor_window::WindowLayout::new(inst.m, w);
+            let c = crate::shor_superopt::controlled_ua(
+                &lay,
+                mult,
+                inst.n_mod,
+                &crate::shor_superopt::Opts::ALL,
+            );
+            (
+                c,
+                SliceIo {
+                    ctrl: lay.ctrl,
+                    x: lay.x.clone(),
+                },
+            )
+        }
         o => panic!("sliced branch tracking needs a reversible oracle, not {o:?}"),
     }
 }
@@ -444,7 +460,10 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
 
 impl<T: Real> SlicedState<T> {
     pub fn new(inst: &Instance) -> Self {
-        assert!(matches!(inst.oracle, Oracle::Ripple | Oracle::Windowed(_)));
+        assert!(matches!(
+            inst.oracle,
+            Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
+        ));
         Self {
             keys: vec![1],
             amps: vec![Complex::new(T::one(), T::zero())],

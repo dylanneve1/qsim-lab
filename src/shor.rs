@@ -52,6 +52,10 @@ pub enum Oracle {
     /// Windowed (table-lookup) ripple-carry circuit, window `w`
     /// ([`crate::shor_window`]), `4n + 4 + w` qubits; X, CNOT, CCX only.
     Windowed(usize),
+    /// The windowed oracle with the superoptimised building blocks of
+    /// [`crate::shor_superopt`] (all of [`crate::shor_superopt::Opts::ALL`]);
+    /// same layout, `4n + 4 + w` qubits, X, CNOT, CCX only.
+    WindowedOpt(usize),
 }
 
 /// A simulator state that can run semiclassical order finding.
@@ -325,7 +329,7 @@ impl Instance {
             Oracle::Permutation => self.m + 1,
             Oracle::Beauregard => 2 * self.m + 3,
             Oracle::Ripple => 3 * self.m + 4,
-            Oracle::Windowed(w) => 4 * self.m + 4 + w.min(self.m),
+            Oracle::Windowed(w) | Oracle::WindowedOpt(w) => 4 * self.m + 4 + w.min(self.m),
         }
     }
 
@@ -389,7 +393,7 @@ impl Instance {
                 }
                 s.gate(&Gate::H(0));
             }
-            Oracle::Windowed(_) => {
+            Oracle::Windowed(_) | Oracle::WindowedOpt(_) => {
                 let (c, _) = sliced::oracle_block(self, mult);
                 s.gate(&Gate::H(0));
                 for g in c.gates() {
@@ -444,7 +448,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
                 let c = shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
                 total_gates += c.ops.len() + 2 + usize::from(y != 0);
             }
-            Oracle::Ripple | Oracle::Windowed(_) => {
+            Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_) => {
                 let (c, _) = sliced::oracle_block(inst, mult);
                 let (g_tot, g_tof) = crate::shor_ripple::gate_counts(&c);
                 total_gates += g_tot + 2 + usize::from(y != 0);
@@ -463,7 +467,7 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
             y |= 1 << i;
             if matches!(
                 inst.oracle,
-                Oracle::Beauregard | Oracle::Ripple | Oracle::Windowed(_)
+                Oracle::Beauregard | Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
             ) {
                 total_gates += 1;
             }
