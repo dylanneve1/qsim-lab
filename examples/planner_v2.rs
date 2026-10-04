@@ -312,6 +312,7 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
     };
     let gates: Vec<qsim_lab::Gate> = c.gates().copied().collect();
     base.sup = simulability::support_bound(n, &gates);
+    let t_sup = t.elapsed().as_secs_f64();
     let prof = qsim_lab::adaptive::active_dimension_profile(&c).expect("frame");
     let t_t1a = t.elapsed().as_secs_f64();
     let t = Instant::now();
@@ -361,7 +362,7 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         )
         .map(|p| p.engine.name())
         .unwrap_or("none");
-        let v2 = planner::plan(
+        let p2 = planner::plan(
             &c,
             &req,
             &PlannerConfig {
@@ -369,9 +370,9 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
                 cache: false,
                 ..PlannerConfig::default()
             },
-        )
-        .map(|p| p.engine.name())
-        .unwrap_or("none");
+        );
+        let v2 = p2.as_ref().map(|p| p.engine.name()).unwrap_or("none");
+        let v2tier = p2.as_ref().map(|p| p.features.tier).unwrap_or(0);
         let rule = rule_engine(&c, &req).name();
         let preds: Vec<String> = [
             Engine::StateVector,
@@ -391,16 +392,77 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         })
         .collect();
         choices.push(format!(
-            "\"{rq}\":{{\"v1\":\"{v1}\",\"v2\":\"{v2}\",\"rule\":\"{rule}\",\"pred\":{{{}}}}}",
+            "\"{rq}\":{{\"v1\":\"{v1}\",\"v2\":\"{v2}\",\"v2tier\":{v2tier},\"rule\":\"{rule}\",\"pred\":{{{}}}}}",
             preds.join(",")
         ));
     }
     format!(
-        "{{\"spec\":\"{spec}\",\"seed\":{seed},\"n\":{n},\"gates\":{},\"g2\":{},\"clifford\":{},\"branching\":{},\"rot_q\":{},\"mps_steps\":{},\"sup\":{},\"sparse_l\":{:.4},\"sv_l\":{:.4},\"rotations\":{},\"d\":{},\"dense_l\":{:.4},\"obs_zero\":{obs_zero},\"mps_r\":{:.4},\"mps_max_bond\":{},\"mps_canon_u\":{cu:.6e},\"mps_shot_u\":{su:.6e},\"mps_amp_u\":{au:.6e},\"hsf_ok\":{hsf_ok},\"hsf_l\":{:.4},\"hsf_keff\":{},\"hsf_k\":{},\"hsf_na\":{},\"hsf_nb\":{},\"t_quick\":{t_q:.7},\"t_tier1\":{t_t1a:.7},\"t_cert\":{t_cert:.7},\"t_mps\":{t_mps:.7},\"t_hsf\":{t_hsf:.7},\"choices\":{{{}}}}}",
+        "{{\"spec\":\"{spec}\",\"seed\":{seed},\"n\":{n},\"gates\":{},\"g2\":{},\"clifford\":{},\"branching\":{},\"rot_q\":{},\"mps_steps\":{},\"sup\":{},\"sparse_l\":{:.4},\"sv_l\":{:.4},\"rotations\":{},\"d\":{},\"dense_l\":{:.4},\"obs_zero\":{obs_zero},\"mps_r\":{:.4},\"mps_max_bond\":{},\"mps_canon_u\":{cu:.6e},\"mps_shot_u\":{su:.6e},\"mps_amp_u\":{au:.6e},\"hsf_ok\":{hsf_ok},\"hsf_l\":{:.4},\"hsf_keff\":{},\"hsf_k\":{},\"hsf_na\":{},\"hsf_nb\":{},\"t_quick\":{t_q:.7},\"t_tier1\":{t_t1a:.7},\"t_sup\":{t_sup:.7},\"t_cert\":{t_cert:.7},\"t_mps\":{t_mps:.7},\"t_hsf\":{t_hsf:.7},\"choices\":{{{}}}}}",
         q.gates, q.g2, q.clifford, q.branching, q.rotations, q.mps_steps, base.sup, base.sparse_l, base.sv_l,
         base.rotations, base.d, base.dense_l, f.mps_r, r.max_bond, base.hsf_l, base.hsf_keff, base.hsf_k,
         base.hsf_na, base.hsf_nb, choices.join(",")
     )
+}
+
+fn perturb(c: &Circuit, rng: &mut StdRng) -> Circuit {
+    use qsim_lab::gate::is_multiple_of_half_pi as half;
+    use qsim_lab::Gate::*;
+    let mut d = Circuit::new(c.num_qubits);
+    let mut f = |t: f64| {
+        if half(t) {
+            t
+        } else {
+            t * (0.5 + rng.random::<f64>())
+        }
+    };
+    for g in c.gates() {
+        d.gate(match *g {
+            Rx(q, t) => Rx(q, f(t)),
+            Ry(q, t) => Ry(q, f(t)),
+            Rz(q, t) => Rz(q, f(t)),
+            Phase(q, t) => Phase(q, f(t)),
+            U(q, a, b, cc) => U(q, f(a), f(b), f(cc)),
+            CPhase(a, b, t) => {
+                let u = f(t);
+                CPhase(a, b, if half(t / 2.0) { t } else { u })
+            }
+            g => g,
+        });
+    }
+    d
+}
+
+fn cmd_cachedemo(c0: &Circuit, reqn: &str, seed: u64) -> String {
+    let n = c0.num_qubits;
+    let req = request(reqn, n);
+    planner::clear_cache();
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut out = Vec::new();
+    for cache in [false, true] {
+        let cfg = PlannerConfig {
+            cache,
+            use_certificate: false,
+            ..PlannerConfig::default()
+        };
+        let mut secs = Vec::new();
+        let mut hits = 0;
+        for _ in 0..20 {
+            let c = perturb(c0, &mut rng);
+            let p = planner::plan(&c, &req, &cfg).expect("plan");
+            hits += usize::from(p.cached);
+            secs.push(p.plan_secs);
+        }
+        let first = secs[0];
+        let mut rest = secs[1..].to_vec();
+        rest.sort_by(f64::total_cmp);
+        out.push(format!(
+            "\"{}\":{{\"first\":{first:.7},\"median_rest\":{:.7},\"hits\":{hits}}}",
+            if cache { "cache" } else { "nocache" },
+            rest[rest.len() / 2]
+        ));
+    }
+    planner::clear_cache();
+    format!("{{{}}}", out.join(","))
 }
 
 fn main() {
@@ -426,6 +488,13 @@ fn main() {
             let seed: u64 = args[5].parse().unwrap();
             let c = build(&Spec::parse(&args[4]).expect("spec"), seed).expect("build");
             println!("{}", cmd_plan(&args[2], &args[3], &c, mem(6), seed));
+        }
+        Some("cachedemo") => {
+            // a parameter sweep: the same circuit structure with new angles
+            let seed: u64 = args[3].parse().unwrap();
+            let c0 = build(&Spec::parse(&args[2]).expect("spec"), seed).expect("build");
+            let reqn = args.get(4).map(String::as_str).unwrap_or("e");
+            println!("{}", cmd_cachedemo(&c0, reqn, seed));
         }
         Some("feat") => {
             let text = std::fs::read_to_string(&args[2]).expect("file");

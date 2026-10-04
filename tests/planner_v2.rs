@@ -350,7 +350,7 @@ fn tiering_and_cache_never_change_a_result() {
         // voi = 0 computes every feature it may need
         let p = planner::plan(&c, &PlanRequest::Expectation(obs.clone()), &full).unwrap();
         assert!(
-            p.features.tier >= 1 || p.engine == Engine::Tableau,
+            p.features.tier >= 1 || matches!(p.engine, Engine::Tableau | Engine::Zero),
             "{name}"
         );
     }

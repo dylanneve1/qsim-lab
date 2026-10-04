@@ -495,16 +495,21 @@ impl Mps {
     /// The amplitude `<bits|ψ>` (bit `q` of `bits` = qubit `q`), for up to
     /// 128 qubits.
     pub fn amplitude(&self, bits: u128) -> C {
-        let mut v = vec![C::new(1.0, 0.0)];
+        // two reused buffers (same arithmetic as one allocation per site)
+        let maxd = self.sites.iter().map(|s| s.dr.max(s.dl)).max().unwrap_or(1);
+        let (mut v, mut nv) = (vec![C::default(); maxd], vec![C::default(); maxd]);
+        v[0] = C::new(1.0, 0.0);
         for (q, s) in self.sites.iter().enumerate() {
             let b = ((bits >> q) & 1) as usize;
-            let mut nv = vec![C::default(); s.dr];
-            for (l, vl) in v.iter().enumerate() {
-                for (r, o) in nv.iter_mut().enumerate() {
-                    *o += vl * s.at(l, b, r);
+            let dr = s.dr;
+            nv[..dr].fill(C::default());
+            for (l, &vl) in v[..s.dl].iter().enumerate() {
+                let row = &s.data[(l * 2 + b) * dr..(l * 2 + b + 1) * dr];
+                for (o, &x) in nv[..dr].iter_mut().zip(row) {
+                    *o += vl * x;
                 }
             }
-            v = nv;
+            std::mem::swap(&mut v, &mut nv);
         }
         v[0]
     }

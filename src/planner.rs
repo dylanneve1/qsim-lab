@@ -170,8 +170,9 @@ pub struct ReadoutModel {
     /// `n (1 + ⌈n/64⌉)`.
     pub tab_build: f64,
     pub tab_shot: f64,
-    /// One amplitude look-up (state vector, sparse).
+    /// One amplitude look-up (state vector; sparse).
     pub lookup: f64,
+    pub sparse_lookup: f64,
     /// HSF amplitudes (no `2^n` output): `log2 secs = a + b R_amp`,
     /// `R_amp = log2(2^k G 2^max(n_A,n_B) + 2^k m)`.
     pub hsf_amp: EngineModel,
@@ -190,6 +191,10 @@ pub struct CostModel {
     /// Fixed cost of one SVD/QR call, in work units.
     pub mps_call_overhead: f64,
     pub readout: ReadoutModel,
+    /// Evolution-only models (`[sv, sparse, mps, hsf, cstate]`; HSF
+    /// includes the full `2^n` output) for samples and amplitudes; the
+    /// models above are fitted on whole expectation runs, as in v1.
+    pub state: [EngineModel; 5],
 }
 
 impl ReadoutModel {
@@ -208,6 +213,7 @@ impl ReadoutModel {
             tab_build: 2.0e-9,
             tab_shot: 5.0e-9,
             lookup: 5.0e-8,
+            sparse_lookup: 5.0e-8,
             hsf_amp: EngineModel {
                 a: -19.6338,
                 b: 0.5932,
@@ -244,6 +250,29 @@ impl CostModel {
             mps_svd_weight: 8.0,
             mps_call_overhead: 1000.0,
             readout: ReadoutModel::mac_m1(),
+            // placeholder: the expectation models (refitted in v2, §2)
+            state: [
+                EngineModel {
+                    a: -29.0959,
+                    b: 0.9325,
+                },
+                EngineModel {
+                    a: -23.1253,
+                    b: 0.8422,
+                },
+                EngineModel {
+                    a: -18.7136,
+                    b: 0.4755,
+                },
+                EngineModel {
+                    a: -19.6338,
+                    b: 0.5932,
+                },
+                EngineModel {
+                    a: -28.3955,
+                    b: 0.9788,
+                },
+            ],
         }
     }
 
@@ -269,6 +298,8 @@ impl Default for CostModel {
 /// research/planner-v2.md §3): `per_gate · G + per_gate_qubit · G · n`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FeatureCost {
+    /// Tier 1a (support bound): per gate. Tier 1b (frame profile, and the
+    /// certificate): per gate plus per gate·qubit.
     pub tier1_per_gate: f64,
     pub tier1_per_gate_qubit: f64,
     /// MPS replay: per adjacent two-qubit application (every one updates
@@ -669,6 +700,14 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
     let Some(model) = m.model(e) else {
         return 0.0;
     };
+    let model = match (req, e) {
+        (PlanRequest::Expectation(_), _) => model,
+        (_, Engine::StateVector) => m.state[0],
+        (_, Engine::Sparse) => m.state[1],
+        (_, Engine::Mps) => m.state[2],
+        (_, Engine::Hsf) => m.state[3],
+        _ => m.state[4],
+    };
     let evolve = model.secs(resource(e, f));
     let read = match (e, req) {
         (_, PlanRequest::Expectation(_)) => 0.0,
@@ -695,7 +734,8 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
             ro.cs_build * (d.exp2() * (d + 1.0) + nn * nn * words(n))
                 + ro.cs_shot * s * (d + nn) * words(n)
         }
-        (Engine::StateVector | Engine::Sparse, PlanRequest::Amplitudes(_)) => ro.lookup * am,
+        (Engine::StateVector, PlanRequest::Amplitudes(_)) => ro.lookup * am,
+        (Engine::Sparse, PlanRequest::Amplitudes(_)) => ro.sparse_lookup * am,
         _ => 0.0,
     };
     evolve + read
@@ -1028,17 +1068,8 @@ fn tier0_features(q: &QuickFeatures) -> PlanFeatures {
     }
 }
 
-/// Tier 1: affine support bound, rotation-frame profile, certificate.
-fn tier1_features(
-    c: &Circuit,
-    obs: Option<&[usize]>,
-    f: &mut PlanFeatures,
-) -> Result<(), SimError> {
-    let n = c.num_qubits;
-    let gates: Vec<Gate> = c.gates().copied().collect();
-    let g = gates.len().max(1) as f64;
-    f.base.sup = simulability::support_bound(n, &gates);
-    f.base.sparse_l = g.log2() + f.base.sup as f64;
+/// Tier 1b: the rotation-frame active-dimension profile.
+fn frame_features(c: &Circuit, f: &mut PlanFeatures) -> Result<(), SimError> {
     let prof = crate::adaptive::active_dimension_profile(c)?;
     f.base.rotations = prof.len();
     f.base.d = prof.last().copied().unwrap_or(0);
@@ -1052,10 +1083,6 @@ fn tier1_features(
             .sum::<f64>()
             .log2()
     };
-    if let Some(obs) = obs {
-        f.base.obs_zero = crate::adaptive::z_product_vanishes(c, obs)?;
-    }
-    f.tier = 1;
     Ok(())
 }
 
@@ -1117,18 +1144,47 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
     let cheap = [Engine::StateVector, Engine::Sparse, Engine::Compressed];
     let mut ranked = rank(&f, req, cfg, &cheap);
     let best = |r: &[(Engine, f64)]| r.first().map_or(f64::INFINITY, |x| x.1);
-    // Tier 1: worth it if the tier-0 upper bound exceeds the best lower
-    // bound by more than `voi` x its cost.
-    let c1 = fc.fixed + fc.tier1_per_gate * g + fc.tier1_per_gate_qubit * g * nn;
-    let lb1 = cheap
-        .iter()
-        .filter(|&&e| applicable(e, &f, req, cfg.mem_bytes))
-        .map(|&e| lower_bound_secs(e, &q, req, &cfg.model))
-        .fold(f64::INFINITY, f64::min);
-    if best(&ranked) - lb1 > cfg.voi * c1 || (q.clifford && cert_obs.is_some()) {
+    // Tier 1a (affine support bound, sparse), the certificate and tier 1b
+    // (rotation-frame d-profile, compressed state): each only if the engine
+    // it informs could beat the best prediction by more than `voi` x its
+    // cost (its lower bound from tier 0).
+    let c1a = fc.fixed + fc.tier1_per_gate * g;
+    let c1b = fc.fixed + fc.tier1_per_gate * g + fc.tier1_per_gate_qubit * g * nn;
+    let gain = |e: Engine, r: &[(Engine, f64)], f: &PlanFeatures| -> f64 {
+        // applicability with the engine's most favourable size (d = 0)
+        let mut fo = PlanFeatures {
+            base: f.base.clone(),
+            clifford: f.clifford,
+            ..Default::default()
+        };
+        fo.base.d = 0;
+        if applicable(e, &fo, req, cfg.mem_bytes) {
+            best(r) - lower_bound_secs(e, &q, req, &cfg.model)
+        } else {
+            f64::NEG_INFINITY
+        }
+    };
+    if gain(Engine::Sparse, &ranked, &f) > cfg.voi * c1a {
         let t1 = Instant::now();
-        tier1_features(c, cert_obs, &mut f)?;
-        stage[1] = t1.elapsed().as_secs_f64();
+        let gates: Vec<Gate> = c.gates().copied().collect();
+        f.base.sup = simulability::support_bound(n, &gates);
+        f.base.sparse_l = g.max(1.0).log2() + f.base.sup as f64;
+        f.tier = 1;
+        stage[1] += t1.elapsed().as_secs_f64();
+        ranked = rank(&f, req, cfg, &cheap);
+    }
+    if let Some(obs) = cert_obs {
+        if q.clifford || best(&ranked) > cfg.voi * c1b {
+            let t1 = Instant::now();
+            f.base.obs_zero = crate::adaptive::z_product_vanishes(c, obs)?;
+            stage[1] += t1.elapsed().as_secs_f64();
+        }
+    }
+    if !f.base.obs_zero && !q.clifford && gain(Engine::Compressed, &ranked, &f) > cfg.voi * c1b {
+        let t1 = Instant::now();
+        frame_features(c, &mut f)?;
+        f.tier = 1;
+        stage[1] += t1.elapsed().as_secs_f64();
         ranked = rank(&f, req, cfg, &cheap);
     }
     if f.base.obs_zero && cert_obs.is_some() {

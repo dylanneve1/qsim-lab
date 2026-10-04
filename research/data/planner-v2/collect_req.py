@@ -10,7 +10,7 @@ measured as censored or slower than --skip-over seconds are recorded as
 
     collect_req.py --bin B --instances FILE --prior DIR... --out OUT.jsonl
                    [--workers 2] [--budget 150] [--skip-over 4]
-    collect_req.py --bin B --plan VARIANT --reqs e,s1k --instances FILE --out OUT.jsonl
+    collect_req.py --bin B --plan v1:e,v2nc:e,rule:s1k,... --instances FILE --out OUT.jsonl
 """
 import argparse, csv, glob, json, os, random, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
@@ -41,8 +41,8 @@ def main():
     ap.add_argument("--budget", type=float, default=150)
     ap.add_argument("--skip-over", type=float, default=4.0)
     ap.add_argument("--timeout", type=float, default=40)
-    ap.add_argument("--plan", default=None, help="variant: run `plan VARIANT REQ` instead")
-    ap.add_argument("--reqs", default="e,s1k,s100k,a1k")
+    ap.add_argument("--plan", default=None,
+                    help="VARIANT:REQ,... : run `plan VARIANT REQ` instead (end to end)")
     a = ap.parse_args()
     inst = [l.split() for l in open(a.instances) if l.strip()]
     prior = load_prior(a.prior)
@@ -57,15 +57,21 @@ def main():
     jobs = []
     for spec, seed in inst:
         if a.plan:
-            for rq in a.reqs.split(","):
-                jobs.append((spec, seed, f"{a.plan}:{rq}"))
+            # comma-separated VARIANT:REQ pairs, run back to back per instance
+            for vr in a.plan.split(","):
+                jobs.append((spec, seed, vr))
             continue
         for e in ENGINES:
             if e == "tableau" and not (spec.startswith("ct:") and ",t=0," in spec):
                 continue
             jobs.append((spec, seed, e))
     jobs = [j for j in jobs if (j[0], j[1], j[2]) not in done]
-    random.Random(7).shuffle(jobs)
+    if a.plan:
+        # instances in random order, an instance's variants back to back
+        order = {k: i for i, k in enumerate(random.Random(7).sample(sorted({(j[0], j[1]) for j in jobs}), len({(j[0], j[1]) for j in jobs})))}
+        jobs.sort(key=lambda j: order[(j[0], j[1])])
+    else:
+        random.Random(7).shuffle(jobs)
     t_start = time.time()
     env = dict(os.environ, RAYON_NUM_THREADS="1")
     out = open(a.out, "a")
