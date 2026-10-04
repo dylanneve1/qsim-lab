@@ -179,6 +179,17 @@ pub struct PlannerConfig {
     /// are re-ranked. `None` (default) plans from the bounds alone.
     pub probe_cap: Option<u32>,
     pub probe_frac: f64,
+    /// Staged planning: the MPS replay is computed only if the cheapest
+    /// engine predicted from the O(gates · n) features (state vector,
+    /// sparse, compressed state) takes at least this long, and the HSF
+    /// partition (KL, the most expensive feature) only above
+    /// `hsf_feature_min_secs`. Below that, planning would cost more than it
+    /// could save. `0` computes everything.
+    pub mps_feature_min_secs: f64,
+    pub hsf_feature_min_secs: f64,
+    /// Stage 0: if the state vector is predicted below this (from `n` and
+    /// the gate count alone), run it without computing any feature.
+    pub sv_shortcut_secs: f64,
 }
 
 impl Default for PlannerConfig {
@@ -194,6 +205,9 @@ impl Default for PlannerConfig {
             use_certificate: true,
             probe_cap: None,
             probe_frac: 0.2,
+            mps_feature_min_secs: 1e-3,
+            hsf_feature_min_secs: 5e-3,
+            sv_shortcut_secs: 3e-4,
         }
     }
 }
@@ -239,7 +253,8 @@ pub fn mps_work_log2(stats: &crate::mps::MpsStats, m: &CostModel) -> f64 {
         .log2()
 }
 
-/// Computes the planner features (~ms).
+/// Computes all planner features (~ms; see [`plan`] for the staged
+/// version it actually uses).
 pub fn plan_features(
     c: &Circuit,
     obs: &[usize],
@@ -289,20 +304,81 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
         PlanRequest::Expectation(q) => q.clone(),
         PlanRequest::Amplitudes => (0..n).collect(),
     };
-    let f = plan_features(c, &obs, cfg)?;
-    let mut ranked: Vec<(Engine, f64)> = STATE_ENGINES
+    let clifford = c.gates().all(|g| g.is_clifford());
+    if clifford && !(matches!(req, PlanRequest::Expectation(_)) && cfg.use_certificate) {
+        // polynomial: nothing to compare
+        return Ok(Plan {
+            engine: Engine::Tableau,
+            ranked: vec![(Engine::Tableau, 0.0)],
+            features: PlanFeatures {
+                clifford,
+                ..Default::default()
+            },
+            plan_secs: t0.elapsed().as_secs_f64(),
+            solved: None,
+            probe: None,
+        });
+    }
+    // Stage 0: a state vector this cheap is not worth planning for.
+    let sv_l = (c.num_gates().max(1) as f64).log2() + n as f64;
+    let t_sv = (cfg.model.sv.a + cfg.model.sv.b * sv_l).exp2();
+    if !clifford
+        && n <= ((cfg.mem_bytes / 16).max(1).ilog2() as usize)
+        && t_sv < cfg.sv_shortcut_secs
+    {
+        return Ok(Plan {
+            engine: Engine::StateVector,
+            ranked: vec![(Engine::StateVector, t_sv)],
+            features: PlanFeatures {
+                clifford,
+                ..Default::default()
+            },
+            plan_secs: t0.elapsed().as_secs_f64(),
+            solved: None,
+            probe: None,
+        });
+    }
+    // Stage 1: O(gates · n) features (state vector, sparse, compressed
+    // state, certificate).
+    let mut f = PlanFeatures {
+        base: simulability::features_for(c, false, &obs)?,
+        mps_r: f64::INFINITY,
+        mps_max_bond: 0,
+        clifford,
+    };
+    let predict = |e: Engine, f: &PlanFeatures| {
+        let m = cfg.model.model(e).expect("state engine");
+        (m.a + m.b * resource(e, f)).exp2()
+    };
+    let cheap = [Engine::StateVector, Engine::Sparse, Engine::Compressed]
         .iter()
         .filter(|&&e| applicable(e, &f, req, cfg.mem_bytes))
-        .map(|&e| {
-            let m = cfg.model.model(e).expect("state engine");
-            (e, (m.a + m.b * resource(e, &f)).exp2())
-        })
+        .map(|&e| predict(e, &f))
+        .fold(f64::INFINITY, f64::min);
+    // Stage 2: MPS replay and HSF partition, only when they can pay off.
+    let mut skip = Vec::new();
+    if !clifford && cheap >= cfg.mps_feature_min_secs {
+        let r = mps_cost::replay(c, BondSource::Bound(Estimator::Best))?;
+        f.mps_r = mps_work_log2(&r.stats, &cfg.model);
+        f.mps_max_bond = r.max_bond;
+    } else {
+        skip.push(Engine::Mps);
+    }
+    if !clifford && cheap >= cfg.hsf_feature_min_secs {
+        simulability::add_hsf_features(c, &mut f.base)?;
+    } else {
+        skip.push(Engine::Hsf);
+    }
+    let mut ranked: Vec<(Engine, f64)> = STATE_ENGINES
+        .iter()
+        .filter(|&&e| !skip.contains(&e) && applicable(e, &f, req, cfg.mem_bytes))
+        .map(|&e| (e, predict(e, &f)))
         .collect();
     ranked.sort_by(|a, b| a.1.total_cmp(&b.1));
     let engine =
         if matches!(req, PlanRequest::Expectation(_)) && cfg.use_certificate && f.base.obs_zero {
             Engine::Zero
-        } else if f.clifford {
+        } else if clifford {
             Engine::Tableau
         } else if let Some(&(e, _)) = ranked.first() {
             e
@@ -314,7 +390,6 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
             });
         };
     let mut engine = engine;
-    let mut f = f;
     let mut solved = None;
     let mut probe = None;
     if let (Some(cap), PlanRequest::Expectation(obs)) = (cfg.probe_cap, req) {

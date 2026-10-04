@@ -280,7 +280,7 @@ def plots(rep, pts, feats, W, K, outdir):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
-    names = ["mps_l (old: crossing+support, Σχ³)", "replay[cross]", "replay[best]",
+    names = ["mps_l (old: crossing+support, Σχ³)", "replay[best]", "probe χ≤16 + best",
              "oracle trace work (units)"]
     fig, axes = plt.subplots(1, len(names), figsize=(4 * len(names), 3.8), sharey=True)
     cols = dict(zip(FAMS, ["#2a78d6", "#eb6834", "#1baf7a", "#e34948"]))

@@ -11,6 +11,15 @@ RAW = os.path.join(HERE, "..", "simulability", "raw")
 
 
 def instances():
+    grids = os.environ.get("GRIDS")
+    if grids:  # driver grid names, e.g. GRIDS=hea,qft
+        sys.path.insert(0, os.path.join(HERE, "..", "simulability"))
+        import driver
+        out = []
+        for g in grids.split(","):
+            for spec, seed, _ in driver.grid(g):
+                out.append((spec.split(":")[0], spec, str(seed)))
+        return out
     seen = {}
     for p in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
         b = os.path.basename(p)

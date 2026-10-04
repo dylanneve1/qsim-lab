@@ -573,21 +573,8 @@ pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Featur
     f.mps_l0 = log2sum(mps_terms0.into_iter());
 
     // HSF: KL partition + its path count.
-    if with_hsf && n >= 2 {
-        let th = Instant::now();
-        let opts = HsfOptions::default();
-        let in_a = hsf::auto_partition(c, &opts)?;
-        f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
-        f.hsf_na = in_a.iter().filter(|&&x| x).count();
-        f.hsf_nb = n - f.hsf_na;
-        f.hsf_keff = effective_cut_bits(n, &gates, &in_a);
-        let g = f.gates.max(1) as f64;
-        let big = f.hsf_na.max(f.hsf_nb) as f64;
-        // paths × (block evolutions) + GEMM accumulation of the 2^n output
-        let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
-        f.hsf_l = cost(f.hsf_keff as f64);
-        f.hsf_l0 = cost(f.hsf_k as f64);
-        f.secs_hsf = th.elapsed().as_secs_f64();
+    if with_hsf {
+        add_hsf_features(c, &mut f)?;
     }
 
     // Sparse: affine support bound. Each wire is a constant, an affine
@@ -599,6 +586,32 @@ pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Featur
     f.sv_l = (f.gates.max(1) as f64).log2() + n as f64;
     f.secs = t0.elapsed().as_secs_f64();
     Ok(f)
+}
+
+/// Fills the HSF fields of [`Features`] (KL partition, path counts,
+/// `hsf_l`); the most expensive feature, so the planner computes it only
+/// when HSF could matter.
+pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
+    let n = c.num_qubits;
+    if n < 2 {
+        return Ok(());
+    }
+    let gates = gate_list(c);
+    let th = Instant::now();
+    let opts = HsfOptions::default();
+    let in_a = hsf::auto_partition(c, &opts)?;
+    f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
+    f.hsf_na = in_a.iter().filter(|&&x| x).count();
+    f.hsf_nb = n - f.hsf_na;
+    f.hsf_keff = effective_cut_bits(n, &gates, &in_a);
+    let g = gates.len().max(1) as f64;
+    let big = f.hsf_na.max(f.hsf_nb) as f64;
+    // paths × (block evolutions) + GEMM accumulation of the 2^n output
+    let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
+    f.hsf_l = cost(f.hsf_keff as f64);
+    f.hsf_l0 = cost(f.hsf_k as f64);
+    f.secs_hsf = th.elapsed().as_secs_f64();
+    Ok(())
 }
 
 /// Path bits of an HSF partition once exact zero-path pruning is taken
