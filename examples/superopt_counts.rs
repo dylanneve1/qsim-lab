@@ -23,7 +23,8 @@ fn main() {
         for ww in 1..=8usize {
             let lay = WindowLayout::new(inst.m, ww);
             let mut row = format!("n={} w={ww} qubits={}", inst.m, lay.num_qubits());
-            for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL)] {
+            let nodp = Opts { window_dp: false, ..Opts::ALL };
+            for (name, o) in [("baseline", Opts::BASELINE), ("all-uniform", nodp), ("all", Opts::ALL)] {
                 let (mut g, mut t) = (0, 0);
                 for &mult in &inst.mults {
                     let (gg, tt) = gate_counts(&controlled_ua(&lay, mult, n_mod, &o));
@@ -49,6 +50,7 @@ fn main() {
         ("unary+keep_chain", Opts { unary: true, keep_chain: true, ..b }),
         ("peephole only", Opts { peephole: true, ..b }),
         ("all but peephole", Opts { peephole: false, ..Opts::ALL }),
+        ("all but window_dp", Opts { window_dp: false, ..Opts::ALL }),
         ("all", Opts::ALL),
     ];
     println!(

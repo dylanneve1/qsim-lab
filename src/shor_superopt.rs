@@ -53,6 +53,9 @@ pub struct Opts {
     /// ([`crate::compile::peephole`]): cancels the inverse pairs left at
     /// block junctions (e.g. `CNOT(c0, b0)` between consecutive adders).
     pub peephole: bool,
+    /// Choose the window sizes (each at most `lay.w`) per multiplier by an
+    /// exact gate-count DP instead of uniform windows.
+    pub window_dp: bool,
 }
 
 impl Opts {
@@ -65,6 +68,7 @@ impl Opts {
         direct_first: false,
         keep_chain: false,
         peephole: false,
+        window_dp: false,
     };
     /// Everything on.
     pub const ALL: Opts = Opts {
@@ -75,6 +79,7 @@ impl Opts {
         direct_first: true,
         keep_chain: true,
         peephole: true,
+        window_dp: true,
     };
 }
 
@@ -325,12 +330,97 @@ fn emit_lookup(
     }
 }
 
-/// Controlled windowed multiply-add `|c>|x>|b=0> -> |c>|x>|c·a·x mod N>`.
-pub fn cmult(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circuit {
-    let mut c = Circuit::new(lay.num_qubits());
+/// Emits one window (bits `start..start + w` of `x`, table
+/// `T[v] = v·base mod N` with `base = a·2^start mod N`).
+fn emit_window(
+    c: &mut Circuit,
+    lay: &WindowLayout,
+    n_mod: u64,
+    o: &Opts,
+    start: usize,
+    w: usize,
+    base: u64,
+    madd: &[bool],
+) {
     let n = lay.n;
-    let mut start = 0;
-    let mut base = a % n_mod;
+    let table: Vec<u64> = (0..1u64 << w)
+        .map(|v| (u128::from(v) * u128::from(base) % u128::from(n_mod)) as u64)
+        .collect();
+    let addr = &lay.x[start..start + w];
+    if start == 0 && o.direct_first {
+        emit_lookup(c, lay, addr, &lay.b[..n], &table, o);
+        return;
+    }
+    let mut lk = Circuit::new(lay.num_qubits());
+    emit_lookup(&mut lk, lay, addr, &lay.l, &table, o);
+    let gates: Vec<Gate> = lk.gates().copied().collect();
+    let mut keep = gates.len();
+    if o.keep_chain {
+        while keep > 0 && gates[keep - 1].qubits().iter().all(|&q| !madd[q]) {
+            keep -= 1;
+        }
+    }
+    for g in &gates[..keep] {
+        c.gate(*g);
+    }
+    add_mod_reg(c, lay, n_mod, o);
+    if o.keep_chain {
+        for g in gates[..keep].iter().rev() {
+            c.gate(*g);
+        }
+    } else {
+        // the lookup is self-inverse: emit it again (as the baseline)
+        emit_lookup(c, lay, addr, &lay.l, &table, o);
+    }
+}
+
+/// Window sizes for a multiply-add by `a`: uniform `lay.w` (last window
+/// shorter), or, with `o.window_dp`, the split of the `n` bits into windows
+/// of at most `lay.w` bits that minimises the emitted gate count (exact
+/// dynamic programme over window start and size; every window is emitted
+/// and counted).
+pub fn window_sizes(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Vec<usize> {
+    let n = lay.n;
+    if !o.window_dp {
+        let mut v = Vec::new();
+        let mut s = 0;
+        while s < n {
+            let w = lay.w.min(n - s);
+            v.push(w);
+            s += w;
+        }
+        return v;
+    }
+    let mut base = vec![a % n_mod; n + 1];
+    for s in 1..=n {
+        base[s] = (u128::from(base[s - 1]) * 2 % u128::from(n_mod)) as u64;
+    }
+    let madd = madd_mask(lay);
+    let mut best = vec![(usize::MAX, 0usize); n + 1];
+    best[n] = (0, 0);
+    for s in (0..n).rev() {
+        for w in 1..=lay.w.min(n - s) {
+            if best[s + w].0 == usize::MAX {
+                continue;
+            }
+            let mut c = Circuit::new(lay.num_qubits());
+            emit_window(&mut c, lay, n_mod, o, s, w, base[s], &madd);
+            let cost = c.ops.len() + best[s + w].0;
+            if cost < best[s].0 {
+                best[s] = (cost, w);
+            }
+        }
+    }
+    let mut v = Vec::new();
+    let mut s = 0;
+    while s < n {
+        v.push(best[s].1);
+        s += best[s].1;
+    }
+    v
+}
+
+fn madd_mask(lay: &WindowLayout) -> Vec<bool> {
     // qubits the modular adder touches (for keep_chain)
     let mut madd = vec![false; lay.num_qubits()];
     for &q in lay.b.iter().chain(&lay.l).chain(&lay.k) {
@@ -338,37 +428,17 @@ pub fn cmult(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circuit {
     }
     madd[lay.c0] = true;
     madd[lay.t] = true;
-    while start < n {
-        let w = lay.w.min(n - start);
-        let table: Vec<u64> = (0..1u64 << w)
-            .map(|v| (u128::from(v) * u128::from(base) % u128::from(n_mod)) as u64)
-            .collect();
-        let addr = &lay.x[start..start + w];
-        if start == 0 && o.direct_first {
-            emit_lookup(&mut c, lay, addr, &lay.b[..n], &table, o);
-        } else {
-            let mut lk = Circuit::new(lay.num_qubits());
-            emit_lookup(&mut lk, lay, addr, &lay.l, &table, o);
-            let gates: Vec<Gate> = lk.gates().copied().collect();
-            let mut keep = gates.len();
-            if o.keep_chain {
-                while keep > 0 && gates[keep - 1].qubits().iter().all(|&q| !madd[q]) {
-                    keep -= 1;
-                }
-            }
-            for g in &gates[..keep] {
-                c.gate(*g);
-            }
-            add_mod_reg(&mut c, lay, n_mod, o);
-            if o.keep_chain {
-                for g in gates[..keep].iter().rev() {
-                    c.gate(*g);
-                }
-            } else {
-                // the lookup is self-inverse: emit it again (as the baseline)
-                emit_lookup(&mut c, lay, addr, &lay.l, &table, o);
-            }
-        }
+    madd
+}
+
+/// Controlled windowed multiply-add `|c>|x>|b=0> -> |c>|x>|c·a·x mod N>`.
+pub fn cmult(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circuit {
+    let mut c = Circuit::new(lay.num_qubits());
+    let madd = madd_mask(lay);
+    let mut start = 0;
+    let mut base = a % n_mod;
+    for w in window_sizes(lay, a, n_mod, o) {
+        emit_window(&mut c, lay, n_mod, o, start, w, base, &madd);
         for _ in 0..w {
             base = (u128::from(base) * 2 % u128::from(n_mod)) as u64;
         }
