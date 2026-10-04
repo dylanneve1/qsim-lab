@@ -54,7 +54,7 @@ All engines share one circuit representation (`Circuit`, OpenQASM 2 and
 
 | engine | module | best for |
 |---|---|---|
-| cache-blocked state vector (AVX2 / NEON FMA, diagonal batching) | `statevector`, `blocked` | any circuit up to RAM |
+| cache-blocked state vector (AVX2 / NEON FMA, diagonal batching, dense 2-qubit fusion) | `statevector`, `blocked` | any circuit up to RAM |
 | out-of-core state vector | `ooc`, `ooc_window` | states larger than RAM |
 | Metal GPU state vector (f32, macOS, `--features metal`) | `metal_sv` | 20–29 qubits on Apple silicon |
 | stabilizer tableau, SymPhase and FastSampler | `stabilizer` | Clifford circuits, QEC sampling |
@@ -141,9 +141,9 @@ Wheels for Linux x86_64/aarch64 and macOS arm64 are built by
 - **Shor:** [shor.md](research/shor.md) · [shor-r4-audit.md](research/shor-r4-audit.md) · [superopt.md](research/superopt.md) · [mbu-shor.md](research/mbu-shor.md) · [ge-shor.md](research/ge-shor.md) · [shor-noise.md](research/shor-noise.md) · [theory-shor.md](research/theory-shor.md) · [theory-coset.md](research/theory-coset.md)
 - **QEC:** [qec.md](research/qec.md) · [qec-r4.md](research/qec-r4.md) · [schedules.md](research/schedules.md) · [colour-global.md](research/colour-global.md) · [colour-flags.md](research/colour-flags.md) · [theory-colour.md](research/theory-colour.md) · [fast-sampler.md](research/fast-sampler.md) · [fast-sampler-audit.md](research/fast-sampler-audit.md) · [stab.md](research/stab.md)
 - **Simulability, magic and physics:** [simulability.md](research/simulability.md) · [planner.md](research/planner.md) · [planner-v2.md](research/planner-v2.md) · [magic-atlas.md](research/magic-atlas.md) · [magic-transition.md](research/magic-transition.md) · [transition-theory.md](research/transition-theory.md) · [adaptive.md](research/adaptive.md) · [pauli.md](research/pauli.md)
-- **Performance:** [sv.md](research/sv.md) · [mac-m1.md](research/mac-m1.md) · [metal.md](research/metal.md) · [ooc.md](research/ooc.md) · [hsf.md](research/hsf.md) · [mps.md](research/mps.md) · [sv-monomial.md](research/sv-monomial.md)
+- **Performance:** [sv.md](research/sv.md) · [mac-m1.md](research/mac-m1.md) · [metal.md](research/metal.md) · [ooc.md](research/ooc.md) · [hsf.md](research/hsf.md) · [mps.md](research/mps.md) · [sv-monomial.md](research/sv-monomial.md) · [dense-fusion.md](research/dense-fusion.md)
 - **Compiler:** [compiler.md](research/compiler.md) · [dag.md](research/dag.md) · [pipeline.md](research/pipeline.md) · [repeat.md](research/repeat.md) · [phasepoly.md](research/phasepoly.md)
-- **Process:** [audit.md](research/audit.md) · [literature.md](research/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md)
+- **Process:** [audit.md](research/audit.md) · [literature.md](research/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md) · [ARCHIVE.md](research/ARCHIVE.md) (archived branches)
 
 ## Corrections we have published
 
