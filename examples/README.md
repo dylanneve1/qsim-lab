@@ -28,6 +28,8 @@ interleaved A/B, and report machine and load ([CONTRIBUTING.md](../CONTRIBUTING.
 |---|---|---|
 | [sv_speed](sv_speed.rs) | State-vector executors (min of `reps` runs) | [sv.md](../research/performance/sv.md) |
 | [kernel_micro](kernel_micro.rs) | Single-thread in-cache 2×2 kernels, AoS vs SoA | [sv.md](../research/performance/sv.md) |
+| [l1_bench](l1_bench.rs) | Interleaved A/B of blocked-executor configurations (block size, slots, L1 tiling) | [mac-m1.md](../research/performance/mac-m1.md) |
+| [l1_micro](l1_micro.rs) | Single-thread fused-kernel cycles per amplitude | [mac-m1.md](../research/performance/mac-m1.md) |
 | [metal_bench](metal_bench.rs) | Metal GPU vs CPU blocked executor, f32 (needs `--features metal`, macOS) | [metal.md](../research/performance/metal.md) |
 | [ooc_bench](ooc_bench.rs) | Out-of-core state vector, one CSV line per configuration | [ooc.md](../research/performance/ooc.md) |
 | [ooc_plan](ooc_plan.rs) | Out-of-core schedulers: passes over the file (plan only, no I/O) | [ooc.md](../research/performance/ooc.md) |
