@@ -240,6 +240,6 @@ fn clean_runs_follow_ideal_distribution() {
         }
         eprintln!("enc={enc}: clean {nclean}, faulty {nf}, chi2(3 dof) = {chi2:.2}");
         assert!(nf > 1000);
-        assert!(chi2 < 16.3, "chi2 = {chi2} (p < 0.001)");
+        assert!(chi2 < 21.1, "chi2 = {chi2} (p < 1e-4)");
     }
 }

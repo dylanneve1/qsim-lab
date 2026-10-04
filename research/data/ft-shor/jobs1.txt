@@ -1,0 +1,77 @@
+shor enc 2 raw 5e-5 3000 31
+shor enc 2 ideal 5e-5 3000 31
+shor enc 2 raw 1e-4 3000 31
+shor enc 2 ideal 1e-4 3000 31
+shor enc 2 raw 2e-4 3000 31
+shor enc 2 ideal 2e-4 3000 31
+shor enc 2 raw 3e-4 3000 31
+shor enc 2 ideal 3e-4 3000 31
+shor enc 2 raw 5e-4 3000 31
+shor enc 2 ideal 5e-4 3000 31
+inject 2 5e-5 20000 43 1
+inject 2 1e-4 20000 43 1
+inject 2 2e-4 20000 43 1
+inject 2 3e-4 20000 43 1
+inject 2 5e-4 20000 43 1
+shor unenc 0 raw 1e-5 2000000 11
+shor unenc-ccx 0 raw 1e-5 2000000 11
+shor unenc 0 raw 2e-5 2000000 11
+shor unenc-ccx 0 raw 2e-5 2000000 11
+shor unenc 0 raw 5e-5 2000000 11
+shor unenc-ccx 0 raw 5e-5 2000000 11
+shor unenc 0 raw 1e-4 2000000 11
+shor unenc-ccx 0 raw 1e-4 2000000 11
+shor unenc 0 raw 2e-4 2000000 11
+shor unenc-ccx 0 raw 2e-4 2000000 11
+shor unenc 0 raw 5e-4 2000000 11
+shor unenc-ccx 0 raw 5e-4 2000000 11
+shor unenc 0 raw 1e-3 2000000 11
+shor unenc-ccx 0 raw 1e-3 2000000 11
+shor unenc 0 raw 2e-3 2000000 11
+shor unenc-ccx 0 raw 2e-3 2000000 11
+shor unenc 0 raw 5e-3 2000000 11
+shor unenc-ccx 0 raw 5e-3 2000000 11
+shor unenc 0 raw 1e-2 2000000 11
+shor unenc-ccx 0 raw 1e-2 2000000 11
+shor enc 1 raw 1e-5 400000 21
+shor enc 1 ideal 1e-5 400000 21
+shor enc 1 raw 2e-5 400000 21
+shor enc 1 ideal 2e-5 400000 21
+shor enc 1 raw 5e-5 400000 21
+shor enc 1 ideal 5e-5 400000 21
+shor enc 1 raw 1e-4 400000 21
+shor enc 1 ideal 1e-4 400000 21
+shor enc 1 raw 2e-4 400000 21
+shor enc 1 ideal 2e-4 400000 21
+shor enc 1 raw 5e-4 400000 21
+shor enc 1 ideal 5e-4 400000 21
+shor enc 1 raw 1e-3 400000 21
+shor enc 1 ideal 1e-3 400000 21
+shor enc 1 raw 2e-3 400000 21
+shor enc 1 ideal 2e-3 400000 21
+inject 1 1e-5 1000000 41 1
+inject 1 1e-5 1000000 42 0
+inject 1 2e-5 1000000 41 1
+inject 1 2e-5 1000000 42 0
+inject 1 5e-5 1000000 41 1
+inject 1 5e-5 1000000 42 0
+inject 1 1e-4 1000000 41 1
+inject 1 1e-4 1000000 42 0
+inject 1 2e-4 1000000 41 1
+inject 1 2e-4 1000000 42 0
+inject 1 5e-4 1000000 41 1
+inject 1 5e-4 1000000 42 0
+inject 1 1e-3 1000000 41 1
+inject 1 1e-3 1000000 42 0
+inject 1 2e-3 1000000 41 1
+inject 1 2e-3 1000000 42 0
+shor enc 1 raw 1e-4 200000 51 7 1
+shor enc 1 raw 1e-4 200000 51 7 2
+shor enc 1 raw 1e-4 200000 51 7 4
+shor enc 1 raw 1e-4 200000 51 7 8
+shor enc 1 raw 1e-4 200000 51 7 16
+shor enc 1 raw 5e-4 200000 51 7 1
+shor enc 1 raw 5e-4 200000 51 7 2
+shor enc 1 raw 5e-4 200000 51 7 4
+shor enc 1 raw 5e-4 200000 51 7 8
+shor enc 1 raw 5e-4 200000 51 7 16
