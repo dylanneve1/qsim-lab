@@ -258,7 +258,7 @@ impl<B: Phys> Machine<B> {
                 self.cnot(k - 1, sub(k, q, p), sub(k, q, t));
             }
             self.tag(k, Comp::Inject);
-            let nontrivial = self.ec_inner(k, q);
+            let nontrivial = self.cfg.ec && self.ec_inner(k, q);
             if !(self.cfg.inject_postselect && nontrivial) {
                 return;
             }
