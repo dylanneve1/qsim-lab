@@ -566,8 +566,9 @@ pub struct PlanFeatures {
     /// frame profile, MPS replay, HSF on the line split, HSF Kernighan–Lin
     /// partition.
     pub computed: [bool; 6],
-    /// HSF priced on the plain line split (tier 3a) and not refined by the
-    /// KL partition: the HSF engine then runs on exactly this split.
+    /// The HSF partition the plan priced (the line split of tier 3a, or the
+    /// Kernighan–Lin partition of tier 3b); the HSF engine runs on exactly
+    /// this partition. `None`: the engine computes its own KL partition.
     pub hsf_split: Option<Vec<bool>>,
 }
 
@@ -1235,6 +1236,12 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         let t3 = Instant::now();
         let split: Vec<bool> = (0..n).map(|i| i < n / 2).collect();
         simulability::hsf_split_features(c, &mut f.base, &split)?;
+        // priced with the nominal path bits: the zero-path pruning estimate
+        // (`keff`) was fitted on KL partitions and is far too optimistic on
+        // a line split of a non-local circuit (measured: QAOA on random
+        // graphs, n = 24, HSF on the line split 3.2 s vs 0.04 s with KL)
+        f.base.hsf_keff = f.base.hsf_k;
+        f.base.hsf_l = f.base.hsf_l0;
         f.hsf_split = Some(split);
         f.tier = 3;
         f.computed[4] = true;
@@ -1242,12 +1249,19 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         considered.push(Engine::Hsf);
         ranked = rank(&f, req, cfg, &considered);
     }
+    // (also when HSF on the line split is already first: KL can still make
+    // the run itself much cheaper, e.g. on random-matching circuits)
     let c3 = fc.hsf[0] + fc.hsf[1] * g * nn * nn;
-    let hsf_first = ranked.first().is_some_and(|x| x.0 == Engine::Hsf);
-    if hsf_ok && !hsf_first && best(&ranked) - hsf_lb > cfg.voi * c3 {
+    if hsf_ok && best(&ranked) - hsf_lb > cfg.voi * c3 {
         let t3 = Instant::now();
-        simulability::add_hsf_features(c, &mut f.base)?;
-        f.hsf_split = None;
+        let opts = HsfOptions {
+            max_bytes: cfg.mem_bytes,
+            ..HsfOptions::default()
+        };
+        let kl = crate::hsf::auto_partition(c, &opts)?;
+        simulability::hsf_split_features(c, &mut f.base, &kl)?;
+        // the engine runs on this partition (no second KL at run time)
+        f.hsf_split = Some(kl);
         f.tier = 3;
         f.computed[5] = true;
         stage[3] += t3.elapsed().as_secs_f64();
