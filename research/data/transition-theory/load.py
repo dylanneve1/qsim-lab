@@ -13,7 +13,7 @@ def jobs(name='jobs.txt'):
     f = os.path.join(HERE, name)
     return [l.split() for l in open(f) if l.strip()] if os.path.exists(f) else []
 
-BATCHES = [('jobs.txt', 'parts'), ('jobs2.txt', 'parts2')]
+BATCHES = [('jobs.txt', 'parts')]
 
 
 def parts(kind, partsdir=None):

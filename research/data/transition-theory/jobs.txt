@@ -314,3 +314,13 @@ steady tag=S n=2048 pm=0.17 eta=1 samples=6 pattern=poisson init=zero depth=4096
 steady tag=S n=2048 pm=0.15 eta=4 samples=6 pattern=poisson init=zero depth=4096 window=1024 seed0=0 header=0
 steady tag=S n=2048 pm=0.16 eta=4 samples=6 pattern=poisson init=zero depth=4096 window=1024 seed0=0 header=0
 steady tag=S n=2048 pm=0.17 eta=4 samples=6 pattern=poisson init=zero depth=4096 window=1024 seed0=0 header=0
+survival n=512 pm=0.16 burn=128 tmax=256 gap=16 samples=150 seed0=100000 header=0
+survival n=512 pm=0.16 burn=128 tmax=256 gap=16 samples=150 seed0=101000 header=0
+survival n=512 pm=0.16 burn=128 tmax=256 gap=16 samples=150 seed0=102000 header=0
+survival n=512 pm=0.16 burn=128 tmax=256 gap=16 samples=150 seed0=103000 header=0
+survival n=2048 pm=0.16 burn=256 tmax=1024 gap=32 samples=8 seed0=200000 header=0
+survival n=2048 pm=0.16 burn=256 tmax=1024 gap=32 samples=8 seed0=201000 header=0
+survival n=1024 pm=0.16 burn=256 tmax=512 gap=32 samples=10 seed0=300000 header=0
+survival n=1024 pm=0.16 burn=256 tmax=512 gap=32 samples=10 seed0=301000 header=0
+survival n=1024 pm=0.16 burn=256 tmax=512 gap=32 samples=10 seed0=302000 header=0
+survival n=1024 pm=0.16 burn=256 tmax=512 gap=32 samples=10 seed0=303000 header=0
