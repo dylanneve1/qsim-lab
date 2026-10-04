@@ -59,8 +59,13 @@ was used for git, `cargo fmt` and `cargo clippy --all-targets -D warnings`
   record the lookup-only oracle runs **98.0 s → 89.3 s (−8.9 %)** and the
   full-MBU oracle 112.3 s (+14.6 %). At 28 bits: 12.18 → 11.23 s (−7.8 %) /
   13.48 s (+10.7 %). Every run measured the same integer and factored N.
-  The gate-evaluation time moves exactly as the slice-step count predicts:
-  −11.9 % / +20.1 % at 31 bits vs −13.9 % / +20.5 % predicted.
+  The gate-evaluation time tracks the slice-step count to within 2 points:
+  −11.9 % / +20.1 % measured at 31 bits vs −13.9 % / +20.5 % predicted.
+* **32 bits.** The first seeded 32-bit generic N, 3 631 204 201 = 58 907 ×
+  61 643, is factored at gate level: 136 qubits, 0.95 M gates, exact
+  peak support 1.30·10⁸, 6.3 GB, 498 s on 2 background threads. The base
+  was chosen by seed so its order fits in RAM, and that choice used λ(N);
+  see the caveat in §5b.
 * **Against the literature.** Halving Toffolis with MBU is the known
   Gidney/Babbush/Berry result, now reproduced exactly at gate level. That
   part is not new. Our remaining 4.0 n³ Toffolis per run at n = 31
@@ -278,6 +283,69 @@ Measured integers, identical across all 9 runs of each N:
   (was 97.5 s with windowed-opt in exp/superopt and 133.4 s in round 4;
   same base, same measured integer). Command:
   `qsim run shor --modulus 1537596787 --semiclassical --sliced --window 4 --oracle windowed-mbu-lookup --f32 --seed 2 --tries 1`.
+
+## 5b. 32 bits: N = 3 631 204 201 factored at gate level (caveated)
+
+**Instance.** N = 3 631 204 201 = 58 907 × 61 643 is the 32-bit row of
+`research/data/shor_r4/gen_instances.py`: the first balanced 32-bit
+semiprime from `random.seed(1)`, not selected. λ(N) = 1 815 541 826 =
+2·7²·17·37·29 453.
+
+**RAM first.** By the support law the peak support is
+`max(r_odd, r/2)`. For r = λ that is 9.08·10⁸, ≈ 30 GB: impossible on the
+16 GB Mac, as research/shor.md already predicted. The base is the first
+draw of `StdRng(seed)` (`--tries 1`). `examples/shor_seed_orders.rs` lists
+the base, its order and the predicted peak for seeds 1–40
+(`research/data/mbu-shor/seed_orders_32bit.txt`):
+
+* seeds 2, 3, 5, 6, 8, 9, 10 need ≈ 30 GB;
+* seeds 1, 4 and 7 have small orders, but the classical post-processing
+  fails (r odd, or a^(r/2) ≡ −1);
+* **seed 11 is the first seed that both fits and can succeed.** Its base is
+  a = 1 002 069 679 with r = 259 363 118 = λ/7, ν₂ = 1, and predicted peak
+  support r_odd = 129 681 559.
+
+**Caveat.** This selection computed r from λ(N), i.e. it used the
+factorisation. It selects which random base is *feasible*, the property
+the cost law says governs everything. The quantum simulation itself is
+exact and blind: every gate of the 136-qubit circuit on every branch.
+This is the same status as choosing a seed whose run fits; it is not a
+factoring of an unknown N, and the simulation is no classical speed-up
+(research/shor.md §"What is exponential in what").
+
+**Run.** Mac, `--oracle windowed-mbu-lookup`, f32. It ran as a background
+(non-timing) job, because a ~3 min run exceeds the 150 s lock chunk:
+`RAYON_NUM_THREADS=2`, SIGSTOP-on-lock watcher (never triggered), load
+15–18 from other work. Free + inactive memory was checked (≥ 7 GB) before
+launch.
+
+```
+RAYON_NUM_THREADS=2 qsim run shor --modulus 3631204201 --semiclassical --sliced --window 4 \
+    --oracle windowed-mbu-lookup --f32 --seed 11 --tries 1
+a=1002069679  qubits=136  measured=3249162659058944524  order=Some(259363118)  factor=Some(61643)
+peak_amplitudes=129681559  total_gates=945159  toffoli_gates=236165  mbu_measurements=49093  gate_branch_ops=1.454e14
+3631204201 = 58907 x 61643
+time 498.353 s (2 threads; eval 379 s, sort 89 s, collapse 23 s)   max RSS 6.28 GB
+```
+
+The measured peak support is exactly the support-law prediction
+(129 681 559). The order found is the true order. N is factored on the
+first base. This is the largest N factored here by simulating every gate
+of a Shor circuit; the previous was the 31-bit 1 537 596 787. The 2-thread
+wall time is not a benchmark. Scaling the 8-thread 31-bit run by the cost
+law (Σ B_i · G ratio ≈ 2.1×) suggests ≈ 3 min with 8 threads.
+
+**Memory constant, corrected.** RSS was 6.28 GB, not the 4.3 GB that
+"33 B per peak element" predicts. The 33 B rule (research/shor.md) was
+fitted at 31 bits, where ν₂(r) = 2: there the full peak support r/2 is only
+reached by the last *materialised* collapse, from a support of r/4. With
+ν₂(r) = 1 the support sits at r_odd for 36 rounds, and every collapse runs
+at full size. During a collapse the old keys/amplitudes (16 B), the
+`(Ux, ψ)` join array (16 B) and the new per-chunk parts (16 B) coexist
+(`SlicedState::collapse` drops the old buffers only after the merge). That
+gives 48 B × 1.297·10⁸ = 6.2 GB, which matches. Peak RSS is therefore
+≈ 48 B · r_odd when ν₂(r) = 1, and ≈ 32 B · r/2 when ν₂(r) ≥ 2. Streaming
+the merge into the old buffers would bring the first case down to 32 B.
 
 ## 6. Literature: how this compares
 

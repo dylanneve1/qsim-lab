@@ -1,0 +1,26 @@
+commit 8abd114 mbu-shor: cargo fmt start Sun Oct  4 16:32:24 IST 2026
+launch Sun Oct  4 17:00:14 IST 2026 load { 15.14 15.99 23.01 }
+note: the dense register for N=3631204201 would exceed the 1024 MiB memory cap; running semiclassical sparse (exact; pass --semiclassical/--sparse to silence this)
+[sliced profile] build 0.061s  eval c=1 193.831s  eval c=0 185.083s  sort 88.938s  p1 7.239s  collapse 23.013s  peak support 129681559
+a=1002069679  qubits=136  measured=3249162659058944524  order=Some(259363118)  factor=Some(61643)  peak_amplitudes=129681559  peak_amp_bytes=4149809888  total_gates=945159  toffoli_gates=236165  mbu_measurements=49093  gate_branch_ops=1.454e14
+3631204201 = 58907 x 61643
+time 498.353 s  peak RSS NaN MiB
+      498.35 real       929.28 user        30.26 sys
+          6278709248  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+            14447204  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+              945824  involuntary context switches
+       9333374682067  instructions retired
+       2944898211593  cycles elapsed
+          6230988152  peak memory footprint
+end Sun Oct  4 17:08:36 IST 2026 stopped_for 0s load { 17.78 16.51 19.93 }
