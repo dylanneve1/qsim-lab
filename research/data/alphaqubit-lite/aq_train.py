@@ -41,6 +41,7 @@ ap.add_argument("--scales", default="1.0")
 ap.add_argument("--init", default=None)
 ap.add_argument("--eval-every", type=int, default=1000)
 ap.add_argument("--dev-shots", type=int, default=5120)
+ap.add_argument("--dev-max", type=int, default=0, help="evaluate model selection on the first N dev shots per experiment")
 ap.add_argument("--max-minutes", type=float, default=45.0)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
@@ -228,7 +229,7 @@ t0 = time.time(); paused = 0.0; seen = 0; run = []
 def evaluate(it):
     cur = model.parameters()
     model.update(ema)
-    ler, per, _ = ler_table(model, DEV)
+    ler, per, _ = ler_table(model, {k: v[:a.dev_max] for k, v in DEV.items()} if a.dev_max else DEV)
     model.update(cur)
     rec = dict(it=it, shots=seen, dev_ler=ler, train_s=round(time.time() - t0 - paused, 1),
                wall_s=round(time.time() - t0, 1), **mem_report())
