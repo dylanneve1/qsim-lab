@@ -75,7 +75,7 @@ BP+OSD sees a 0.26–0.58× logical-error gain and Tesseract sees none?
 Mac M1 Pro (16 GB, 8 CPU + 14 GPU cores), Dylan's laptop, shared with other agents (1-min load 12–19 from
 peers during all runs). One training process at a time (Python driving the GPU + the sampler = 2 workers);
 MLX capped with `mx.set_memory_limit(1.5 GB)` / `mx.set_cache_limit(256 MB)` (MLX treats the first as a soft
-limit: logged peaks were 1.13 GB at d = 5 and 1.56 GB at d = 7 / colour); training refuses to start below 4 GB
+limit: logged peaks were 1.13 GB at d = 5, 1.59 GB at d = 7 and 1.66 GB for the colour code); training refuses to start below 4 GB
 free+inactive, SIGSTOPs itself and the sampler below 3 GB, while `/tmp/qsim-mac-bench.lock` is held, and exits
 if system wired memory passes 4 GB (it stayed at 3.0–3.3 GB); hard 44-min wall-clock cap per run, so long
 trainings are chains of resumed runs. **An earlier, uncapped run (batch 4096, no cache limit) contributed to
