@@ -53,6 +53,6 @@ for a in axes:
     a.set_xlim(right=a.get_xlim()[1] * 2.2)
 ax2.set_xticks([0.5, 1, 2, 3])
 fig.tight_layout()
-out = os.path.join(os.path.dirname(__file__), "..", "..", "neural-decoder-curves.png")
+out = os.path.join(os.path.dirname(__file__), "curves.png")
 fig.savefig(out, dpi=130, facecolor=SURF)
 print(out)
