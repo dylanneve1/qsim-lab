@@ -39,6 +39,7 @@ ap.add_argument("--ema", type=float, default=1e-3)
 ap.add_argument("--rounds", default=",".join(str(r) for r in range(3, 26, 2)))
 ap.add_argument("--scales", default="1.0")
 ap.add_argument("--init", default=None)
+ap.add_argument("--init-partial", default=None, help="checkpoint dir of another distance: load every shape-matching weight")
 ap.add_argument("--eval-every", type=int, default=1000)
 ap.add_argument("--dev-shots", type=int, default=5120)
 ap.add_argument("--dev-max", type=int, default=0, help="evaluate model selection on the first N dev shots per experiment")
@@ -154,6 +155,14 @@ model = AlphaQubitLite(L0.cell, L0.onbasis, d, D=cfg["D"], L=cfg["L"], heads=cfg
                        max_rounds=64)
 if a.init:
     model.load_weights(os.path.join(a.init, "model.safetensors"))
+if a.init_partial:
+    from mlx.utils import tree_unflatten
+    src = mx.load(os.path.join(a.init_partial, "model.safetensors"))
+    own = dict(tree_flatten(model.parameters()))
+    take = [(k, v) for k, v in src.items() if k in own and own[k].shape == v.shape]
+    model.update(tree_unflatten(take))
+    print(f"partial init: {len(take)}/{len(own)} tensors from {a.init_partial} "
+          f"(skipped: {sorted(k for k in own if k not in dict(take))})", flush=True)
 nparams = sum(v.size for _, v in tree_flatten(model.parameters()))
 cfg["params"] = int(nparams)
 json.dump(cfg, open(os.path.join(a.out, "cfg.json"), "w"), indent=1)
