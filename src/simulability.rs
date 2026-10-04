@@ -596,10 +596,22 @@ pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
     if n < 2 {
         return Ok(());
     }
-    let gates = gate_list(c);
     let th = Instant::now();
     let opts = HsfOptions::default();
     let in_a = hsf::auto_partition(c, &opts)?;
+    hsf_split_features(c, f, &in_a)?;
+    f.secs_hsf = th.elapsed().as_secs_f64();
+    Ok(())
+}
+
+/// The HSF fields of [`Features`] for a given partition `in_a` (O(gates);
+/// [`add_hsf_features`] uses the Kernighan–Lin partition, the planner also
+/// prices the plain line split `[0, n/2) | [n/2, n)` this way).
+pub fn hsf_split_features(c: &Circuit, f: &mut Features, in_a: &[bool]) -> Result<(), SimError> {
+    let n = c.num_qubits;
+    let gates = gate_list(c);
+    let opts = HsfOptions::default();
+    let in_a = in_a.to_vec();
     f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
     f.hsf_na = in_a.iter().filter(|&&x| x).count();
     f.hsf_nb = n - f.hsf_na;
@@ -610,7 +622,6 @@ pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
     let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
     f.hsf_l = cost(f.hsf_keff as f64);
     f.hsf_l0 = cost(f.hsf_k as f64);
-    f.secs_hsf = th.elapsed().as_secs_f64();
     Ok(())
 }
 

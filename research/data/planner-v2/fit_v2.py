@@ -101,7 +101,7 @@ def applicable(e, f, rq):
     if e == "sv":
         return n <= 26
     if e == "hsf":
-        return (n <= 52 and n < 64) if rq[0] == "a" else n <= 26
+        return (n <= 52 and n < 64) if rq[0] == "a" else n < 26
     if e == "sparse":
         return n <= 64
     return True

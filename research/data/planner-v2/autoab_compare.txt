@@ -1,0 +1,16 @@
+auto/auto0 time ratio: n=314 geo=0.951 median=1.007 min=0.0022 max=6.2; max(auto,auto0)>=1ms: n=126 geo=0.841
+auto (v2) vs best(frame,dense) of the round-4 session: n=300 geo=0.997 max=58.5 | best>=1ms n=112 geo=1.510 max=58.5
+auto0 (round 4) vs best(frame,dense) of the round-4 session: n=300 geo=1.051 max=423.2 | best>=1ms n=112 geo=1.862 max=423.2
+largest changes (auto0 / auto):
+    453.26x  arith:bits=12,h=4,reps=1  auto0 2.12s -> auto 0.004677s  (round-4 best frame/dense 0.005009s)
+    155.70x  arith:bits=12,h=6,reps=1  auto0 4.029s -> auto 0.02587s  (round-4 best frame/dense 0.01369s)
+     51.96x  arith:bits=10,h=4,reps=1  auto0 0.1445s -> auto 0.002781s  (round-4 best frame/dense 0.004534s)
+      6.65x  arith:bits=8,h=4,reps=1  auto0 0.008673s -> auto 0.001304s  (round-4 best frame/dense 0.002987s)
+      0.16x  brick:n=12,D=8,nn=1  auto0 0.001478s -> auto 0.009121s  (round-4 best frame/dense 0.001185s)
+      0.18x  brick:n=12,D=3,nn=1  auto0 0.00087s -> auto 0.004708s  (round-4 best frame/dense 0.0005s)
+      4.98x  arith:bits=6,h=1,reps=1  auto0 0.001403s -> auto 0.000282s  (round-4 best frame/dense 0.000269s)
+      4.18x  brick:n=16,D=1,nn=1  auto0 0.1356s -> auto 0.03245s  (round-4 best frame/dense 0.006655s)
+      3.97x  arith:bits=6,h=0,reps=1  auto0 0.00112s -> auto 0.000282s  (round-4 best frame/dense 0.000188s)
+      0.32x  brick:n=12,D=6,nn=1  auto0 0.001243s -> auto 0.00384s  (round-4 best frame/dense 0.000925s)
+      0.33x  brick:n=12,D=4,nn=1  auto0 0.001016s -> auto 0.003055s  (round-4 best frame/dense 0.000612s)
+      0.33x  ct:n=20,L=2,t=0,nn=0  auto0 7.3e-05s -> auto 0.000219s  (round-4 best frame/dense 8.9e-05s)

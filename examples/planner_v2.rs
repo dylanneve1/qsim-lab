@@ -418,6 +418,8 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         mps_bonds: r.final_bonds.clone(),
         quick: q.clone(),
         tier: 3,
+        computed: [true; 6],
+        hsf_split: None,
         base: base.clone(),
     };
     let mut choices = Vec::new();
@@ -443,6 +445,36 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
             },
         );
         let v2 = p2.as_ref().map(|p| p.engine.name()).unwrap_or("none");
+        // the tiered decision for a range of `voi` (offline tuning)
+        let vois: Vec<String> = [0.5f64, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 1e9]
+            .iter()
+            .map(|&voi| {
+                let p = planner::plan(
+                    &c,
+                    &req,
+                    &PlannerConfig {
+                        use_certificate: false,
+                        cache: false,
+                        voi,
+                        voi_amplitudes: voi,
+                        ..PlannerConfig::default()
+                    },
+                );
+                match p {
+                    Ok(p) => format!(
+                        "[\"{}\",{}]",
+                        p.engine.name(),
+                        p.features
+                            .computed
+                            .iter()
+                            .map(|&b| if b { "1" } else { "0" })
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ),
+                    Err(_) => "null".into(),
+                }
+            })
+            .collect();
         let v2tier = p2.as_ref().map(|p| p.features.tier).unwrap_or(0);
         let rule = rule_engine(&c, &req).name();
         let preds: Vec<String> = [
@@ -463,7 +495,8 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         })
         .collect();
         choices.push(format!(
-            "\"{rq}\":{{\"v1\":\"{v1}\",\"v2\":\"{v2}\",\"v2tier\":{v2tier},\"rule\":\"{rule}\",\"pred\":{{{}}}}}",
+            "\"{rq}\":{{\"v1\":\"{v1}\",\"v2\":\"{v2}\",\"v2tier\":{v2tier},\"voi\":[{}],\"rule\":\"{rule}\",\"pred\":{{{}}}}}",
+            vois.join(","),
             preds.join(",")
         ));
     }

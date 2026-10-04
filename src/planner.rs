@@ -344,6 +344,9 @@ pub struct PlannerConfig {
     /// HSF) the engine's lower bound beats that prediction.
     pub tiered: bool,
     pub voi: f64,
+    /// `voi` for amplitude requests (their MPS/HSF features matter more:
+    /// the state vector and sparse look-ups rarely win).
+    pub voi_amplitudes: f64,
     pub feature_cost: FeatureCost,
     /// Reuse plans of structurally equal circuits (same gates and qubits,
     /// same Clifford class of every angle, same request size bucket).
@@ -367,7 +370,8 @@ impl Default for PlannerConfig {
             hsf_feature_min_secs: 5e-3,
             sv_shortcut_secs: 3e-4,
             tiered: true,
-            voi: 4.0,
+            voi: 8.0,
+            voi_amplitudes: 4.0,
             feature_cost: FeatureCost::default(),
             cache: true,
         }
@@ -396,6 +400,7 @@ impl PlannerConfig {
             self.hsf_feature_min_secs,
             self.sv_shortcut_secs,
             self.voi,
+            self.voi_amplitudes,
             self.model.sv.a,
             self.model.mps.a,
             self.model.readout.sv_amp,
@@ -557,6 +562,13 @@ pub struct PlanFeatures {
     pub mps_bonds: Vec<usize>,
     /// Deepest tier computed: 0 quick, 1 O(G n), 2 + MPS replay, 3 + HSF.
     pub tier: u8,
+    /// Which features were computed (v2): support bound, certificate,
+    /// frame profile, MPS replay, HSF on the line split, HSF Kernighan–Lin
+    /// partition.
+    pub computed: [bool; 6],
+    /// HSF priced on the plain line split (tier 3a) and not refined by the
+    /// KL partition: the HSF engine then runs on exactly this split.
+    pub hsf_split: Option<Vec<bool>>,
 }
 
 /// A decision.
@@ -610,6 +622,8 @@ pub fn plan_features(
         mps_bonds: r.final_bonds,
         quick: quick_features(c),
         tier: 3,
+        computed: [true; 6],
+        hsf_split: None,
     })
 }
 
@@ -763,11 +777,14 @@ fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool
     match e {
         Engine::StateVector => n <= cap,
         // amplitudes need only the two blocks in memory
+        // the full 2^n output plus the two block registers must fit: at
+        // n = cap the output alone fills the budget (measured: TooLarge at
+        // n = 26, 1 GiB, after a speculative MPS run had been aborted for it)
         Engine::Hsf => {
             if amps {
                 n <= 2 * cap && n < 64
             } else {
-                n <= cap
+                n < cap
             }
         }
         Engine::Compressed => f.base.d <= cap.min(30) && !amps && (!indexed || n <= 128),
@@ -1121,6 +1138,11 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         ));
     }
     let fc = &cfg.feature_cost;
+    // tuned offline on the read-out session (research/planner-v2.md §3)
+    let cfg = &PlannerConfig {
+        voi: if amps { cfg.voi_amplitudes } else { cfg.voi },
+        ..*cfg
+    };
     let (g, nn) = (q.gates as f64, n as f64);
     let cheap = [Engine::StateVector, Engine::Sparse, Engine::Compressed];
     let mut ranked = rank(&f, req, cfg, &cheap);
@@ -1151,6 +1173,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         f.base.sup = simulability::support_bound(n, &gates);
         f.base.sparse_l = g.max(1.0).log2() + f.base.sup as f64;
         f.tier = 1;
+        f.computed[0] = true;
         stage[1] += t1.elapsed().as_secs_f64();
         ranked = rank(&f, req, cfg, &cheap);
     }
@@ -1158,6 +1181,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         if q.clifford || best(&ranked) > cfg.voi * c1b {
             let t1 = Instant::now();
             f.base.obs_zero = crate::adaptive::z_product_vanishes(c, obs)?;
+            f.computed[1] = true;
             stage[1] += t1.elapsed().as_secs_f64();
         }
     }
@@ -1165,6 +1189,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         let t1 = Instant::now();
         frame_features(c, &mut f)?;
         f.tier = 1;
+        f.computed[2] = true;
         stage[1] += t1.elapsed().as_secs_f64();
         ranked = rank(&f, req, cfg, &cheap);
     }
@@ -1192,24 +1217,43 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         f.mps_max_bond = r.max_bond;
         f.mps_bonds = r.final_bonds;
         f.tier = 2;
+        f.computed[3] = true;
         stage[2] = t2.elapsed().as_secs_f64();
         considered.push(Engine::Mps);
         ranked = rank(&f, req, cfg, &considered);
     }
-    // Tier 3: HSF partition, same rule.
-    let c3 = fc.hsf[0] + fc.hsf[1] * g * nn * nn;
+    // Tier 3: HSF. 3a prices it on the plain line split in O(gates) (the
+    // engine then runs on that split, so the prediction is for the run that
+    // happens); 3b refines with the Kernighan-Lin partition (~4 ms) only if
+    // HSF could still win and is not already first.
     let hsf_lb = lower_bound_secs(Engine::Hsf, &q, req, &cfg.model);
     let mut probe_f = f.clone();
     probe_f.base.hsf_na = n / 2;
-    if n >= 2
-        && applicable(Engine::Hsf, &probe_f, req, cfg.mem_bytes)
-        && best(&ranked) - hsf_lb > cfg.voi * c3
-    {
+    let hsf_ok = n >= 2 && applicable(Engine::Hsf, &probe_f, req, cfg.mem_bytes);
+    let c3a = fc.support[0] + fc.support[1] * g;
+    if hsf_ok && best(&ranked) - hsf_lb > cfg.voi * c3a {
+        let t3 = Instant::now();
+        let split: Vec<bool> = (0..n).map(|i| i < n / 2).collect();
+        simulability::hsf_split_features(c, &mut f.base, &split)?;
+        f.hsf_split = Some(split);
+        f.tier = 3;
+        f.computed[4] = true;
+        stage[3] += t3.elapsed().as_secs_f64();
+        considered.push(Engine::Hsf);
+        ranked = rank(&f, req, cfg, &considered);
+    }
+    let c3 = fc.hsf[0] + fc.hsf[1] * g * nn * nn;
+    let hsf_first = ranked.first().is_some_and(|x| x.0 == Engine::Hsf);
+    if hsf_ok && !hsf_first && best(&ranked) - hsf_lb > cfg.voi * c3 {
         let t3 = Instant::now();
         simulability::add_hsf_features(c, &mut f.base)?;
+        f.hsf_split = None;
         f.tier = 3;
-        stage[3] = t3.elapsed().as_secs_f64();
-        considered.push(Engine::Hsf);
+        f.computed[5] = true;
+        stage[3] += t3.elapsed().as_secs_f64();
+        if !considered.contains(&Engine::Hsf) {
+            considered.push(Engine::Hsf);
+        }
         ranked = rank(&f, req, cfg, &considered);
     }
     let Some(&(engine, _)) = ranked.first() else {
@@ -1262,7 +1306,31 @@ fn run_one(
     obs: &[usize],
     cfg: &PlannerConfig,
     deadline: Option<f64>,
+    split: Option<&[bool]>,
 ) -> Result<Outcome, SimError> {
+    if let (Engine::Hsf, Some(sp)) = (e, split) {
+        // HSF on the split the plan priced, full output, parity
+        let opts = HsfOptions {
+            max_bytes: cfg.mem_bytes,
+            ..HsfOptions::default()
+        };
+        let out = 16u128 << c.num_qubits.min(120);
+        if out > cfg.mem_bytes {
+            return Err(SimError::TooLarge {
+                what: "hsf full output",
+                bytes: out,
+                limit: cfg.mem_bytes,
+            });
+        }
+        let amps = HybridSchrodingerFeynman::new(c, sp, opts)?.state_vector()?;
+        let mask = obs.iter().fold(0u64, |m, &q| m ^ (1u64 << q));
+        return Ok(Outcome::Value(
+            amps.iter()
+                .enumerate()
+                .map(|(x, a)| parity(x as u64, mask) * a.norm_sqr())
+                .sum(),
+        ));
+    }
     let t0 = Instant::now();
     let over = |t0: &Instant| deadline.is_some_and(|d| t0.elapsed().as_secs_f64() > d);
     match e {
@@ -1345,7 +1413,14 @@ pub fn execute_expectation(
             break;
         }
         let e = order[i].0;
-        match run_one(e, c, obs, cfg, deadline_for(&order, i, cfg)) {
+        match run_one(
+            e,
+            c,
+            obs,
+            cfg,
+            deadline_for(&order, i, cfg),
+            plan.features.hsf_split.as_deref(),
+        ) {
             Ok(Outcome::Value(v)) => {
                 result = Some((v, e));
                 break;
@@ -1426,6 +1501,18 @@ pub fn prepare(
     cfg: &PlannerConfig,
     deadline: Option<f64>,
 ) -> Result<Option<Prepared>, SimError> {
+    prepare_split(e, c, cfg, deadline, None)
+}
+
+/// [`prepare`], with the HSF partition the plan priced (`None`: the
+/// engine's Kernighan–Lin partition).
+pub fn prepare_split(
+    e: Engine,
+    c: &Circuit,
+    cfg: &PlannerConfig,
+    deadline: Option<f64>,
+    split: Option<&[bool]>,
+) -> Result<Option<Prepared>, SimError> {
     let t0 = Instant::now();
     let over = |t0: &Instant| deadline.is_some_and(|d| t0.elapsed().as_secs_f64() > d);
     let n = c.num_qubits;
@@ -1476,7 +1563,11 @@ pub fn prepare(
                 max_bytes: cfg.mem_bytes,
                 ..HsfOptions::default()
             };
-            Prepared::Hsf(Box::new(HybridSchrodingerFeynman::auto(c, opts)?), None)
+            let h = match split {
+                Some(sp) => HybridSchrodingerFeynman::new(c, sp, opts)?,
+                None => HybridSchrodingerFeynman::auto(c, opts)?,
+            };
+            Prepared::Hsf(Box::new(h), None)
         }
         Engine::Compressed => {
             let max_d = ((cfg.mem_bytes / 16).max(1).ilog2() as usize).min(30);
@@ -1648,10 +1739,13 @@ pub fn execute_samples<R: Rng + ?Sized>(
         }
         let dl = deadline_for(&order, i, cfg);
         let ts = Instant::now();
-        let r = prepare(e, c, cfg, dl).and_then(|p| match p {
-            None => Ok(None),
-            Some(mut p) => p.samples(shots, rng, dl.map(|d| (ts, d))),
-        });
+        let r =
+            prepare_split(e, c, cfg, dl, plan.features.hsf_split.as_deref()).and_then(
+                |p| match p {
+                    None => Ok(None),
+                    Some(mut p) => p.samples(shots, rng, dl.map(|d| (ts, d))),
+                },
+            );
         match r {
             Ok(Some(samples)) => {
                 return Ok(SampleExecution {
@@ -1706,8 +1800,14 @@ pub fn execute_amplitudes(
         if matches!(e, Engine::Zero | Engine::Tableau | Engine::Compressed) {
             continue;
         }
-        let r = prepare(e, c, cfg, deadline_for(&order, i, cfg))
-            .and_then(|p| p.map(|mut p| p.amplitudes(xs)).transpose());
+        let r = prepare_split(
+            e,
+            c,
+            cfg,
+            deadline_for(&order, i, cfg),
+            plan.features.hsf_split.as_deref(),
+        )
+        .and_then(|p| p.map(|mut p| p.amplitudes(xs)).transpose());
         match r {
             Ok(Some(a)) => {
                 out = Some((a, e));
