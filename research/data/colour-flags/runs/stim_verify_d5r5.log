@@ -1,0 +1,4 @@
+/tmp/cf-work/d5hf_z.stim: stim DEM z-sector, 484 mechanisms, 99 dets: logical of weight <= 4: none -> d_circ >= 5 (0s)
+/tmp/cf-work/d5hf_z.stim: stim upper bound 5 (3.8s, ev<=4, deg<=10)
+/tmp/cf-work/d5hf_x.stim: stim DEM x-sector, 484 mechanisms, 99 dets: logical of weight <= 4: none -> d_circ >= 5 (0s)
+/tmp/cf-work/d5hf_x.stim: stim upper bound 5 (5.1s, ev<=4, deg<=10)

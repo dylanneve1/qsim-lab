@@ -1,0 +1,3 @@
+light fails: 5 syndrome weights: [37, 44, 53, 80, 47]
+orders 4 beam 8: still failing 0 of 5
+orders 16 beam 15: still failing 0 of 5
