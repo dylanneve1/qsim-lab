@@ -407,6 +407,21 @@ lookup-only oracle, the first seeded 32-bit generic N, 3 631 204 201 =
 chosen by seed so that its order fits in RAM; that choice used λ(N). See
 §5b there.
 
+### Follow-up: Gidney–Ekerå techniques (exp/ge-shor)
+
+`src/shor_ge.rs`, `examples/ge_shor.rs`, `research/ge-shor.md`. Exponent
+windowing (one multiplication per `w_e` exponent bits, lookups addressed
+by exponent and multiplicand bits, the window's exponent qubits measured
+semiclassically one by one), the Ekerå–Håstad short exponent (48 instead
+of 62 exponent bits at 31 bits, lattice post-processing) and coset
+arithmetic (approximate; its deviation measured exactly at n ≤ 10), all at
+gate level. 31-bit Toffolis 119 096 → 75 950 (windowing, exact) → 61 087
+(+ EH, exact) → 45 926 (+ coset, c = 8), against ≈ 44 k for GE19's own
+construction at n = 31 (their 0.3n³ headline is an RSA-size number). The
+31-bit N is factored from one EH run in 76.9 s on the Mac (odd-order
+base, 128 k Toffolis); the windowed Shor circuit runs 126.7 s vs 89.4 s for
+the old oracle (2^{w_e} exponent branches per stored value).
+
 ### The law: reachable support of the gate-level circuit, and the cost it implies (new)
 
 Before round `i` (bits `0..i−1` measured, `U^(2^(t−1)) … U^(2^(t−i))`

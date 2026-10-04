@@ -1,0 +1,35 @@
+free+inactive 10.0436 GB (need 6)
+== 31bit lanes=32  19:28:43Z  load: 4.24 6.48 6.77
+-- ge:2:3:lookups:shor rep 1
+Shor  N=1537596787  a=457167243  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)
+qubits=134  windows=31  toffoli=164443  gates=708798  meas=41838  fixups=16416  steps=729835  peak_support=64063125  peak_branches=256252500  gate_branch_ops=1.074e14
+time 127.880 s  (build 0.058, eval 82.454, sort 31.130, probs 8.508, new state 5.700)
+          4192747520  maximum resident set size
+== released 19:30:51Z
+free+inactive 9.2044 GB (need 6)
+== 31bit lanes=16  19:32:01Z  load: 9.32 9.42 8.06
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.058s  eval c=1 33.479s  eval c=0 31.272s  sort 17.330s  p1 1.533s  collapse 6.468s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=872288  toffoli_gates=218421  mbu_measurements=45379  gate_branch_ops=6.847e13
+time 90.245 s  peak RSS NaN MiB
+       90.25 real       525.11 user        24.76 sys
+          4281237504  maximum resident set size
+== released 19:33:32Z
+free+inactive 8.6945 GB (need 6)
+== 31bit lanes=32  19:34:42Z  load: 8.86 10.42 8.80
+-- ge:2:3:lookups:shor rep 1
+Shor  N=1537596787  a=457167243  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)
+qubits=134  windows=31  toffoli=164443  gates=708798  meas=41838  fixups=16416  steps=729835  peak_support=64063125  peak_branches=256252500  gate_branch_ops=1.074e14
+time 126.816 s  (build 0.058, eval 82.161, sort 31.302, probs 7.506, new state 5.758)
+          4192223232  maximum resident set size
+== released 19:36:48Z
+free+inactive 8.20519 GB (need 6)
+== 31bit lanes=16  19:37:58Z  load: 8.61 11.44 9.72
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.059s  eval c=1 32.875s  eval c=0 30.876s  sort 17.204s  p1 1.547s  collapse 6.674s  peak support 128126250
+a=457167243  qubits=132  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)  peak_amplitudes=128126250  peak_amp_bytes=4100040000  total_gates=872288  toffoli_gates=218421  mbu_measurements=45379  gate_branch_ops=6.847e13
+time 89.346 s  peak RSS NaN MiB
+       89.35 real       519.68 user        25.13 sys
+          4278157312  maximum resident set size
+== released 19:39:28Z
+DONE

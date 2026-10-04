@@ -1,7 +1,7 @@
 # Gidney–Ekerå techniques in the exact gate-level Shor simulation (exp/ge-shor)
 
-Branch `exp/ge-shor`, based on `exp/mbu-shor` (`f1258f6`, = main `d44563c` +
-MBU). Code: `src/shor_ge.rs` (oracle, windowed engine, Ekerå–Håstad,
+Branch `exp/ge-shor`, based on main `f1258f6` (= exp/mbu-shor merged),
+with main `4dbe6ef` merged in. Code: `src/shor_ge.rs` (oracle, windowed engine, Ekerå–Håstad,
 coset arithmetic), small changes to `src/shor_mbu.rs` (uncontrolled
 lookups, a global-sign op) and `src/shor/sliced.rs` (global sign in the
 sign check). Tests: `src/shor_ge.rs` (3 unit tests), `tests/ge_shor.rs`
@@ -13,7 +13,7 @@ campaigns ran on the VPS (nice 15, `-j 2`, 2 threads). Timings ran on the
 Mac (M1 Pro, 8 cores, 16 GB) under `/tmp/qsim-mac-bench.lock`, one
 31-bit run per lock (≤ 150 s), ≥ 65 s gaps, interleaved with the
 `exp/mbu-shor` oracle built from the same checkout. The Mac's 1-min load
-from other agents was 8–13 during the timings.
+from other agents was 4–15 during the timings (given per block in §5).
 
 ## TL;DR
 
@@ -40,8 +40,10 @@ from other agents was 8–13 during the timings.
      reduction + enumeration, every candidate verified by `g^d = y` and
      `p·q = N`). Exact: the gate-level distribution of `(j, k)` equals the
      textbook EH distribution to `1e-12`. **Success probability of one
-     run**: 0.94 / 0.93 / 0.92 exactly (N = 35, 77, 143); 0.88 ± 0.03
-     (16-bit, 400 runs) and 0.93 ± 0.04 (20-bit, 200 runs) by Monte Carlo.
+     run**: 0.94 / 0.93 / 0.92 exactly (N = 35, 77, 143); 0.88 ± 0.02
+     (16-bit, 800 runs), 0.91 ± 0.03 (20-bit, 500 runs) and 0.90 ± 0.08
+     (24-bit, 60 runs) by gate-level Monte Carlo — about the same as one
+     Shor run on the same bases (0.92 / 0.92 / 0.97).
   3. **Coset representation** (Zalka; GE19 §2.4): `n + c`-qubit registers
      holding `Σ_j |x + jN⟩`, plain `(n + c)`-bit Gidney additions, no
      modular reduction. **Approximate**, and the simulator measures the
@@ -67,19 +69,21 @@ from other agents was 8–13 during the timings.
 * **Simulated end to end at 31 bits** (exact windowed-exponent circuit,
   `w_e = 2`, `w_m = 3`, MBU lookups): measured the same integer as every
   earlier run (2 059 039 373 337 077 151), found r = 256 252 500 and the
-  factor 52 501. **TBD s** (min of 3) vs **TBD s** for the exp/mbu-shor
+  factor 52 501. **126.7 s** (min of 5) vs **89.4 s** for the exp/mbu-shor
   record oracle in the same session, 164 443 vs 218 421 Toffolis
   (−25 %), peak RSS 4.19 GB vs 4.28 GB. The windowed circuit is
   **slower to simulate** although it has fewer Toffolis: the simulator
   must evaluate the block on every exponent value, `2^{w_e}` branches per
   stored `x`, and each evaluation is a whole windowed multiplication with
-  bigger lookups (§2.4).
+  bigger lookups (§1.4).
 * **Ekerå–Håstad is cheaper to simulate than Shor** when the base has odd
   order: `g = h^{2^n}` (no factorisation needed; any base works for EH)
-  keeps the support at `r_odd` for the whole run (24-bit: 0.21 s vs
-  0.57 s for Shor; peak support 79 335 vs 2 538 720/4). With a random base
-  the EH support reaches the full order `r` (the 2-D phase estimation
-  fills `⟨g⟩`), up to 4× Shor's peak.
+  keeps the support at `r_odd` for the whole run. **31 bits: N factored
+  from one EH run in 76.9 s** (128 412 Toffolis, 48 exponent bits) vs 89.4 s
+  for the old Shor oracle; 28 bits 6.90 s vs 10.71 s; 24 bits 0.121 s vs
+  0.257 s. With a random base the EH support reaches the full order `r`
+  (the 2-D phase estimation fills `⟨g⟩`), up to 4× Shor's peak, and the
+  31-bit instance needs ≈ 16 GB (not run).
 
 ## 1. Engine: semiclassical windows
 
@@ -145,7 +149,7 @@ state is never materialised.
 the real gate-level windowed engine (N = 15, 21, 143, 65, 91; w_e = 2, 3,
 4; 17 210 nodes, including inside-window nodes): at every node there are
 `2^{w−j}` arrays, **each of size exactly the closed form of Theorem 1(b)**
-(deficient nodes included), all with the same multiset of amplitudes
+(which includes the deficient cases), all with the same multiset of amplitudes
 (`V^{e''}` permutes), and the work counter equals (c).
 `windowed_distribution_matches_textbook`: N = 15, 21, 35, all coprime bases
 tested, `w_e = 1…4`, three MBU option sets: the whole-tree distribution
@@ -289,21 +293,24 @@ these sizes, so it does not discriminate). `w_m = 2`.
 
 | N (bits) | r | w_e | c = 1 | 2 | 3 | 4 | 5 | 6 | P_strict exact → c = 6 |
 |---|---|---|---|---|---|---|---|---|---|
-| 21 (5) | 6 | 2 | 0.245 | 0.167 | 0.134 | 0.071 | | | |
-| 35 (6) | 12 | 2 | 0.477 | 0.309 | 0.185 | 0.086 | | | |
+| 21 (5) | 6 | 2 | 0.245 | 0.167 | 0.134 | 0.071 | 0.043 | 0.022 | 0.331 → 0.325 |
+| 33 (6) | 10 | 2 | 0.693 | 0.439 | 0.227 | 0.122 | 0.061 | 0.036 | 0.398 → 0.387 |
+| 35 (6) | 12 | 2 | 0.477 | 0.309 | 0.185 | 0.086 | 0.043 | 0.023 | 0.331 → 0.325 |
+| 39 (6) | 12 | 2 | 0.597 | 0.384 | 0.182 | 0.099 | 0.048 | 0.023 | 0.331 → 0.325 |
 | 55 (6) | 20 | 1 | 0.920 | 0.872 | 0.517 | 0.243 | 0.116 | 0.061 | 0.393 → 0.369 |
 | 55 (6) | 20 | 2 | 0.754 | 0.663 | 0.343 | 0.163 | 0.081 | 0.044 | 0.393 → 0.377 |
 | 57 (6) | 18 | 2 | 0.884 | 0.703 | 0.429 | 0.216 | 0.111 | 0.052 | 0.329 → 0.313 |
 | 65 (7) | 12 | 2 | 0.589 | 0.383 | 0.155 | 0.078 | 0.038 | 0.022 | 0.333 → 0.328 |
-| 77 (7) | 30 | 2 | 0.881 | 0.656 | 0.389 | 0.196 | | | 0.265 |
-| 15, 33, 51, 85 | 4, 10, 8, 8 | | 0 | 0 | 0 | 0 | 0 | 0 | |
+| 77 (7) | 30 | 2 | 0.881 | 0.656 | 0.389 | 0.196 | 0.109 | 0.055 | 0.265 → 0.251 |
+| 91 (7) | 12 | 2 | 0.526 | 0.364 | 0.210 | 0.104 | 0.054 | | 0.333 → 0.320 (c = 5) |
+| 15, 51, 85 | 4, 8, 8 | 1, 2 | 0 | 0 | 0 | 0 | 0 | 0 | unchanged |
 
-TV **halves per padding qubit** once `c ≥ 3`. Orders that are powers of
-two (and N = 33) show no deviation at all: their output peaks sit on
-multiples of `2^t/r` exactly, and the deviant branches only change
-amplitudes that are zero anyway. N = 65 (just above 2^6) deviates least:
-its register has `2^{n+c}/N ≈ 2^c · 1.97` coset slots, nearly twice the
-`2^c` that the initial superposition uses, so most index drift fits
+(`research/data/ge-shor/coset_exact.log`, also `w_e = 1` for every N.)
+TV **halves per padding qubit** once `c ≥ 3`. The three N whose base has a
+power-of-two order show no deviation at all (TV = 0 to print precision);
+we observed this but did not analyse it. N = 65 (just above 2^6) deviates
+least: its register has `2^{n+c}/N ≈ 1.97 · 2^c` coset slots, nearly twice
+the `2^c` that the initial superposition uses, so most index drift fits
 without wrapping.
 
 ### 3.2 Larger N by exact path likelihoods
@@ -325,7 +332,7 @@ the deviant weight after every window are exact per path; TV =
 The **deviant weight** (probability on branches that are no longer
 congruent to the exact state, i.e. that wrapped) is ≈ (0.5–1.5)·2^{−c}
 after the first window and **grows only slowly** over the run — by a
-factor 0.05–2 from the first to the last of 8–10 windows, not by the
+factor 0.04–2 from the first to the last of 8–10 windows, not by the
 number of windows: a wrapped branch is a garbage residue that no longer
 interferes with the good ones, and each window's measurement renormalises
 the state (for small orders the good part dominates the outcomes and the
@@ -369,10 +376,11 @@ construction; `w_e, w_m` chosen per row):
 
 Per technique at 31 bits: exponent windowing −36 % (`w_e = 3`: one
 multiplication per 3 exponent bits, but 2^7-entry lookups); EH −20 % on
-top (48 instead of 62 exponent bits; slightly less than 3/4 because the
-best windows shift); coset arithmetic −25 % on top at c = 8 (a plain
-38-bit addition instead of a 3.5n modular adder, but `n + c` bits to look
-up and swap), −11 % at c = 12. The coset gain grows with n: at n = 20 it is
+top (48 instead of 62 exponent bits; less than the 23 % the exponent
+length alone gives, because the best windows shift); coset arithmetic
+−25 % on top at c = 8 (a plain 39-bit addition, 38 Toffolis, instead of
+the ≈ 3.5n = 108 of the modular adder, but `n + c` bits to look up and
+swap), −11 % at c = 12. The coset gain grows with n: at n = 20 it is
 only −4 %, because the lookups dominate.
 
 **The configurations the simulator runs** (fewer slice steps, exact):
@@ -383,7 +391,8 @@ only −4 %, because the lookups dominate.
 | 31 | exp/mbu-shor `windowed-mbu` (w = 4) | 162 | 119 096 | 1 180 796 | 143 400 | 1 252 554 | 62 |
 | 31 | GE Shor, w_e = 2, w_m = 3, lookups | 134 | 164 443 | 708 798 | 41 838 | 729 835 | 62 |
 | 31 | GE Shor, w_e = 2, w_m = 4, all | 165 | 81 438 | 837 830 | 94 551 | 885 340 | 62 |
-| 31 | GE EH, w_e = 2, w_m = 3, lookups | 134 | 127 485 | 549 694 | 32 415 | 565 882 | 48 |
+| 31 | GE EH, w_e = 2, w_m = 3, lookups (random base) | 134 | 127 485 | 549 694 | 32 415 | 565 882 | 48 |
+| 31 | GE EH, w_e = 2, w_m = 3, lookups (odd-order base, timed) | 134 | 128 412 | 551 496 | 32 412 | 567 646 | 48 |
 | 28 | GE Shor, w_e = 2, w_m = 3, lookups | 122 | 122 865 | 513 693 | 32 453 | 529 929 | 56 |
 | 28 | GE Shor, w_e = 2, w_m = 4, all | 150 | 61 003 | 611 100 | 70 187 | 646 162 | 56 |
 | 24 | GE Shor, w_e = 2, w_m = 3, lookups | 106 | 72 996 | 316 429 | 21 612 | 327 212 | 48 |
@@ -397,7 +406,63 @@ EH does not change the qubit count.
 
 ## 5. Timings (Mac)
 
-TBD
+`research/data/ge-shor/bench_*.log`. `qsim run shor --semiclassical
+--sliced --window 4 --oracle windowed-mbu-lookup --seed S --tries 1`
+(exp/mbu-shor's oracle, built from this branch) vs `ge_shor run N S w_e
+w_m {lookups|all} {shor|eh|eh-odd} {f64|f32}` (same base: first draw of
+`StdRng(S)`; same RNG stream for the measurements). f64 at 24 and 28 bits
+(seed 1), f32 at 31 bits (seed 2), as in research/mbu-shor.md. "L" is the
+slice width (`QSIM_SLICE_LANES`, 64·L branches per batch; 16 is the
+default, 32 is 10 % faster for the windowed blocks). Interleaved, min of
+3 unless noted; 1-min load average in brackets.
+
+| N (bits) | circuit | Toffolis | L | times (s) | min | RSS |
+|---|---|---|---|---|---|---|
+| 10 161 323 (24) [3.5–6] | mbu-lookup (old) | 97 996 | 16 | 0.270 / 0.267 / 0.257 | 0.257 | 103 MB |
+| | mbu-lookup (old) | | 32 | 0.280 / 0.257 / 0.258 | 0.257 | 104 MB |
+| | GE Shor 2:3 lookups | 72 996 | 32 | 0.244 / 0.232 / 0.230 | **0.230** | 88 MB |
+| | GE Shor 2:3 lookups | | 16 | 0.250 / 0.263 / 0.255 | 0.250 | 87 MB |
+| | GE Shor 2:4 all | 40 183 | 32 | 0.251 / 0.269 / 0.288 | 0.251 | 87 MB |
+| | GE EH 2:3 lookups, random base | 54 328 | 32 | 1.716 / 1.716 / 1.755 | 1.716 | 391 MB |
+| | GE EH 2:3 lookups, odd-order base | 54 637 | 32 | 0.126 / 0.121 / 0.126 | **0.121** | 22 MB |
+| 221 643 407 (28) [5–9] | mbu-lookup (old) | 155 095 | 16 | 11.568 / 11.558 / 11.583 | 11.56 | 2.83 GB |
+| | mbu-lookup (old) | | 32 | 10.821 / 10.707 / 10.800 | 10.71 | 2.83 GB |
+| | GE Shor 2:3 lookups | 122 865 | 32 | 14.042 / 14.363 / 14.247 | 14.04 | 2.74 GB |
+| | GE Shor 2:4 all | 61 003 | 32 | 15.745 / 15.897 / 15.982 | 15.75 | 2.74 GB |
+| | GE EH 2:3 lookups, odd-order base | 91 389 | 32 | 6.899 / 6.910 / 7.031 | **6.90** | 0.82 GB |
+| 1 537 596 787 (31) [4–15] | mbu-lookup (old) | 218 421 | 16 | 90.90 / 112.65 / 111.48 / 90.25 / 89.35 | **89.35** | 4.28 GB |
+| | mbu-lookup (old) | | 32 | 105.89 (1 run, load 14) | | 4.28 GB |
+| | GE Shor 2:3 lookups | 164 443 | 32 | 126.71 / 127.03 / 157.80 / 127.88 / 126.82 | **126.71** | 4.19 GB |
+| | GE Shor 2:4 all | 81 438 | 32 | 183.07 (1 run, load 12–15) | | 4.19 GB |
+| | GE EH 2:3 lookups, odd-order base | 128 412 | 32 | 76.90 (1 run, load 5–7) | **76.9** | 4.79 GB |
+
+Every run measured the same integer as research/mbu-shor.md
+(150 071 647 041 326; 19 301 499 017 721 646; 2 059 039 373 337 077 151)
+and found the true order and a factor; every EH run recovered `p` and `q`
+from its single `(j, k)` (24-bit: j = 11 279 703, k = 1 838; 28-bit
+odd base: j = 102 635 861, k = 14 126; 31-bit odd base: j = 1 940 035 148,
+k = 42 399).
+
+* **Exponent windowing costs simulator time** at 28 and 31 bits (+31 %
+  vs the old oracle at L = 32 at 28 bits, +42 % vs its best at 31 bits) although it cuts Toffolis by
+  21–25 % (lookups) or 61–63 % (all), for the reason in §1.4. At 24 bits it
+  is 10 % faster: there the per-round overheads (sort, merge of a
+  `2^{22}`-entry support) dominate, and the windowed engine has half as
+  many rounds.
+* **EH with an odd-order base is the fastest way to factor these N at gate
+  level**: 2.1× faster than the old Shor oracle at 24 bits, 1.55× at
+  28 bits, and at 31 bits **76.9 s** vs the old oracle's best 89.35 s
+  (−14 %), with 128 412 vs 218 421 Toffolis and 48 vs 62 controlled
+  multiplications; with `ν₂(r) = 0` the support never exceeds `r_odd`.
+  Its peak RSS is higher at 31 bits (4.79 GB vs 4.28 GB): the support
+  grows inside the last windows, where the new state is written partly
+  out of place.
+* **EH with a random base at 31 bits is not simulable on 16 GB**: d =
+  40 893 is odd, so the support is the full `r = 2.56·10⁸` for most of the
+  run and the `w_e = 2` window needs `4r` branches (16 GB). A first attempt
+  was started by mistake (I had mis-computed d as even) and killed after
+  ≈ 200 s when the Mac started swapping; `QSIM_GE_MAX_GB` now aborts a
+  window that would exceed a set budget.
 
 ## 6. Against Gidney–Ekerå 2019
 
