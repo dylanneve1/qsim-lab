@@ -184,8 +184,10 @@ faster: against pip the ratio there is 16.9×.)
 **Stim's DEM sampler is not faster.** We checked `circuit.detector_error_model().compile_sampler()`,
 the same "sample error mechanisms, XOR into detectors" representation, with DEM extraction excluded.
 pip, VPS, load 3.9: 1.06 Mshot/s at d = 7, p = 0.3%; 0.09 / 0.11 Mshot/s at d = 15, p = 0.3% / 0.1%.
-That is slower than Stim's circuit sampler, because it does work per error mechanism per batch. Run 2
-of the grid (`timing_vps_epyc_run2.jsonl`, if present) records it in every cell.
+That is slower than Stim's circuit sampler, because it does work per error mechanism per batch. These
+x86 DEM numbers are a one-off check. `timing.py` now times the DEM sampler in every cell, but a second
+x86 grid was not run: VPS load stayed at 6–11 for the rest of the session. The Mac grid (§3.4) has it
+in every cell, at 0.06–0.09 Mshot/s for d = 15.
 
 **Where the end-to-end lead goes.** Our compile at d = 15 is 69–80 ms in run 1. That is the
 symbolic SymPhase frame (about 42 ms), the parity rows and the hit table. A flatter table build since
