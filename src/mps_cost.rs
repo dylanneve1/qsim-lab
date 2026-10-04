@@ -24,6 +24,7 @@
 //!     branching variables (one per non-monomial one-qubit gate) or opaque;
 //!     the Schmidt rank is at most the number of distinct `A`-parts of the
 //!     support, `2^{rank(affine forms on A) + #opaque on A}` (and `B`).
+//!
 //!   `Best` is the minimum of all of them.
 //! * [`replay`]: a symbolic re-run of [`crate::mps::Mps::apply_gate`]'s exact
 //!   control flow (orthogonality-centre moves, SWAP routing, Toffoli

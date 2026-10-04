@@ -515,7 +515,7 @@ fn run_one(
             let mask = obs.iter().fold(0u64, |m, &q| m ^ (1u64 << q));
             Ok(Outcome::Value(
                 s.iter()
-                    .map(|(x, a)| parity(x as u64, mask) * a.norm_sqr())
+                    .map(|(x, a)| parity(x, mask) * a.norm_sqr())
                     .sum(),
             ))
         }
