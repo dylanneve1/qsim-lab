@@ -49,6 +49,10 @@ pub struct Opts {
     pub kflip: bool,
     pub direct_first: bool,
     pub keep_chain: bool,
+    /// Finish with the generic commutation-aware peephole pass
+    /// ([`crate::compile::peephole`]): cancels the inverse pairs left at
+    /// block junctions (e.g. `CNOT(c0, b0)` between consecutive adders).
+    pub peephole: bool,
 }
 
 impl Opts {
@@ -60,6 +64,7 @@ impl Opts {
         kflip: false,
         direct_first: false,
         keep_chain: false,
+        peephole: false,
     };
     /// Everything on.
     pub const ALL: Opts = Opts {
@@ -69,6 +74,7 @@ impl Opts {
         kflip: true,
         direct_first: true,
         keep_chain: true,
+        peephole: true,
     };
 }
 
@@ -382,7 +388,25 @@ pub fn controlled_ua(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circui
         c.cnot(b, x);
     }
     c.append(&cmult(lay, inv, n_mod, o).inverse());
+    if o.peephole {
+        c = reversible_peephole(&c);
+    }
     c
+}
+
+/// The peephole pass restricted to X/CNOT/CCX circuits. Its output equals
+/// the input up to a global phase; both are permutation matrices built from
+/// X/CNOT/CCX only (checked), so they are the same permutation.
+pub fn reversible_peephole(c: &Circuit) -> Circuit {
+    let p = crate::compile::peephole::optimize(c).circuit;
+    for g in p.gates() {
+        assert!(
+            matches!(g, Gate::X(_) | Gate::Cnot(..) | Gate::Ccx(..)),
+            "peephole produced a non-reversible gate {g:?}"
+        );
+    }
+    assert_eq!(p.gates().count(), p.ops.len());
+    p
 }
 
 #[cfg(test)]
@@ -508,6 +532,10 @@ mod tests {
 
     fn all_opts() -> Vec<Opts> {
         let mut v = vec![Opts::BASELINE, Opts::ALL];
+        v.push(Opts {
+            peephole: true,
+            ..Opts::BASELINE
+        });
         for i in 0..6 {
             let mut o = Opts::BASELINE;
             match i {

@@ -17,6 +17,25 @@ fn main() {
     let base: u64 = a[2].parse().unwrap();
     let w: usize = a[3].parse().unwrap();
     let peep = a.get(4).is_some_and(|s| s == "peephole");
+    if a.get(4).is_some_and(|s| s == "sweep") {
+        // window sweep, baseline vs all, totals over the run
+        let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
+        for ww in 1..=8usize {
+            let lay = WindowLayout::new(inst.m, ww);
+            let mut row = format!("n={} w={ww} qubits={}", inst.m, lay.num_qubits());
+            for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL)] {
+                let (mut g, mut t) = (0, 0);
+                for &mult in &inst.mults {
+                    let (gg, tt) = gate_counts(&controlled_ua(&lay, mult, n_mod, &o));
+                    g += gg;
+                    t += tt;
+                }
+                row += &format!("  {name}: total={g} ccx={t}");
+            }
+            println!("{row}");
+        }
+        return;
+    }
     let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
     let lay = WindowLayout::new(inst.m, w);
     let b = Opts::BASELINE;
@@ -28,6 +47,8 @@ fn main() {
         ("kflip", Opts { kflip: true, ..b }),
         ("direct_first", Opts { direct_first: true, ..b }),
         ("unary+keep_chain", Opts { unary: true, keep_chain: true, ..b }),
+        ("peephole only", Opts { peephole: true, ..b }),
+        ("all but peephole", Opts { peephole: false, ..Opts::ALL }),
         ("all", Opts::ALL),
     ];
     println!(
