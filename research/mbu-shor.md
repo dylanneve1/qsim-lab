@@ -10,7 +10,13 @@ measurements), CLI `--oracle windowed-mbu | windowed-mbu-lookup`,
 `src/shor_mbu.rs`, `src/shor/sliced.rs`, `tests/mbu_shor.rs`,
 `tests/theory_shor_mbu.rs`. Raw data: `research/data/mbu-shor/`.
 
-TIMING_PLACEHOLDER
+**Machines.** Builds, tests, counts and timings ran on the Mac (M1 Pro,
+8 cores, 16 GB). Timings were taken under `/tmp/qsim-mac-bench.lock`, one
+lock per 31-bit run and one per 24-bit block or 28-bit triple, with 65 s
+gaps, interleaving windowed-opt / mbu-lookup / mbu. The 1-min load average
+was 10–17 during the timings, from other agents' unlocked work. The VPS
+was used for git, `cargo fmt` and `cargo clippy --all-targets -D warnings`
+(clean).
 
 ## TL;DR
 
@@ -49,7 +55,12 @@ TIMING_PLACEHOLDER
   sign + reset + CZ). The Gidney adder has about 1.5× the CNOTs of
   Cuccaro's. So the full-MBU circuit is **+20.5 % slice steps** at 31 bits
   (+4.7 % at `w = 5`), while the lookup-only variant is **−13.9 %**.
-  End to end: TIME_SUMMARY_PLACEHOLDER
+  End to end (Mac, bench lock, interleaved, min of 3), at the 31-bit
+  record the lookup-only oracle runs **98.0 s → 89.3 s (−8.9 %)** and the
+  full-MBU oracle 112.3 s (+14.6 %). At 28 bits: 12.18 → 11.23 s (−7.8 %) /
+  13.48 s (+10.7 %). Every run measured the same integer and factored N.
+  The gate-evaluation time moves exactly as the slice-step count predicts:
+  −11.9 % / +20.1 % at 31 bits vs −13.9 % / +20.5 % predicted.
 * **Against the literature.** Halving Toffolis with MBU is the known
   Gidney/Babbush/Berry result, now reproduced exactly at gate level. That
   part is not new. Our remaining 4.0 n³ Toffolis per run at n = 31
@@ -229,7 +240,44 @@ every temporary AND is uncomputed by one.
 
 ## 5. End to end on the Mac
 
-BENCH_PLACEHOLDER
+`qsim run shor --semiclassical --sliced --window 4 --oracle {windowed-opt |
+windowed-mbu-lookup | windowed-mbu} --modulus N --seed S --tries 1`; the
+31-bit run adds `--f32 --seed 2`, the 24- and 28-bit runs use `--seed 1`.
+These are the record bases of research/shor.md. Logs:
+`research/data/mbu-shor/bench_24_28.log`, `bench_31.log`. "Eval" is the
+gate-evaluation time (control-1 + control-0 halves) from `QSIM_SLICE_PROFILE`.
+
+| N (bits) | oracle | qubits | Toffolis / run | X-meas / run | time, 3 runs (s) | min | Δ | eval (min) | Δ eval | peak RSS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 10 161 323 (24) | windowed-opt | 104 | 120 672 | 0 | 0.291 / 0.290 / 0.290 | 0.290 | | 0.113 | | 105 MB |
+| | mbu-lookup | 104 | 97 996 | 22 780 | 0.259 / 0.250 / 0.250 | 0.250 | −13.8 % | 0.099 | −12.4 % | 105 MB |
+| | mbu | 127 | 53 969 | 64 049 | 0.257 / 0.259 / 0.261 | 0.257 | −11.4 % | 0.129 | +14.2 % | 105 MB |
+| 221 643 407 (28) | windowed-opt | 120 | 189 728 | 0 | 12.18 / 12.29 / 12.31 | 12.18 | | 8.00 | | 2.83 GB |
+| | mbu-lookup | 120 | 155 095 | 34 359 | 11.23 / 11.25 / 11.29 | **11.23** | **−7.8 %** | 7.05 | −11.9 % | 2.83 GB |
+| | mbu | 147 | 85 673 | 102 473 | 13.55 / 13.51 / 13.48 | 13.48 | +10.7 % | 9.37 | +17.0 % | 2.83 GB |
+| 1 537 596 787 (31) | windowed-opt | 132 | 261 454 | 0 | 98.04 / 98.07 / 98.17 | 98.04 | | 72.31 | | 4.28 GB |
+| | mbu-lookup | 132 | 218 421 | 45 379 | 89.25 / 89.79 / 89.34 | **89.25** | **−9.0 %** | 63.69 | −11.9 % | 4.28 GB |
+| | mbu | 162 | 119 096 | 143 400 | 112.90 / 112.58 / 112.33 | 112.33 | +14.6 % | 86.81 | +20.1 % | 4.28 GB |
+
+Measured integers, identical across all 9 runs of each N:
+150 071 647 041 326, 19 301 499 017 721 646 and
+2 059 039 373 337 077 151. All runs found the true order and a factor
+(2753, 15601, 52501).
+
+* **Time follows slice steps, not Toffolis.** The eval change matches the
+  step-count change of §3 to 2 points at every size. Sort, P(1) merge and
+  collapse depend on the support, not the circuit, so they are unchanged
+  (31-bit: sort 17.1–17.2 s, collapse 6.7–6.8 s in every run). They cap the
+  end-to-end gain below the eval gain.
+* At 24 bits the full-MBU oracle is still faster end to end. Its build
+  (0.022 s) skips the per-multiplier peephole/SAT passes on the Cuccaro
+  block (0.046 s), and at that size build is a visible share of the run.
+* **Peak RSS is unchanged.** Memory is set by the support (T1). The full
+  oracle's 30 extra qubits only widen the per-batch slice buffers (kB).
+* The 31-bit record run is now **89.3 s** with the lookup-only MBU oracle
+  (was 97.5 s with windowed-opt in exp/superopt and 133.4 s in round 4;
+  same base, same measured integer). Command:
+  `qsim run shor --modulus 1537596787 --semiclassical --sliced --window 4 --oracle windowed-mbu-lookup --f32 --seed 2 --tries 1`.
 
 ## 6. Literature: how this compares
 
