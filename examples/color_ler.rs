@@ -4,34 +4,17 @@
 //! CSS codes).
 //!
 //! ```text
-//! color_ler <d> <rounds> <cnot|uniform> <p> <kf|tri|schedule-file> <shots> <seed> [threads] [osd_order]
+//! color_ler <d> <rounds> <cnot|uniform> <p> <schedule-spec> <shots> <seed> [threads] [osd_order]
+//! (schedule spec: see `qec::color::parse_schedule_spec`; flags supported)
 //! ```
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
-use qsim_lab::qec::color::{
-    circuit_dem, ColorCode, ColorNoise, ColorSchedule, KF_SCHEDULE, TRI_OPTIMAL,
-};
+use qsim_lab::qec::color::{circuit_dem, parse_schedule_spec, ColorCode, ColorNoise};
 use qsim_lab::stabilizer::symphase::SymPhaseSampler;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::time::Instant;
-
-fn schedule(cc: &ColorCode, spec: &str) -> ColorSchedule {
-    match spec {
-        "kf" => cc.uniform_schedule(KF_SCHEDULE),
-        "tri" => cc.uniform_schedule([TRI_OPTIMAL; 3]),
-        path => std::fs::read_to_string(path)
-            .unwrap()
-            .lines()
-            .filter(|l| !l.trim().is_empty())
-            .map(|l| {
-                let v: Vec<u8> = l.split_whitespace().map(|t| t.parse().unwrap()).collect();
-                [v[0], v[1], v[2], v[3], v[4], v[5]]
-            })
-            .collect(),
-    }
-}
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -52,11 +35,11 @@ fn main() {
         .build_global()
         .unwrap();
     let cc = ColorCode::new(d);
-    let s = schedule(&cc, &a[5]);
+    let (s, flags) = parse_schedule_spec(&cc, &a[5]);
     assert!(cc.collisions(&s).is_empty(), "schedule has collisions");
     // BASIS=x: X-basis memory (decode the X-type sector)
     let x_basis = std::env::var("BASIS").is_ok_and(|b| b == "x");
-    let m = cc.memory_basis(&s, rounds, noise, x_basis);
+    let m = cc.memory_flagged(&s, &flags, rounds, noise, x_basis);
     let t0 = Instant::now();
     // Z sector
     // FULL=1: decode with all detectors (X and Z type; keeps Y correlations), else Z sector only
