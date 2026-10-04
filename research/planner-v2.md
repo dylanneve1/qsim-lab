@@ -243,7 +243,9 @@ Two corrections came from the end-to-end sessions:
   | 32 | 1.157 | 1.108 | 1.091 | 1.277 | 1.235 |
   | ∞ (tier 0 only) | 3.76 | 4.50 | 2.21 | 26.0 | 21.5 |
 
-  Shipped: `voi = 8` for expectations and samples, `voi_amplitudes = 4`. Pricing HSF on the line split first lowered
+  Shipped: `voi = 8` for expectations and samples, `voi_amplitudes = 4`. The table was computed before the two
+  HSF corrections below. Its "truth" for an HSF choice is the KL-partition run, so it cannot see a bad line split;
+  the end-to-end sessions can. Pricing HSF on the line split first lowered
   the amplitude estimates from 1.24 to 1.14–1.16, because the 4 ms KL partition is then rarely needed. The choice part
   alone is 1.07–1.10. Planning is the remaining 4–6 %.
 - **Cache.** `cache_key` = structural hash (gate kinds, qubits, Clifford class of every angle: multiple of π/2,
