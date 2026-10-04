@@ -6,6 +6,9 @@
 //! magic_atlas time ENGINE SPEC [SEED] [MAXQ]      # ENGINE = sv | cstate | factored; one JSON line
 //! magic_atlas pauli SPEC SEED PAULI...            # factored-state <P> for Pauli strings (any n)
 //! magic_atlas magic SPEC SEED CSV [MAXCK]         # ground-truth nullity / SRE vs d, f along the circuit (n <= 13)
+//! magic_atlas demo-shor NBITS W                   # recycled engine on the windowed Shor oracle, checked analytically
+//! magic_atlas demo-qpe T S                        # compressed state on stabilizer-eigenstate QPE, checked analytically
+//! magic_atlas demo-qft N                          # factored engine on QFT|x>, checked against the product formula
 //! ```
 use qsim_lab::adaptive::CompressedState;
 use qsim_lab::circuit::Circuit;
@@ -316,6 +319,180 @@ fn main() {
                 "{{\"spec\":\"{spec}\",\"n\":{n},\"gates\":{ng},\"rotations\":{},\"t_count\":{},\"d\":{},\"f\":{},\"live_max\":{lmax_all},\"f_recycled\":{},\"nullity_max\":{numax:.4},\"nullity_final\":{:.4},\"m2_max\":{m2max:.4},\"m2_final\":{:.4}}}",
                 p.rotations, p.t_count, p.d, p.f, fr.stats.f, mf.nullity, mf.m2
             );
+        }
+        "demo-shor" => {
+            let nb: usize = args[2].parse().unwrap();
+            let w: usize = args[3].parse().unwrap();
+            let spec = format!("shorwin:nbits={nb},w={w},in=one");
+            let c = families::build(&spec, 1).unwrap();
+            let n = c.num_qubits;
+            let tp = Instant::now();
+            let p = profile(
+                &c,
+                &AtlasOptions {
+                    checkpoints: 0,
+                    entanglement: false,
+                    cut: None,
+                    support: true,
+                },
+            )
+            .unwrap();
+            let prof_secs = tp.elapsed().as_secs_f64();
+            let t0 = Instant::now();
+            let fr = FactoredState::with_recycling(&c, 8, 8).unwrap();
+            let secs = t0.elapsed().as_secs_f64();
+            let (n_mod, a) = families::shor_modulus(nb);
+            let (u, v) = (1u64, a % n_mod);
+            let bit = |val: u64, q: usize| q >= 1 && q <= nb && (val >> (q - 1)) & 1 == 1;
+            let mut err: f64 = 0.0;
+            let t1 = Instant::now();
+            for q in 0..n {
+                let mut z = vec![false; n];
+                z[q] = true;
+                let e = fr.pauli_expectation(&vec![false; n], &z);
+                let want = if q == 0 {
+                    0.0
+                } else {
+                    match (bit(u, q), bit(v, q)) {
+                        (false, false) => 1.0,
+                        (true, true) => -1.0,
+                        _ => 0.0,
+                    }
+                };
+                err = err.max((e - want).abs());
+            }
+            let mut x = vec![false; n];
+            x[0] = true;
+            for q in 1..=nb {
+                x[q] = bit(u, q) != bit(v, q);
+            }
+            err = err.max((fr.pauli_expectation(&x, &vec![false; n]) - 1.0).abs());
+            let mut zy = vec![false; n];
+            zy[0] = true;
+            err = err.max(fr.pauli_expectation(&x, &zy).abs());
+            let check_secs = t1.elapsed().as_secs_f64();
+            let live_max = fr.stats.live.iter().map(|l| l.0).max().unwrap_or(0);
+            println!(
+                "{{\"demo\":\"shor-oracle\",\"N\":{n_mod},\"a\":{a},\"n\":{n},\"gates\":{},\"toffolis\":{},\"t_count\":{},\"d\":{},\"support\":{},\"register_max\":{},\"live_at_boundaries_max\":{live_max},\"absorbed\":{},\"compactions\":{},\"sim_secs\":{secs:.4},\"profile_secs\":{prof_secs:.4},\"check_paulis\":{},\"check_secs\":{check_secs:.4},\"max_err\":{err:.3e}}}",
+                p.gates, p.toffolis, p.t_count, p.d, p.support.unwrap_or(0), fr.stats.f, fr.stats.absorbed, fr.stats.compactions, n + 2
+            );
+            assert!(err < 1e-10);
+        }
+        "demo-qpe" => {
+            let t: usize = args[2].parse().unwrap();
+            let s: usize = args[3].parse().unwrap();
+            let spec = format!("qpe:t={t},s={s},kind=stab");
+            let seed = 1u64;
+            let c = families::build(&spec, seed).unwrap();
+            let n = c.num_qubits;
+            let p = profile(
+                &c,
+                &AtlasOptions {
+                    checkpoints: 0,
+                    entanglement: false,
+                    cut: None,
+                    support: false,
+                },
+            )
+            .unwrap();
+            let t0 = Instant::now();
+            let cs = CompressedState::new(&c, t.max(1)).unwrap();
+            let secs = t0.elapsed().as_secs_f64();
+            // eigenphase from the builder's draws (same rng order)
+            let mut rng = StdRng::seed_from_u64(seed);
+            let theta: f64 = rng.random_range(0.1..3.0);
+            let phis: f64 = (0..s - 1).map(|_| rng.random_range(0.1..3.0)).sum();
+            let omega = -(theta + phis) / (2.0 * std::f64::consts::PI);
+            let tt = (1u64 << t) as f64;
+            // analytic P(y) = |sin(π 2^t δ) / (2^t sin(π δ))|², δ = ω - y/2^t
+            let mut zexp = vec![0.0f64; t];
+            for y in 0..1u64 << t {
+                let delta = omega - y as f64 / tt;
+                let sd = (std::f64::consts::PI * delta).sin();
+                let py = if sd.abs() < 1e-15 {
+                    1.0
+                } else {
+                    let r = (std::f64::consts::PI * delta * tt).sin() / (tt * sd);
+                    r * r
+                };
+                for (k, z) in zexp.iter_mut().enumerate() {
+                    *z += if y >> k & 1 == 1 { -py } else { py };
+                }
+            }
+            let t1 = Instant::now();
+            let mut err: f64 = 0.0;
+            for (k, &want) in zexp.iter().enumerate() {
+                let mut st = vec!['I'; n];
+                st[k] = 'Z';
+                let obs = qsim_lab::pauli_path::PauliSum::from_str_single(
+                    &st.into_iter().collect::<String>(),
+                );
+                let e = cs.expectation(&obs);
+                err = err.max((e - want).abs());
+            }
+            // a system stabilizer: X^{⊗s} on the GHZ eigenstate is +1
+            let mut st = vec!['I'; n];
+            for q in t..n {
+                st[q] = 'X';
+            }
+            let st: String = st.into_iter().collect();
+            let e = cs.expectation(&qsim_lab::pauli_path::PauliSum::from_str_single(&st));
+            err = err.max((e - 1.0).abs());
+            let check_secs = t1.elapsed().as_secs_f64();
+            println!(
+                "{{\"demo\":\"qpe-stab\",\"t\":{t},\"s\":{s},\"n\":{n},\"gates\":{},\"rotations\":{},\"t_count\":{},\"d\":{},\"log2_work\":{:.2},\"sim_secs\":{secs:.4},\"evolve_secs\":{:.4},\"check_secs\":{check_secs:.4},\"threads\":{},\"max_err\":{err:.3e}}}",
+                p.gates, p.rotations, p.t_count, cs.active_qubits(), p.log2_work, cs.stats.evolve_secs, rayon::current_num_threads()
+            );
+            assert!(err < 1e-9);
+        }
+        "demo-qft" => {
+            let n: usize = args[2].parse().unwrap();
+            let mut c = Circuit::new(n);
+            let mut rng = StdRng::seed_from_u64(5);
+            let xbits: Vec<bool> = (0..n).map(|_| rng.random()).collect();
+            for (q, &b) in xbits.iter().enumerate() {
+                if b {
+                    c.x(q);
+                }
+            }
+            families::qft(&mut c, &(0..n).collect::<Vec<_>>(), 0, false, true);
+            let p = profile(
+                &c,
+                &AtlasOptions {
+                    checkpoints: 0,
+                    entanglement: false,
+                    cut: None,
+                    support: false,
+                },
+            )
+            .unwrap();
+            let t0 = Instant::now();
+            let fs = FactoredState::new(&c, 4).unwrap();
+            let secs = t0.elapsed().as_secs_f64();
+            let mut err: f64 = 0.0;
+            let outs: Vec<usize> = (0..n).step_by((n / 64).max(1)).chain([n - 1]).collect();
+            for &out in &outs {
+                let j = n - 1 - out;
+                let mut frac = 0.0f64;
+                for i in 0..=j.min(60) {
+                    if xbits[j - i] {
+                        frac += 0.5f64.powi(i as i32 + 1);
+                    }
+                }
+                let ang = 2.0 * std::f64::consts::PI * frac;
+                let mut xs = vec![false; n];
+                xs[out] = true;
+                let ex = fs.pauli_expectation(&xs, &vec![false; n]);
+                let mut zy = vec![false; n];
+                zy[out] = true;
+                let ey = fs.pauli_expectation(&xs, &zy);
+                err = err.max((ex - ang.cos()).abs()).max((ey - ang.sin()).abs());
+            }
+            println!(
+                "{{\"demo\":\"qft-basis\",\"n\":{n},\"gates\":{},\"rotations\":{},\"d\":{},\"f\":{},\"sim_secs\":{secs:.4},\"checked_qubits\":{},\"max_err\":{err:.3e}}}",
+                p.gates, p.rotations, p.d, fs.stats.f, outs.len()
+            );
+            assert!(err < 1e-9);
         }
         _ => {
             eprintln!("usage: magic_atlas profile|verify|time|pauli ...");

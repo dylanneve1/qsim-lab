@@ -351,16 +351,48 @@ fn adder(
     Ok(c)
 }
 
-fn shor_modulus(nb: usize) -> (u64, u64) {
-    // largest odd n_mod < 2^nb with 2^(nb-1) <= n_mod, not a prime power
-    // test-free choice: n_mod = 2^nb - 1 (odd; composite for nb >= 4 except
-    // Mersenne primes, harmless here: only the gate structure matters);
-    // a = smallest base >= 2 coprime to n_mod.
-    let n_mod = (1u64 << nb) - 1;
-    let a = (2..n_mod)
+fn is_prime(x: u64) -> bool {
+    if x < 2 {
+        return false;
+    }
+    let mut d = 2u64;
+    while d * d <= x {
+        if x % d == 0 {
+            return false;
+        }
+        d += 1;
+    }
+    true
+}
+
+/// An `nb`-bit semiprime modulus `N = p·q` (`p` the largest prime below
+/// `2^{⌊nb/2⌋}`, `q` the largest prime with `p·q < 2^nb`) and the smallest
+/// base `a ≥ 7` coprime to `N`, as for a real factoring instance (the gate
+/// structure depends on `N` and `a` only through the lookup tables). For
+/// `nb < 4` (tests): `N = 2^nb - 1`, `a = 2`.
+pub fn shor_modulus(nb: usize) -> (u64, u64) {
+    assert!((2..=62).contains(&nb), "shor_modulus: 2 <= nbits <= 62");
+    if nb < 4 {
+        return ((1u64 << nb) - 1, 2);
+    }
+    let half = nb / 2;
+    let mut p = (1u64 << half) - 1;
+    while !is_prime(p) {
+        p -= 1;
+    }
+    let mut q = ((1u64 << nb) - 1) / p;
+    while !is_prime(q) {
+        q -= 1;
+    }
+    let n_mod = p * q;
+    assert!(
+        n_mod >> (nb - 1) == 1,
+        "N = {n_mod} has fewer than {nb} bits"
+    );
+    let a = (7..n_mod)
         .find(|&a| crate::algorithms::gcd(a, n_mod) == 1)
-        .unwrap_or(2);
-    (n_mod.max(3), a)
+        .unwrap();
+    (n_mod, a)
 }
 
 /// One controlled `U_a` of the windowed oracle (shor_window.rs), control in

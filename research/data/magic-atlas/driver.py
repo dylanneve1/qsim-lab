@@ -3,6 +3,7 @@
 
   python3 driver.py atlas BIN OUTDIR       # cheap invariants at scale -> OUTDIR/atlas.csv, OUTDIR/profiles/*.csv
   python3 driver.py magic BIN OUTDIR       # ground-truth nullity/SRE at n<=12 -> OUTDIR/magic.csv, OUTDIR/magic/*.csv
+  python3 driver.py recycle BIN OUTDIR     # recycled register size f_rec (simulation, cap 2^16/factor) -> OUTDIR/recycle.csv
 Deterministic (no timing claims); runs anywhere. Use nice / -j on shared hosts.
 """
 import csv, json, math, os, subprocess, sys
@@ -133,6 +134,21 @@ def main():
             return r
         rows = list(ThreadPoolExecutor(workers).map(job, specs))
         fn = f"{out}/atlas.csv"
+    elif mode == "recycle":
+        specs = atlas_specs()
+        def job(fs):
+            fam, spec = fs
+            try:
+                r = run(["timeout", "120", "nice", "-n", "15", binp, "time", "recycled", spec, "1", "16"])
+            except Exception as e:
+                r = {"error": str(e)}
+            if "error" in r and "TooLarge" in r["error"]:
+                r = {"f_rec": ">16"}
+            r["family"] = fam
+            r["spec"] = spec
+            return r
+        rows = list(ThreadPoolExecutor(workers).map(job, specs))
+        fn = f"{out}/recycle.csv"
     else:
         os.makedirs(f"{out}/magic", exist_ok=True)
         specs = magic_specs()

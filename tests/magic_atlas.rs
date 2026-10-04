@@ -405,7 +405,7 @@ fn recycled_shor_oracle_is_exact_far_beyond_state_vector() {
         fr.stats.live.iter().all(|&(l, _)| l == 0),
         "not stabilizer at a gate boundary"
     );
-    let (n_mod, a) = ((1u64 << 8) - 1, 2u64); // shor_modulus(8): 255, smallest coprime base 2
+    let (n_mod, a) = families::shor_modulus(8);
     let u: u64 = 1;
     let v: u64 = a % n_mod;
     let bit = |val: u64, q: usize| q >= 1 && q <= 8 && (val >> (q - 1)) & 1 == 1;
