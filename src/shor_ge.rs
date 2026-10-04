@@ -781,10 +781,89 @@ impl<T: Real> GeState<T> {
     /// Takes the state back from a fully measured window.
     pub fn finish(&mut self, wa: WindowArrays<T>) {
         assert_eq!(wa.bits_left(), 0);
-        let mut m = wa.materialize();
-        self.psi = m.pop().unwrap();
+        let chunks = wa.chunks();
+        let levels = wa.levels.clone();
+        let w = wa.w;
+        self.psi = match std::sync::Arc::try_unwrap(wa.ent) {
+            // sole owner: compute the new state in place (no second buffer)
+            Ok(ent) => {
+                let tmp = WindowArrays {
+                    w,
+                    ent: std::sync::Arc::new(Vec::new()),
+                    levels,
+                };
+                finish_in_place(&tmp, ent, &chunks)
+            }
+            Err(ent) => {
+                let tmp = WindowArrays { w, ent, levels };
+                tmp.materialize().pop().unwrap()
+            }
+        };
         self.peak = self.peak.max(self.psi.len());
     }
+}
+
+/// The new state of a fully measured window, written over the window's
+/// own branch array: every key group of `ent` (sorted by packed key)
+/// yields at most one output, written at or before the group's first
+/// index, so each chunk compacts in place; the chunks are then moved
+/// together. Same arithmetic as [`WindowArrays::materialize`].
+fn finish_in_place<T: Real>(
+    wa: &WindowArrays<T>,
+    mut ent: Vec<(u64, Complex<T>)>,
+    chunks: &[(usize, usize)],
+) -> Arr<T> {
+    let w = wa.w;
+    let ne = 1usize << w;
+    let mask = (1u64 << w) - 1;
+    // split ent into the chunk slices
+    let mut slices = Vec::with_capacity(chunks.len());
+    {
+        let mut rest: &mut [(u64, Complex<T>)] = &mut ent;
+        let mut at = 0;
+        for &(lo, hi) in chunks {
+            let (_, r) = std::mem::take(&mut rest).split_at_mut(lo - at);
+            let (c, r) = r.split_at_mut(hi - lo);
+            slices.push(c);
+            rest = r;
+            at = hi;
+        }
+    }
+    let counts: Vec<usize> = slices
+        .into_par_iter()
+        .map(|c| {
+            let mut vals = [Complex64::zero(); 64];
+            let mut out = 0usize;
+            let n = c.len();
+            let mut i = 0;
+            while i < n {
+                let key = c[i].0 >> w;
+                while i < n && c[i].0 >> w == key {
+                    vals[(c[i].0 & mask) as usize] = c64(c[i].1);
+                    i += 1;
+                }
+                let len = wa.reduce(&mut vals[..ne]);
+                debug_assert_eq!(len, 1);
+                let z = cvt::<T>(vals[0]);
+                if z != Complex::zero() {
+                    c[out] = (key, z);
+                    out += 1;
+                }
+                vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
+            }
+            out
+        })
+        .collect();
+    let mut dst = 0;
+    for (&(lo, _), &cnt) in chunks.iter().zip(&counts) {
+        if lo != dst {
+            ent.copy_within(lo..lo + cnt, dst);
+        }
+        dst += cnt;
+    }
+    ent.truncate(dst);
+    ent.shrink_to_fit();
+    ent
 }
 
 /// One exponent register of a phase-estimation schedule.
