@@ -1,0 +1,21 @@
+old Auto vs old frame/dense: n=300 geo=1.245 median=1.059 p90=2.05 max=348.6 | best>=1ms: n=112 geo=1.283 max=348.6
+      348.6x  arith:bits=12,h=2,reps=1  auto 1.473s  best 0.004226s
+      314.1x  arith:bits=12,h=4,reps=1  auto 2.246s  best 0.007151s
+      179.6x  arith:bits=12,h=6,reps=1  auto 2.921s  best 0.01626s
+      100.0x  ct:n=24,L=16,t=64,nn=1  auto 1.347s  best 0.01346s
+       44.8x  arith:bits=10,h=2,reps=1  auto 0.09284s  best 0.002074s
+new Auto vs new frame/dense: n=293 geo=1.327 median=1.219 p90=2.25 max=338.5 | best>=1ms: n=105 geo=1.427 max=338.5
+      338.5x  arith:bits=12,h=4,reps=1  auto 1.695s  best 0.005009s
+      262.1x  arith:bits=12,h=6,reps=1  auto 3.589s  best 0.01369s
+       25.3x  arith:bits=10,h=6,reps=1  auto 0.2253s  best 0.008901s
+       24.3x  arith:bits=10,h=4,reps=1  auto 0.1102s  best 0.004534s
+        6.4x  qaoa:n=16,p=1,deg=2,nn=1  auto 0.007744s  best 0.001209s
+old Auto vs new frame/dense: n=300 geo=1.230 median=1.047 p90=2.02 max=785.7 | best>=1ms: n=112 geo=1.310 max=785.7
+      785.7x  arith:bits=12,h=2,reps=1  auto 1.473s  best 0.001875s
+      448.5x  arith:bits=12,h=4,reps=1  auto 2.246s  best 0.005009s
+      213.3x  arith:bits=12,h=6,reps=1  auto 2.921s  best 0.01369s
+      105.7x  ct:n=24,L=16,t=64,nn=1  auto 1.347s  best 0.01274s
+       39.5x  arith:bits=10,h=2,reps=1  auto 0.09284s  best 0.002348s
+auto old/new time ratio (>=1ms): n=118 geo=0.909 min=0.353 max=885.9
+control frame old/new (>=1ms): n=84 median=1.044
+control dense old/new (>=1ms): n=153 median=1.015

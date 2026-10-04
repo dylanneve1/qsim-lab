@@ -445,6 +445,7 @@ fn ro(min_saved: usize) -> SimOptions {
             min_saved_gates: min_saved,
             ..Default::default()
         }),
+        ..Default::default()
     }
 }
 

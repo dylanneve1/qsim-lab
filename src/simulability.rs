@@ -124,8 +124,58 @@ pub fn build(spec: &Spec, seed: u64) -> Result<Circuit, String> {
             let nn = spec.geti("nn", 0) == 1;
             Ok(qaoa(n, p, deg, nn, &mut rng))
         }
+        "hea" => {
+            let n = spec.geti("n", 16);
+            let depth = spec.geti("D", 4);
+            Ok(hea(n, depth, &mut rng))
+        }
+        "qft" => {
+            let n = spec.geti("n", 12);
+            let h = spec.geti("h", 0).min(n);
+            Ok(qft(n, h, &mut rng))
+        }
         f => Err(format!("unknown family {f:?}")),
     }
+}
+
+/// Hardware-efficient ansatz: `D` layers of `Ry Rz` on every qubit and a
+/// sequential CNOT ladder `0→1→…→n−1` (added for the planner study as a
+/// held-out family).
+fn hea<R: Rng>(n: usize, depth: usize, rng: &mut R) -> Circuit {
+    let mut c = Circuit::new(n);
+    for _ in 0..depth {
+        for q in 0..n {
+            c.ry(q, rng.random_range(0.0..2.0 * PI));
+            c.rz(q, rng.random_range(0.0..2.0 * PI));
+        }
+        for q in 0..n.saturating_sub(1) {
+            c.cnot(q, q + 1);
+        }
+    }
+    for q in 0..n {
+        c.ry(q, rng.random_range(0.0..2.0 * PI));
+    }
+    c
+}
+
+/// QFT (no final SWAPs) of a state with `h` qubits in `|+>` and the rest a
+/// random basis state (held-out family for the planner study).
+fn qft<R: Rng>(n: usize, h: usize, rng: &mut R) -> Circuit {
+    let mut c = Circuit::new(n);
+    for q in 0..n {
+        if q < h {
+            c.h(q);
+        } else if rng.random_bool(0.5) {
+            c.x(q);
+        }
+    }
+    for i in (0..n).rev() {
+        c.h(i);
+        for j in (0..i).rev() {
+            c.cphase(j, i, PI / (1u64 << (i - j)) as f64);
+        }
+    }
+    c
 }
 
 fn matching<R: Rng>(n: usize, layer: usize, nn: bool, rng: &mut R) -> Vec<(usize, usize)> {
@@ -523,21 +573,8 @@ pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Featur
     f.mps_l0 = log2sum(mps_terms0.into_iter());
 
     // HSF: KL partition + its path count.
-    if with_hsf && n >= 2 {
-        let th = Instant::now();
-        let opts = HsfOptions::default();
-        let in_a = hsf::auto_partition(c, &opts)?;
-        f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
-        f.hsf_na = in_a.iter().filter(|&&x| x).count();
-        f.hsf_nb = n - f.hsf_na;
-        f.hsf_keff = effective_cut_bits(n, &gates, &in_a);
-        let g = f.gates.max(1) as f64;
-        let big = f.hsf_na.max(f.hsf_nb) as f64;
-        // paths × (block evolutions) + GEMM accumulation of the 2^n output
-        let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
-        f.hsf_l = cost(f.hsf_keff as f64);
-        f.hsf_l0 = cost(f.hsf_k as f64);
-        f.secs_hsf = th.elapsed().as_secs_f64();
+    if with_hsf {
+        add_hsf_features(c, &mut f)?;
     }
 
     // Sparse: affine support bound. Each wire is a constant, an affine
@@ -549,6 +586,32 @@ pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Featur
     f.sv_l = (f.gates.max(1) as f64).log2() + n as f64;
     f.secs = t0.elapsed().as_secs_f64();
     Ok(f)
+}
+
+/// Fills the HSF fields of [`Features`] (KL partition, path counts,
+/// `hsf_l`); the most expensive feature, so the planner computes it only
+/// when HSF could matter.
+pub fn add_hsf_features(c: &Circuit, f: &mut Features) -> Result<(), SimError> {
+    let n = c.num_qubits;
+    if n < 2 {
+        return Ok(());
+    }
+    let gates = gate_list(c);
+    let th = Instant::now();
+    let opts = HsfOptions::default();
+    let in_a = hsf::auto_partition(c, &opts)?;
+    f.hsf_k = hsf::cut_bits(c, &in_a, &opts)?;
+    f.hsf_na = in_a.iter().filter(|&&x| x).count();
+    f.hsf_nb = n - f.hsf_na;
+    f.hsf_keff = effective_cut_bits(n, &gates, &in_a);
+    let g = gates.len().max(1) as f64;
+    let big = f.hsf_na.max(f.hsf_nb) as f64;
+    // paths × (block evolutions) + GEMM accumulation of the 2^n output
+    let cost = |k: f64| log2sum([k + g.log2() + big, k + n as f64].into_iter());
+    f.hsf_l = cost(f.hsf_keff as f64);
+    f.hsf_l0 = cost(f.hsf_k as f64);
+    f.secs_hsf = th.elapsed().as_secs_f64();
+    Ok(())
 }
 
 /// Path bits of an HSF partition once exact zero-path pruning is taken
@@ -808,8 +871,17 @@ pub fn run_engine_obs(
                 .sum();
             run.size = s.peak_nnz() as f64;
         }
-        "mps" => {
+        "mps" | "mpsb" => {
             let mut m = Mps::new(n, 1 << 20);
+            if engine == "mpsb" {
+                // bound-capped: drop singular values beyond the rigorous
+                // Schmidt-rank bound (numerical noise only).
+                let b = crate::mps_cost::replay_traced(
+                    c,
+                    crate::mps_cost::BondSource::Bound(crate::mps_cost::Estimator::Best),
+                )?;
+                m.set_step_caps(b.trace);
+            }
             for g in c.gates() {
                 m.apply_gate(g)?;
                 if m.bytes() as u128 > mem_bytes / 4 {
@@ -900,6 +972,24 @@ pub fn run_engine_obs(
                 r.frame_stats.peak_terms,
                 r.frame_stats.term_visits,
                 r.dense_ops
+            );
+        }
+        "plan" | "planx" | "planp" => {
+            // Planner v0 end to end (planning + speculation included);
+            // `planx` without the vanishing certificate (state engines only).
+            let cfg = crate::planner::PlannerConfig {
+                mem_bytes,
+                use_certificate: engine == "plan",
+                probe_cap: (engine == "planp").then_some(16),
+                ..Default::default()
+            };
+            let r = crate::planner::expectation(c, &all, &cfg)?;
+            run.value = r.value;
+            run.note = format!(
+                "engine={} aborted={:?} plan_secs={:.6}",
+                r.engine.name(),
+                r.aborted.iter().map(|e| e.name()).collect::<Vec<_>>(),
+                r.plan_secs
             );
         }
         e => {
