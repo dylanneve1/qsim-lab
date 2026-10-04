@@ -93,6 +93,10 @@ for it in range(1, a.steps + 1):
     paused += wait_lock([s.p for s in streams])
     if it % 50 == 0:
         paused += wait_memory(3.0, [s.p for s in streams])
+        w = mem_report().get("wired_gb")
+        if w is not None and w > 4.0:  # parent's hard rule: stop at once if wired memory passes 4 GB
+            model.save_weights(os.path.join(a.out, "model.safetensors"))
+            raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
     s = streams[it % len(streams)]
     dets, obs = s.read(blocks_per)
     tok, cnt = batch_tokens(dets, a.tmax)
