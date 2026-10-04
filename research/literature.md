@@ -48,3 +48,8 @@ Compiled 1 Oct 2026 from arXiv and conference sources. Each entry gives the core
 3. **CAMPS backend** (Clifford tableau + MPS) for Clifford+T, compared against Pauli paths on the README's 64-qubit benchmark.
 4. **ZX stabiliser-decomposition cutting** (2^{αt}) as an exact strong-simulation backend.
 5. **sv:** compare our fusion/blocking against the 2604.12256 "merge booster" policy, and try wiring the blocked executor into the default `Circuit::run` behind a size threshold.
+
+## Colour-code syndrome extraction (qec-r4)
+- **Color code off-the-hook** (Kishony & Fowler, arXiv:2603.28852, 2026). Colour-dependent single-auxiliary schedules that keep the bulk distance at minimal depth. Boundary "fractional hooks" give d_circ = d − ⌊(d+3)/6⌋. Their companion code searches colour-uniform schedules only.
+  *Us (`research/qec-r4.md`):* we reproduce their d_circ exactly (d ≤ 9 over d rounds) with our own generator, DEM and exact solver. Per-plaquette boundary schedules in the same design space halve the number of minimum-weight logicals and give 24–31% lower LER under noisy-CNOT noise at p = 0.2–0.3%. Their d_circ is not improved.
+- **Tesseract decoder** (Google, 2025). Search-based near-MLE decoder for hypergraph DEMs, used by K–F; we use it as a cross-check of our BP+OSD.

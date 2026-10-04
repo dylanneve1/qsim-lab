@@ -1,0 +1,5 @@
+{"d":9,"rounds":9,"involved":[0,1,3,4,5,7,8,9,11,12,14,17,18,21,22,24,25,27,28,29],"schedule":"/tmp/qsim-wt/qec-r4/research/data/qec-r4/schedules/d9_lns_r1_singles.sched","noise":"cnot","distance":7,"count":255,"count_capped":false,"certified":true,"mechanisms":2320,"z_detectors":300,"nodes":2312098998,"seconds":407.937,"example":"[0@1 1@1 5@1 8@1 9@1 12@1 L] [0@1 8@1 L] [1@1 5@1 L] [9@1 12@1 18@1 21@1] [18@1 21@1 25@1] [25@1 27@1 28@1] [27@1 28@1]"}
+
+real	6m47.958s
+user	2m29.356s
+sys	0m0.412s

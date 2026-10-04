@@ -1,0 +1,194 @@
+{"kind": "start", "d": 5, "rounds": 5, "distance": 4, "count": 388, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[5, 1, 4, 3, 6, 2], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 21, "raw": 117, "seconds": 0.3, "distance_hist": {"4": 15, "3": 6}, "improved": false}
+{"kind": "group", "group": [1], "classes": 26, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 8, "4": 18}, "improved": true}
+{"kind": "move", "group": [1], "new": {"1": [1, 6, 2, 0, 0, 3]}, "distance": 4, "count": 373, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[5, 1, 4, 3, 6, 2], [1, 6, 2, 0, 0, 3], [1, 5, 3, 6, 2, 4], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 21, "raw": 117, "seconds": 0.3, "distance_hist": {"4": 15, "3": 6}, "improved": false}
+{"kind": "group", "group": [1], "classes": 26, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 8, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 24, "raw": 174, "seconds": 0.2, "distance_hist": {"4": 16, "3": 8}, "improved": false}
+{"kind": "group", "group": [3], "classes": 117, "raw": 117, "seconds": 0.8, "distance_hist": {"3": 88, "4": 29}, "improved": true}
+{"kind": "move", "group": [3], "new": {"3": [1, 4, 3, 5, 6, 2]}, "distance": 4, "count": 366, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[5, 1, 4, 3, 6, 2], [1, 6, 2, 0, 0, 3], [1, 5, 3, 6, 2, 4], [1, 4, 3, 5, 6, 2], [1, 3, 2, 5, 4, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 26, "raw": 120, "seconds": 0.3, "distance_hist": {"4": 17, "3": 9}, "improved": false}
+{"kind": "group", "group": [1], "classes": 32, "raw": 168, "seconds": 0.4, "distance_hist": {"3": 10, "4": 22}, "improved": false}
+{"kind": "group", "group": [2], "classes": 24, "raw": 174, "seconds": 0.2, "distance_hist": {"3": 16, "4": 8}, "improved": false}
+{"kind": "group", "group": [3], "classes": 117, "raw": 117, "seconds": 0.6, "distance_hist": {"3": 88, "4": 29}, "improved": false}
+{"kind": "group", "group": [4], "classes": 105, "raw": 105, "seconds": 0.8, "distance_hist": {"4": 33, "3": 72}, "improved": true}
+{"kind": "move", "group": [4], "new": {"4": [3, 4, 2, 5, 1, 6]}, "distance": 4, "count": 353, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[5, 1, 4, 3, 6, 2], [1, 6, 2, 0, 0, 3], [1, 5, 3, 6, 2, 4], [1, 4, 3, 5, 6, 2], [3, 4, 2, 5, 1, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 30, "raw": 120, "seconds": 0.4, "distance_hist": {"4": 19, "3": 11}, "improved": true}
+{"kind": "move", "group": [0], "new": {"0": [4, 6, 1, 0, 0, 5]}, "distance": 4, "count": 348, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[4, 6, 1, 0, 0, 5], [1, 6, 2, 0, 0, 3], [1, 5, 3, 6, 2, 4], [1, 4, 3, 5, 6, 2], [3, 4, 2, 5, 1, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 30, "raw": 120, "seconds": 0.4, "distance_hist": {"4": 19, "3": 11}, "improved": false}
+{"kind": "group", "group": [1], "classes": 32, "raw": 168, "seconds": 0.3, "distance_hist": {"3": 10, "4": 22}, "improved": false}
+{"kind": "group", "group": [2], "classes": 32, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 21, "4": 11}, "improved": true}
+{"kind": "move", "group": [2], "new": {"2": [0, 1, 5, 2, 3, 0]}, "distance": 4, "count": 343, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[4, 6, 1, 0, 0, 5], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 3, 5, 6, 2], [3, 4, 2, 5, 1, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 34, "raw": 112, "seconds": 0.4, "distance_hist": {"4": 22, "3": 12}, "improved": false}
+{"kind": "group", "group": [1], "classes": 32, "raw": 168, "seconds": 0.4, "distance_hist": {"3": 10, "4": 22}, "improved": false}
+{"kind": "group", "group": [2], "classes": 32, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 21, "4": 11}, "improved": false}
+{"kind": "group", "group": [3], "classes": 109, "raw": 109, "seconds": 0.8, "distance_hist": {"4": 45, "3": 64}, "improved": true}
+{"kind": "move", "group": [3], "new": {"3": [1, 4, 2, 5, 6, 3]}, "distance": 4, "count": 338, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[4, 6, 1, 0, 0, 5], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [3, 4, 2, 5, 1, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 33, "raw": 117, "seconds": 0.4, "distance_hist": {"4": 20, "3": 13}, "improved": false}
+{"kind": "group", "group": [1], "classes": 40, "raw": 168, "seconds": 0.5, "distance_hist": {"3": 14, "4": 26}, "improved": false}
+{"kind": "group", "group": [2], "classes": 32, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 21, "4": 11}, "improved": false}
+{"kind": "group", "group": [3], "classes": 109, "raw": 109, "seconds": 1.0, "distance_hist": {"4": 45, "3": 64}, "improved": false}
+{"kind": "group", "group": [4], "classes": 108, "raw": 108, "seconds": 0.9, "distance_hist": {"3": 68, "4": 40}, "improved": true}
+{"kind": "move", "group": [4], "new": {"4": [4, 1, 2, 5, 3, 6]}, "distance": 4, "count": 324, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[4, 6, 1, 0, 0, 5], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [4, 1, 2, 5, 3, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 38, "raw": 110, "seconds": 0.4, "distance_hist": {"4": 24, "3": 14}, "improved": true}
+{"kind": "move", "group": [0], "new": {"0": [1, 6, 2, 0, 0, 3]}, "distance": 4, "count": 310, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[1, 6, 2, 0, 0, 3], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [4, 1, 2, 5, 3, 6], [1, 3, 2, 5, 4, 6], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 38, "raw": 110, "seconds": 0.4, "distance_hist": {"4": 24, "3": 14}, "improved": false}
+{"kind": "group", "group": [1], "classes": 40, "raw": 168, "seconds": 0.5, "distance_hist": {"3": 14, "4": 26}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 19, "4": 11}, "improved": false}
+{"kind": "group", "group": [3], "classes": 108, "raw": 108, "seconds": 0.9, "distance_hist": {"4": 39, "3": 69}, "improved": false}
+{"kind": "group", "group": [4], "classes": 100, "raw": 100, "seconds": 0.9, "distance_hist": {"3": 63, "4": 37}, "improved": false}
+{"kind": "group", "group": [5], "classes": 20, "raw": 119, "seconds": 0.2, "distance_hist": {"4": 12, "3": 8}, "improved": true}
+{"kind": "move", "group": [5], "new": {"5": [5, 0, 0, 4, 3, 1]}, "distance": 4, "count": 298, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[1, 6, 2, 0, 0, 3], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [4, 1, 2, 5, 3, 6], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 38, "raw": 110, "seconds": 0.4, "distance_hist": {"4": 24, "3": 14}, "improved": false}
+{"kind": "group", "group": [1], "classes": 28, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 10, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 19, "4": 11}, "improved": false}
+{"kind": "group", "group": [3], "classes": 108, "raw": 108, "seconds": 0.9, "distance_hist": {"4": 42, "3": 66}, "improved": false}
+{"kind": "group", "group": [4], "classes": 100, "raw": 100, "seconds": 0.9, "distance_hist": {"3": 63, "4": 37}, "improved": true}
+{"kind": "move", "group": [4], "new": {"4": [6, 3, 5, 1, 4, 2]}, "distance": 4, "count": 296, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[1, 6, 2, 0, 0, 3], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [6, 3, 5, 1, 4, 2], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [1, 5, 3, 6, 2, 4], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 26, "raw": 124, "seconds": 0.3, "distance_hist": {"4": 18, "3": 8}, "improved": false}
+{"kind": "group", "group": [1], "classes": 28, "raw": 174, "seconds": 0.4, "distance_hist": {"3": 10, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 36, "raw": 174, "seconds": 0.4, "distance_hist": {"3": 23, "4": 13}, "improved": false}
+{"kind": "group", "group": [3], "classes": 98, "raw": 98, "seconds": 0.9, "distance_hist": {"4": 54, "3": 44}, "improved": false}
+{"kind": "group", "group": [4], "classes": 100, "raw": 100, "seconds": 0.9, "distance_hist": {"3": 63, "4": 37}, "improved": false}
+{"kind": "group", "group": [5], "classes": 20, "raw": 119, "seconds": 0.2, "distance_hist": {"4": 12, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 108, "raw": 108, "seconds": 0.8, "distance_hist": {"3": 86, "4": 22}, "improved": false}
+{"kind": "group", "group": [7], "classes": 20, "raw": 120, "seconds": 0.2, "distance_hist": {"3": 7, "4": 13}, "improved": true}
+{"kind": "move", "group": [7], "new": {"7": [0, 1, 6, 4, 5, 0]}, "distance": 4, "count": 280, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[1, 6, 2, 0, 0, 3], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [6, 3, 5, 1, 4, 2], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 26, "raw": 124, "seconds": 0.3, "distance_hist": {"4": 18, "3": 8}, "improved": false}
+{"kind": "group", "group": [1], "classes": 28, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 10, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 36, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 23, "4": 13}, "improved": false}
+{"kind": "group", "group": [3], "classes": 98, "raw": 98, "seconds": 0.9, "distance_hist": {"4": 54, "3": 44}, "improved": false}
+{"kind": "group", "group": [4], "classes": 110, "raw": 110, "seconds": 0.9, "distance_hist": {"3": 80, "4": 30}, "improved": false}
+{"kind": "group", "group": [5], "classes": 20, "raw": 119, "seconds": 0.2, "distance_hist": {"4": 12, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 104, "raw": 104, "seconds": 0.7, "distance_hist": {"3": 82, "4": 22}, "improved": false}
+{"kind": "group", "group": [7], "classes": 20, "raw": 120, "seconds": 0.2, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [8], "classes": 20, "raw": 168, "seconds": 0.2, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 1262, "raw": 29586, "seconds": 9.1, "distance_hist": {"3": 972, "4": 290}, "improved": false}
+{"kind": "group", "group": [0, 3], "classes": 3294, "raw": 15596, "seconds": 24.3, "distance_hist": {"4": 1186, "3": 2108}, "improved": false}
+{"kind": "group", "group": [0, 4], "classes": 4972, "raw": 20447, "seconds": 25.0, "distance_hist": {"3": 4033, "4": 939}, "improved": true}
+{"kind": "move", "group": [0, 4], "new": {"0": [1, 4, 5, 0, 0, 6], "4": [6, 3, 5, 1, 2, 4]}, "distance": 4, "count": 256, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[1, 4, 5, 0, 0, 6], [1, 6, 2, 0, 0, 3], [0, 1, 5, 2, 3, 0], [1, 4, 2, 5, 6, 3], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 36, "raw": 119, "seconds": 0.2, "distance_hist": {"4": 11, "3": 25}, "improved": false}
+{"kind": "group", "group": [1], "classes": 28, "raw": 174, "seconds": 0.2, "distance_hist": {"3": 10, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 22, "raw": 174, "seconds": 0.1, "distance_hist": {"4": 6, "3": 16}, "improved": false}
+{"kind": "group", "group": [3], "classes": 98, "raw": 98, "seconds": 0.5, "distance_hist": {"3": 57, "4": 41}, "improved": false}
+{"kind": "group", "group": [4], "classes": 111, "raw": 111, "seconds": 0.5, "distance_hist": {"4": 34, "3": 77}, "improved": false}
+{"kind": "group", "group": [5], "classes": 20, "raw": 119, "seconds": 0.1, "distance_hist": {"4": 12, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 104, "raw": 104, "seconds": 0.4, "distance_hist": {"3": 82, "4": 22}, "improved": false}
+{"kind": "group", "group": [7], "classes": 20, "raw": 120, "seconds": 0.1, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [8], "classes": 20, "raw": 168, "seconds": 0.1, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 1348, "raw": 29586, "seconds": 5.1, "distance_hist": {"4": 136, "3": 1212}, "improved": true}
+{"kind": "move", "group": [0, 2], "new": {"0": [3, 4, 1, 0, 0, 2], "2": [0, 5, 1, 3, 2, 0]}, "distance": 4, "count": 250, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [1, 6, 2, 0, 0, 3], [0, 5, 1, 3, 2, 0], [1, 4, 2, 5, 6, 3], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 26, "raw": 112, "seconds": 0.1, "distance_hist": {"3": 17, "4": 9}, "improved": false}
+{"kind": "group", "group": [1], "classes": 28, "raw": 174, "seconds": 0.2, "distance_hist": {"3": 10, "4": 18}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.1, "distance_hist": {"3": 21, "4": 9}, "improved": false}
+{"kind": "group", "group": [3], "classes": 82, "raw": 82, "seconds": 0.4, "distance_hist": {"3": 42, "4": 40}, "improved": false}
+{"kind": "group", "group": [4], "classes": 116, "raw": 116, "seconds": 0.5, "distance_hist": {"4": 39, "3": 77}, "improved": false}
+{"kind": "group", "group": [5], "classes": 20, "raw": 119, "seconds": 0.1, "distance_hist": {"4": 12, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 104, "raw": 104, "seconds": 0.4, "distance_hist": {"3": 82, "4": 22}, "improved": false}
+{"kind": "group", "group": [7], "classes": 20, "raw": 120, "seconds": 0.1, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [8], "classes": 20, "raw": 168, "seconds": 0.1, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 1348, "raw": 29586, "seconds": 4.9, "distance_hist": {"4": 136, "3": 1212}, "improved": false}
+{"kind": "group", "group": [0, 3], "classes": 3430, "raw": 14410, "seconds": 19.4, "distance_hist": {"3": 2798, "4": 632}, "improved": false}
+{"kind": "group", "group": [0, 4], "classes": 4546, "raw": 19624, "seconds": 26.3, "distance_hist": {"3": 3595, "4": 951}, "improved": false}
+{"kind": "group", "group": [1, 3], "classes": 5083, "raw": 25464, "seconds": 28.3, "distance_hist": {"3": 3759, "4": 1324}, "improved": true}
+{"kind": "move", "group": [1, 3], "new": {"1": [6, 1, 3, 0, 0, 2], "3": [1, 6, 5, 3, 4, 2]}, "distance": 4, "count": 236, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 5, 1, 3, 2, 0], [1, 6, 5, 3, 4, 2], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 22, "raw": 110, "seconds": 0.1, "distance_hist": {"4": 10, "3": 12}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.4, "distance_hist": {"3": 15, "4": 29}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 10, "4": 20}, "improved": true}
+{"kind": "move", "group": [2], "new": {"2": [0, 3, 1, 4, 2, 0]}, "distance": 4, "count": 233, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 1, 4, 3, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.1, "distance_hist": {"4": 8, "3": 8}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.4, "distance_hist": {"3": 15, "4": 29}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 10, "4": 20}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.8, "distance_hist": {"3": 72, "4": 38}, "improved": false}
+{"kind": "group", "group": [4], "classes": 116, "raw": 116, "seconds": 0.7, "distance_hist": {"4": 44, "3": 72}, "improved": false}
+{"kind": "group", "group": [5], "classes": 23, "raw": 117, "seconds": 0.2, "distance_hist": {"4": 16, "3": 7}, "improved": false}
+{"kind": "group", "group": [6], "classes": 108, "raw": 108, "seconds": 0.7, "distance_hist": {"3": 80, "4": 28}, "improved": true}
+{"kind": "move", "group": [6], "new": {"6": [5, 3, 1, 4, 6, 2]}, "distance": 4, "count": 223, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 3, 1, 4, 6, 2], [0, 1, 6, 4, 5, 0], [1, 3, 2, 5, 4, 6]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.1, "distance_hist": {"4": 8, "3": 8}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 29, "4": 15}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 10, "4": 20}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.5, "distance_hist": {"3": 78, "4": 32}, "improved": false}
+{"kind": "group", "group": [4], "classes": 116, "raw": 116, "seconds": 0.6, "distance_hist": {"4": 44, "3": 72}, "improved": false}
+{"kind": "group", "group": [5], "classes": 22, "raw": 114, "seconds": 0.2, "distance_hist": {"4": 14, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 108, "raw": 108, "seconds": 0.4, "distance_hist": {"3": 80, "4": 28}, "improved": false}
+{"kind": "group", "group": [7], "classes": 20, "raw": 120, "seconds": 0.2, "distance_hist": {"3": 7, "4": 13}, "improved": false}
+{"kind": "group", "group": [8], "classes": 22, "raw": 174, "seconds": 0.2, "distance_hist": {"3": 8, "4": 14}, "improved": true}
+{"kind": "move", "group": [8], "new": {"8": [3, 0, 0, 1, 4, 2]}, "distance": 4, "count": 221, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [6, 3, 5, 1, 2, 4], [5, 0, 0, 4, 3, 1], [5, 3, 1, 4, 6, 2], [0, 1, 6, 4, 5, 0], [3, 0, 0, 1, 4, 2]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.1, "distance_hist": {"4": 8, "3": 8}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 29, "4": 15}, "improved": false}
+{"kind": "group", "group": [2], "classes": 30, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 10, "4": 20}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.7, "distance_hist": {"3": 78, "4": 32}, "improved": false}
+{"kind": "group", "group": [4], "classes": 116, "raw": 116, "seconds": 0.7, "distance_hist": {"4": 44, "3": 72}, "improved": false}
+{"kind": "group", "group": [5], "classes": 22, "raw": 114, "seconds": 0.2, "distance_hist": {"4": 14, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 107, "raw": 107, "seconds": 0.6, "distance_hist": {"3": 71, "4": 36}, "improved": false}
+{"kind": "group", "group": [7], "classes": 21, "raw": 119, "seconds": 0.1, "distance_hist": {"3": 7, "4": 14}, "improved": false}
+{"kind": "group", "group": [8], "classes": 22, "raw": 174, "seconds": 0.2, "distance_hist": {"3": 8, "4": 14}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 1137, "raw": 27873, "seconds": 5.6, "distance_hist": {"3": 867, "4": 270}, "improved": false}
+{"kind": "group", "group": [0, 3], "classes": 3760, "raw": 18552, "seconds": 19.8, "distance_hist": {"3": 3322, "4": 438}, "improved": false}
+{"kind": "group", "group": [0, 4], "classes": 4950, "raw": 19452, "seconds": 32.2, "distance_hist": {"4": 1210, "3": 3740}, "improved": false}
+{"kind": "group", "group": [1, 3], "classes": 4986, "raw": 25068, "seconds": 33.2, "distance_hist": {"3": 4477, "4": 509}, "improved": false}
+{"kind": "group", "group": [1, 5], "classes": 1348, "raw": 29586, "seconds": 11.9, "distance_hist": {"3": 1072, "4": 276}, "improved": false}
+{"kind": "group", "group": [2, 4], "classes": 5500, "raw": 27756, "seconds": 43.6, "distance_hist": {"4": 1306, "3": 4194}, "improved": false}
+{"kind": "group", "group": [3, 4], "classes": 18683, "raw": 18683, "seconds": 128.5, "distance_hist": {"3": 16975, "4": 1708}, "improved": false}
+{"kind": "group", "group": [3, 5], "classes": 3826, "raw": 18618, "seconds": 26.9, "distance_hist": {"3": 3269, "4": 557}, "improved": false}
+{"kind": "group", "group": [3, 6], "classes": 17766, "raw": 17766, "seconds": 100.1, "distance_hist": {"3": 16067, "4": 1699}, "improved": false}
+{"kind": "group", "group": [4, 6], "classes": 16398, "raw": 16398, "seconds": 107.2, "distance_hist": {"3": 14198, "4": 2200}, "improved": false}
+{"kind": "group", "group": [4, 7], "classes": 3763, "raw": 18302, "seconds": 28.2, "distance_hist": {"3": 2602, "4": 1161}, "improved": true}
+{"kind": "move", "group": [4, 7], "new": {"4": [3, 4, 5, 1, 2, 6], "7": [0, 1, 6, 5, 2, 0]}, "distance": 4, "count": 216, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [3, 4, 5, 1, 2, 6], [5, 0, 0, 4, 3, 1], [5, 3, 1, 4, 6, 2], [0, 1, 6, 5, 2, 0], [3, 0, 0, 1, 4, 2]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.2, "distance_hist": {"4": 12, "3": 4}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 29, "4": 15}, "improved": false}
+{"kind": "group", "group": [2], "classes": 26, "raw": 165, "seconds": 0.3, "distance_hist": {"3": 8, "4": 18}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.8, "distance_hist": {"3": 78, "4": 32}, "improved": false}
+{"kind": "group", "group": [4], "classes": 112, "raw": 112, "seconds": 1.0, "distance_hist": {"4": 63, "3": 49}, "improved": false}
+{"kind": "group", "group": [5], "classes": 22, "raw": 114, "seconds": 0.2, "distance_hist": {"4": 14, "3": 8}, "improved": false}
+{"kind": "group", "group": [6], "classes": 98, "raw": 98, "seconds": 0.8, "distance_hist": {"3": 54, "4": 44}, "improved": true}
+{"kind": "move", "group": [6], "new": {"6": [1, 4, 3, 5, 6, 2]}, "distance": 4, "count": 207, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [3, 4, 5, 1, 2, 6], [5, 0, 0, 4, 3, 1], [1, 4, 3, 5, 6, 2], [0, 1, 6, 5, 2, 0], [3, 0, 0, 1, 4, 2]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.2, "distance_hist": {"4": 12, "3": 4}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.4, "distance_hist": {"3": 15, "4": 29}, "improved": false}
+{"kind": "group", "group": [2], "classes": 26, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 8, "4": 18}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.7, "distance_hist": {"3": 77, "4": 33}, "improved": false}
+{"kind": "group", "group": [4], "classes": 112, "raw": 112, "seconds": 0.8, "distance_hist": {"3": 59, "4": 53}, "improved": false}
+{"kind": "group", "group": [5], "classes": 18, "raw": 110, "seconds": 0.2, "distance_hist": {"4": 12, "3": 6}, "improved": false}
+{"kind": "group", "group": [6], "classes": 98, "raw": 98, "seconds": 0.5, "distance_hist": {"3": 54, "4": 44}, "improved": false}
+{"kind": "group", "group": [7], "classes": 39, "raw": 112, "seconds": 0.4, "distance_hist": {"3": 14, "4": 25}, "improved": false}
+{"kind": "group", "group": [8], "classes": 24, "raw": 165, "seconds": 0.2, "distance_hist": {"3": 8, "4": 16}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 998, "raw": 27951, "seconds": 8.0, "distance_hist": {"4": 440, "3": 558}, "improved": false}
+{"kind": "group", "group": [0, 3], "classes": 3586, "raw": 17718, "seconds": 24.1, "distance_hist": {"3": 2645, "4": 941}, "improved": false}
+{"kind": "group", "group": [0, 4], "classes": 4470, "raw": 18066, "seconds": 29.2, "distance_hist": {"3": 3154, "4": 1316}, "improved": false}
+{"kind": "group", "group": [1, 3], "classes": 5090, "raw": 25371, "seconds": 30.8, "distance_hist": {"3": 3980, "4": 1110}, "improved": false}
+{"kind": "group", "group": [1, 5], "classes": 1137, "raw": 27873, "seconds": 8.4, "distance_hist": {"3": 648, "4": 489}, "improved": false}
+{"kind": "group", "group": [2, 4], "classes": 5270, "raw": 26244, "seconds": 35.6, "distance_hist": {"3": 3473, "4": 1797}, "improved": false}
+{"kind": "group", "group": [3, 4], "classes": 19462, "raw": 19462, "seconds": 121.2, "distance_hist": {"3": 16777, "4": 2685}, "improved": false}
+{"kind": "group", "group": [3, 5], "classes": 4224, "raw": 19528, "seconds": 28.2, "distance_hist": {"3": 3556, "4": 668}, "improved": false}
+{"kind": "group", "group": [3, 6], "classes": 16035, "raw": 16035, "seconds": 103.3, "distance_hist": {"3": 13991, "4": 2044}, "improved": false}
+{"kind": "group", "group": [4, 6], "classes": 16532, "raw": 16532, "seconds": 102.5, "distance_hist": {"3": 13317, "4": 3215}, "improved": false}
+{"kind": "group", "group": [4, 7], "classes": 4969, "raw": 18146, "seconds": 28.8, "distance_hist": {"3": 3657, "4": 1312}, "improved": false}
+{"kind": "group", "group": [5, 6], "classes": 3346, "raw": 16978, "seconds": 18.8, "distance_hist": {"3": 2450, "4": 896}, "improved": false}
+{"kind": "group", "group": [6, 7], "classes": 4824, "raw": 17136, "seconds": 23.3, "distance_hist": {"3": 3498, "4": 1326}, "improved": false}
+{"kind": "group", "group": [6, 8], "classes": 3813, "raw": 24732, "seconds": 31.4, "distance_hist": {"3": 2703, "4": 1110}, "improved": true}
+{"kind": "move", "group": [6, 8], "new": {"6": [2, 4, 3, 5, 6, 1], "8": [2, 0, 0, 3, 1, 4]}, "distance": 4, "count": 197, "involved": [0, 1, 2, 3, 4, 5, 6, 7, 8], "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [3, 4, 5, 1, 2, 6], [5, 0, 0, 4, 3, 1], [2, 4, 3, 5, 6, 1], [0, 1, 6, 5, 2, 0], [2, 0, 0, 3, 1, 4]]}
+{"kind": "group", "group": [0], "classes": 16, "raw": 108, "seconds": 0.2, "distance_hist": {"4": 12, "3": 4}, "improved": false}
+{"kind": "group", "group": [1], "classes": 44, "raw": 165, "seconds": 0.5, "distance_hist": {"3": 15, "4": 29}, "improved": false}
+{"kind": "group", "group": [2], "classes": 26, "raw": 165, "seconds": 0.4, "distance_hist": {"3": 8, "4": 18}, "improved": false}
+{"kind": "group", "group": [3], "classes": 110, "raw": 110, "seconds": 0.8, "distance_hist": {"3": 77, "4": 33}, "improved": false}
+{"kind": "group", "group": [4], "classes": 109, "raw": 109, "seconds": 0.9, "distance_hist": {"3": 62, "4": 47}, "improved": false}
+{"kind": "group", "group": [5], "classes": 18, "raw": 110, "seconds": 0.2, "distance_hist": {"4": 12, "3": 6}, "improved": false}
+{"kind": "group", "group": [6], "classes": 100, "raw": 100, "seconds": 0.9, "distance_hist": {"3": 55, "4": 45}, "improved": false}
+{"kind": "group", "group": [7], "classes": 25, "raw": 112, "seconds": 0.3, "distance_hist": {"4": 18, "3": 7}, "improved": false}
+{"kind": "group", "group": [8], "classes": 29, "raw": 174, "seconds": 0.3, "distance_hist": {"3": 11, "4": 18}, "improved": false}
+{"kind": "group", "group": [0, 2], "classes": 998, "raw": 27951, "seconds": 11.0, "distance_hist": {"4": 440, "3": 558}, "improved": false}
+{"kind": "group", "group": [0, 3], "classes": 3586, "raw": 17718, "seconds": 35.2, "distance_hist": {"3": 2645, "4": 941}, "improved": false}
+{"kind": "group", "group": [0, 4], "classes": 4322, "raw": 17610, "seconds": 33.4, "distance_hist": {"3": 3284, "4": 1038}, "improved": false}
+{"kind": "group", "group": [1, 3], "classes": 5090, "raw": 25371, "seconds": 33.0, "distance_hist": {"3": 3980, "4": 1110}, "improved": false}
+{"kind": "group", "group": [1, 5], "classes": 1137, "raw": 27873, "seconds": 10.0, "distance_hist": {"3": 648, "4": 489}, "improved": false}
+{"kind": "group", "group": [2, 4], "classes": 5667, "raw": 28323, "seconds": 41.6, "distance_hist": {"3": 4101, "4": 1566}, "improved": false}
+{"kind": "group", "group": [3, 4], "classes": 19019, "raw": 19019, "seconds": 122.9, "distance_hist": {"3": 16334, "4": 2685}, "improved": false}
+{"kind": "group", "group": [3, 5], "classes": 4224, "raw": 19528, "seconds": 28.1, "distance_hist": {"3": 3556, "4": 668}, "improved": false}
+{"kind": "group", "group": [3, 6], "classes": 16836, "raw": 16836, "seconds": 107.1, "distance_hist": {"3": 14747, "4": 2089}, "improved": false}
+{"kind": "group", "group": [4, 6], "classes": 16034, "raw": 16034, "seconds": 104.6, "distance_hist": {"3": 12902, "4": 3132}, "improved": false}
+{"kind": "group", "group": [4, 7], "classes": 3417, "raw": 16492, "seconds": 22.8, "distance_hist": {"3": 2445, "4": 972}, "improved": false}
+{"kind": "group", "group": [5, 6], "classes": 3401, "raw": 17507, "seconds": 24.0, "distance_hist": {"3": 2510, "4": 891}, "improved": false}
+{"kind": "group", "group": [6, 7], "classes": 4911, "raw": 17162, "seconds": 32.3, "distance_hist": {"4": 1318, "3": 3593}, "improved": false}
+{"kind": "group", "group": [6, 8], "classes": 3813, "raw": 24732, "seconds": 25.7, "distance_hist": {"3": 2703, "4": 1110}, "improved": false}
+{"kind": "group", "group": [7, 8], "classes": 1497, "raw": 29463, "seconds": 11.7, "distance_hist": {"3": 851, "4": 646}, "improved": false}
+{"kind": "local_optimum", "distance": 4, "count": 197, "schedule": [[3, 4, 1, 0, 0, 2], [6, 1, 3, 0, 0, 2], [0, 3, 1, 4, 2, 0], [1, 6, 5, 3, 4, 2], [3, 4, 5, 1, 2, 6], [5, 0, 0, 4, 3, 1], [2, 4, 3, 5, 6, 1], [0, 1, 6, 5, 2, 0], [2, 0, 0, 3, 1, 4]], "neighbourhoods": {"singles": 9, "pairs": 15}}

@@ -457,3 +457,41 @@ fn parity_sampler_matches_parities_of_raw_distribution() {
         checked += 1;
     }
 }
+
+/// The sparse draw + column-wise evaluation path gives bit-identical batches
+/// to the dense path for the same RNG stream.
+#[test]
+fn sparse_sampling_path_is_identical_to_dense() {
+    use qsim_lab::qec::surface::SurfaceCode;
+    use qsim_lab::stabilizer::symphase::SymPhaseSampler;
+    use qsim_lab::NoiseModel;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+    for (d, p) in [(3usize, 0.01f64), (5, 0.003), (5, 0.2)] {
+        let sc = SurfaceCode::new(d, d);
+        let sets: Vec<Vec<usize>> = sc
+            .detector_records()
+            .into_iter()
+            .chain(std::iter::once(sc.observable_records()))
+            .collect();
+        let base =
+            SymPhaseSampler::new(&sc.build_circuit(), &NoiseModel::circuit_level(p, p)).unwrap();
+        for s in [base.clone(), base.with_parities(&sets)] {
+            let cv = s.column_view();
+            let (mut r1, mut r2) = (StdRng::seed_from_u64(9), StdRng::seed_from_u64(9));
+            let mut v1 = vec![0u64; s.num_vars()];
+            let mut v2 = vec![0u64; s.num_vars()];
+            let mut o1 = vec![0u64; s.num_measurements()];
+            let mut o2 = vec![0u64; s.num_measurements()];
+            let mut touched = Vec::new();
+            for _ in 0..200 {
+                s.sample_vars(&mut r1, &mut v1);
+                s.eval(&v1, &mut o1);
+                s.sample_vars_sparse(&mut r2, &mut v2, &mut touched);
+                s.eval_sparse(&cv, &v2, &touched, &mut o2);
+                assert_eq!(v1, v2);
+                assert_eq!(o1, o2);
+            }
+        }
+    }
+}
