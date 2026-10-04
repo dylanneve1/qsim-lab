@@ -159,6 +159,14 @@ pub trait Logical {
         self.tdg(c2);
         self.cnot(c1, c2);
     }
+    /// Classically controlled S† in a fixed slot: when `apply` is false the
+    /// slot is a noisy identity, so the location structure of a run does not
+    /// depend on measurement outcomes (needed for the clean-run estimator).
+    fn sdg_slot(&mut self, q: usize, apply: bool) {
+        if apply {
+            self.sdg(q);
+        }
+    }
     /// Controlled swap.
     fn cswap(&mut self, c: usize, a: usize, b: usize) {
         self.cnot(b, a);
@@ -367,6 +375,14 @@ impl<B: Phys> Logical for Encoded<B> {
         let b = self.blocks[q];
         self.meas_block(q, b)
     }
+    fn sdg_slot(&mut self, q: usize, apply: bool) {
+        if apply {
+            self.sdg(q);
+        } else {
+            self.counts.logical_gates += 1;
+            self.m.id(self.k, self.blocks[q]);
+        }
+    }
 }
 
 /// Bare (unencoded) qubits with the same circuit-level noise: preparation and
@@ -440,6 +456,13 @@ impl Logical for Unencoded {
         self.locations += 1;
         let r = self.sv.measure(q, &mut self.mrng);
         r ^ self.noise.flip()
+    }
+    fn sdg_slot(&mut self, q: usize, apply: bool) {
+        if apply {
+            self.sdg(q);
+        } else {
+            self.n1(q);
+        }
     }
     fn ccx(&mut self, c1: usize, c2: usize, t: usize) {
         if !self.native_ccx {

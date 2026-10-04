@@ -54,6 +54,10 @@ impl Logical for Checked {
         self.0.check_frames();
         r
     }
+    fn sdg_slot(&mut self, q: usize, apply: bool) {
+        self.0.sdg_slot(q, apply);
+        self.0.check_frames();
+    }
 }
 
 /// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
@@ -113,6 +117,7 @@ fn main() {
             let ideal = ideal_distribution(base, t);
             let mut hist = [0u64; 8];
             let mut lfault = 0u64;
+            let mut hist_f = [0u64; 8];
             let start = Instant::now();
             let mut eps_in = 0.0;
             let mut eps_out = 0.0;
@@ -145,6 +150,7 @@ fn main() {
                         let e = ce.0;
                         if e.counts.logical_fault {
                             lfault += 1;
+                            hist_f[y as usize] += 1;
                         }
                         locs += e.m.noise.loc;
                         for c in 0..N_COMP {
@@ -167,6 +173,7 @@ fn main() {
                         let y = run_shor15(&mut u, base, t);
                         if u.noise.faults.iter().sum::<u64>() > 0 {
                             lfault += 1;
+                            hist_f[y as usize] += 1;
                         }
                         locs += u.locations;
                         for c in 0..N_COMP {
@@ -196,7 +203,7 @@ fn main() {
                 .collect();
             println!(
                 "kind=shor mode={mode} level={level} magic={magic} p={p:e} shots={shots} seed={seed} a={base} mask={mask} \
-                 peak={peak} P_peak={:.6} order={order} P_order={:.6} lfault={lfault} P_lfault={:.6} tvd={tvd:.6} hist={} \
+                 peak={peak} P_peak={:.6} order={order} P_order={:.6} lfault={lfault} P_lfault={:.6} tvd={tvd:.6} hist={} hist_faulty={} \
                  eps_in={eps_in:.4e} eps_out={eps_out:.4e} locs_per_shot={:.1} phys_qubits={qubits} \
                  prep_per_shot={:.1} g1_per_shot={:.1} g2_per_shot={:.1} meas_per_shot={:.1} \
                  prep_rej_per_shot={:.2} inj_rej_per_shot={:.3} t_gadgets_per_shot={:.2} {} secs={:.2}",
@@ -204,6 +211,7 @@ fn main() {
                 order as f64 / n,
                 lfault as f64 / n,
                 hist.iter().map(|h| h.to_string()).collect::<Vec<_>>().join(","),
+                hist_f.iter().map(|h| h.to_string()).collect::<Vec<_>>().join(","),
                 locs as f64 / n,
                 phys.0 as f64 / n,
                 phys.1 as f64 / n,

@@ -73,12 +73,18 @@ pub fn run_shor15<L: Logical>(l: &mut L, a: u64, t: usize) -> u64 {
             controlled_mult(l, m);
         }
         for i in 0..j {
-            if (y >> i) & 1 == 1 {
-                match j - i + 1 {
-                    2 => l.sdg(0),
-                    3 => l.tdg(0),
-                    _ => unreachable!(),
+            let bit = (y >> i) & 1 == 1;
+            match j - i + 1 {
+                // S† correction: a fixed slot (S† or noisy identity)
+                2 => l.sdg_slot(0, bit),
+                // T† correction: only when the bit is set (never in an
+                // error-free run of an r = 4 instance, whose b0 is 0)
+                3 => {
+                    if bit {
+                        l.tdg(0)
+                    }
                 }
+                _ => unreachable!(),
             }
         }
         l.h(0);
