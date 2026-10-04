@@ -66,9 +66,9 @@ class Decoder(nn.Module):
         self.readout = readout
         nd = meta.shape[0]
         self.nd, self.L, self.heads = nd, L, heads
-        self.feat = mx.array(np.concatenate([det_features(meta), np.zeros((2, 7), np.float32)]))  # pad, cls
+        self._feat = mx.array(np.concatenate([det_features(meta), np.zeros((2, 7), np.float32)]))  # pad, cls
         g = grid_geom(meta)
-        self.geom = mx.array(np.concatenate([g, np.zeros((2, 4), np.int64)]).astype(np.int32))
+        self._geom = mx.array(np.concatenate([g, np.zeros((2, 4), np.int64)]).astype(np.int32))
         nx, nt = 2 * R_XY + 1, 2 * R_T + 1
         self.nrel = nx * nx * nt * 4
         self.emb = nn.Embedding(nd + 2, H)
@@ -87,8 +87,8 @@ class Decoder(nn.Module):
         cls = mx.full((B, 1), self.nd + 1, dtype=mx.int32)
         tok = mx.concatenate([cls, tok], axis=1)
         T1 = T + 1
-        x = self.emb(tok) + self.fmlp(self.feat[tok])
-        g = self.geom[tok]  # (B,T1,4) int
+        x = self.emb(tok) + self.fmlp(self._feat[tok])
+        g = self._geom[tok]  # (B,T1,4) int
         nx, nt = 2 * R_XY + 1, 2 * R_T + 1
         d = g[:, :, None, :3] - g[:, None, :, :3]
         dx = mx.clip(d[..., 0], -R_XY, R_XY) + R_XY
