@@ -350,6 +350,12 @@ pub struct SpdOptions {
     pub max_terms: usize,
     /// Restrict to the backward light cone (exact; on by default).
     pub light_cone: bool,
+    /// Number of trailing branching layers evaluated by depth-first
+    /// streaming instead of merge passes (default 1). The last layer feeds a
+    /// linear closed-form evaluation, so streaming it costs the same work as
+    /// merging and removes the largest term table from memory. Larger values
+    /// trade time (no deduplication) for memory.
+    pub stream: usize,
 }
 
 impl Default for SpdOptions {
@@ -360,6 +366,7 @@ impl Default for SpdOptions {
             depol: 0.0,
             max_terms: 50_000_000,
             light_cone: true,
+            stream: 1,
         }
     }
 }
@@ -714,7 +721,8 @@ fn run<const W: usize>(
     for _ in 2..=model.steps {
         passes.push(true);
     }
-    for &with_zz in &passes {
+    let nm = passes.len().saturating_sub(opt.stream);
+    for &with_zz in &passes[..nm] {
         match merge_pass(&ctx, &terms, with_zz, opt.max_terms) {
             Some((t, a)) => {
                 terms = t;
@@ -731,59 +739,86 @@ fn run<const W: usize>(
         res.terms_per_layer.push(terms.len());
         res.peak_terms = res.peak_terms.max(terms.len());
     }
-    // Last step: ZZ then closed-form first RX layer (no merge needed).
+    // Remaining layers streamed depth first, then the last step: ZZ and the
+    // closed-form first RX layer (or <0|P|0> when there is no Trotter step).
     res.final_terms = terms.len();
-    if model.steps == 0 {
-        // No ZZ at all: the only RX is the optional final layer, already
-        // branched above; evaluate on |0> directly.
-        res.norm2 = terms.iter().map(|t| t.1 * t.1).sum();
-        res.value = terms
-            .iter()
-            .map(|(k, c)| {
-                if (0..W).any(|i| k.x[i] != 0) {
-                    0.0
-                } else {
-                    *c
-                }
-            })
-            .sum();
-    } else {
-        let (v, n2, a) = terms
-            .par_chunks(4096)
-            .map(|ch| {
-                let mut a = Acc::default();
-                let mut v = 0.0;
-                let mut n2 = 0.0;
-                for &(k0, c0) in ch {
-                    n2 += c0 * c0;
-                    let (mut k, mut c) = (k0, c0);
-                    if ctx.zz(&mut k, &mut c, &mut a) {
-                        v += ctx.eval(&k, c);
-                    }
-                }
-                (v, n2, a)
-            })
-            .reduce(
-                || (0.0, 0.0, Acc::default()),
-                |x, y| {
-                    (
-                        x.0 + y.0,
-                        x.1 + y.1,
-                        Acc {
-                            l1: x.2.l1 + y.2.l1,
-                            l2sq: x.2.l2sq + y.2.l2sq,
-                        },
-                    )
-                },
-            );
-        res.value = v;
-        res.norm2 = n2;
-        acc.l1 += a.l1;
-        acc.l2sq += a.l2sq;
-    }
+    let streamed = &passes[nm..];
+    let no_steps = model.steps == 0;
+    let (v, n2, a) = terms
+        .par_chunks(256)
+        .map(|ch| {
+            let mut a = Acc::default();
+            let mut v = 0.0;
+            let mut n2 = 0.0;
+            for &(k0, c0) in ch {
+                n2 += c0 * c0;
+                v += stream_eval(&ctx, streamed, k0, c0, &mut a, no_steps);
+            }
+            (v, n2, a)
+        })
+        .reduce(
+            || (0.0, 0.0, Acc::default()),
+            |x, y| {
+                (
+                    x.0 + y.0,
+                    x.1 + y.1,
+                    Acc {
+                        l1: x.2.l1 + y.2.l1,
+                        l2sq: x.2.l2sq + y.2.l2sq,
+                    },
+                )
+            },
+        );
+    res.value = v;
+    res.norm2 = n2;
+    acc.l1 += a.l1;
+    acc.l2sq += a.l2sq;
     res.discarded_l1 = acc.l1;
     res.discarded_l2sq = acc.l2sq;
     res
+}
+
+/// Depth-first evaluation of the remaining (unmerged) layers of one term.
+fn stream_eval<const W: usize>(
+    ctx: &Ctx<W>,
+    passes: &[bool],
+    key: Key<W>,
+    c: f64,
+    acc: &mut Acc,
+    no_steps: bool,
+) -> f64 {
+    let (mut k, mut c) = (key, c);
+    match passes.split_first() {
+        None => {
+            if no_steps {
+                if (0..W).any(|i| k.x[i] != 0) {
+                    0.0
+                } else {
+                    c
+                }
+            } else if ctx.zz(&mut k, &mut c, acc) {
+                ctx.eval(&k, c)
+            } else {
+                0.0
+            }
+        }
+        Some((&with_zz, rest)) => {
+            if with_zz && !ctx.zz(&mut k, &mut c, acc) {
+                return 0.0;
+            }
+            let mut sum = 0.0;
+            let mut inner = Acc::default();
+            ctx.branch(
+                k,
+                c,
+                &mut |kk, cc| sum += stream_eval(ctx, rest, kk, cc, &mut inner, no_steps),
+                acc,
+            );
+            acc.l1 += inner.l1;
+            acc.l2sq += inner.l2sq;
+            sum
+        }
+    }
 }
 
 /// One merged backward layer. `None` if `max_terms` was exceeded.

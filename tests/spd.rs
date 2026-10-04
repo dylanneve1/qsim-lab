@@ -130,12 +130,13 @@ fn exact_spd_matches_statevector_on_heavy_hex_patches() {
                 obs.push(multi);
                 for o in &obs {
                     let want = sv_expect(&m, o);
-                    for light_cone in [true, false] {
+                    for (light_cone, stream) in [(true, 1), (false, 1), (true, 0), (true, 2), (true, 99)] {
                         let r = simulate(
                             &m,
                             o,
                             &SpdOptions {
                                 light_cone,
+                                stream,
                                 ..SpdOptions::default()
                             },
                         );
@@ -184,9 +185,13 @@ fn truncation_error_is_within_the_l1_bound_and_converges() {
         let exact = sv_expect(&m, &o);
         let mut last_err = f64::INFINITY;
         for delta in [1e-1, 1e-2, 1e-3, 1e-4, 1e-6] {
+            for stream in [0, 1, 3] {
+                let r = simulate(&m, &o, &SpdOptions { delta, stream, ..SpdOptions::default() });
+                let err = (r.value - exact).abs();
+                assert!(err <= r.discarded_l1 + 1e-12, "δ {delta}: err {err} > bound {}", r.discarded_l1);
+            }
             let r = simulate(&m, &o, &SpdOptions { delta, ..SpdOptions::default() });
             let err = (r.value - exact).abs();
-            assert!(err <= r.discarded_l1 + 1e-12, "δ {delta}: err {err} > bound {}", r.discarded_l1);
             // (norm2 can exceed 1 slightly: dropping one of two cancelling
             // pre-merge children leaves the other — the l1 bound still holds.)
             last_err = err;
