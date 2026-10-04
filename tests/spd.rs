@@ -4,6 +4,8 @@
 //! Pauli-path engine at 127 qubits, the rigorous l1 truncation bound, and the
 //! noise-aware mode against an exact density matrix.
 
+#![allow(clippy::needless_range_loop)]
+
 use num_complex::Complex64 as C;
 use qsim_lab::pauli_path::{self, PauliSum};
 use qsim_lab::spd::{simulate, KickedIsing, Lattice, PauliObs, SpdOptions};
