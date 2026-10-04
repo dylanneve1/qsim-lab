@@ -450,8 +450,29 @@ fn merge_k<T: Real>(
     mut f: impl FnMut(u64, &mut [Complex64]),
 ) {
     let k = arrs.len();
-    let mut pos: Vec<usize> = rng.iter().map(|r| r.0).collect();
     let mut vals = vec![Complex64::zero(); k];
+    // fast path: every array has the same keys on this chunk (the steady
+    // state, where V permutes the support onto itself)
+    let n0 = rng[0].1 - rng[0].0;
+    if rng.iter().all(|r| r.1 - r.0 == n0) {
+        let base = &arrs[0][rng[0].0..rng[0].1];
+        let same = (1..k).all(|i| {
+            arrs[i][rng[i].0..rng[i].1]
+                .iter()
+                .zip(base)
+                .all(|(a, b)| a.0 == b.0)
+        });
+        if same {
+            for t in 0..n0 {
+                for i in 0..k {
+                    vals[i] = c64(arrs[i][rng[i].0 + t].1);
+                }
+                f(base[t].0, &mut vals);
+            }
+            return;
+        }
+    }
+    let mut pos: Vec<usize> = rng.iter().map(|r| r.0).collect();
     loop {
         let mut key = u64::MAX;
         let mut any = false;
