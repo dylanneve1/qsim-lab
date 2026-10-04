@@ -1115,6 +1115,18 @@ pub fn expectation_z_product(
     qubits: &[usize],
     opts: PlanOptions,
 ) -> Result<f64, SimError> {
+    expectation_z_product_report(c, qubits, opts).map(|(v, _)| v)
+}
+
+/// [`expectation_z_product`] that also reports `(qubits, gates, engine)`
+/// for every simulated component (components outside the light cone or
+/// without gates are not listed).
+pub fn expectation_z_product_report(
+    c: &Circuit,
+    qubits: &[usize],
+    opts: PlanOptions,
+) -> Result<(f64, ComponentReport), SimError> {
+    let mut report: ComponentReport = Vec::new();
     validate(c)?;
     require_unitary(
         c,
@@ -1155,7 +1167,9 @@ pub fn expectation_z_product(
         }
         let n = sub.num_qubits;
         if let (Some(cfg), true) = (opts.planner, opts.dispatch) {
-            value *= crate::planner::expectation(&sub, &local, &cfg)?.value;
+            let ex = crate::planner::expectation(&sub, &local, &cfg)?;
+            report.push((n, sub.num_gates(), Backend::Planned(ex.engine)));
+            value *= ex.value;
             continue;
         }
         let t = non_clifford_count(&sub) as u32;
@@ -1167,6 +1181,14 @@ pub fn expectation_z_product(
         } else {
             None
         };
+        let backend = if use_pauli || (opts.dispatch && sub.is_clifford()) {
+            Backend::PauliPath
+        } else if adaptive.is_some() {
+            Backend::Adaptive
+        } else {
+            Backend::StateVector
+        };
+        report.push((n, sub.num_gates(), backend));
         let v = if use_pauli || (opts.dispatch && sub.is_clifford()) {
             let obs = PauliSum::z_product(n, &local);
             pauli_path::expectation(&sub, &obs, DEFAULT_MAX_TERMS)?.0
@@ -1195,5 +1217,5 @@ pub fn expectation_z_product(
         };
         value *= v;
     }
-    Ok(value)
+    Ok((value, report))
 }

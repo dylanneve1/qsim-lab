@@ -1,0 +1,5 @@
+Mac M1 Pro, 1 thread, under /tmp/qsim-mac-bench.lock, single run each (Mac oversubscribed by other agents: 1-min load 9.7-14.9), 4 Oct 2026 22:43-22:45 local
+grover 64 8 1 50    : secs 15.596  max_rel_err 9.80e-16
+grover 20 100 5 50  : secs 5.504
+grover 20 804 5 400 : secs 43.366  max_rel_err 6.30e-13  max_r_at_iteration_ends 2
+grover 128 1 1 50   : secs 22.671  max_rel_err 1.63e-16

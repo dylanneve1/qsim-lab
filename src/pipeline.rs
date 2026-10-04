@@ -43,8 +43,8 @@
 
 use crate::circuit::{Circuit, Op, SimError};
 use crate::compile::plan::{
-    compile_sampling, compile_unitary, expectation_z_product, AdaptiveRule, Backend, CompileStats,
-    PlanOptions,
+    compile_sampling, compile_unitary, expectation_z_product_report, AdaptiveRule, Backend,
+    CompileStats, PlanOptions,
 };
 use crate::compile::repeat::exec::ExecOptions;
 use crate::compile::repeat::{DetectOptions, Program};
@@ -456,10 +456,10 @@ fn simulate_plain(
                 planner: Some(planner_cfg),
                 ..opts
             };
-            let v = expectation_z_product(circuit, qs, opts)?;
+            let (v, engines) = expectation_z_product_report(circuit, qs, opts)?;
             Ok(Simulation {
                 output: Output::Expectation(v),
-                engines: Vec::new(),
+                engines,
             })
         }
     }

@@ -1,0 +1,1 @@
+{"H": 128, "L": 4, "heads": 4, "readout": "cls", "prefix": "/Users/dylan/qsim-nd-data/s7", "stims": ["/Users/dylan/qsim-nd-data/s7.stim"], "it": 10000, "shots": 2560000}

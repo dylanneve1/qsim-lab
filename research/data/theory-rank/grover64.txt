@@ -1,0 +1,5 @@
+ 21:25:14 up 3 days, 11:49,  1 user,  load average: 9.44, 7.66, 5.12
+t_merge 22.595 t_pair 31.381 pair_tests 152458
+{"n_search":64,"qubits":126,"it":8,"gates":4720,"toffolis":1984,"max_r":64,"r_end":2,"r_at_iteration_ends":[2, 2, 2, 2, 2, 2, 2, 2],"max_r_at_iteration_ends":2,"branch":1920,"cliff":1936,"merges":951,"pair_merges":24,"cancel":944,"secs":54.519,"amp_w":3.958121e-9,"amp_w_exact":3.958121e-9,"amp_other_exact":2.328306e-10,"max_rel_err":9.80e-16,"max_dirty_rel":0.00e0}
+54.55 s wall 4992 KB
+ 21:26:09 up 3 days, 11:50,  1 user,  load average: 9.80, 8.03, 5.39
