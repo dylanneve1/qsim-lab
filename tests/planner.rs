@@ -298,7 +298,7 @@ fn adder_auto_misfire_is_fixed() {
         &c,
         &o,
         &AdaptiveOptions {
-            rent_factor: 0.0,
+            flat_evidence: false,
             ..Default::default()
         },
     )

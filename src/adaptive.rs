@@ -1191,13 +1191,17 @@ pub struct AdaptiveOptions {
     /// Prior for the log2 growth of the term count per rotation that does
     /// not grow the x-span (random circuits: about 0.5; worst case 1).
     pub growth_prior: f64,
-    /// [`Strategy::Auto`] only switches once the Heisenberg sweep has spent
-    /// at least `rent_factor` × the projected cost of finishing densely
-    /// (ski rental). The growth projection alone misfired by up to 350× on
-    /// permutation-heavy circuits whose term count never grows
-    /// (research/planner.md §4); with the guard Auto costs at most about
-    /// `(1 + rent_factor)` × switching at once. `0` disables the guard.
-    pub rent_factor: f64,
+    /// Count span-preserving rotations that leave the live term count
+    /// unchanged as zero-growth evidence even below 32 terms (where
+    /// doublings are ignored as small-number noise). Without it the growth
+    /// meter never sees evidence on circuits whose Heisenberg terms stay
+    /// tiny (adders: 4 live terms), keeps the 0.5-per-rotation prior, and
+    /// [`Strategy::Auto`] hands over to a 25-qubit register at the start:
+    /// 350× slower than the frame (research/planner.md §4). With it, Auto
+    /// also keeps sweeping (no hand-over) until 8 rotations have been
+    /// observed, as long as a rotation costs less in the frame than in the
+    /// dense register.
+    pub flat_evidence: bool,
 }
 
 impl Default for AdaptiveOptions {
@@ -1209,7 +1213,7 @@ impl Default for AdaptiveOptions {
             dense_secs_per_op: 2e-9,
             term_secs_per_visit: 6e-8,
             growth_prior: 0.5,
-            rent_factor: 1.0,
+            flat_evidence: true,
         }
     }
 }
@@ -1241,17 +1245,6 @@ pub struct AdaptiveReport {
 /// cannot increase the term count (its branch leaves the span and is pruned
 /// at the next projection); one that does not grow it multiplies the count
 /// by `2^growth`, with `growth` (log2 per such rotation) measured live.
-/// Projected seconds of switching to the dense register at stage `k` with
-/// `t` live terms (evolution of the remaining rotations + evaluation).
-fn dense_finish_secs(k: usize, t: usize, d: &[usize], opt: &AdaptiveOptions) -> f64 {
-    let dim = (1u64 << d[k].min(62)) as f64;
-    let prefix: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
-    let terms = t.max(1) as f64;
-    let groups = terms.min(dim);
-    let eval = dim * terms.min(groups * (d[k] as f64 + 1.0));
-    opt.dense_secs_per_op * (prefix + eval)
-}
-
 fn auto_decide(
     k: usize,
     t: usize,
@@ -1306,6 +1299,7 @@ fn auto_decide(
 /// with a prior of [`AdaptiveOptions::growth_prior`] worth 4 observations.
 struct GrowthMeter {
     prior: f64,
+    flat_evidence: bool,
     sum: f64,
     count: f64,
     last: Option<(usize, usize)>, // (stage, terms)
@@ -1317,9 +1311,14 @@ impl GrowthMeter {
             // Rotation k0 was just processed (stage k0 -> k0 - 1 = k).
             // Below ~32 terms the first branchings always double the count;
             // that small-number regime says nothing about the growth rate.
-            if k0 == k + 1 && d[k0] == d[k] && t0 >= 32 && t > 0 && t != usize::MAX {
-                self.sum += (t as f64 / t0 as f64).log2();
-                self.count += 1.0;
+            if k0 == k + 1 && d[k0] == d[k] && t > 0 && t != usize::MAX {
+                if t0 >= 32 {
+                    self.sum += (t as f64 / t0 as f64).log2();
+                    self.count += 1.0;
+                } else if self.flat_evidence && t <= t0 {
+                    // the rotation commuted with every live term
+                    self.count += 1.0;
+                }
             }
         }
         self.last = Some((k, t));
@@ -1344,6 +1343,7 @@ pub fn expectation(
     let max_d = opt.max_dense_qubits.min(30);
     let mut meter = GrowthMeter {
         prior: opt.growth_prior,
+        flat_evidence: opt.flat_evidence,
         sum: 0.0,
         count: 0.0,
         last: None,
@@ -1362,17 +1362,22 @@ pub fn expectation(
                     opt.term_secs_per_visit
                 };
                 meter.observe(k, t, d);
-                if !auto_decide(k, t, d, visit, meter.growth(), opt) {
-                    return false;
+                // Explore before trusting the prior: until 8 rotations have
+                // been observed, stay in the frame while one more rotation
+                // there is cheaper than one in the dense register and the
+                // hand-over evaluation (~ terms · 2^d) is still below the
+                // dense evolution itself (so exploring can at most double
+                // the cost of switching).
+                if opt.flat_evidence && meter.count < 8.0 && t != usize::MAX {
+                    let dim = (1u64 << d[k].min(62)) as f64;
+                    let evolve: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
+                    if (t as f64) * visit < dim * opt.dense_secs_per_op
+                        && (t as f64) * dim <= evolve
+                    {
+                        return false;
+                    }
                 }
-                // The frame overflowed its term budget: switch if possible.
-                if t == usize::MAX || opt.rent_factor <= 0.0 {
-                    return true;
-                }
-                // Ski rental: the frame has to have spent a fraction of what
-                // switching costs before we buy the dense register.
-                let spent = visits as f64 * visit;
-                spent >= opt.rent_factor * dense_finish_secs(k, t, d, opt)
+                auto_decide(k, t, d, visit, meter.growth(), opt)
             }
         }
     };
