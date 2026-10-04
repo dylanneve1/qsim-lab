@@ -1,6 +1,6 @@
 # Planner v0, and predicting the cost of exact MPS
 
-Branch `exp/planner` (based on main a1f647b, which already contains exp/simulability). Author: qsim-planner agent
+Branch `exp/planner` (rebased on main 73fb9fb). Author: qsim-planner agent
 (round 4, 3–4 Oct 2026).
 Code:
 - `src/mps_cost.rs`: rigorous bond bounds and the MPS replay.
