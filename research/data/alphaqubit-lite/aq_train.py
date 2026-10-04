@@ -214,6 +214,11 @@ if a.mode == "eval":
 
 # ------------------------------------------------------------------ training
 SCALES = sorted(SIM) if a.mode == "pretrain" else [1.0]
+SIMVAL = {}
+if a.mode == "pretrain":  # last 1024 shots of every full-noise source: held-out simulated dev set
+    top = SCALES[-1]
+    SIMVAL = {k: v[-1024:][:a.dev_max or 1024] for k, v in SIM[top].items()}
+    SIM[top] = {k: v[:-1024] for k, v in SIM[top].items()}
 
 
 def pick_pool(seen):
@@ -275,7 +280,12 @@ def evaluate(it):
     model.update(ema)
     ler, per, _ = ler_table(model, dev)
     model.update(cur)
-    rec = dict(it=it, shots=seen, dev_ler=ler, dev_ler_raw=ler_raw, train_s=round(time.time() - t0 - paused, 1),
+    sim_ler = None
+    if SIMVAL:
+        model.update(ema)
+        sim_ler, _, _ = ler_table(model, SIMVAL)
+        model.update(cur)
+    rec = dict(it=it, shots=seen, dev_ler=ler, dev_ler_raw=ler_raw, sim_dev_ler=sim_ler, train_s=round(time.time() - t0 - paused, 1),
                wall_s=round(time.time() - t0, 1), **mem_report())
     rec["best"] = min(ler, ler_raw) < BEST[0]
     if rec["best"]:
