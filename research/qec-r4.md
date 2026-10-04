@@ -18,7 +18,7 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
   - The old claim came from timing Stim's numpy output path.
 - **Part 2: in Kishony–Fowler's single-auxiliary colour-code design space, per-plaquette boundary schedules found by exact search keep their circuit distance but halve the minimum-weight logicals.**
   - The minimum-weight logical count drops 388 → 197 (d = 5), 12,901 → 7,509 (d = 7) and 492 → 255 (d = 9), all over d rounds.
-  - Logical error per round falls by **24–31% at p = 0.2–0.3% under noisy-CNOT noise**: d = 5, 0.70× [0.67, 0.73] (BP+OSD) and 0.69× [0.56, 0.84] (Tesseract); d = 7, 0.76× [0.72, 0.81].
+  - Logical error per round falls by **22–31% at p = 0.2–0.3% under noisy-CNOT noise**: d = 5, 0.69–0.70× with BP+OSD (CI ±4%) and 0.69× [0.56, 0.84] / 0.78× [0.64, 0.96] with Tesseract; d = 7, 0.74–0.76× [0.66, 0.84].
   - X-memory improves too, although only Z-memory was optimised.
   - No change tried raised the circuit distance above K–F's d − ⌊(d+3)/6⌋, which we reproduce exactly up to d = 9 over 9 rounds (and at d = 11 over 1 round).
 
@@ -254,7 +254,7 @@ So depth and qubit count are identical to K–F's. "Free" plaquettes are those t
 | 5 | 1 | (4, 55) | (4, 36) | local optimum (9 singles, 10 pairs) | 7 | `lns_d5_r1.jsonl` |
 | 7 | 1 | (6, 883) | **(6, 505)** at the snapshot used below; the run continued | all 18 singles exhausted; pairs in progress | 12 at the snapshot | `schedules/d7_lns_r1_snapshot.sched`, `lns_d7_r1.jsonl` |
 | 7 | 7 (check) | (6, 12,901) | **(6, 7,509)** for the same snapshot | exact, certified | | `d7_snapshot_r7_distance.txt` |
-| 9 | 1 | (7, 36) | **(7, 18)** after singles, then (7, 15) after a pair move | singles exhausted at 18; 4 of about 60 pairs done when stopped (about 17 min per pair on the Mac) | 4 | `schedules/d9_lns_r1_singles.sched` (the 18 version), `lns_d9_r1_part1/2.jsonl` |
+| 9 | 1 | (7, 36) | **(7, 18)** after singles, then (7, 15) after a pair move | singles exhausted at 18; 4 of about 60 pairs done when stopped (about 17 min per pair on the Mac) | 4 | `schedules/d9_lns_r1_singles.sched` (N_min 18), `schedules/d9_lns_r1_15.sched` (N_min 15), `lns_d9_r1_part1/2.jsonl` |
 | 9 | 9 (check) | (7, 492) | **(7, 255)** for the count-18 schedule | exact, certified (408 s) | | `d9_lns_r9_distance.txt` |
 
 Earlier random local search (`color_schedule_search.py`, 6 seeds × about 60 evaluations at d = 9) and exhaustive enumeration of the apex pair {28, 29} at d = 9 (140 of 1003 classes before it was stopped) found nothing above d_circ = 7. Exhaustive per-colour (uniform) schedules are K–F's own search (864 zero-collision, all d_circ = 6 at d = 7).
@@ -277,7 +277,7 @@ Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for B
 | noisy CNOT | 0.2% | BP+OSD | 4.62×10⁻⁴ (4606) | 3.17×10⁻⁴ (3162) | **0.686 [0.656, 0.718]** |
 | noisy CNOT | 0.2% | Tesseract | 1.33×10⁻⁴ (212) | 1.04×10⁻⁴ (166) | **0.783 [0.639, 0.959]** |
 | noisy CNOT | 0.1% | BP+OSD | 1.09×10⁻⁴ (2184) | 8.27×10⁻⁵ (1653) | **0.757 [0.710, 0.807]** |
-| uniform depolarizing | 0.3% | BP+OSD | 1.89×10⁻² (87661) | 1.79×10⁻² (83221) | 0.949 [0.940, 0.958] |
+| uniform depolarizing | 0.3% | BP+OSD | 1.89×10⁻² (87661) | 1.79×10⁻² (83221) | 0.949 [0.940, 0.958] (raw JSON lost in a rebase; numbers from `ler_d5_bposd.log`) |
 | uniform depolarizing | 0.1% | BP+OSD | 1.358×10⁻³ (27017) | 1.189×10⁻³ (23662) | **0.876 [0.861, 0.891]** |
 
 **The same comparison at other settings.**
@@ -287,6 +287,7 @@ Independent samples, same decoder on both arms. 1–4×10⁶ shots per arm for B
 | **X basis** (the schedule was optimised for Z only) | 5 | noisy CNOT | 0.3% | BP+OSD | 1.118×10⁻³ (5566) | 8.08×10⁻⁴ (4029) | **0.724 [0.695, 0.754]** |
 | X basis | 5 | noisy CNOT | 0.1% | BP+OSD | 1.024×10⁻⁴ (512) | 8.20×10⁻⁵ (410) | **0.801 [0.703, 0.912]** |
 | Z basis | 7 (snapshot) | noisy CNOT | 0.3% | BP+OSD | 3.527×10⁻⁴ (2464) | 2.694×10⁻⁴ (1883) | **0.764 [0.720, 0.811]** |
+| Z basis | 7 (snapshot) | noisy CNOT | 0.2% | BP+OSD | 9.11×10⁻⁵ (637) | 6.75×10⁻⁵ (472) | **0.741 [0.658, 0.835]** |
 | Z basis | 9 (count-18 schedule) | noisy CNOT | 0.3% | BP+OSD | D9LER |
 
 X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201). The gain transfers to the basis that was not optimised, as self-duality suggests.
@@ -307,7 +308,7 @@ X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201)
 3. **Per-plaquette (non-uniform) boundary scheduling inside K–F's exact design space** (same qubits, same 6+6 CNOT layers, collision-free):
    - it **does not raise d_circ** under any single- or pair-plaquette change we tried (d = 5–9);
    - it **roughly halves N_min**: 388 → 197 (d = 5), 12,901 → 7,509 (d = 7), 492 → 255 (d = 9), all over d rounds;
-   - it lowers the logical error per round under noisy-CNOT noise by 24–31% at p = 0.2–0.3% (d = 5 and 7, two decoders agreeing at d = 5) and by 24% at p = 0.1% (d = 5);
+   - it lowers the logical error per round under noisy-CNOT noise by 22–31% at p = 0.2–0.3% (d = 5 and 7; two decoders agree at d = 5) and by 24% at p = 0.1% (d = 5);
    - it lowers it by 12% under uniform depolarizing noise at p = 0.1%;
    - the gain carries over to X-memory (N_min 399 → 201; LER 0.72× at p = 0.3%) although only Z-memory was optimised.
 
