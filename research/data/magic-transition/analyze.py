@@ -184,7 +184,7 @@ def pd_tr(alpha):
 
 
 results = {}
-NS_ALL = [16, 32, 64, 128, 256, 512]
+NS_ALL = [16, 32, 64, 128, 256, 512, 1024]
 for label, fam, ns, pwin, tr, beta, x0, fl in [
     ("EE_I3_pt0", "pt=0", [32, 64, 128, 256], (0.13, 0.19), i3_tr, False, [0.16, 1.3], 0.03),
     ("EE_I3_pt0_n64+", "pt=0", [64, 128, 256], (0.13, 0.19), i3_tr, False, [0.16, 1.3], 0.03),
@@ -296,6 +296,13 @@ results["crossings"] = {k: list(v) for k, v in crossings.items()}
 json.dump(results, open(f"{out}/fss.json", "w"), indent=1)
 
 # ---------------------------------------------------------------- figures
+cmap = plt.get_cmap("viridis")
+
+
+def ncol(n):
+    return cmap((math.log2(n) - 4) / 6.2)
+
+
 fig, ax = plt.subplots(1, 2, figsize=(11, 4.2))
 for k, fam in enumerate(["pt=1/n", "pt=2/n"]):
     for (fm, n1, n2), (pms_, kk) in sorted(kap.items()):
@@ -310,9 +317,6 @@ def series(fam, n, ycol="phi"):
     pts = sorted((a["p_m"], a[ycol], a.get(ycol + "_err", 0.0)) for a in agg if a["family"] == fam and a["n"] == n)
     return np.array(pts) if pts else np.zeros((0, 3))
 
-cmap = plt.get_cmap("viridis")
-def ncol(n):
-    return cmap((math.log2(n) - 4) / 5.2)
 
 # 1. E1 dilute: d/n with collapse
 fig, ax = plt.subplots(1, 3, figsize=(15, 4.3))
