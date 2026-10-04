@@ -45,6 +45,7 @@ ap.add_argument("--dev-max", type=int, default=0, help="evaluate model selection
 ap.add_argument("--max-minutes", type=float, default=45.0)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
+ap.add_argument("--compile", type=int, default=1)
 ap.add_argument("--eval-split", default="test")
 ap.add_argument("--eval-rounds", default=None, help="round counts for dev/test (default: --rounds)")
 ap.add_argument("--source", default="pij", help="pretraining sample source tag (aq_gen --source)")
@@ -220,6 +221,19 @@ def loss_fn(m, ev, fe, cx, R, y):
 
 
 lg = nn.value_and_grad(model, loss_fn)
+
+
+def train_step(ev, fe, cx, R, y):
+    (loss, lmain), g = lg(model, ev, fe, cx, R, y)
+    g, _ = optim.clip_grad_norm(g, 1.0)
+    opt.update(model, g)
+    return lmain
+
+
+if a.compile:  # one trace per round count R (static shapes); fuses the many small kernels
+    from functools import partial
+    state = [model.state, opt.state]
+    train_step = partial(mx.compile, inputs=state, outputs=state)(train_step)
 log = open(os.path.join(a.out, "log.jsonl"), "a")
 log.write(json.dumps(dict(cfg=cfg)) + "\n")
 BEST = [9.0]
@@ -254,9 +268,7 @@ for it in range(1, a.steps + 1):
             raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
     R = int(rng.choice(rounds))
     ev, y, cx = make_batch(pool, R, a.batch)
-    (loss, lmain), g = lg(model, *tensors(ev, R, cx), mx.array(y))
-    g, _ = optim.clip_grad_norm(g, 1.0)
-    opt.update(model, g)
+    lmain = train_step(*tensors(ev, R, cx), mx.array(y))
     if anchor is not None:  # decoupled weight decay towards the pretrained weights (fine-tuning)
         lr = sched(opt.step)
         model.update(tree_map(lambda p, p0: p - lr * a.wd_anchor * (p - p0), model.parameters(), anchor))
