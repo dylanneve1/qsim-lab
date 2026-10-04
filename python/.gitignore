@@ -1,0 +1,9 @@
+# maturin develop drops the compiled extension next to the sources
+qsimlab/*.so
+qsimlab/*.pyd
+qsimlab/*.dylib
+dist/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/

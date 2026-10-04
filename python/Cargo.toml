@@ -1,0 +1,29 @@
+[package]
+name = "qsimlab-py"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+description = "Python bindings (PyO3) for the qsim-lab quantum circuit simulator"
+repository = "https://github.com/dylanneve1/qsim-lab"
+publish = false
+
+[lib]
+name = "qsimlab_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qsim-lab = { path = ".." }
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+numpy = "0.29"
+num-complex = "0.4"
+rand = "0.9"
+rayon = "1"
+
+[features]
+# maturin turns this on for wheels; `cargo test -p qsimlab-py` links libpython instead.
+extension-module = ["pyo3/extension-module"]
+
+[dev-dependencies]
+# `cargo test -p qsimlab-py` embeds an interpreter for tests that touch Python.
+pyo3 = { version = "0.29", features = ["abi3-py39", "auto-initialize"] }
