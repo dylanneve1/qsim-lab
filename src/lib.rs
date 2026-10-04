@@ -65,6 +65,7 @@ pub mod shor_ripple;
 pub mod shor_superopt;
 pub mod shor_window;
 pub mod simulability;
+pub mod spd;
 pub mod sparse;
 pub mod stab_rank;
 pub mod stabilizer;
