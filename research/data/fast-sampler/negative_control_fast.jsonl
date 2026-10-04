@@ -1,0 +1,2 @@
+{"variant": "dep2_plus10pct", "max_abs_z": 17.39255421994503, "n_reject": 1449, "zcrit": 4.6475451212869805, "verdict": "FAIL(as expected)"}
+{"variant": "no_reset_errors", "max_abs_z": 61.07634195898728, "n_reject": 1693, "zcrit": 4.6475451212869805, "verdict": "FAIL(as expected)"}

@@ -1,0 +1,16 @@
+{"direction": "A", "d": 3, "p": 0.001, "equal": true, "ours": 55, "stim": 55}
+{"direction": "A", "d": 7, "p": 0.001, "equal": true, "ours": 883, "stim": 883}
+{"direction": "A", "d": 11, "p": 0.001, "equal": true, "ours": 3631, "stim": 3631}
+{"direction": "A", "d": 15, "p": 0.001, "equal": true, "ours": 9451, "stim": 9451}
+{"direction": "B", "d": 3, "p": 0.001, "equal": true, "ours": 219, "stim": 219}
+{"direction": "B", "d": 7, "p": 0.001, "equal": true, "ours": 5471, "stim": 5471}
+{"direction": "B", "d": 11, "p": 0.001, "equal": true, "ours": 24483, "stim": 24483}
+{"direction": "B", "d": 15, "p": 0.001, "equal": true, "ours": 66087, "stim": 66087}
+{"direction": "A", "d": 3, "p": 0.003, "equal": true, "ours": 55, "stim": 55}
+{"direction": "A", "d": 7, "p": 0.003, "equal": true, "ours": 883, "stim": 883}
+{"direction": "A", "d": 11, "p": 0.003, "equal": true, "ours": 3631, "stim": 3631}
+{"direction": "A", "d": 15, "p": 0.003, "equal": true, "ours": 9451, "stim": 9451}
+{"direction": "B", "d": 3, "p": 0.003, "equal": true, "ours": 219, "stim": 219}
+{"direction": "B", "d": 7, "p": 0.003, "equal": true, "ours": 5471, "stim": 5471}
+{"direction": "B", "d": 11, "p": 0.003, "equal": true, "ours": 24483, "stim": 24483}
+{"direction": "B", "d": 15, "p": 0.003, "equal": true, "ours": 66087, "stim": 66087}

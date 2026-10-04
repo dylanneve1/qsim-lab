@@ -57,42 +57,81 @@ touches (L ≈ 2.3 × gates locations; no idle noise, ideal classically controll
   sound (every index is asserted ≤ nq + 1 when the program is built, and the slice buffer has nq + 2
   words).
 
-## 2. Surface-code sampling vs Stim 1.16 (corrected 4 Oct 2026)
+## 2. Surface-code sampling vs Stim 1.16 (corrected 4 Oct 2026; FastSampler 4 Oct 2026)
 
-**Correction.** The earlier claim "4.0–6.5× faster than Stim" is withdrawn. It timed Stim's slow numpy
-output path against qsim-lab without output, on a hand-written copy of the circuit.
+**Correction (still stands).** The earlier claim "4.0–6.5× faster than Stim" was withdrawn: it timed
+Stim's slow numpy output path against qsim-lab without output, on a hand-written copy of the circuit.
+With identical circuits and identical output, the old SymPhase sampler was at parity with AVX2 Stim on
+Stim's own circuit (0.89–1.01×, `research/qec-r4.md` §1.5).
 
-**Equivalence.** Both simulators now sample identical circuits in both directions (qsim-lab's
-`Circuit` serialised op by op; Stim's generated `rotated_memory_z` parsed into qsim-lab). At d = 3, 7,
-11, 15 with 10⁶ shots per side, every per-detector rate, every DEM-correlated detector pair and the
-observable rate agree (0 rejections in 69,476 tests at 1 % family-wise error); a +10 % error on one
-noise channel is rejected at |z| = 17.
+**New sampler (`research/fast-sampler.md`).** `FastSampler` keeps SymPhase's compiled fault → detector
+map but draws faults as Poisson "hits":
+- one uniform random word picks the location and the Pauli of a fault;
+- a precomputed (location, Pauli) → detector table is XOR-ed branch-free into the 64-shot output words;
+- hits are generated block by block so table accesses walk forward;
+- wyrand is the RNG.
 
-**Timing** (same `.stim` file, same output layout ptb64, single thread, min of 3, interleaved;
-Mshots/s; A = qsim-lab's sequential circuit, B = Stim's generated layer-parallel circuit).
+The hit rate λ = −(m/(m+1)) ln(1 − (m+1)p/m) makes this exactly the depolarizing / flip channel; the
+proof and an exact series check are in the doc.
 
-x86 (VPS, load 3.5–4.2). pip's Stim wheel runs its SSE2 build; "native" is Stim built with AVX2.
+**Equivalence.** Identical circuits in both directions (Stim's `rotated_memory_z` parsed by us; our
+circuit exported to Stim), d = 3, 7, 11, 15, p = 0.1% and 0.3%:
+- the hit tables' signatures equal Stim's DEM error set exactly (16/16 cells);
+- **0 rejections in 155,531** per-detector, pairwise and event-count tests at 10⁶ shots (1%
+  family-wise error per cell);
+- a +10% error on one channel is rejected at |z| = 17.
 
-| d | circuit | Stim pip (SSE2) | Stim native (AVX2) | qsim-lab | qsim-lab / best Stim |
-|---|---|---|---|---|---|
-| 3 | A | 30.57 | 26.59 | 48.79 | 1.60× |
-| 3 | B | 22.26 | 26.38 | 26.54 | **1.01×** |
-| 7 | A | 2.46 | 2.75 | 4.40 | 1.60× |
-| 7 | B | 2.28 | 2.55 | 2.50 | **0.98×** |
-| 11 | A | 0.59 | 0.70 | 1.17 | 1.66× |
-| 11 | B | 0.58 | 0.69 | 0.62 | **0.89×** |
-| 15 | A | 0.24 | 0.27 | 0.44 | 1.66× |
-| 15 | B | 0.23 | 0.26 | 0.24 | **0.89×** |
+**Timing.** Stim's own circuit (`surface_code:rotated_memory_z`, rounds = d), the same `.stim` file
+for everyone, ptb64 output with observables to /dev/null, single thread, min of 3, interleaved.
+Mshot/s, x86 VPS (EPYC-Rome, AVX2), 1-min load 0.8–3.0. "Stim native" is Stim 1.16 built from source
+with AVX2, with its 64-shot process time subtracted. "End-to-end" compares whole processes, including
+parse and compile.
 
-- **On Stim's own well-layered circuit we are at parity (0.89–1.01× of AVX2 Stim).** That is the
-  fair headline.
-- On our sequential circuit (A) we are 1.6–1.7× faster only because Stim pays per-instruction
-  overhead on its ~2,000 one-gate lines; A and B are different circuits and should not be compared
-  with each other.
-- On the M1 the ratios are 3.0–5.6×, but Stim has no NEON backend (both the wheel and a native build
-  use 64-bit words), so the Mac numbers flatter us. Mac table: `research/qec-r4.md` §1.5.
-- 72–82 % of our time is drawing noise variables (~45 ns per fault), not the GF(2) evaluation. Our
-  compile step costs 35–45 ms at d = 15 against ~1 ms for Stim.
+| d | p | Stim pip (SSE2) | Stim native (AVX2) | qsim-lab | qsim-lab / native Stim | end-to-end |
+|---|---|---|---|---|---|---|
+| 3 | 0.1% | 41.3 | 38.5 | 696 | **18.1×** | 10.9× |
+| 7 | 0.1% | 4.43 | 4.98 | 55.1 | **11.1×** | 8.4× |
+| 11 | 0.1% | 1.13 | 1.27 | 11.8 | **9.3×** | 4.8× |
+| 15 | 0.1% | 0.46 | 0.48 | 4.41 | **9.2×** | 2.5× |
+| 3 | 0.3% | 25.9 | 26.5 | 317 | **12.0×** | 10.4× |
+| 7 | 0.3% | 2.25 | 2.64 | 24.5 | **9.3×** | 7.9× |
+| 11 | 0.3% | 0.57 | 0.65 | 6.08 | **9.4×** | 6.0× |
+| 15 | 0.3% | 0.23 | 0.27 | 2.24 | **8.3×** | 3.7× |
+
+- **8.3–18× faster than AVX2-native Stim on Stim's own circuit** (8.3–17× against the better of
+  pip and native).
+- Stim's DEM sampler is slower than its circuit sampler here (0.09–0.11 Mshot/s at d = 15).
+- Same runs, against the pre-branch SymPhase path: 10–16×. The parts are:
+  - Poisson hits: 1.6–2.6×;
+  - the hit table: 2.0×;
+  - blocked generation: 1.4–2.2×;
+  - u16 tables plus wyrand: 1.02–1.26×.
+- Tried and measured, not kept:
+  - bit-sliced Bernoulli words cost 7.3 random words per group-word, 30–60× slower;
+  - pooling the old geometric-gap streams gained 2–4%.
+- **Compile is our weak spot:** about 55 ms at d = 15 against 3.5 ms for Stim's whole small run. At
+  128k shots the end-to-end lead is therefore 2.5–3.7×; for ≥ 10⁶ shots it approaches the sampling
+  ratio.
+- **Independent audit (`research/fast-sampler-audit.md`).**
+  - Sampling ratios reproduced on x86 (d = 7 / 15, p = 0.1%: 11.7× / 9.2×, load 3.9) and on the
+    M1 (26.7× / 27.0×).
+  - Whole-process timing on x86 against Stim's best mode (`stim detect`; the DEM route is slower):
+
+    | d | 10⁴ shots | 10⁵ shots | 10⁶ shots |
+    |---|---|---|---|
+    | 7 | 0.99× | 3.7× | 8.9× |
+    | 15 | **0.40×** | 2.5× | 7.0× |
+
+    So below about 3·10⁴ shots at d = 15, Stim is faster end to end.
+  - Exactness verified against an exact branching ground truth, including channels near and past
+    full mixing, and on circuits the author did not test (colour, repetition, unrotated surface
+    code, random circuits).
+  - One front-end crash was fixed: detectors with noiseless parity 1.
+  - The method is the fault-sparse detector sampling described in the Stim paper (§5.6, not
+    implemented there). The new part is making its constant factors win.
+- Mac (M1 Pro, under the bench lock, load 2.9–6.7): 27–40× against pip Stim (d = 15: 6.5 / 3.2
+  Mshot/s against 0.24 / 0.11). Stim has no NEON backend, so this overstates the algorithmic gain;
+  the x86 ratio against AVX2 Stim is the fair one.
 
 ## 3. Colour-code syndrome schedules (`research/qec-r4.md` Part 2)
 
@@ -178,6 +217,7 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
 | adaptive (frame → compressed SV) | 22 qubits, 40 T vs full SV | 24 s → 0.005 s | pending |
 | HSF | 20 qubits, cut of 4 gates vs old SV | ~20× | reproduced; smaller vs the blocked SV |
 | SymPhase | per-shot vs tableau, d = 3–15 | 190–890× | exact-distribution check on 190 circuits |
+| FastSampler (Poisson hits) | detector sampling vs old SymPhase path, Stim's circuit d = 3–15 | 10–16× | not yet audited; exact support + 10⁶-shot equivalence vs Stim |
 | repeat detection | rep-code d = 9, 10⁶ rounds / diagonal layer n = 14 | 302× / 660× (Mac) | audit §15; loses (0.55×) on large Clifford blocks with few repeats |
 | phase folding | Cuccaro adders on the adaptive engine | 1.12–1.16× (Mac); random C+T n = 32: 1594 → 590 non-Clifford | audit §15 |
 
@@ -193,7 +233,8 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
 ## Honest notes
 
 - The adaptive-switching design is an independent rediscovery of **Clifft** (arXiv:2604.27058).
-- Claims withdrawn or corrected after audit: the 4–6.5× Stim lead (§2); the "every gate-level Shor
+- Claims withdrawn or corrected after audit: the 4–6.5× Stim lead (§2; the new 8–18× FastSampler
+  lead in §2 is a different sampler, measured against native AVX2 Stim, and not yet audited); the "every gate-level Shor
   record" wording (now "this repo's"; four quantitative sentences in `shor.md`); "40-bit" for
   Willsch et al.'s N (it is 39 bits); the noise doc's "exponential form holds to ≥ 3 faults" and
   "window model to ±0.02 for every instance" (rms 0.022, max 0.040); the magic atlas's d = ν and

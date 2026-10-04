@@ -487,6 +487,16 @@ impl SymPhaseSampler {
         out
     }
 
+    /// Reports every row relative to the noiseless reference sample (random
+    /// outcomes forced to 0), i.e. Stim's detection-event convention: a
+    /// deterministic detector whose noiseless parity is 1 then reads 0 in a
+    /// noiseless shot. For rows with a coin the constant offset does not
+    /// change the distribution.
+    pub fn relative_to_reference(mut self) -> SymPhaseSampler {
+        self.reference.iter_mut().for_each(|b| *b = false);
+        self
+    }
+
     /// Drops variable groups that no row uses and renumbers the rest.
     fn prune(&mut self) {
         let mut used = vec![false; self.num_vars];
@@ -514,6 +524,34 @@ impl SymPhaseSampler {
         }
         self.groups = kept;
         self.num_vars = m as usize;
+    }
+
+    /// Reorders the variable groups so that all groups with the same
+    /// distribution are adjacent: the geometric-skip draw then runs one
+    /// stream per distinct distribution ("pooled" gaps) instead of one per
+    /// run of equal neighbours. Same distribution, different draw order (not
+    /// bit-identical). For the ablation in `research/fast-sampler.md`.
+    #[doc(hidden)]
+    pub fn pool_equal_dists(&mut self) {
+        let key = |d: &VarDist| match *d {
+            VarDist::Coin => (0, 0.0),
+            VarDist::Flip(p) => (1, p),
+            VarDist::Depol1(p) => (2, p),
+            VarDist::Depol2(p) => (3, p),
+        };
+        self.groups
+            .sort_by(|a, b| key(&a.dist).partial_cmp(&key(&b.dist)).unwrap());
+    }
+
+    /// Number of maximal runs of consecutive equal-distribution groups (the
+    /// number of geometric-skip streams `sample_vars` starts per 64 shots).
+    #[doc(hidden)]
+    pub fn num_runs(&self) -> usize {
+        self.groups
+            .iter()
+            .enumerate()
+            .filter(|(i, g)| *i == 0 || self.groups[i - 1].dist != g.dist)
+            .count()
     }
 
     /// Number of measurements per shot.
