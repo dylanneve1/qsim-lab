@@ -33,12 +33,13 @@ ap.add_argument("--decoders", default="shipped:pymatching,shipped:correlated_mat
 ap.add_argument("--rounds", default=",".join(str(r) for r in range(3, 26, 2)))
 ap.add_argument("--tess-shots", type=int, default=5000)
 ap.add_argument("--workers", type=int, default=2)
+ap.add_argument("--prior", default="si1000", help="Willow: DEM prior for pm/pmcorr/tess (si1000 | rl_optimized)")
 a = ap.parse_args()
 os.makedirs(os.path.join(a.out, "fails"), exist_ok=True)
 ds = [int(x) for x in a.d.split(",")]
 rounds = [int(x) for x in a.rounds.split(",")]
 decs = a.decoders.split(",")
-exps = [e for e in syc_experiments(a.root) if e["d"] in ds and e["R"] in rounds]
+exps = [e for e in experiments(a.root) if e["d"] in ds and e["R"] in rounds]
 
 
 def fold_idx(n, fold):
@@ -46,6 +47,9 @@ def fold_idx(n, fold):
 
 
 def dem_for(e, fold):
+    if e.get("dataset") == "willow":
+        return open(os.path.join(e["path"], "decoding_results", f"correlated_matching_decoder_with_{a.prior}_prior",
+                                 "error_model.dem")).read()
     return open(os.path.join(e["path"], "pij_from_even_for_odd.dem" if fold == "odd" else "pij_from_odd_for_even.dem")).read()
 
 
@@ -53,7 +57,12 @@ def decode(e, fold, dec, dets, obs):
     import stim
     if dec.startswith("shipped:"):
         name = dec.split(":")[1]
-        pred = read_01(os.path.join(e["path"], f"obs_flips_predicted_by_{name}.01"))
+        if e.get("dataset") == "willow":
+            if name not in e["shipped"]:
+                return None
+            pred = read_b8(e["shipped"][name], 1)[:, 0]
+        else:
+            pred = read_01(os.path.join(e["path"], f"obs_flips_predicted_by_{name}.01"))
         idx = fold_idx(len(pred), fold)
         return pred[idx] != obs
     dem = stim.DetectorErrorModel(dem_for(e, fold))
@@ -78,7 +87,7 @@ def decode(e, fold, dec, dets, obs):
 
 res = {}
 for e in exps:
-    dets, obs, _ = syc_load(e)
+    dets, obs, _ = load(e)
     for fold in a.folds.split(","):
         idx = fold_idx(len(obs), fold)
         for dec in decs:
@@ -88,6 +97,8 @@ for e in exps:
             else:
                 t0 = time.time()
                 f = decode(e, fold, dec, dets[idx], obs[idx])
+                if f is None:
+                    continue
                 np.save(fn, f)
                 print(f"{e['name']} {fold} {dec}: {f.mean():.5f} ({time.time() - t0:.1f}s)", flush=True)
             res.setdefault((e["d"], e["area"], e["basis"], fold, dec), {})[e["R"]] = f
@@ -106,7 +117,10 @@ for d in ds:
             per.append(dict(area=k[1], basis=k[2], fold=k[3], eps=e_, err=s_, F0=F0, R2=r2,
                             shots=int(sum(len(res[k][r]) for r in rs))))
         m = float(np.mean(eps)); s = float(np.sqrt(np.sum(np.square(err))) / len(err))
-        rec = dict(d=d, decoder=dec, datasets=len(keys), ler=m, ler_err=s, per_dataset=per)
+        # fixed-round inversion per round count, mean over datasets (Willow / sim-to-real convention)
+        byR = {r: float(np.mean([eps_from_E(res[k][r].mean(), r) for k in keys])) for r in rounds}
+        rec = dict(d=d, decoder=dec, datasets=len(keys), ler=m, ler_err=s, eps_by_round=byR, per_dataset=per)
         summary.append(rec)
-        print(f"d={d} {dec:42s} LER = {100 * m:.3f} +- {100 * s:.3f} %  ({len(keys)} datasets)", flush=True)
-json.dump(summary, open(os.path.join(a.out, "summary.json"), "w"), indent=1)
+        print(f"d={d} {dec:42s} LER = {100 * m:.3f} +- {100 * s:.3f} %  ({len(keys)} datasets)  per-round inv: "
+              + " ".join(f"r{r}:{100 * v:.3f}" for r, v in byR.items()), flush=True)
+json.dump(summary, open(os.path.join(a.out, f"summary_{a.decoders.replace(':', '_').replace(',', '+')[:80]}.json"), "w"), indent=1)

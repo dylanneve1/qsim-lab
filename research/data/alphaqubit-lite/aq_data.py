@@ -20,11 +20,17 @@ import numpy as np
 # ---------------------------------------------------------------- circuits and layout
 
 def detector_coords(stim_text):
-    """[(r, c, t)] in detector order from a Stim circuit (handles REPEAT/SHIFT_COORDS via stim)."""
+    """[(r, c, t)] in detector order from a Stim circuit (handles REPEAT/SHIFT_COORDS via stim).
+    Willow circuits annotate detectors with several (r, c, t) triples (the qubits whose measurements
+    enter it); the last triple is the stabilizer's measure qubit, the first one's t is the round."""
     import stim
     c = stim.Circuit(stim_text)
     co = c.get_detector_coordinates()
-    return np.array([co[k][:3] for k in range(c.num_detectors)], dtype=np.float64)
+    out = []
+    for k in range(c.num_detectors):
+        v = co[k]
+        out.append((v[-3], v[-2], v[2]) if len(v) > 3 else tuple(v[:3]))
+    return np.array(out, dtype=np.float64)
 
 
 def qubit_coords(stim_text):
@@ -98,7 +104,8 @@ class Layout:
             key = (line != "row", tuple(on_cells), min(dat))
             if best is None or key < best[0]:
                 best = (key, sym, cells, dat, line)
-        _, self.sym, cells, self.obs_cells, self.obs_line = best
+        _, self.sym, cells, dat, self.obs_line = best
+        self.obs_cells = sorted((int(i), int(j)) for i, j in dat)
         order = sorted(range(len(cells)), key=lambda s: cells[s])
         self.cell = np.array([cells[s] for s in order], dtype=np.int64)
         self.onbasis = onb[order]
@@ -237,3 +244,50 @@ def dem_to_circuit(dem_text, scale=1.0):
     lines += [f"DETECTOR rec[{k - n}]" for k in range(nd)]
     lines += [f"OBSERVABLE_INCLUDE({j}) rec[{nd + j - n}]" for j in range(no)]
     return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------- Willow 2024 files
+
+WIL_RE = re.compile(r"d(\d)_at_(q\d+_\d+)/([XZ])/r(\d+)$")
+
+
+def willow_experiments(root):
+    """<root>/google_105Q_surface_code_d3_d5_d7/d3_at_q4_5/X/r13 -> same dict keys as syc_experiments
+    plus 'shipped' = {decoder name: predictions path}"""
+    base = os.path.join(root, "google_105Q_surface_code_d3_d5_d7")
+    out = []
+    for dp, dn, fn in os.walk(base):
+        rel = os.path.relpath(dp, base)
+        m = WIL_RE.fullmatch(rel)
+        if not m or "detection_events.b8" not in fn:
+            continue
+        d, area, b, r = m.groups()
+        dr = os.path.join(dp, "decoding_results")
+        shipped = {n: os.path.join(dr, n, "obs_flips_predicted.b8") for n in (os.listdir(dr) if os.path.isdir(dr) else [])}
+        out.append(dict(name=f"willow_b{b}_d{d}_r{int(r):03d}_{area}", basis=b, d=int(d), R=int(r), area=area,
+                        path=dp, shipped=shipped, dataset="willow"))
+    return sorted(out, key=lambda e: e["name"])
+
+
+def willow_load(exp, nd=None):
+    txt = open(os.path.join(exp["path"], "circuit_ideal.stim")).read()
+    if nd is None:
+        import stim
+        nd = stim.Circuit(txt).num_detectors
+    dets = read_b8(os.path.join(exp["path"], "detection_events.b8"), nd)
+    obs = read_b8(os.path.join(exp["path"], "obs_flips_actual.b8"), 1)[:, 0]
+    assert len(obs) == len(dets)
+    return dets, obs, txt
+
+
+def experiments(root):
+    if os.path.isdir(os.path.join(root, "google_105Q_surface_code_d3_d5_d7")):
+        return willow_experiments(root)
+    out = syc_experiments(root)
+    for e in out:
+        e["dataset"] = "sycamore"
+    return out
+
+
+def load(exp, nd=None):
+    return willow_load(exp, nd) if exp.get("dataset") == "willow" else syc_load(exp, nd)

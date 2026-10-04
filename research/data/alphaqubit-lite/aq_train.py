@@ -45,6 +45,9 @@ ap.add_argument("--max-minutes", type=float, default=45.0)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
 ap.add_argument("--eval-split", default="test")
+ap.add_argument("--eval-rounds", default=None, help="round counts for dev/test (default: --rounds)")
+ap.add_argument("--source", default="pij", help="pretraining sample source tag (aq_gen --source)")
+ap.add_argument("--n-ctx", type=int, default=32)
 # model size
 for k, v in dict(D=96, L=3, heads=4, key=24, widen=4, conv=48, bias_dim=24, bias_layers=2,
                  readout_dim=32, readout_layers=4).items():
@@ -66,7 +69,7 @@ cfg = vars(a).copy()
 if a.init:  # architecture comes from the checkpoint
     old = json.load(open(os.path.join(a.init, "cfg.json")))
     for k in ("D", "L", "heads", "key", "widen", "conv", "bias_dim", "bias_layers", "readout_dim",
-              "readout_layers", "dils", "no_bias", "no_indicators", "d"):
+              "readout_layers", "dils", "no_bias", "no_indicators", "d", "n_ctx"):
         cfg[k] = old[k]
 d = cfg["d"]
 dils = tuple(int(x) for x in cfg["dils"].split(",")) if cfg["dils"] else ((1, 1, 1) if d == 3 else (1, 1, 2))
@@ -76,7 +79,8 @@ rng = np.random.default_rng(a.seed)
 mx.random.seed(a.seed)
 
 # ------------------------------------------------------------------ data
-exps = [e for e in syc_experiments(a.root) if e["d"] == d and e["R"] in rounds]
+ap_eval_rounds = [int(x) for x in a.eval_rounds.split(",")] if a.eval_rounds else rounds
+exps = [e for e in experiments(a.root) if e["d"] == d and (e["R"] in rounds or e["R"] in ap_eval_rounds)]
 ctxs = sorted({(e["area"], e["basis"]) for e in exps})
 CTX = {c: i for i, c in enumerate(ctxs)}
 LAY, NDET = {}, {}
@@ -86,6 +90,7 @@ for e in exps:
     L = Layout(txt, d, e["R"])
     key = (CTX[(e["area"], e["basis"])], e["R"])
     LAY[key] = L; NDET[key] = L.nd
+    assert len(ctxs) <= a.n_ctx
     z = np.load(os.path.join(a.data, "real", e["name"] + ".npz"))
     rows = z["rows"]
     tr_idx = np.arange(0 if a.fold == "odd" else 1, len(rows), 2)   # training half
@@ -93,9 +98,13 @@ for e in exps:
     TRAIN[key] = rows[tr_idx[:len(tr_idx) - a.dev_shots]]
     DEV[key] = rows[tr_idx[len(tr_idx) - a.dev_shots:]]
     TEST[key] = (rows[te_idx], te_idx)
-    if a.mode == "pretrain":
-        SIM[key] = np.concatenate([np.load(os.path.join(a.data, "sim", f"{e['name']}.s{sc}.npy"))
+    if a.mode == "pretrain" and e["R"] in rounds:
+        SIM[key] = np.concatenate([np.load(os.path.join(a.data, "sim", f"{e['name']}.{a.source}.s{sc}.npy"))
                                    for sc in a.scales.split(",")])
+    if e["R"] not in rounds:
+        TRAIN.pop(key)
+    if e["R"] not in ap_eval_rounds:
+        DEV.pop(key); TEST.pop(key)
 L0 = next(iter(LAY.values()))
 print(f"d={d} contexts={ctxs} rounds={rounds} train-half={'even' if a.fold == 'odd' else 'odd'}", flush=True)
 
@@ -129,7 +138,8 @@ model = AlphaQubitLite(L0.cell, L0.onbasis, d, D=cfg["D"], L=cfg["L"], heads=cfg
                        widen=cfg["widen"], conv=cfg["conv"], dils=dils, bias_dim=cfg["bias_dim"],
                        bias_layers=cfg["bias_layers"], readout_dim=cfg["readout_dim"],
                        readout_layers=cfg["readout_layers"], use_bias=not cfg["no_bias"],
-                       indicators=not cfg["no_indicators"], aux=True)
+                       indicators=not cfg["no_indicators"], aux=True, n_ctx=cfg.get("n_ctx", 32),
+                       max_rounds=64)
 if a.init:
     model.load_weights(os.path.join(a.init, "model.safetensors"))
 nparams = sum(v.size for _, v in tree_flatten(model.parameters()))
@@ -178,9 +188,13 @@ if a.mode == "eval":
     os.makedirs(os.path.join(a.out, "fails"), exist_ok=True)
     for k, f in fails.items():
         area, basis = ctxs[k[0]]
-        name = f"surface_code_b{basis}_d{d}_r{k[1]:02d}_center_{area}.{'odd' if a.fold == 'odd' else 'even'}.nn.npy"
+        e = [x for x in exps if x["area"] == area and x["basis"] == basis and x["R"] == k[1]][0]
+        name = f"{e['name']}.{'odd' if a.fold == 'odd' else 'even'}.nn.npy"
         np.save(os.path.join(a.out, "fails", name), f)
-    rec = dict(split=a.eval_split, ler=ler, per={f"{ctxs[c][0]}{ctxs[c][1]}": v for c, v in per.items()},
+    byR = {}
+    for (c, R), f in fails.items():
+        byR.setdefault(R, []).append(eps_from_E(f.mean(), R))
+    rec = dict(split=a.eval_split, ler=ler, eps_by_round={R: float(np.mean(v)) for R, v in sorted(byR.items())}, per={f"{ctxs[c][0]}{ctxs[c][1]}": v for c, v in per.items()},
                shots=int(sum(len(f) for f in fails.values())), secs=round(time.time() - t0, 1), **mem_report())
     print(json.dumps(rec), flush=True)
     json.dump(rec, open(os.path.join(a.out, f"eval_{a.eval_split}.json"), "w"), indent=1)
