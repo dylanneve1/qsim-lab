@@ -508,3 +508,9 @@ cargo run --release --example shor_precision
 python3 research/data/shor_r4/cost_law.py 1537596787 256252500 1704645
 cargo test --release --test shor_scale
 ```
+
+## Noise (exp/shor-noise)
+
+How much circuit-level Pauli noise the round-4 gate-level circuit tolerates,
+measured by exact noisy trajectories at 10–24 bits: see
+[`shor-noise.md`](shor-noise.md).
