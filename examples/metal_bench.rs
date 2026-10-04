@@ -4,7 +4,7 @@
 //!
 //! usage:
 //!   metal_bench <qft|brick> <n,...> <reps> <depth> <mode> [<mode> ...]
-//!     mode = cpu | naive | gpu[:tg=12,slots=6,thr=512,fuse=1,sched=1]
+//!     mode = cpu | naive | gpu[:tg=12,slots=6,thr=512,fuse=1,sched=1,batch=3,regs=0]
 //!   metal_bench bw <n> <passes>      in-place scale bandwidth, GPU and CPU
 //!
 //! CPU threads: RAYON_NUM_THREADS. Times: `setup` = MTLBuffer allocation +
@@ -44,6 +44,8 @@ fn parse_mode(s: &str) -> (String, Mode) {
                     "thr" => c.threads = v.parse().unwrap(),
                     "fuse" => c.fuse_1q = v == "1",
                     "sched" => c.schedule_diag = v == "1",
+                    "batch" => c.batch = v.parse().unwrap(),
+                    "regs" => c.regs = v == "1",
                     _ => panic!("unknown key {k}"),
                 }
             }
@@ -61,6 +63,32 @@ fn workload(name: &str, n: usize, depth: usize) -> Circuit {
             algorithms::random_brickwork(n, depth, &mut rng)
         }
         "qft" => algorithms::qft(n),
+        // synthetic attribution workloads: `depth` layers of
+        "h" => {
+            // H on every qubit
+            let mut c = Circuit::new(n);
+            for _ in 0..depth {
+                for q in 0..n {
+                    c.h(q);
+                }
+            }
+            c
+        }
+        "cp" => {
+            // H on qubit n-1-l%n, then CPhase(k, that qubit) for all k (a
+            // QFT-like diagonal load without the QFT's structure)
+            let mut c = Circuit::new(n);
+            for l in 0..depth {
+                let j = n - 1 - l % n;
+                c.h(j);
+                for k in 0..n {
+                    if k != j {
+                        c.cphase(k, j, 0.1 + k as f64);
+                    }
+                }
+            }
+            c
+        }
         _ => panic!("unknown workload {name}"),
     }
 }
@@ -88,10 +116,12 @@ fn bw(sim: &MetalSim, n: usize, passes: usize) {
         let a = st.amplitudes_mut();
         let t = Instant::now();
         for _ in 0..passes {
+            let f = std::hint::black_box(1.0f32);
             a.par_chunks_mut(1 << 14).for_each(|ch| {
-                for z in ch {
-                    *z *= 1.0f32;
+                for z in ch.iter_mut() {
+                    *z *= f;
                 }
+                std::hint::black_box(&ch[0]);
             });
         }
         c = c.min(t.elapsed().as_secs_f64());
@@ -112,6 +142,42 @@ fn main() {
     let sim = MetalSim::new().unwrap();
     if a[1] == "bw" {
         bw(&sim, a[2].parse().unwrap(), a[3].parse().unwrap());
+        return;
+    }
+    if a[1] == "prof" {
+        // metal_bench prof <qft|brick> <n> <depth> <gpu-mode>
+        let n: usize = a[3].parse().unwrap();
+        let c = workload(&a[2], n, a[4].parse().unwrap());
+        let Mode::Gpu(cfg) = parse_mode(&a[5]).1 else {
+            panic!("prof needs a gpu mode")
+        };
+        let mut st = sim.alloc(n).unwrap();
+        sim.scale_passes(&st, 1);
+        let plan = sim
+            .compile(n, &lower_gates(&circuit_gates(&c).unwrap()), &cfg)
+            .unwrap();
+        let mut full = vec![f64::INFINITY; plan.num_stages()];
+        let mut ls = full.clone();
+        for _ in 0..3 {
+            for (m, t) in full.iter_mut().zip(sim.profile(&mut st, &plan, false).unwrap()) {
+                *m = m.min(t);
+            }
+            for (m, t) in ls.iter_mut().zip(sim.profile(&mut st, &plan, true).unwrap()) {
+                *m = m.min(t);
+            }
+        }
+        let bytes = 16.0 * (1u64 << n) as f64;
+        println!("| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |");
+        for (i, s) in plan.stage_stats().iter().enumerate() {
+            println!(
+                "| {i} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {:.0} | {:.0} |",
+                s[0], s[1], s[2], s[3], s[4],
+                full[i] * 1e3, ls[i] * 1e3, bytes / full[i] / 1e9, bytes / ls[i] / 1e9
+            );
+        }
+        let (f, l): (f64, f64) = (full.iter().sum(), ls.iter().sum());
+        println!("total full {:.4} s, load/store {:.4} s, scale-kernel floor {:.4} s", f, l,
+            plan.num_stages() as f64 * sim.scale_passes(&st, 1));
         return;
     }
     let wl = a[1].as_str();

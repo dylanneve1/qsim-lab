@@ -17,8 +17,11 @@
 //! its `2^l` amplitudes into threadgroup memory (32 KiB = 4096 `float2` on
 //! the M1), applies every op of the stage there and writes them back, so
 //! DRAM is streamed once per stage. A run of diagonal terms (a QFT's
-//! controlled phases) is one pass: each amplitude sums the log-factors of
-//! the terms whose condition it meets and does one `exp`/`sincos`.
+//! controlled phases) is one pass over the threadgroup buffer: the terms are
+//! grouped by a shared "pivot" condition so that inside a group the
+//! log-factor is a sum of per-bit terms, tabulated (on the host) over the
+//! low and high 6 bits of the buffer index; each amplitude adds two table
+//! entries per matching group and does one `exp`/`sincos`.
 //!
 //! [`MetalSim::apply_kops_naive`] is the unfused baseline: one dispatch over
 //! the whole state per op.
@@ -68,15 +71,155 @@ struct OpG {
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug)]
-struct Term {
+struct Group {
+    pmask: u32,
+    ppat: u32,
+    tab: u32,
+    o0: u32,
+    on: u32,
+    lin: u32,
+    pad: [u32; 2],
+}
+
+/// Outer factor of a pivot group: `f` when `(base & omask) == opat`.
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug)]
+struct OTerm {
+    omask: u32,
+    opat: u32,
+    f: [f32; 2],
+}
+
+/// One diagonal term in buffer coordinates: multiply by `f` where
+/// `(e & imask) == ipat` and the outer bits match `(omask, opat)`.
+#[derive(Clone, Copy, Debug)]
+struct DTerm {
     imask: u32,
     ipat: u32,
     omask: u32,
     opat: u32,
-    lnmag: f32,
-    theta: f32,
-    pad0: u32,
-    pad1: u32,
+    f: Complex64,
+}
+
+/// Splits a run of diagonal terms into pivot groups.
+///
+/// A term `f` on buffer indices with `(e & imask) == ipat` (and outer bits
+/// matching `(omask, opat)`) joins one group:
+/// - with an outer condition: the group of pivot `(imask, ipat)`, as an
+///   outer factor (one scalar per threadgroup, computed on the GPU);
+/// - otherwise the group of pivot `imask \ {d}` for one of its bits `d`,
+///   as a factor depending on the single bit `d` (chosen so that as many
+///   terms as possible share a pivot; a QFT's controlled phases after `H(j)`
+///   all share pivot `{j}`).
+///
+/// Inside a group the single-bit factors multiply into two 64-entry tables
+/// over the low and high 6 bits of the buffer index (`l <= 12`), computed
+/// in f64 on the host. Returns (group headers, tables, outer factors); the
+/// group's `tab` / `o0` are relative to the returned vectors.
+fn diag_groups(terms: &[DTerm]) -> (Vec<Group>, Vec<[f32; 2]>, Vec<OTerm>) {
+    use std::collections::BTreeMap;
+    type Key = (u32, u32);
+    #[derive(Clone, Copy)]
+    enum Part {
+        Outer(u32, u32),
+        Const,
+        Lin(u32, u32),
+    }
+    let cands = |t: &DTerm| -> Vec<(Key, Part)> {
+        if t.omask != 0 {
+            vec![((t.imask, t.ipat), Part::Outer(t.omask, t.opat))]
+        } else if t.imask == 0 {
+            vec![((0, 0), Part::Const)]
+        } else {
+            let mut v = Vec::new();
+            let mut m = t.imask;
+            while m != 0 {
+                let d = m.trailing_zeros();
+                m &= m - 1;
+                let bit = 1u32 << d;
+                v.push((
+                    (t.imask & !bit, t.ipat & !bit),
+                    Part::Lin(d, (t.ipat >> d) & 1),
+                ));
+            }
+            v
+        }
+    };
+    let mut count: BTreeMap<Key, usize> = BTreeMap::new();
+    for t in terms {
+        for (k, _) in cands(t) {
+            *count.entry(k).or_default() += 1;
+        }
+    }
+    #[derive(Default)]
+    struct Acc {
+        /// log-factor (theta, ln|f|) tables, exponentiated at the end
+        tab: Vec<[f64; 2]>,
+        lin: bool,
+        outer: BTreeMap<(u32, u32), Complex64>,
+    }
+    let mut groups: BTreeMap<Key, Acc> = BTreeMap::new();
+    for t in terms {
+        let (key, part) = cands(t)
+            .into_iter()
+            .max_by_key(|(k, _)| count[k])
+            .expect("at least one candidate");
+        let g = groups.entry(key).or_insert_with(|| Acc {
+            tab: vec![[0.0; 2]; 128],
+            ..Default::default()
+        });
+        let v = [t.f.arg(), t.f.norm().ln()];
+        match part {
+            Part::Outer(om, op) => {
+                *g.outer.entry((om, op)).or_insert(Complex64::new(1.0, 0.0)) *= t.f;
+            }
+            Part::Const => {
+                g.lin = true;
+                for x in g.tab.iter_mut().take(64) {
+                    x[0] += v[0];
+                    x[1] += v[1];
+                }
+            }
+            Part::Lin(d, val) => {
+                g.lin = true;
+                let (off, local) = if d < 6 { (0, d) } else { (64, d - 6) };
+                for x in 0..64u32 {
+                    if (x >> local) & 1 == val {
+                        g.tab[off + x as usize][0] += v[0];
+                        g.tab[off + x as usize][1] += v[1];
+                    }
+                }
+            }
+        }
+    }
+    let mut hdrs = Vec::with_capacity(groups.len());
+    let mut tabs = Vec::new();
+    let mut oterms = Vec::new();
+    for ((pmask, ppat), g) in groups {
+        let tab = tabs.len() as u32;
+        if g.lin {
+            tabs.extend(g.tab.iter().map(|x| {
+                let z = Complex64::from_polar(x[1].exp(), x[0]);
+                [z.re as f32, z.im as f32]
+            }));
+        }
+        let o0 = oterms.len() as u32;
+        oterms.extend(g.outer.iter().map(|(&(omask, opat), f)| OTerm {
+            omask,
+            opat,
+            f: [f.re as f32, f.im as f32],
+        }));
+        hdrs.push(Group {
+            pmask,
+            ppat,
+            tab,
+            o0,
+            on: oterms.len() as u32 - o0,
+            lin: g.lin as u32,
+            pad: [0; 2],
+        });
+    }
+    (hdrs, tabs, oterms)
 }
 
 #[repr(C)]
@@ -98,6 +241,7 @@ const K_REAL: u32 = 1;
 const K_X: u32 = 2;
 const K_SWAP: u32 = 3;
 const K_DIAG: u32 = 4;
+const K_BATCH: u32 = 5;
 
 /// Tuning knobs of the Metal executor.
 #[derive(Clone, Debug)]
@@ -106,7 +250,7 @@ pub struct MetalConfig {
     /// at most 12 on Apple GPUs, whose threadgroup memory is 32 KiB).
     pub tg_bits: usize,
     /// Maximum number of non-contiguous (high) inner qubits per stage
-    /// (at most 8).
+    /// (2..=8).
     pub slots: usize,
     /// Threads per threadgroup.
     pub threads: usize,
@@ -114,16 +258,32 @@ pub struct MetalConfig {
     pub fuse_1q: bool,
     /// Reorder diagonal terms into as few runs as possible.
     pub schedule_diag: bool,
+    /// Apply up to this many consecutive uncontrolled single-qubit gates on
+    /// distinct qubits as one op whose `2^batch` amplitudes per thread stay
+    /// in registers (1 = off, at most 4). Shared-memory kernel only.
+    pub batch: usize,
+    /// Use the register-resident kernel: each thread keeps
+    /// `2^tg_bits / threads` amplitudes in registers for the whole stage;
+    /// gates on the buffer bits above `log2(threads)` are register-local,
+    /// the lowest 5 bits use SIMD shuffles and the bits in between go
+    /// through threadgroup memory. Best with `slots = tg_bits -
+    /// log2(threads)`, so the high (gathered) qubits are the local ones.
+    pub regs: bool,
 }
 
 impl Default for MetalConfig {
     fn default() -> Self {
+        // Register kernel, 2^9 amplitudes per threadgroup of 64 threads
+        // (8 per thread): best or within 10% of best for both QFT-26 and
+        // brickwork-26 in a sweep on an M1 Pro (research/metal.md).
         MetalConfig {
-            tg_bits: 12,
-            slots: 6,
-            threads: 512,
+            tg_bits: 9,
+            slots: 4,
+            threads: 64,
             fuse_1q: true,
             schedule_diag: true,
+            batch: 3,
+            regs: true,
         }
     }
 }
@@ -132,7 +292,7 @@ impl Default for MetalConfig {
 pub struct MetalSim {
     device: Device,
     queue: CommandQueue,
-    stage: Mutex<HashMap<usize, ComputePipelineState>>,
+    stage: Mutex<HashMap<(bool, usize, usize), ComputePipelineState>>,
     gate_pairs: ComputePipelineState,
     gate_phase: ComputePipelineState,
     init_basis: ComputePipelineState,
@@ -174,19 +334,31 @@ impl MetalState {
 /// op and term tables in shared buffers.
 pub struct MetalPlan {
     n: usize,
+    regs: bool,
     tg_bits: usize,
     threads: usize,
     hdrs: Vec<StageHdr>,
+    /// per stage: (U1 ops, swaps, diagonal runs, pivot groups, high inner qubits)
+    stats: Vec<[usize; 5]>,
     /// (first op, group count) per stage
     spans: Vec<(usize, usize)>,
     ops: Buffer,
-    terms: Buffer,
+    groups: Buffer,
+    tabs: Buffer,
+    oterms: Buffer,
+    mats: Buffer,
 }
 
 impl MetalPlan {
     /// Number of stages, i.e. full passes over the state vector.
     pub fn num_stages(&self) -> usize {
         self.hdrs.len()
+    }
+
+    /// Per stage: (U1 ops, swaps, diagonal runs, pivot groups, inner
+    /// qubits outside the contiguous low range).
+    pub fn stage_stats(&self) -> &[[usize; 5]] {
+        &self.stats
     }
 }
 
@@ -209,7 +381,7 @@ impl std::fmt::Display for MetalError {
 
 impl std::error::Error for MetalError {}
 
-impl From<MetalError> for MetalError {
+impl From<SimError> for MetalError {
     fn from(e: SimError) -> Self {
         MetalError::Sim(e)
     }
@@ -288,24 +460,43 @@ impl MetalSim {
         self.device.name().to_string()
     }
 
-    fn stage_pso(&self, tg_bits: usize) -> Result<ComputePipelineState, MetalError> {
+    fn stage_pso(
+        &self,
+        regs: bool,
+        tg_bits: usize,
+        tpg: usize,
+    ) -> Result<ComputePipelineState, MetalError> {
         let mut map = self.stage.lock().unwrap();
-        if let Some(p) = map.get(&tg_bits) {
+        if let Some(p) = map.get(&(regs, tg_bits, tpg)) {
             return Ok(p.clone());
         }
-        let src = format!("#define TG_BITS {tg_bits}\n{SRC}");
+        // QSIM_METAL_DEFINES: extra preprocessor lines for kernel experiments
+        // (diagnostics only; e.g. "#define DBG_NO_OTERMS 1")
+        let extra = std::env::var("QSIM_METAL_DEFINES").unwrap_or_default();
+        let src = format!(
+            "{}\n#define TG_BITS {tg_bits}\n#define TPG {tpg}\n#define TPG_BITS {}\n{SRC}",
+            extra.replace(';', "\n"),
+            tpg.trailing_zeros()
+        );
+        let fname = if regs { "stage_reg" } else { "stage" };
         let lib = self
             .device
             .new_library_with_source(&src, &CompileOptions::new())
             .map_err(|e| err(format!("Metal compile: {e}")))?;
         let f = lib
-            .get_function("stage", None)
-            .map_err(|e| err(format!("Metal function stage: {e}")))?;
+            .get_function(fname, None)
+            .map_err(|e| err(format!("Metal function {fname}: {e}")))?;
         let p = self
             .device
             .new_compute_pipeline_state_with_function(&f)
             .map_err(|e| err(format!("Metal pipeline stage: {e}")))?;
-        map.insert(tg_bits, p.clone());
+        if (p.max_total_threads_per_threadgroup() as usize) < tpg {
+            return Err(err(format!(
+                "stage kernel supports at most {} threads per threadgroup",
+                p.max_total_threads_per_threadgroup()
+            )));
+        }
+        map.insert((regs, tg_bits, tpg), p.clone());
         Ok(p)
     }
 
@@ -375,8 +566,16 @@ impl MetalSim {
         if !(1..=MAX_QUBITS).contains(&n) {
             return Err(err(format!("Metal backend supports 1..={MAX_QUBITS} qubits")));
         }
-        if !(1..=12).contains(&cfg.tg_bits) || cfg.slots > 8 || cfg.slots == 0 {
-            return Err(err("MetalConfig: need 1 <= tg_bits <= 12 and 1 <= slots <= 8"));
+        // slots >= 2: a SWAP of two high qubits needs both in one stage
+        // (plan_stages would otherwise emit a stage wider than tg_bits).
+        if !(2..=12).contains(&cfg.tg_bits) || !(2..=8).contains(&cfg.slots) {
+            return Err(err("MetalConfig: need 2 <= tg_bits <= 12 and 2 <= slots <= 8"));
+        }
+        if !(1..=4).contains(&cfg.batch) {
+            return Err(err("MetalConfig: batch must be 1..=4"));
+        }
+        if !cfg.threads.is_power_of_two() || cfg.threads > 1024 {
+            return Err(err("MetalConfig: threads must be a power of two <= 1024"));
         }
         let fused;
         let ops = if cfg.fuse_1q {
@@ -386,11 +585,18 @@ impl MetalSim {
             ops
         };
         let l = cfg.tg_bits.min(n);
+        // the register kernel has no batch op (its local gates are already
+        // register-resident)
+        let batch = if cfg.regs { 1 } else { cfg.batch };
         let stages = plan_stages(ops, n, l, cfg.slots);
         let mut hdrs = Vec::with_capacity(stages.len());
+        let mut stats = Vec::with_capacity(stages.len());
         let mut spans = Vec::with_capacity(stages.len());
         let mut gops: Vec<OpG> = Vec::new();
-        let mut terms: Vec<Term> = Vec::new();
+        let mut groups: Vec<Group> = Vec::new();
+        let mut tabs: Vec<[f32; 2]> = Vec::new();
+        let mut oterms: Vec<OTerm> = Vec::new();
+        let mut mats: Vec<[f32; 8]> = Vec::new();
         for st in &stages {
             let sops = if cfg.schedule_diag {
                 schedule_diag(&st.ops)
@@ -398,6 +604,12 @@ impl MetalSim {
                 st.ops.clone()
             };
             let l = st.inner.len();
+            if l > cfg.tg_bits.min(n) || (cfg.regs && l != cfg.tg_bits.min(n)) {
+                return Err(err(format!(
+                    "stage needs {l} inner qubits, more than tg_bits = {}",
+                    cfg.tg_bits
+                )));
+            }
             let mut pos = vec![-1i32; n];
             for (j, &q) in st.inner.iter().enumerate() {
                 pos[q] = j as i32;
@@ -430,6 +642,39 @@ impl MetalSim {
             let mut i = 0;
             while i < sops.len() {
                 match sops[i] {
+                    KOp::U1 { q, m, ctrl: 0 }
+                        if batch >= 2
+                            && matches!(sops.get(i + 1), Some(KOp::U1 { ctrl: 0, q: q2, .. }) if *q2 != q) =>
+                    {
+                        // consecutive uncontrolled single-qubit gates on
+                        // distinct qubits: one register-resident batch
+                        let mut tg: Vec<(u32, Mat2)> = vec![(pos[q] as u32, m)];
+                        let mut j = i + 1;
+                        while tg.len() < batch {
+                            match sops.get(j) {
+                                Some(&KOp::U1 { q, m, ctrl: 0 })
+                                    if tg.iter().all(|&(t, _)| t != pos[q] as u32) =>
+                                {
+                                    tg.push((pos[q] as u32, m));
+                                    j += 1;
+                                }
+                                _ => break,
+                            }
+                        }
+                        // the gates act on distinct qubits, so they commute
+                        tg.sort_by_key(|&(t, _)| t);
+                        let packed = tg.iter().enumerate().fold(0u32, |p, (k, &(t, _))| p | t << (8 * k));
+                        let m0 = mats.len() as u32;
+                        mats.extend(tg.iter().map(|(_, m)| mat_f32(m)));
+                        gops.push(OpG {
+                            kind: K_BATCH,
+                            t: tg.len() as u32,
+                            a: packed,
+                            nterms: m0,
+                            ..Default::default()
+                        });
+                        i = j;
+                    }
                     KOp::U1 { q, m, ctrl } => {
                         let (cin, cout) = split_mask(ctrl, &pos);
                         let t = pos[q];
@@ -469,33 +714,55 @@ impl MetalSim {
                         i += 1;
                     }
                     KOp::Phase { .. } => {
-                        let t0 = terms.len();
+                        let mut run = Vec::new();
                         while i < sops.len() {
                             let KOp::Phase { mask, pat, f } = sops[i] else {
                                 break;
                             };
                             let (imask, ipat, omask, opat) = split_pat(mask, pat, &pos);
-                            terms.push(Term {
+                            run.push(DTerm {
                                 imask,
                                 ipat,
                                 omask,
                                 opat,
-                                lnmag: f.norm().ln() as f32,
-                                theta: f.arg() as f32,
-                                ..Default::default()
+                                f,
                             });
                             i += 1;
                         }
+                        let (gh, gt, go) = diag_groups(&run);
+                        let g0 = groups.len();
+                        let toff = tabs.len() as u32;
+                        let ooff = oterms.len() as u32;
+                        groups.extend(gh.into_iter().map(|mut g| {
+                            g.tab += toff;
+                            g.o0 += ooff;
+                            g
+                        }));
+                        tabs.extend(gt);
+                        oterms.extend(go);
                         gops.push(OpG {
                             kind: K_DIAG,
-                            a: t0 as u32,
-                            nterms: (terms.len() - t0) as u32,
+                            a: g0 as u32,
+                            nterms: (groups.len() - g0) as u32,
                             ..Default::default()
                         });
                     }
                 }
             }
             hdr.nops = (gops.len() - first) as u32;
+            let mut stt = [0usize, 0, 0, 0, l - b];
+            for o in &gops[first..] {
+                match o.kind {
+                    K_SWAP => stt[1] += 1,
+                    K_DIAG => {
+                        stt[2] += 1;
+                        stt[3] += o.nterms as usize;
+                    }
+                    K_BATCH => stt[0] += o.t as usize,
+                    _ => stt[0] += 1,
+                }
+            }
+            stats.push(stt);
             spans.push((first, 1usize << (n - l)));
             hdrs.push(hdr);
         }
@@ -517,47 +784,108 @@ impl MetalSim {
                 gops.len() * std::mem::size_of::<OpG>(),
             )
         };
-        let term_bytes = unsafe {
-            // SAFETY: Term is repr(C) plain old data.
+        let group_bytes = unsafe {
+            // SAFETY: Group is repr(C) plain old data.
             std::slice::from_raw_parts(
-                terms.as_ptr() as *const u8,
-                terms.len() * std::mem::size_of::<Term>(),
+                groups.as_ptr() as *const u8,
+                groups.len() * std::mem::size_of::<Group>(),
             )
+        };
+        let oterm_bytes = unsafe {
+            // SAFETY: OTerm is repr(C) plain old data.
+            std::slice::from_raw_parts(
+                oterms.as_ptr() as *const u8,
+                oterms.len() * std::mem::size_of::<OTerm>(),
+            )
+        };
+        let mat_bytes = unsafe {
+            // SAFETY: [f32; 8] is plain old data (two float4).
+            std::slice::from_raw_parts(mats.as_ptr() as *const u8, mats.len() * 32)
+        };
+        let tab_bytes = unsafe {
+            // SAFETY: [f32; 2] is plain old data (layout of float2).
+            std::slice::from_raw_parts(tabs.as_ptr() as *const u8, tabs.len() * 8)
         };
         Ok(MetalPlan {
             n,
-            tg_bits: cfg.tg_bits,
-            threads: cfg.threads,
+            regs: cfg.regs,
+            // the register kernel is compiled for exactly 2^l elements; the
+            // shared-memory kernel needs at least two elements per thread
+            tg_bits: if cfg.regs { l } else { cfg.tg_bits },
+            threads: if cfg.regs {
+                cfg.threads.min(1 << l)
+            } else {
+                cfg.threads.min(1 << (cfg.tg_bits - 1))
+            },
             hdrs,
+            stats,
             spans,
             ops: mk(ops_bytes),
-            terms: mk(term_bytes),
+            groups: mk(group_bytes),
+            tabs: mk(tab_bytes),
+            oterms: mk(oterm_bytes),
+            mats: mk(mat_bytes),
         })
     }
 
     /// Runs a compiled plan (one command buffer, one dispatch per stage) and
     /// waits for it.
     pub fn run(&self, s: &mut MetalState, plan: &MetalPlan) -> Result<(), MetalError> {
+        self.run_range(s, plan, 0..plan.hdrs.len(), false)
+    }
+
+    /// Diagnostics: runs every stage in its own command buffer and returns
+    /// the wall time of each. With `load_store_only`, the stages gather and
+    /// scatter their amplitudes but apply no ops (the memory-traffic floor
+    /// of the plan; the state is left unchanged).
+    pub fn profile(
+        &self,
+        s: &mut MetalState,
+        plan: &MetalPlan,
+        load_store_only: bool,
+    ) -> Result<Vec<f64>, MetalError> {
+        (0..plan.hdrs.len())
+            .map(|i| {
+                let t = std::time::Instant::now();
+                self.run_range(s, plan, i..i + 1, load_store_only)?;
+                Ok(t.elapsed().as_secs_f64())
+            })
+            .collect()
+    }
+
+    fn run_range(
+        &self,
+        s: &mut MetalState,
+        plan: &MetalPlan,
+        range: std::ops::Range<usize>,
+        load_store_only: bool,
+    ) -> Result<(), MetalError> {
         if plan.n != s.n {
             return Err(err("plan compiled for another register size"));
         }
-        if plan.hdrs.is_empty() {
+        if range.is_empty() {
             return Ok(());
         }
-        let pso = self.stage_pso(plan.tg_bits)?;
-        let maxt = pso.max_total_threads_per_threadgroup() as usize;
+        let tpg = plan.threads;
+        let pso = self.stage_pso(plan.regs, plan.tg_bits, tpg)?;
         let cb = self.queue.new_command_buffer();
         let enc = cb.new_compute_command_encoder();
         enc.set_compute_pipeline_state(&pso);
         enc.set_buffer(0, Some(&s.buf), 0);
-        enc.set_buffer(3, Some(&plan.terms), 0);
-        for (h, &(first, groups)) in plan.hdrs.iter().zip(&plan.spans) {
-            // threads: no more than one per amplitude pair is useful
-            let tpg = plan.threads.min(maxt).min((1usize << h.l).div_ceil(2)).max(1);
+        enc.set_buffer(3, Some(&plan.groups), 0);
+        enc.set_buffer(4, Some(&plan.tabs), 0);
+        enc.set_buffer(5, Some(&plan.oterms), 0);
+        enc.set_buffer(6, Some(&plan.mats), 0);
+        for i in range {
+            let (first, groups) = plan.spans[i];
+            let mut h = plan.hdrs[i];
+            if load_store_only {
+                h.nops = 0;
+            }
             enc.set_bytes(
                 1,
                 std::mem::size_of::<StageHdr>() as u64,
-                h as *const StageHdr as *const _,
+                &h as *const StageHdr as *const _,
             );
             enc.set_buffer(2, Some(&plan.ops), (first * std::mem::size_of::<OpG>()) as u64);
             enc.dispatch_thread_groups(
