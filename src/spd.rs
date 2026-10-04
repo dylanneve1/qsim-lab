@@ -340,8 +340,14 @@ impl PauliObs {
 
 #[derive(Clone, Copy, Debug)]
 pub struct SpdOptions {
-    /// Coefficient threshold δ (0 = exact).
+    /// Coefficient threshold δ (0 = exact), applied to merged coefficients.
     pub delta: f64,
+    /// Branch threshold = `branch_factor · δ`, applied to individual
+    /// children before they are merged (and in streamed layers). `1` prunes
+    /// a path as soon as it falls below δ; smaller values keep sub-δ paths
+    /// long enough to merge with others into a coefficient ≥ δ (closer to
+    /// per-gate truncation, at higher cost).
+    pub branch_factor: f64,
     /// Drop strings of Pauli weight above this after each ZZ layer.
     pub max_weight: usize,
     /// Single-qubit depolarizing probability per qubit per step (after ZZ).
@@ -362,6 +368,7 @@ impl Default for SpdOptions {
     fn default() -> Self {
         SpdOptions {
             delta: 0.0,
+            branch_factor: 1.0,
             max_weight: usize::MAX,
             depol: 0.0,
             max_terms: 50_000_000,
@@ -469,6 +476,7 @@ struct Ctx<'a, const W: usize> {
     cos: f64,
     sin: f64,
     delta: f64,
+    branch_delta: f64,
     max_weight: usize,
     damp: f64,
 }
@@ -586,7 +594,7 @@ impl<'a, const W: usize> Ctx<'a, W> {
         // keep: coefficient c·cos
         let ck = c * self.cos;
         if ck != 0.0 {
-            if ck.abs() >= self.delta {
+            if ck.abs() >= self.branch_delta {
                 self.dfs(rest, key, ck, emit, acc);
             } else {
                 acc.l1 += ck.abs() * (self.cos.abs() + self.sin.abs()).powi(r);
@@ -597,7 +605,7 @@ impl<'a, const W: usize> Ctx<'a, W> {
         let xbit = key.x[wi] & b != 0;
         let cs = if xbit { -c * self.sin } else { c * self.sin };
         if cs != 0.0 {
-            if cs.abs() >= self.delta {
+            if cs.abs() >= self.branch_delta {
                 let mut k2 = key;
                 k2.x[wi] ^= b;
                 self.dfs(rest, k2, cs, emit, acc);
@@ -677,6 +685,7 @@ fn run<const W: usize>(
         cos: snap(model.theta_h.cos()),
         sin: snap(model.theta_h.sin()),
         delta: opt.delta,
+        branch_delta: opt.delta * opt.branch_factor,
         max_weight: opt.max_weight,
         damp: 1.0 - 4.0 * opt.depol / 3.0,
     };

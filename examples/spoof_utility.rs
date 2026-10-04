@@ -5,7 +5,7 @@
 //!
 //! ```text
 //! cargo run --release --example spoof_utility -- <fig> [--delta D[,D2,...]] [--thetas t1,t2,...]
-//!        [--steps T] [--lattice 127|433|1121] [--depol p] [--max-weight w] [--mem-gb G] [--stream k]
+//!        [--steps T] [--lattice 127|433|1121] [--depol p] [--max-weight w] [--mem-gb G] [--stream k] [--branch-factor f]
 //! fig: 3a (M_z, 5 steps) | 3b (weight 10, 5 steps) | 3c (weight 17, 5 steps)
 //!      | 4a (weight 17, 5 steps + RX) | 4b (Z_62, 20 steps) | z<q> (Z_q) | mz (M_z)
 //! ```
@@ -47,6 +47,7 @@ fn main() {
     };
     let depol: f64 = get("--depol").map(|s| s.parse().unwrap()).unwrap_or(0.0);
     let max_weight: usize = get("--max-weight").map(|s| s.parse().unwrap()).unwrap_or(usize::MAX);
+    let branch_factor: f64 = get("--branch-factor").map(|s| s.parse().unwrap()).unwrap_or(1.0);
     let stream: usize = get("--stream").map(|s| s.parse().unwrap()).unwrap_or(1);
     let mem_gb: f64 = get("--mem-gb").map(|s| s.parse().unwrap()).unwrap_or(2.0);
     let default_thetas: Vec<f64> = (0..=16).map(|k| k as f64 * PI / 32.0).collect();
@@ -85,10 +86,11 @@ fn main() {
                     max_terms,
                     light_cone: true,
                     stream,
+                    branch_factor,
                 },
             );
             println!(
-                "{{\"fig\":\"{fig}\",\"lattice\":{},\"steps\":{steps},\"theta\":{theta:.6},\"delta\":{delta:e},\"depol\":{depol},\"stream\":{stream},\"max_weight\":{},\"value\":{:.10},\"aborted\":{},\"cone\":{},\"words\":{},\"peak_terms\":{},\"final_terms\":{},\"terms_per_layer\":{:?},\"discarded_l1\":{:.6e},\"discarded_l2sq\":{:.6e},\"norm2\":{:.8},\"seconds\":{:.3}}}",
+                "{{\"fig\":\"{fig}\",\"lattice\":{},\"steps\":{steps},\"theta\":{theta:.6},\"delta\":{delta:e},\"depol\":{depol},\"stream\":{stream},\"branch_factor\":{branch_factor},\"max_weight\":{},\"value\":{:.10},\"aborted\":{},\"cone\":{},\"words\":{},\"peak_terms\":{},\"final_terms\":{},\"terms_per_layer\":{:?},\"discarded_l1\":{:.6e},\"discarded_l2sq\":{:.6e},\"norm2\":{:.8},\"seconds\":{:.3}}}",
                 lat.n,
                 if max_weight == usize::MAX { -1 } else { max_weight as i64 },
                 r.value,
