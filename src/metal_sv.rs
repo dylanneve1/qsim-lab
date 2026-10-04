@@ -10,18 +10,31 @@
 //!
 //! Execution reuses the CPU blocked executor's front end ([`crate::blocked`]):
 //! gates are lowered to [`KOp`]s, runs of single-qubit gates are multiplied
-//! together ([`fuse_1q`]), the op list is cut into stages of at most
-//! `tg_bits` inner qubits ([`plan_stages`]) and diagonal terms are moved
-//! together ([`schedule_diag`]). Each stage is one compute dispatch with one
-//! threadgroup per assignment of the outer qubits: the threadgroup gathers
-//! its `2^l` amplitudes into threadgroup memory (32 KiB = 4096 `float2` on
-//! the M1), applies every op of the stage there and writes them back, so
-//! DRAM is streamed once per stage. A run of diagonal terms (a QFT's
-//! controlled phases) is one pass over the threadgroup buffer: the terms are
-//! grouped by a shared "pivot" condition so that inside a group the
-//! log-factor is a sum of per-bit terms, tabulated (on the host) over the
-//! low and high 6 bits of the buffer index; each amplitude adds two table
-//! entries per matching group and does one `exp`/`sincos`.
+//! together ([`fuse_1q`]), the op list is cut into stages of `tg_bits`
+//! inner qubits ([`plan_stages`]) and diagonal terms are moved together
+//! ([`schedule_diag`]). Each stage is one compute dispatch with one
+//! threadgroup per assignment of the outer qubits, so DRAM is streamed once
+//! per stage instead of once per gate. Two stage kernels:
+//!
+//! - **register kernel** (`regs`, default): thread `t` of a threadgroup of
+//!   `T` threads holds buffer elements `t + i T` in registers for the whole
+//!   stage. A gate on a buffer bit `>= log2 T` is register-local, one on a
+//!   bit `< 5` uses `simd_shuffle_xor`, one in between goes through
+//!   threadgroup memory. With `slots = tg_bits - log2 T` every gathered high
+//!   qubit is register-local; the default (9 bits, 4 slots, 64 threads)
+//!   puts one of them on the threadgroup-memory bit, which costs some
+//!   exchanges but saves passes and measured faster.
+//! - **shared-memory kernel**: the threadgroup gathers its `2^l` amplitudes
+//!   into threadgroup memory (at most 32 KiB = 4096 `float2` on the M1) and
+//!   applies each op there with a barrier; consecutive uncontrolled 1q gates
+//!   can be batched (`batch`) into one register-resident k-qubit op.
+//!
+//! A run of diagonal terms (a QFT's controlled phases) is applied in one
+//! sweep: the terms are grouped by a shared "pivot" condition so that inside
+//! a group the factor is a product of single-bit factors, tabulated in f64
+//! on the host over the low and high 6 bits of the buffer index; factors
+//! that depend on outer qubits are multiplied per threadgroup (a SIMD-group
+//! product reduction) instead of per amplitude.
 //!
 //! [`MetalSim::apply_kops_naive`] is the unfused baseline: one dispatch over
 //! the whole state per op.
@@ -30,8 +43,7 @@ use crate::blocked::{fuse_1q, lower_gates, plan_stages, schedule_diag, KOp};
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::gate::{Gate, Mat2};
 use metal::{
-    Buffer, CommandQueue, CompileOptions, ComputePipelineState, Device, MTLResourceOptions,
-    MTLSize,
+    Buffer, CommandQueue, CompileOptions, ComputePipelineState, Device, MTLResourceOptions, MTLSize,
 };
 use num_complex::{Complex32, Complex64};
 use std::collections::HashMap;
@@ -266,8 +278,8 @@ pub struct MetalConfig {
     /// `2^tg_bits / threads` amplitudes in registers for the whole stage;
     /// gates on the buffer bits above `log2(threads)` are register-local,
     /// the lowest 5 bits use SIMD shuffles and the bits in between go
-    /// through threadgroup memory. Best with `slots = tg_bits -
-    /// log2(threads)`, so the high (gathered) qubits are the local ones.
+    /// through threadgroup memory. With `slots = tg_bits - log2(threads)`
+    /// every gathered high qubit is register-local.
     pub regs: bool,
 }
 
@@ -503,7 +515,9 @@ impl MetalSim {
     /// Allocates an `n`-qubit state in `|0...0>`.
     pub fn alloc(&self, n: usize) -> Result<MetalState, MetalError> {
         if !(1..=MAX_QUBITS).contains(&n) {
-            return Err(err(format!("Metal backend supports 1..={MAX_QUBITS} qubits")));
+            return Err(err(format!(
+                "Metal backend supports 1..={MAX_QUBITS} qubits"
+            )));
         }
         let bytes = 8u64 << n;
         if bytes > self.device.max_buffer_length() {
@@ -562,14 +576,23 @@ impl MetalSim {
     }
 
     /// Compiles executor ops for an `n`-qubit register.
-    pub fn compile(&self, n: usize, ops: &[KOp], cfg: &MetalConfig) -> Result<MetalPlan, MetalError> {
+    pub fn compile(
+        &self,
+        n: usize,
+        ops: &[KOp],
+        cfg: &MetalConfig,
+    ) -> Result<MetalPlan, MetalError> {
         if !(1..=MAX_QUBITS).contains(&n) {
-            return Err(err(format!("Metal backend supports 1..={MAX_QUBITS} qubits")));
+            return Err(err(format!(
+                "Metal backend supports 1..={MAX_QUBITS} qubits"
+            )));
         }
         // slots >= 2: a SWAP of two high qubits needs both in one stage
         // (plan_stages would otherwise emit a stage wider than tg_bits).
         if !(2..=12).contains(&cfg.tg_bits) || !(2..=8).contains(&cfg.slots) {
-            return Err(err("MetalConfig: need 2 <= tg_bits <= 12 and 2 <= slots <= 8"));
+            return Err(err(
+                "MetalConfig: need 2 <= tg_bits <= 12 and 2 <= slots <= 8",
+            ));
         }
         if !(1..=4).contains(&cfg.batch) {
             return Err(err("MetalConfig: batch must be 1..=4"));
@@ -614,7 +637,12 @@ impl MetalSim {
             for (j, &q) in st.inner.iter().enumerate() {
                 pos[q] = j as i32;
             }
-            let b = st.inner.iter().enumerate().take_while(|(j, &q)| *j == q).count();
+            let b = st
+                .inner
+                .iter()
+                .enumerate()
+                .take_while(|(j, &q)| *j == q)
+                .count();
             if l - b > 8 {
                 return Err(err("stage has more than 8 high inner qubits"));
             }
@@ -663,7 +691,10 @@ impl MetalSim {
                         }
                         // the gates act on distinct qubits, so they commute
                         tg.sort_by_key(|&(t, _)| t);
-                        let packed = tg.iter().enumerate().fold(0u32, |p, (k, &(t, _))| p | t << (8 * k));
+                        let packed = tg
+                            .iter()
+                            .enumerate()
+                            .fold(0u32, |p, (k, &(t, _))| p | t << (8 * k));
                         let m0 = mats.len() as u32;
                         mats.extend(tg.iter().map(|(_, m)| mat_f32(m)));
                         gops.push(OpG {
@@ -768,7 +799,8 @@ impl MetalSim {
         }
         let mk = |bytes: &[u8]| {
             if bytes.is_empty() {
-                self.device.new_buffer(64, MTLResourceOptions::StorageModeShared)
+                self.device
+                    .new_buffer(64, MTLResourceOptions::StorageModeShared)
             } else {
                 self.device.new_buffer_with_data(
                     bytes.as_ptr() as *const _,
@@ -887,7 +919,11 @@ impl MetalSim {
                 std::mem::size_of::<StageHdr>() as u64,
                 &h as *const StageHdr as *const _,
             );
-            enc.set_buffer(2, Some(&plan.ops), (first * std::mem::size_of::<OpG>()) as u64);
+            enc.set_buffer(
+                2,
+                Some(&plan.ops),
+                (first * std::mem::size_of::<OpG>()) as u64,
+            );
             enc.dispatch_thread_groups(
                 MTLSize::new(groups as u64, 1, 1),
                 MTLSize::new(tpg as u64, 1, 1),

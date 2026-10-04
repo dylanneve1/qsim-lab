@@ -1,0 +1,12 @@
+# 13:48:54 args=[prof h 26 1 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[7.78 7.51 11.20] top=[ 97.5 Python; 92.5 Python; 89.3 Logic Pro;] contam=no free=6.5GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 10 | 0 | 0 | 0 | 0 | 14.38 | 6.74 | 75 | 159 |
+| 1 | 5 | 0 | 0 | 0 | 5 | 9.61 | 7.06 | 112 | 152 |
+| 2 | 5 | 0 | 0 | 0 | 5 | 9.47 | 7.04 | 113 | 153 |
+| 3 | 5 | 0 | 0 | 0 | 5 | 10.35 | 7.18 | 104 | 150 |
+| 4 | 1 | 0 | 0 | 0 | 1 | 6.90 | 7.17 | 156 | 150 |
+total full 0.0507 s, load/store 0.0352 s, scale-kernel floor 0.0361 s
+# 13:48:55 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[7.78 7.51 11.20] top=[ 92.7 Python; 91.7 Python; 86.2 magic_transition;] contam=no free=6.5GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 34.87 | 7.21 | 31 | 149 |
+total full 0.0349 s, load/store 0.0072 s, scale-kernel floor 0.0077 s

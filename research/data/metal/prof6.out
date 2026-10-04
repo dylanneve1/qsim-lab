@@ -1,0 +1,16 @@
+# 13:51:07 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[34.84 16.81 14.29] top=[ 88.2 Python; 86.1 bin2; 82.8 Logic Pro;] contam=no free=6.8GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 32.26 | 6.39 | 33 | 168 |
+total full 0.0323 s, load/store 0.0064 s, scale-kernel floor 0.0063 s
+# 13:51:08 args=[prof qft 26 0 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[34.84 16.81 14.29] top=[ 88.6 dem_distance; 88.6 Logic Pro; 87.4 dem_distance;] contam=no free=6.7GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 5 | 5 | 25.59 | 6.43 | 42 | 167 |
+| 1 | 5 | 0 | 5 | 5 | 5 | 25.65 | 6.12 | 42 | 175 |
+| 2 | 5 | 0 | 5 | 5 | 5 | 26.08 | 6.43 | 41 | 167 |
+| 3 | 5 | 0 | 5 | 5 | 5 | 25.58 | 6.18 | 42 | 174 |
+| 4 | 6 | 4 | 5 | 5 | 4 | 26.75 | 6.15 | 40 | 175 |
+| 5 | 0 | 3 | 0 | 0 | 3 | 6.87 | 6.46 | 156 | 166 |
+| 6 | 0 | 2 | 0 | 0 | 4 | 6.21 | 6.07 | 173 | 177 |
+| 7 | 0 | 2 | 0 | 0 | 4 | 6.19 | 6.13 | 173 | 175 |
+| 8 | 0 | 2 | 0 | 0 | 4 | 6.36 | 6.16 | 169 | 174 |
+total full 0.1553 s, load/store 0.0561 s, scale-kernel floor 0.0540 s

@@ -136,8 +136,16 @@ fn ref_apply(r: &mut RefSv, g: &Gate) {
     };
     match *g {
         Gate::I(_) => {}
-        Gate::Sx(q) => one_q(r, q, [[c(0.5, 0.5), c(0.5, -0.5)], [c(0.5, -0.5), c(0.5, 0.5)]]),
-        Gate::Sxdg(q) => one_q(r, q, [[c(0.5, -0.5), c(0.5, 0.5)], [c(0.5, 0.5), c(0.5, -0.5)]]),
+        Gate::Sx(q) => one_q(
+            r,
+            q,
+            [[c(0.5, 0.5), c(0.5, -0.5)], [c(0.5, -0.5), c(0.5, 0.5)]],
+        ),
+        Gate::Sxdg(q) => one_q(
+            r,
+            q,
+            [[c(0.5, -0.5), c(0.5, 0.5)], [c(0.5, 0.5), c(0.5, -0.5)]],
+        ),
         Gate::U(q, th, ph, lam) => {
             // OpenQASM 3 U(θ, φ, λ)
             let (s, co) = (th / 2.0).sin_cos();
@@ -150,7 +158,11 @@ fn ref_apply(r: &mut RefSv, g: &Gate) {
         }
         Gate::ISwap(a, b) | Gate::ISwapdg(a, b) => {
             // |01> <-> ±i|10>, |00>, |11> fixed
-            let ph = if matches!(g, Gate::ISwap(..)) { c(0.0, 1.0) } else { c(0.0, -1.0) };
+            let ph = if matches!(g, Gate::ISwap(..)) {
+                c(0.0, 1.0)
+            } else {
+                c(0.0, -1.0)
+            };
             for i in 0..r.a.len() {
                 if i >> a & 1 == 1 && i >> b & 1 == 0 {
                     let j = i ^ (1 << a) ^ (1 << b);
@@ -184,7 +196,11 @@ fn reference_extras_sane() {
         d.gate(g);
     }
     let (x, y) = (ref_run(&c), RefSv::run(&d));
-    let e = x.a.iter().zip(&y.a).map(|(p, q)| (p - q).norm()).fold(0.0, f64::max);
+    let e =
+        x.a.iter()
+            .zip(&y.a)
+            .map(|(p, q)| (p - q).norm())
+            .fold(0.0, f64::max);
     assert!(e < 1e-12, "{e}");
 }
 
@@ -243,6 +259,31 @@ fn qft_and_brickwork_match_reference() {
 }
 
 #[test]
+fn qft_of_basis_states_matches_reference() {
+    // QFT|0> is a uniform real state; from |x> every amplitude has a
+    // different phase, which exercises the diagonal tables properly.
+    let s = sim();
+    let mut rng = StdRng::seed_from_u64(99);
+    for n in [6usize, 11, 14, 16] {
+        let c = algorithms::qft(n);
+        let x = rng.random_range(0..1usize << n);
+        let mut r = RefSv::new(n);
+        r.a[0] = Complex64::new(0.0, 0.0);
+        r.a[x] = Complex64::new(1.0, 0.0);
+        for g in c.gates() {
+            r.apply(g);
+        }
+        for cfg in configs() {
+            let mut st = s.alloc(n).unwrap();
+            s.set_basis(&st, x);
+            s.apply_circuit(&mut st, &c, &cfg).unwrap();
+            let d = diff(st.amplitudes(), &r.a);
+            assert!(d < TOL, "n={n} x={x} cfg={cfg:?}: {d:e}");
+        }
+    }
+}
+
+#[test]
 fn nonzero_basis_state_and_reuse() {
     let s = sim();
     let n = 11;
@@ -280,11 +321,17 @@ fn nonzero_basis_state_and_reuse() {
 fn rejects_bad_input() {
     let s = sim();
     let mut st = s.alloc(3).unwrap();
-    assert!(s.apply_gates(&mut st, &[Gate::H(3)], &MetalConfig::default()).is_err());
-    assert!(s.apply_gates(&mut st, &[Gate::Cnot(1, 1)], &MetalConfig::default()).is_err());
+    assert!(s
+        .apply_gates(&mut st, &[Gate::H(3)], &MetalConfig::default())
+        .is_err());
+    assert!(s
+        .apply_gates(&mut st, &[Gate::Cnot(1, 1)], &MetalConfig::default())
+        .is_err());
     let mut c = Circuit::new(3);
     c.h(0).measure(0);
-    assert!(s.apply_circuit(&mut st, &c, &MetalConfig::default()).is_err());
+    assert!(s
+        .apply_circuit(&mut st, &c, &MetalConfig::default())
+        .is_err());
     assert!(s.alloc(31).is_err());
     for bad in [
         MetalConfig {

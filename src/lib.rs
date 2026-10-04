@@ -43,9 +43,9 @@ pub mod dag;
 pub mod gate;
 pub mod hsf;
 pub mod magic_atlas;
-pub mod mps;
 #[cfg(all(feature = "metal", target_os = "macos"))]
 pub mod metal_sv;
+pub mod mps;
 pub mod mps_cost;
 pub mod noise;
 pub mod ooc;
