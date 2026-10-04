@@ -465,7 +465,11 @@ impl FastSampler {
         let mut set = std::collections::BTreeSet::new();
         for c in &self.classes {
             for e in c.table.chunks(c.stride.max(1)) {
-                let v: Vec<u32> = e.iter().copied().filter(|&r| r < self.rows as u32).collect();
+                let v: Vec<u32> = e
+                    .iter()
+                    .copied()
+                    .filter(|&r| r < self.rows as u32)
+                    .collect();
                 if !v.is_empty() {
                     set.insert(v);
                 }
@@ -726,7 +730,7 @@ fn loggam(x: f64) -> f64 {
         -5.952380952380952e-04,
         8.417508417508418e-04,
         -1.917526917526918e-03,
-        6.410256410256410e-03,
+        6.41025641025641e-03,
         -2.955065359477124e-02,
         1.796443723688307e-01,
         -1.39243221690590e+00,
