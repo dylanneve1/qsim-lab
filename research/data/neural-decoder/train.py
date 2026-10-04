@@ -39,8 +39,9 @@ model = Decoder(meta, H=a.H, L=a.L, heads=a.heads)
 if a.resume:
     model.load_weights(a.resume)
 nparams = sum(v.size for _, v in tree_flatten(model.parameters()))
-sched = optim.join_schedules([optim.linear_schedule(1e-6, a.lr, 1000),
-                              optim.cosine_decay(a.lr, a.steps - 1000, a.lr * 0.02)], [1000])
+WU = min(1000, a.steps // 10)
+sched = optim.join_schedules([optim.linear_schedule(1e-6, a.lr, WU),
+                              optim.cosine_decay(a.lr, a.steps - WU, a.lr * 0.02)], [WU])
 opt = optim.AdamW(learning_rate=sched, weight_decay=1e-4)
 
 
