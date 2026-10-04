@@ -85,7 +85,11 @@ pub struct Scalar {
 }
 
 impl Scalar {
-    pub const ONE: Scalar = Scalar { zero: false, p: 0, e: 0 };
+    pub const ONE: Scalar = Scalar {
+        zero: false,
+        p: 0,
+        e: 0,
+    };
     pub fn to_c64(self) -> C64 {
         if self.zero {
             return C64::new(0.0, 0.0);
@@ -94,10 +98,18 @@ impl Scalar {
         C64::from_polar(m, FRAC_PI_4 * self.e as f64)
     }
     fn mul(self, o: Scalar) -> Scalar {
-        Scalar { zero: self.zero || o.zero, p: self.p + o.p, e: (self.e + o.e) % 8 }
+        Scalar {
+            zero: self.zero || o.zero,
+            p: self.p + o.p,
+            e: (self.e + o.e) % 8,
+        }
     }
     fn conj(self) -> Scalar {
-        Scalar { zero: self.zero, p: self.p, e: (8 - self.e) % 8 }
+        Scalar {
+            zero: self.zero,
+            p: self.p,
+            e: (8 - self.e) % 8,
+        }
     }
 }
 
@@ -112,7 +124,11 @@ pub struct Pauli {
 impl Pauli {
     pub fn identity(n: usize) -> Pauli {
         let w = n.div_ceil(64).max(1);
-        Pauli { x: vec![0; w], z: vec![0; w], e: 0 }
+        Pauli {
+            x: vec![0; w],
+            z: vec![0; w],
+            e: 0,
+        }
     }
     /// `sign · Z_q` (sign = +1 or −1).
     pub fn z(n: usize, q: usize, neg: bool) -> Pauli {
@@ -181,7 +197,7 @@ impl ChState {
     }
 
     #[inline]
-    fn col<'a>(mat: &'a [u64], j: usize, w: usize) -> &'a [u64] {
+    fn col(mat: &[u64], j: usize, w: usize) -> &[u64] {
         &mat[j * w..(j + 1) * w]
     }
     #[inline]
@@ -413,9 +429,13 @@ impl ChState {
             self.s = t.to_vec();
         }
         let a = get(&self.v, q);
-        let e1 = if a { (b % 2) * (3 * b).wrapping_sub(2) } else { 0 };
+        let e1 = if a {
+            (b % 2) * (3 * b).wrapping_sub(2)
+        } else {
+            0
+        };
         let e2 = b % 2 == 1;
-        let e3 = (!a) != (a && b % 2 == 1);
+        let e3 = !a || b % 2 == 1; // (!a) != (a && b odd)
         let e4 = ((!a) && b >= 2) != (a && (b == 1 || b == 2));
         setb(&mut self.s, q, e4);
         setb(&mut self.v, q, e3);
@@ -465,7 +485,11 @@ impl ChState {
         let mut r = Pauli::identity(self.n);
         for pos in 0..self.n {
             if get(x, pos) {
-                let p1 = Pauli { x: self.row(&self.f, pos), z: self.row(&self.m, pos), e: self.gamma(pos) as u8 };
+                let p1 = Pauli {
+                    x: self.row(&self.f, pos),
+                    z: self.row(&self.m, pos),
+                    e: self.gamma(pos) as u8,
+                };
                 r.mul_assign(&p1);
             }
         }
@@ -475,7 +499,11 @@ impl ChState {
     /// `R = U_H U_C^{-1} P U_C U_H` (the Pauli as seen by `|s⟩`).
     fn conj_to_s(&self, pp: &Pauli) -> Pauli {
         let w = self.w;
-        let mut r = Pauli { x: vec![0; w], z: vec![0; w], e: pp.e };
+        let mut r = Pauli {
+            x: vec![0; w],
+            z: vec![0; w],
+            e: pp.e,
+        };
         for j in 0..self.n {
             if get(&pp.x, j) {
                 let rf = self.row(&self.f, j);
@@ -556,14 +584,22 @@ impl ChState {
         } else {
             self.pauli_x_image(x)
         };
-        let mut amp = Scalar { zero: false, p: -(popcount(&self.v) as i32), e: (2 * pp.e) % 8 };
+        let mut amp = Scalar {
+            zero: false,
+            p: -(popcount(&self.v) as i32),
+            e: (2 * pp.e) % 8,
+        };
         for q in 0..self.n {
             if get(&self.v, q) {
                 if get(&self.s, q) && get(&pp.x, q) {
                     amp.e = (amp.e + 4) % 8;
                 }
             } else if get(&pp.x, q) != get(&self.s, q) {
-                return Scalar { zero: true, p: 0, e: 0 };
+                return Scalar {
+                    zero: true,
+                    p: 0,
+                    e: 0,
+                };
             }
         }
         amp.conj().mul(self.omega)
@@ -611,10 +647,9 @@ impl ChState {
         for k in 0..n {
             let neg = get(&self.s, k);
             let mut row = vec![0u64; 2 * w];
-            let e: u8;
-            if !get(&self.v, k) {
+            let e: u8 = if !get(&self.v, k) {
                 row[w..].copy_from_slice(&ginv[k]);
-                e = 0;
+                0
             } else {
                 let x = &finv[k];
                 let img = self.pauli_x_image_rows(x, &rows_f, &rows_m);
@@ -627,8 +662,8 @@ impl ChState {
                 }
                 row[..w].copy_from_slice(x);
                 row[w..].copy_from_slice(&zz);
-                e = ((4 - img.e as u32) % 4) as u8;
-            }
+                ((4 - img.e as u32) % 4) as u8
+            };
             let e = (e + if neg { 2 } else { 0 }) % 4;
             tab.push((row, e));
         }
@@ -644,7 +679,9 @@ impl ChState {
         let mut rank = 0;
         for col in 0..2 * n {
             let bit = if col < n { col } else { w * 64 + (col - n) };
-            let Some(piv) = (rank..n).find(|&r| get(&tab[r].0, bit)) else { continue };
+            let Some(piv) = (rank..n).find(|&r| get(&tab[r].0, bit)) else {
+                continue;
+            };
             tab.swap(rank, piv);
             let pr = tab[rank].clone();
             for r in 0..n {
@@ -692,7 +729,11 @@ fn gf2_inverse(rows: &[Vec<u64>], n: usize) -> Vec<Vec<u64>> {
 type Row = (Vec<u64>, u8);
 
 fn row_pauli(r: &Row, w: usize) -> Pauli {
-    Pauli { x: r.0[..w].to_vec(), z: r.0[w..].to_vec(), e: r.1 }
+    Pauli {
+        x: r.0[..w].to_vec(),
+        z: r.0[w..].to_vec(),
+        e: r.1,
+    }
 }
 
 /// `p ← G p G†` for a Clifford gate `G`.
@@ -816,7 +857,9 @@ pub fn diagonalise(gens: &[Pauli], n: usize) -> (Vec<Gate>, Vec<usize>) {
                 }
             }
         } else {
-            q = (0..n).find(|&q| !used[q] && get(&g.z, q)).expect("dependent generator");
+            q = (0..n)
+                .find(|&q| !used[q] && get(&g.z, q))
+                .expect("dependent generator");
             for r in 0..n {
                 if r != q && !used[r] && get(&g.z, r) {
                     local.push(Gate::Cnot(r, q));
@@ -836,7 +879,9 @@ pub fn diagonalise(gens: &[Pauli], n: usize) -> (Vec<Gate>, Vec<usize>) {
             if get(&gs[k].z, q) {
                 apply(&Gate::S(q), &mut gs, &mut gates);
             }
-            let zs: Vec<usize> = (0..n).filter(|&r| r != q && !used[r] && get(&gs[k].z, r)).collect();
+            let zs: Vec<usize> = (0..n)
+                .filter(|&r| r != q && !used[r] && get(&gs[k].z, r))
+                .collect();
             for r in zs {
                 apply(&Gate::Cz(q, r), &mut gs, &mut gates);
             }
@@ -900,7 +945,9 @@ fn common_stabilizers(ti: &[Row], tj: &[Row], phi_j: &ChState, n: usize, w: usiz
         })
         .collect();
     // keep the subgroup with eigenvalue +1 on φ_j
-    let bad: Vec<usize> = (0..out.len()).filter(|&k| phi_j.eigenvalue(&out[k]) == Some(true)).collect();
+    let bad: Vec<usize> = (0..out.len())
+        .filter(|&k| phi_j.eigenvalue(&out[k]) == Some(true))
+        .collect();
     if let Some(&b0) = bad.first() {
         let pb = out[b0].clone();
         for &k in &bad[1..] {
@@ -941,7 +988,14 @@ fn pairing_rank_exceeds(ta: &[Row], tb: &[Row], w: usize, cap: usize) -> bool {
 
 /// Tries to replace `ci φi + cj φj` by one term (Some(Some)) or nothing
 /// (Some(None), cancellation).
-fn try_pair(a: &Term, b: &Term, ta: &[Row], tb: &[Row], smax: usize, tol: f64) -> Option<Option<Term>> {
+fn try_pair(
+    a: &Term,
+    b: &Term,
+    ta: &[Row],
+    tb: &[Row],
+    smax: usize,
+    tol: f64,
+) -> Option<Option<Term>> {
     let n = a.st.n;
     let w = a.st.w;
     // cheap exact filter: for Lagrangian L_a, L_b, dim(L_a ∩ L_b) =
@@ -1007,7 +1061,11 @@ fn try_pair(a: &Term, b: &Term, ta: &[Row], tb: &[Row], smax: usize, tol: f64) -
         ov += dense[y].conj() * unit[y];
     }
     let ph = ov / ov.norm();
-    let dev = dense.iter().zip(&unit).map(|(d, u)| (d * ph - u).norm()).fold(0.0, f64::max);
+    let dev = dense
+        .iter()
+        .zip(&unit)
+        .map(|(d, u)| (d * ph - u).norm())
+        .fold(0.0, f64::max);
     if dev > 1e-13 {
         return None;
     }
@@ -1018,7 +1076,11 @@ fn try_pair(a: &Term, b: &Term, ta: &[Row], tb: &[Row], smax: usize, tol: f64) -
     let truth = a.c * a.st.amplitude(&x0).to_c64() + b.c * b.st.amplitude(&x0).to_c64();
     let mine = st.amplitude(&x0).to_c64();
     assert!(mine.norm() > 0.0);
-    Some(Some(Term { c: truth / mine, st, dirty: true }))
+    Some(Some(Term {
+        c: truth / mine,
+        st,
+        dirty: true,
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -1086,7 +1148,12 @@ pub struct RankState {
 }
 
 fn snap(l: C64) -> C64 {
-    for t in [C64::new(1.0, 0.0), C64::new(-1.0, 0.0), C64::new(0.0, 1.0), C64::new(0.0, -1.0)] {
+    for t in [
+        C64::new(1.0, 0.0),
+        C64::new(-1.0, 0.0),
+        C64::new(0.0, 1.0),
+        C64::new(0.0, -1.0),
+    ] {
         if (l - t).norm() < 1e-12 {
             return t;
         }
@@ -1098,7 +1165,11 @@ impl RankState {
     pub fn new(n: usize) -> RankState {
         RankState {
             n,
-            terms: vec![Term { c: C64::new(1.0, 0.0), st: ChState::zero_state(n), dirty: false }],
+            terms: vec![Term {
+                c: C64::new(1.0, 0.0),
+                st: ChState::zero_state(n),
+                dirty: false,
+            }],
             pair_merge_s: 6,
             pair_merge_max_r: 256,
             stats: RankStats::default(),
@@ -1136,11 +1207,33 @@ impl RankState {
                 s.cx_gate(b, a);
                 s.cx_gate(a, b);
             }),
-            T(q) => return self.projector_gate(C64::from_polar(1.0, FRAC_PI_4), &[Pauli::z(n, q, true)], C64::new(1.0, 0.0)),
-            Tdg(q) => return self.projector_gate(C64::from_polar(1.0, -FRAC_PI_4), &[Pauli::z(n, q, true)], C64::new(1.0, 0.0)),
-            Phase(q, t) => return self.projector_gate(C64::from_polar(1.0, t), &[Pauli::z(n, q, true)], C64::new(1.0, 0.0)),
+            T(q) => {
+                return self.projector_gate(
+                    C64::from_polar(1.0, FRAC_PI_4),
+                    &[Pauli::z(n, q, true)],
+                    C64::new(1.0, 0.0),
+                )
+            }
+            Tdg(q) => {
+                return self.projector_gate(
+                    C64::from_polar(1.0, -FRAC_PI_4),
+                    &[Pauli::z(n, q, true)],
+                    C64::new(1.0, 0.0),
+                )
+            }
+            Phase(q, t) => {
+                return self.projector_gate(
+                    C64::from_polar(1.0, t),
+                    &[Pauli::z(n, q, true)],
+                    C64::new(1.0, 0.0),
+                )
+            }
             Rz(q, t) => {
-                return self.projector_gate(C64::from_polar(1.0, t), &[Pauli::z(n, q, true)], C64::from_polar(1.0, -t / 2.0))
+                return self.projector_gate(
+                    C64::from_polar(1.0, t),
+                    &[Pauli::z(n, q, true)],
+                    C64::from_polar(1.0, -t / 2.0),
+                )
             }
             CPhase(a, b, t) => {
                 return self.projector_gate(
@@ -1152,7 +1245,11 @@ impl RankState {
             Ccx(a, b, t) => {
                 return self.projector_gate(
                     C64::new(-1.0, 0.0),
-                    &[Pauli::z(n, a, true), Pauli::z(n, b, true), Pauli::xp(n, t, true)],
+                    &[
+                        Pauli::z(n, a, true),
+                        Pauli::z(n, b, true),
+                        Pauli::xp(n, t, true),
+                    ],
                     C64::new(1.0, 0.0),
                 )
             }
@@ -1185,7 +1282,11 @@ impl RankState {
 
     /// Classifies a projector gate on one term; returns the action and, for
     /// `Branch`, the term `Πφ`.
-    pub fn classify(st: &ChState, lambda: C64, factors: &[Pauli]) -> (Action, Vec<Pauli>, Option<ChState>, bool) {
+    pub fn classify(
+        st: &ChState,
+        lambda: C64,
+        factors: &[Pauli],
+    ) -> (Action, Vec<Pauli>, Option<ChState>, bool) {
         let mut psi = st.clone();
         let mut eff: Vec<Pauli> = Vec::new();
         for p in factors {
@@ -1205,7 +1306,8 @@ impl RankState {
         let is = |t: C64| (l - t).norm() < 1e-12;
         let act = if m == 0 {
             Action::Diagonal
-        } else if (m == 1 && (is(C64::new(-1.0, 0.0)) || is(C64::new(0.0, 1.0)) || is(C64::new(0.0, -1.0))))
+        } else if (m == 1
+            && (is(C64::new(-1.0, 0.0)) || is(C64::new(0.0, 1.0)) || is(C64::new(0.0, -1.0))))
             || (m == 2 && is(C64::new(-1.0, 0.0)))
         {
             Action::Clifford
@@ -1264,7 +1366,11 @@ impl RankState {
                 Action::Branch => {
                     self.stats.branch_events += 1;
                     branched = true;
-                    new_terms.push(Term { c: t.c * (lambda - 1.0), st: psi.unwrap(), dirty: true });
+                    new_terms.push(Term {
+                        c: t.c * (lambda - 1.0),
+                        st: psi.unwrap(),
+                        dirty: true,
+                    });
                     t.dirty = true;
                 }
             }
@@ -1273,7 +1379,11 @@ impl RankState {
         for t in &mut self.terms {
             t.c *= global;
         }
-        if branched || (self.pair_merge_s > 0 && self.terms.len() <= self.pair_merge_max_r && self.terms.iter().any(|t| t.dirty)) {
+        if branched
+            || (self.pair_merge_s > 0
+                && self.terms.len() <= self.pair_merge_max_r
+                && self.terms.iter().any(|t| t.dirty))
+        {
             let t0 = std::time::Instant::now();
             let tabs = self.merge();
             let t1 = std::time::Instant::now();
@@ -1314,7 +1424,10 @@ impl RankState {
                     let x0 = out[i].st.support_point();
                     let ai = out[i].st.amplitude(&x0).to_c64();
                     let aj = t.st.amplitude(&x0).to_c64();
-                    assert!(ai.norm() > 0.0 && aj.norm() > 0.0, "support point not in support");
+                    assert!(
+                        ai.norm() > 0.0 && aj.norm() > 0.0,
+                        "support point not in support"
+                    );
                     contrib[i] = contrib[i].max(t.weight());
                     out[i].c += t.c * aj / ai;
                     out[i].dirty = true;
@@ -1349,7 +1462,9 @@ impl RankState {
     /// group (`s ≤ pair_merge_s`). Worklist over dirty terms.
     pub fn pair_merge(&mut self, mut tabs: Vec<Vec<Row>>) {
         loop {
-            let Some(i) = self.terms.iter().position(|t| t.dirty) else { return };
+            let Some(i) = self.terms.iter().position(|t| t.dirty) else {
+                return;
+            };
             let r = self.terms.len();
             let mut done = None;
             for j in 0..r {
@@ -1357,7 +1472,14 @@ impl RankState {
                     continue;
                 }
                 self.stats.pair_tests += 1;
-                if let Some(res) = try_pair(&self.terms[i], &self.terms[j], &tabs[i], &tabs[j], self.pair_merge_s, self.zero_tol) {
+                if let Some(res) = try_pair(
+                    &self.terms[i],
+                    &self.terms[j],
+                    &tabs[i],
+                    &tabs[j],
+                    self.pair_merge_s,
+                    self.zero_tol,
+                ) {
                     done = Some((j, res));
                     break;
                 }
@@ -1384,7 +1506,10 @@ impl RankState {
 
     /// Exact amplitude `⟨x|Ψ⟩`.
     pub fn amplitude(&self, x: &[u64]) -> C64 {
-        self.terms.iter().map(|t| t.c * t.st.amplitude(x).to_c64()).sum()
+        self.terms
+            .iter()
+            .map(|t| t.c * t.st.amplitude(x).to_c64())
+            .sum()
     }
 
     /// Dense state vector (small n).

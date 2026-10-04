@@ -59,11 +59,20 @@ use rand::Rng;
 
 /// Dense `P|ψ⟩` for `P = i^e X^x Z^z` (x, z as bit masks over n ≤ 16).
 fn pauli_apply(psi: &[C], x: usize, z: usize, e: u8) -> Vec<C> {
-    let ph = [C::new(1.0, 0.0), C::new(0.0, 1.0), C::new(-1.0, 0.0), C::new(0.0, -1.0)][e as usize % 4];
+    let ph = [
+        C::new(1.0, 0.0),
+        C::new(0.0, 1.0),
+        C::new(-1.0, 0.0),
+        C::new(0.0, -1.0),
+    ][e as usize % 4];
     let mut out = vec![C::new(0.0, 0.0); psi.len()];
     for (y, a) in psi.iter().enumerate() {
         // Z^z first, then X^x
-        let s = if (y & z).count_ones() % 2 == 1 { -1.0 } else { 1.0 };
+        let s = if (y & z).count_ones() % 2 == 1 {
+            -1.0
+        } else {
+            1.0
+        };
         out[y ^ x] += ph * a * s;
     }
     out
@@ -72,7 +81,6 @@ fn pauli_apply(psi: &[C], x: usize, z: usize, e: u8) -> Vec<C> {
 fn to_mask(b: &[u64]) -> usize {
     b[0] as usize
 }
-
 
 fn random_clifford(rng: &mut StdRng, n: usize, depth: usize) -> Circuit {
     random_circuit(rng, n, depth, true, false)
@@ -178,7 +186,11 @@ fn thm_r3_branching_criterion_is_exact() {
             let pp = pauli_apply(&pi_phi, to_mask(&p.x), to_mask(&p.z), p.e);
             pi_phi = pi_phi.iter().zip(&pp).map(|(a, b)| (a + b) * 0.5).collect();
         }
-        let uphi: Vec<C> = phi.iter().zip(&pi_phi).map(|(a, b)| a + (lambda - 1.0) * b).collect();
+        let uphi: Vec<C> = phi
+            .iter()
+            .zip(&pi_phi)
+            .map(|(a, b)| a + (lambda - 1.0) * b)
+            .collect();
         let nrm: f64 = uphi.iter().map(|x| x.norm_sqr()).sum::<f64>().sqrt();
         let unit: Vec<C> = uphi.iter().map(|x| x / nrm).collect();
         let is_stab = state_magic(&unit).nullity < 0.5;
@@ -190,7 +202,11 @@ fn thm_r3_branching_criterion_is_exact() {
             Action::Diagonal => nd += 1,
         }
         if (lambda.norm() - 1.0).abs() < 1e-12 {
-            assert_eq!(is_stab, act != Action::Branch, "it {it}: λ={lambda} act={act:?}");
+            assert_eq!(
+                is_stab,
+                act != Action::Branch,
+                "it {it}: λ={lambda} act={act:?}"
+            );
         } else if act != Action::Branch {
             // non-unitary λ: Clifford/Diagonal still must give a stabilizer ray
             assert!(is_stab || act == Action::Diagonal);
@@ -202,6 +218,7 @@ fn thm_r3_branching_criterion_is_exact() {
         let err = max_amp_diff(&uphi, got.into_iter());
         assert!(err < 1e-10, "it {it}: err {err} act {act:?}");
     }
+    eprintln!("R3 cases: branch {nb} clifford {nc} diagonal {nd}");
     assert!(nb > 100 && nc > 100 && nd > 100, "{nb} {nc} {nd}");
 }
 
@@ -320,9 +337,9 @@ fn grover_rank_two_at_iteration_boundaries() {
         let c = families::build(&format!("grover:n={n},it={it}"), 7).unwrap();
         let mut rs = RankState::new(c.num_qubits);
         assert!(rs.run(&c));
-        let per = c.num_gates() / it;
+        let per = (c.num_gates() - n) / it;
         for k in 1..=it {
-            assert_eq!(rs.stats.r[k * per - 1], 2, "n={n} iteration {k}");
+            assert_eq!(rs.stats.r[n + k * per - 1], 2, "n={n} iteration {k}");
         }
         assert!(rs.stats.max_r <= n, "n={n} max_r={}", rs.stats.max_r);
         if c.num_qubits <= 14 {
@@ -335,7 +352,11 @@ fn grover_rank_two_at_iteration_boundaries() {
 /// two basis branches never branch (r = 1 at every gate).
 #[test]
 fn thm_r4_two_branch_permutation_circuits_rank_one() {
-    for spec in ["shorwin:nbits=4,w=2,in=one", "shorwin:nbits=8,w=3,in=one", "cuccaro:bits=16,in=basis"] {
+    for spec in [
+        "shorwin:nbits=4,w=2,in=one",
+        "shorwin:nbits=8,w=3,in=one",
+        "cuccaro:bits=16,in=basis",
+    ] {
         let c = families::build(spec, 3).unwrap();
         let mut rs = RankState::new(c.num_qubits);
         assert!(rs.run(&c));

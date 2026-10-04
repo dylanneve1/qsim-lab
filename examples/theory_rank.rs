@@ -30,10 +30,21 @@ fn main() {
 
 fn profile(spec: &str, seed: u64, cap: usize) {
     let c = families::build(spec, seed).unwrap();
-    let opts = AtlasOptions { checkpoints: 0, entanglement: false, cut: None, support: false };
+    let opts = AtlasOptions {
+        checkpoints: 0,
+        entanglement: false,
+        cut: None,
+        support: false,
+    };
     let ap = magic_atlas::profile(&c, &opts).unwrap();
     let mut rs = RankState::new(c.num_qubits);
     rs.max_terms = cap;
+    if let Ok(v) = std::env::var("RANK_PM_MAXR") {
+        rs.pair_merge_max_r = v.parse().unwrap();
+    }
+    if let Ok(v) = std::env::var("RANK_PM_S") {
+        rs.pair_merge_s = v.parse().unwrap();
+    }
     let t0 = Instant::now();
     let ok = rs.run(&c);
     let secs = t0.elapsed().as_secs_f64();
@@ -47,7 +58,11 @@ fn profile(spec: &str, seed: u64, cap: usize) {
         for (k, gate) in gl.iter().enumerate() {
             sv.apply_gate(gate).unwrap();
             if marks.contains(&(k + 1)) {
-                let amps: Vec<C64> = sv.amplitudes().iter().map(|a| C64::new(a.re, a.im)).collect();
+                let amps: Vec<C64> = sv
+                    .amplitudes()
+                    .iter()
+                    .map(|a| C64::new(a.re, a.im))
+                    .collect();
                 let nu = magic_atlas::state_magic(&amps).nullity;
                 nu_max = nu_max.max(nu);
                 nu_end = nu;
@@ -57,7 +72,17 @@ fn profile(spec: &str, seed: u64, cap: usize) {
     }
     let g = c.num_gates();
     let r = &rs.stats.r;
-    let prof: Vec<usize> = (1..=20).map(|i| r.get((i * g / 20).saturating_sub(1).min(r.len().saturating_sub(1))).copied().unwrap_or(0)).collect();
+    let prof: Vec<usize> = (1..=20)
+        .map(|i| {
+            r.get(
+                (i * g / 20)
+                    .saturating_sub(1)
+                    .min(r.len().saturating_sub(1)),
+            )
+            .copied()
+            .unwrap_or(0)
+        })
+        .collect();
     println!(
         "{{\"spec\":\"{spec}\",\"n\":{},\"gates\":{g},\"toffolis\":{},\"rot\":{},\"t\":{},\"d\":{},\"f\":{},\"ok\":{ok},\"stopped_at\":{},\"max_r\":{},\"r_end\":{},\"branch\":{},\"cliff\":{},\"diag\":{},\"merges\":{},\"pair_merges\":{},\"cancel\":{},\"secs\":{secs:.4},\"prof\":{:?},\"nu_max\":{nu_max:.2},\"nu_end\":{nu_end:.2},\"nu_prof\":{nu_at:?}}}",
         c.num_qubits,
@@ -87,8 +112,18 @@ fn verify(spec: &str, seed: u64) {
     let mut rs = RankState::new(c.num_qubits);
     rs.run(&c);
     let v = rs.to_statevector();
-    let err = sv.amplitudes().iter().zip(&v).map(|(a, b)| (C64::new(a.re, a.im) - b).norm()).fold(0.0, f64::max);
-    println!("{{\"spec\":\"{spec}\",\"n\":{},\"max_r\":{},\"r_end\":{},\"max_amp_err\":{err:.3e}}}", c.num_qubits, rs.stats.max_r, rs.rank());
+    let err = sv
+        .amplitudes()
+        .iter()
+        .zip(&v)
+        .map(|(a, b)| (C64::new(a.re, a.im) - b).norm())
+        .fold(0.0, f64::max);
+    println!(
+        "{{\"spec\":\"{spec}\",\"n\":{},\"max_r\":{},\"r_end\":{},\"max_amp_err\":{err:.3e}}}",
+        c.num_qubits,
+        rs.stats.max_r,
+        rs.rank()
+    );
 }
 
 /// Grover on `n` search qubits with the atlas's Toffoli-ladder oracle
@@ -135,13 +170,23 @@ fn grover(n: usize, it: usize, seed: u64, samples: usize) {
             err_rel = err_rel.max((a - C64::new(ao, 0.0)).norm() / ao.abs());
         }
     }
-    eprintln!("t_merge {:.3} t_pair {:.3} pair_tests {}", rs.stats.t_merge, rs.stats.t_pair, rs.stats.pair_tests);
+    eprintln!(
+        "t_merge {:.3} t_pair {:.3} pair_tests {}",
+        rs.stats.t_merge, rs.stats.t_pair, rs.stats.pair_tests
+    );
     let r = &rs.stats.r;
     // ranks at the iteration boundaries
-    let per_it = c.num_gates() / it.max(1);
-    let bnd: Vec<usize> = (1..=it).map(|k| r[k * per_it - 1]).collect();
+    // the circuit is n H gates followed by `it` identical iterations
+    let per_it = (c.num_gates() - n) / it.max(1);
+    let bnd: Vec<usize> = (1..=it).map(|k| r[n + k * per_it - 1]).collect();
+    let bnd_max = bnd.iter().copied().max().unwrap_or(0);
+    let bnd: Vec<usize> = if bnd.len() > 16 {
+        bnd[..16].to_vec()
+    } else {
+        bnd
+    };
     println!(
-        "{{\"n_search\":{n},\"qubits\":{nq},\"it\":{it},\"gates\":{},\"toffolis\":{},\"max_r\":{},\"r_end\":{},\"r_at_iteration_ends\":{bnd:?},\"branch\":{},\"cliff\":{},\"merges\":{},\"pair_merges\":{},\"cancel\":{},\"secs\":{secs:.3},\"amp_w\":{:.6e},\"amp_w_exact\":{aw:.6e},\"amp_other_exact\":{ao:.6e},\"max_rel_err\":{err_rel:.2e},\"max_dirty_rel\":{err_dirty:.2e}}}",
+        "{{\"n_search\":{n},\"qubits\":{nq},\"it\":{it},\"gates\":{},\"toffolis\":{},\"max_r\":{},\"r_end\":{},\"r_at_iteration_ends\":{bnd:?},\"max_r_at_iteration_ends\":{bnd_max},\"branch\":{},\"cliff\":{},\"merges\":{},\"pair_merges\":{},\"cancel\":{},\"secs\":{secs:.3},\"amp_w\":{:.6e},\"amp_w_exact\":{aw:.6e},\"amp_other_exact\":{ao:.6e},\"max_rel_err\":{err_rel:.2e},\"max_dirty_rel\":{err_dirty:.2e}}}",
         c.num_gates(),
         c.gates().filter(|g| matches!(g, qsim_lab::Gate::Ccx(..))).count(),
         rs.stats.max_r,
