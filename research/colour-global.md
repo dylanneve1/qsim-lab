@@ -1,6 +1,6 @@
 # Colour-code syndrome schedules: global search and optimality certificates
 
-Branch `exp/colour-global` (from `main` = dd26f4b). Code and data: `research/data/colour-global/`.
+Branch `exp/colour-global` (rebased on `main` = a4e9da2; the QEC code is unchanged since dd26f4b). Code and data: `research/data/colour-global/`.
 This follows `research/qec-r4.md` Part 2. Setting: triangular 6.6.6 colour code, Kishony–Fowler (K–F, arXiv:2603.28852) layout and round structure, Z memory, noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated.
 
 **K–F's design space** (what qec-r4's local search explored):
@@ -17,11 +17,20 @@ K–F's schedule has d_circ = d − ⌊(d+3)/6⌋: 4, 6, 7, 9, 10 at d = 5, 7, 9
    - So K–F is optimal at d = 5 and 7.
 2. **d = 9: K–F is *not* optimal in their own design space.** An exact counterexample-guided SAT search found a schedule with **d_circ = 8** (K–F: 7), which is optimal by item 1. Independent checks:
    - the circuit-level Rust branch and bound gives 8, certified, in both bases over 9 rounds;
-   - Stim's undetectable-logical search finds 8 against 7 for K–F, over 1 and 3 rounds;
+   - Stim's undetectable-logical search finds 8 against 7 for K–F over the full 9 rounds in both bases. It is an upper bound;
+   - our exact search on **Stim's own DEM** of the exported circuit finds no logical of weight ≤ 7 in either basis;
+   - a line-by-line diff of the exported circuits shows the new one is K–F's circuit with only the CNOT order changed (6 + 6 layers, same CNOT pairs, the X half repeating the Z-half schedule, noiselessly deterministic);
    - the uniform depolarizing model also gives 8.
 
-   Logical error per round, same decoder, compared with K–F: **0.58× [0.54, 0.62] at p = 0.3%, 0.50× [0.44, 0.57] at 0.2%, 0.41× [0.33, 0.50] at 0.15%, 0.26× [0.20, 0.34] at 0.1%**. The ratio falls with p, as an extra unit of distance should. qec-r4's N_min-halving schedule gave 1.02× at p = 0.3%.
-3. **d = 11: K–F *is* optimal in their design space**: D = 10 is UNSAT (DRAT-verified; 140,531 cuts). The cheapest relaxation that recovers d − 1 = 10 is **one extra CNOT layer per half** (7 + 7, still one collision-free schedule for both halves). Its circuit-level check gives 10 in both bases (1 round; Stim agrees). Decoupling the X and Z schedules at 6 layers does not help (UNSAT).
+   **The logical-error gain depends on the decoder.**
+   - With our BP+OSD the new schedule's logical error per round, compared with K–F, is **0.58× [0.54, 0.62] at p = 0.3%, 0.50× at 0.2%, 0.41× at 0.15% and 0.26× [0.20, 0.34] at 0.1%**.
+   - With Tesseract, a near-optimal decoder (light setting), it is **0.95× [0.61, 1.48] at p = 0.3% and 0.97× [0.71, 1.34] at 0.5%**: no measurable gain.
+   - This is expected. Going from 7 to 8 does not raise the number of correctable faults (⌊(d_circ − 1)/2⌋ = 3 for both), so for a near-optimal decoder both schedules first fail at 4 faults.
+   - The circuit-distance improvement is certified; a decoder-independent logical-error improvement at d = 9 is not shown.
+3. **d = 11: K–F *is* optimal in their design space**: D = 10 is UNSAT (DRAT-verified; 140,531 cuts).
+   - The cheapest relaxation that recovers d − 1 = 10 is **one extra CNOT layer per half** (7 + 7, still one collision-free schedule for both halves). The circuit-level check gives 10 in both bases over 1 round and in Z over 2 rounds; Stim agrees over 1 round.
+   - Decoupling the X and Z schedules at 6 layers does not help (UNSAT, DRAT-verified).
+   - As at d = 9, this is an even step (9 → 10), with the same caveat as item 2.
 4. **Why qec-r4's local search never raised d_circ at d = 9.** Freezing the interior plaquettes at K–F and freeing the 21 boundary-touching ones (exactly that search space) makes 8 impossible (DRAT-verified UNSAT). Interior plaquettes next to the boundary must change.
 5. **Reaching the full distance d** needs every boundary-touching plaquette (3d − 6 of them) to be **fully hook-free** (flag-protected, or ≥ 3 auxiliaries on hexagons).
    - 3d − 7 is UNSAT for any choice of plaquettes, any order and any depth (d = 5, 7, 9).
@@ -132,7 +141,7 @@ The UNSAT itself is solver-independent, checked by drat-trim.
 | uniform depolarizing, Z, 1 round | same | 7 | **8** |
 | exact lower bound from **Stim's own DEM** (Z / X sector), 9 rounds | Stim DEM + our B&B (`stim_dem_distance.py`) | — | **≥ 8 / ≥ 8** |
 | Stim 1.16 `search_for_undetectable_logical_errors` (upper bound), 1 / 3 rounds, Z | Stim, `ev ≤ 4`, `deg ≤ 6` | 7 / 7 | **8 / 8** |
-| same, 9 rounds, Z / X | Stim on the Mac, `ev ≤ 4`, `deg ≤ 10` (no edge pruning; max DEM degree is 10) | STIMR9KF | STIMR9NEW |
+| same, 9 rounds, Z / X | Stim on the Mac, `ev ≤ 4`, `deg ≤ 10` (no edge pruning; max DEM degree is 10) | 7 / 7 | **8 / 8** (18 min, 7.4 GB) |
 
 **Design-space diff** (`design_space_diff.py`, `runs/design_space_diff_d9.txt`). The exported 9-round circuits of K–F and the new schedule were diffed in both bases:
 - all 1,865 (Z) / 2,108 (X) lines other than CX/DEPOLARIZE2 are identical and in order: resets, H, measurements, detectors, observable, noise and qubit layout;
@@ -146,12 +155,12 @@ So the new circuit is K–F's circuit with only the CNOT order changed.
 
 **Why Stim's search is only an upper bound.** With `dont_explore_edges_with_degree_above` = 10 (the DEM's maximum), nothing is pruned by edge degree. The cap on explored detection-event-set size (4) remains. Lifting it makes the breadth-first search exhaustive but infeasible: it would enumerate every reachable event set of ≤ 7 errors among about 16,600 mechanisms. Exactness therefore comes from the branch and bound, run on our DEM *and* on Stim's DEM, which agree: no logical of weight ≤ 7. Stim's search then supplies an independent weight-8 logical.
 
-The schedule changes almost every plaquette, interior ones included; `d9_D8_kf_fixint` shows the interior *must* change. The price is more minimum-weight logicals at the higher weight (10,119 at weight 8 against 36 at weight 7, over 1 round). That is why the gain grows as p falls.
+The schedule changes almost every plaquette, interior ones included; `d9_D8_kf_fixint` shows the interior *must* change. The price is more minimum-weight logicals at the higher weight (10,119 at weight 8 against 36 at weight 7, over 1 round). With a near-optimal decoder that larger count offsets the higher weight (§4.1).
 
 ### 4.1 Logical error rate (d = 9, 9 rounds, noisy CNOT, Z memory)
 
 - Same BP+OSD-CS decoder on both arms (order 100, Z sector, `examples/color_ler.rs`), independent samples.
-- Mac M1 Pro, 8 threads. Each ≤ 150 s chunk held the bench lock; arms interleaved chunk by chunk (`ler_chunks.sh`, `ler2.sh`; raw data `cg_ler_d9.jsonl`, `cg_ler_d9_p001.jsonl`).
+- Mac M1 Pro, 8 threads. Each ≤ 150 s chunk held the bench lock; arms interleaved chunk by chunk (`ler_chunks.sh`, `mac_ler2_tess_scripts.txt`; raw data `cg_ler_d9.jsonl`, `cg_ler_d9_p001.jsonl`).
 - Ratio CI from the log-ratio normal approximation (`ler_summary.py`).
 
 | p | K–F p_L/round (fails / shots) | new p_L/round (fails / shots) | ratio new / K–F [95% CI] |
@@ -161,7 +170,24 @@ The schedule changes almost every plaquette, interior ones included; `d9_D8_kf_f
 | 0.15% | 1.262e-05 (318 / 2800128) | 5.119e-06 (129 / 2800128) | **0.406 [0.331, 0.498]** |
 | 0.10% | 3.472e-06 (250 / 8000000) | 8.889e-07 (64 / 8000000) | **0.256 [0.195, 0.337]** |
 
-For comparison, the qec-r4 LNS schedule (N_min 492 → 255 at the same d_circ = 7) gave 1.02× [0.94, 1.11] at p = 0.3%: a flat ratio. Here it falls 0.58 → 0.50 → 0.41 → 0.26 from p = 0.3% to 0.1%, the signature of the distance gain.
+With BP+OSD the ratio falls with p: 0.58 → 0.50 → 0.41 → 0.26 from p = 0.3% to 0.1%. The qec-r4 LNS schedule (N_min 492 → 255 at the same d_circ = 7) gave 1.02× [0.94, 1.11] at p = 0.3% with this decoder.
+
+**Second decoder: Tesseract.** These runs use our samples and DEM (`tesseract_ler.py` from qec-r4) with `det_orders = 1`, `det_beam = 5`. That is lighter than K–F's 16 / 15, because the full setting decodes only about 18 shots/s at d = 9, 9 rounds. Interleaved 8,192-shot chunks on the Mac (`mac_ler2_tess_scripts.txt`; raw data `cg_tess_d9_b5.jsonl`).
+
+| p | K–F p_L/round (fails / shots) | new p_L/round (fails / shots) | ratio new / K–F [95% CI] |
+|---|---|---|---|
+| 0.50% | 5.175e-04 (76 / 16384) | 5.039e-04 (74 / 16384) | **0.974 [0.707, 1.341]** |
+| 0.30% | 3.973e-05 (41 / 114688) | 3.780e-05 (39 / 114688) | **0.951 [0.614, 1.475]** |
+
+Tesseract fails about 5× less often than our BP+OSD here and sees **no difference** between the schedules. Chromobius was tried as a third decoder (`chromobius_ler.py`) and cannot be used: it fails to decompose the weight-3 hook errors of K–F's own circuit.
+
+How to read this:
+- d_circ 7 → 8 does not raise the number of faults a minimum-distance decoder always corrects: ⌊(d_circ − 1)/2⌋ = 3 for both. Both schedules first fail at 4 faults.
+  - For K–F: 4 faults on a weight-7 logical, always a failure.
+  - For the new schedule: 4 faults on a weight-8 logical, a tie that fails half the time. C(8,4)/2 = C(7,4) = 35 configurations per logical in both cases.
+- So for a good decoder the leading-order coefficients are comparable, not suppressed by a factor p.
+- The large BP+OSD gain most likely reflects BP+OSD failing on lower-weight fault patterns of K–F's circuit (its weight-3 hooks). It is real for that decoder but decoder-specific.
+- An LER gain that a near-optimal decoder would also see needs an odd step: d_circ 7 → 9 at d = 9. §6 shows that needs hook-free boundary plaquettes and a 7th CNOT layer.
 
 ## 5. d = 11 and beyond
 
@@ -178,11 +204,12 @@ Checks of the 7-layer d = 11 schedule (14 CNOT layers per round against K–F's 
 |---|---|---|
 | Rust circuit DEM, Z and X memory, 1 round, certified | 9 | **10 / 10** (≈ 150 s each) |
 | Stim upper bound, 1 round | 9 | **10** |
-| Rust circuit DEM, Z memory, 3 rounds | 9 (formula) | D11R3 |
+| Rust circuit DEM, Z memory, 2 rounds, certified | 9 (formula) | **10** (1,724 s) |
+| same, 3 rounds | | not finished (stopped after 79 min) |
 
 So the boundary deficit is not monotone in the design space. At d = 9 K–F's 6 + 6-layer space has slack (8 is reachable). At d = 11 it does not, and one extra layer per half restores d − 1.
 
-**d = 13**: D13STATUS
+**d = 13** (K–F: 10; corner bound 12). `cg_sat.py 13 11 1 kf --warm --sym` (D = 11, K–F's 6 + 6-layer space) was stopped by its 45-minute cap, unresolved, after 250 iterations and 106,677 cuts. It was still finding weight-9 logicals (about 20 s per distance call). So d = 13 is open; the CEGAR scales to d = 11 in about 15–20 min per query.
 
 ## 6. Relaxations: what unlocks more distance
 
@@ -198,8 +225,8 @@ So the boundary deficit is not monotone in the design space. At d = 9 K–F's 6 
 | same with 7 + 7 layers | | | **9** (1, 3 and 9 rounds) | — | `schedules/d9_hookfree_boundary_T7.found.json` |
 
 The cheapest relaxations:
-- **To d − 1**, free at d ≤ 9 (K–F's space suffices); **+1 CNOT layer per half at d = 11**.
-- **To d**: fully hook-free measurement of all 3d − 6 boundary-touching plaquettes (minimal in count), plus a 7th layer per half from d = 9. More layers, decoupled schedules or cat-pair auxiliaries alone never get past d − 1.
+- **To d − 1**, free at d ≤ 9 (K–F's space suffices); **+1 CNOT layer per half at d = 11**. Both d − 1 values are even, so they do not raise the number of correctable faults over K–F's d − 2 (§4.1).
+- **To d**, the first odd step and the one that changes the fault-tolerance order: fully hook-free measurement of all 3d − 6 boundary-touching plaquettes (minimal in count), plus a 7th layer per half from d = 9. More layers, decoupled schedules or cat-pair auxiliaries alone never get past d − 1.
 
 ## 7. Caveats
 

@@ -20,3 +20,11 @@ iter 140: weight 9 count 85, +213 cuts (total 62847), sat 0.00s dist 16.89s, ela
 iter 150: weight 9 count 604, +1509 cuts (total 66312), sat 0.00s dist 24.44s, elapsed 1577s
 iter 160: weight 8 count 6, +15 cuts (total 69159), sat 0.01s dist 2.88s, elapsed 1642s
 iter 170: weight 9 count 255, +603 cuts (total 74916), sat 0.01s dist 18.83s, elapsed 1802s
+iter 180: weight 8 count 8, +21 cuts (total 78417), sat 0.25s dist 2.22s, elapsed 1953s
+iter 190: weight 9 count 412, +996 cuts (total 84210), sat 0.00s dist 11.86s, elapsed 2036s
+iter 200: weight 9 count 263, +618 cuts (total 88320), sat 0.00s dist 19.97s, elapsed 2140s
+iter 210: weight 9 count 965, +2211 cuts (total 92505), sat 0.00s dist 15.21s, elapsed 2213s
+iter 220: weight 8 count 10, +27 cuts (total 96528), sat 0.00s dist 2.86s, elapsed 2319s
+iter 230: weight 9 count 68, +135 cuts (total 100647), sat 0.00s dist 18.57s, elapsed 2467s
+iter 240: weight 9 count 515, +1317 cuts (total 102072), sat 0.00s dist 19.89s, elapsed 2542s
+iter 250: weight 9 count 241, +585 cuts (total 106677), sat 0.00s dist 17.84s, elapsed 2637s

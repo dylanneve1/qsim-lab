@@ -29,9 +29,9 @@ fn d9_global_schedule_is_in_kf_design_space() {
     assert!(cc.collisions(&s).is_empty(), "{:?}", cc.collisions(&s));
     // every present position uses a step in 1..=6, so the round has 6 + 6 CNOT layers
     for (p, row) in cc.plaquettes.iter().zip(&s) {
-        for k in 0..6 {
-            if p.data[k].is_some() {
-                assert!((1..=6).contains(&row[k]));
+        for (dq, &t) in p.data.iter().zip(row) {
+            if dq.is_some() {
+                assert!((1..=6).contains(&t));
             }
         }
     }

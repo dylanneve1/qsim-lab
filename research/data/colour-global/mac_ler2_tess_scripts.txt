@@ -1,0 +1,61 @@
+#!/bin/bash
+# Second decoder: Tesseract (det_orders=1, det_beam=5: a lighter setting than K-F's 16/15, for speed),
+# d=9, 9 rounds, noisy CNOT p=0.3%, K-F vs new, interleaved 8192-shot chunks.
+cd ~/qsim-cg/wt
+rm -f ~/qsim-cg/STOP
+S=research/data/colour-global/schedules/d9_global_D8.sched
+TOUT=~/qsim-wt-logs/cg_tess_d9_b5.jsonl
+for c in $(seq 1 14); do
+  for arm in kf $S; do
+    seed=$(( 9300000 + c * 1000 + ${#arm} ))
+    WORK=~/qsim-cg/work TESS_ORDERS=1 TESS_BEAM=5 TESS_CHUNK=64 ~/qsim-cg-venv/bin/python ~/qsim-cg/tesseract_ler.py \
+      target/release/examples/color_search target/release/examples/stim_compare 9 9 cnot 0.003 $arm 8192 $seed 7 >> $TOUT 2>&1
+  done
+  [ -f ~/qsim-cg/STOP ] && break
+done
+echo DONE >> $TOUT
+#!/bin/bash
+# continue the Tesseract comparison after tess.sh: more shots at p=0.3%, then p=0.5% and 0.4%
+until grep -q DONE ~/qsim-wt-logs/cg_tess_d9_b5.jsonl 2>/dev/null; do sleep 10; done
+cd ~/qsim-cg/wt
+S=research/data/colour-global/schedules/d9_global_D8.sched
+TOUT=~/qsim-wt-logs/cg_tess_d9_b5.jsonl
+run() { p=$1; n=$2; base=$3
+  for c in $(seq 1 $n); do
+    for arm in kf $S; do
+      seed=$(( base + c * 1000 + ${#arm} ))
+      WORK=~/qsim-cg/work TESS_ORDERS=1 TESS_BEAM=5 TESS_CHUNK=64 ~/qsim-cg-venv/bin/python ~/qsim-cg/tesseract_ler.py \
+        target/release/examples/color_search target/release/examples/stim_compare 9 9 cnot $p $arm 8192 $seed 7 >> $TOUT 2>&1
+    done
+    [ -f ~/qsim-cg/STOP ] && return
+  done
+}
+run 0.005 4 9500000
+run 0.004 5 9600000
+run 0.003 14 9700000
+echo DONE2 >> $TOUT
+#!/bin/bash
+# (1) BP+OSD at p = 0.1% (d=9, 9 rounds, noisy CNOT), K-F vs new, interleaved ~2-min chunks.
+# (2) Tesseract (det_orders=4, beam 15) at p = 0.3%, interleaved chunks.
+cd ~/qsim-cg/wt
+S=research/data/colour-global/schedules/d9_global_D8.sched
+L=./target/release/examples/color_ler
+OUT=~/qsim-wt-logs/cg_ler_d9_p001.jsonl
+for c in 1 2 3 4 5 6 7 8; do
+  for arm in kf $S; do
+    seed=$(( 8100000 + c * 1000 + ${#arm} ))
+    r=$($L 9 9 cnot 0.001 $arm 1000000 $seed 8 100)
+    echo "{\"chunk\":$c,\"seed\":$seed,\"r\":$r}" >> $OUT
+  done
+done
+echo DONE >> $OUT
+TOUT=~/qsim-wt-logs/cg_tess_d9.jsonl
+for c in $(seq 1 40); do
+  for arm in kf $S; do
+    seed=$(( 9100000 + c * 1000 + ${#arm} ))
+    WORK=~/qsim-cg/work TESS_ORDERS=4 TESS_CHUNK=64 ~/qsim-cg-venv/bin/python ~/qsim-cg/tesseract_ler.py \
+      target/release/examples/color_search target/release/examples/stim_compare 9 9 cnot 0.003 $arm 4096 $seed 7 >> $TOUT 2>&1
+  done
+  [ -f ~/qsim-cg/STOP ] && break
+done
+echo DONE >> $TOUT

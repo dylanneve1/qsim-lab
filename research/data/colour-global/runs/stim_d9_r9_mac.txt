@@ -1,0 +1,10 @@
+# Stim 1.16 search_for_undetectable_logical_errors, Mac M1 Pro, full 9-round d=9 circuits (noisy CNOT p=0.001)
+# dont_explore_detection_event_sets_with_size_above=4, dont_explore_edges_with_degree_above=10 (= max DEM degree), canonicalize_circuit_errors=True
+kf_d9_r9_z.stim stim upper bound: 7 (155.7s, ev<=4, deg<=10)
+kf_d9_r9_z: peak RSS 4679104 kB
+new_d9_r9_z.stim stim upper bound: 8 (1056.6s, ev<=4, deg<=10)
+new_d9_r9_z: peak RSS 7380864 kB
+kf_d9_r9_x.stim stim upper bound: 7 (198.0s, ev<=4, deg<=10)
+kf_d9_r9_x: peak RSS 4716912 kB
+new_d9_r9_x.stim stim upper bound: 8 (879.5s, ev<=4, deg<=10)
+new_d9_r9_x: peak RSS 7057024 kB
