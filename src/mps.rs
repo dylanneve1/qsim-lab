@@ -81,6 +81,53 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
     panic!("SVD did not converge (after adjoint and phase-scrambled retries)");
 }
 
+/// Operation counts of an [`Mps`] run (see [`Mps::stats`]), in the units of
+/// [`svd_work`] / [`qr_work`] / [`matmul_work`]. Used by the planner's MPS
+/// cost model (`crate::mps_cost`), which replays the same control flow
+/// symbolically.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MpsStats {
+    /// SVD calls (one per adjacent two-qubit application, SWAPs included).
+    pub svd_calls: u64,
+    /// `Σ m·n·min(m, n)` over the SVDs (matrix `m × n`).
+    pub svd_work: f64,
+    /// QR calls made while moving the orthogonality centre.
+    pub qr_calls: u64,
+    /// Work of those QRs and of the products that follow them.
+    pub qr_work: f64,
+    /// Work of forming the two-site tensor and applying the gate.
+    pub mm_work: f64,
+    /// Work of one-qubit gates (`dl · dr` each).
+    pub oneq_work: f64,
+}
+
+impl MpsStats {
+    /// Total in one unit, with `svd_weight` per SVD work unit and
+    /// `call_overhead` units per SVD/QR call (fixed per-call cost).
+    pub fn total(&self, svd_weight: f64, call_overhead: f64) -> f64 {
+        svd_weight * self.svd_work
+            + self.qr_work
+            + self.mm_work
+            + self.oneq_work
+            + call_overhead * (self.svd_calls + self.qr_calls) as f64
+    }
+}
+
+/// Work units of a thin SVD of an `m × n` matrix.
+pub fn svd_work(m: usize, n: usize) -> f64 {
+    (m * n * m.min(n)) as f64
+}
+
+/// Work units of a thin QR of an `m × n` matrix.
+pub fn qr_work(m: usize, n: usize) -> f64 {
+    (m * n * m.min(n)) as f64
+}
+
+/// Work units of an `a × b` by `b × c` product.
+pub fn matmul_work(a: usize, b: usize, c: usize) -> f64 {
+    (a * b * c) as f64
+}
+
 /// A matrix product state.
 #[derive(Clone, Debug)]
 pub struct Mps {
@@ -95,6 +142,9 @@ pub struct Mps {
     /// of the fidelity with the exact state.
     fidelity: f64,
     truncations: usize,
+    stats: MpsStats,
+    /// Kept bond dimension after every SVD, in order (if enabled).
+    trace: Option<Vec<u32>>,
 }
 
 impl Mps {
@@ -114,7 +164,24 @@ impl Mps {
             cutoff: 1e-14,
             fidelity: 1.0,
             truncations: 0,
+            stats: MpsStats::default(),
+            trace: None,
         }
+    }
+
+    /// Operation counts since construction (or the last [`Mps::reset_all`]).
+    pub fn stats(&self) -> MpsStats {
+        self.stats
+    }
+
+    /// Starts recording the kept bond dimension of every SVD.
+    pub fn enable_trace(&mut self) {
+        self.trace = Some(Vec::new());
+    }
+
+    /// The recorded bond trace (empty unless [`Mps::enable_trace`] was called).
+    pub fn trace(&self) -> &[u32] {
+        self.trace.as_deref().unwrap_or(&[])
     }
 
     /// Relative cutoff: singular values with `s^2 / sum s^2` below this are
@@ -139,6 +206,10 @@ impl Mps {
         self.center = 0;
         self.fidelity = 1.0;
         self.truncations = 0;
+        self.stats = MpsStats::default();
+        if let Some(t) = &mut self.trace {
+            t.clear();
+        }
     }
 
     /// Bond dimensions between neighbouring sites (`n - 1` entries).
@@ -207,6 +278,13 @@ impl Mps {
     fn move_center(&mut self, to: usize) {
         while self.center < to {
             let i = self.center;
+            let (m, k, k2) = (
+                2 * self.sites[i].dl,
+                self.sites[i].dr,
+                2 * self.sites[i + 1].dr,
+            );
+            self.stats.qr_calls += 1;
+            self.stats.qr_work += qr_work(m, k) + matmul_work(m.min(k), k, k2);
             let qr = self.site_matrix_left(i).qr();
             let (q, r) = (qr.compute_thin_Q(), qr.thin_R().to_owned());
             self.set_from_left(i, &q);
@@ -216,6 +294,13 @@ impl Mps {
         }
         while self.center > to {
             let i = self.center;
+            let (m, k, k2) = (
+                2 * self.sites[i].dr,
+                self.sites[i].dl,
+                2 * self.sites[i - 1].dl,
+            );
+            self.stats.qr_calls += 1;
+            self.stats.qr_work += qr_work(m, k) + matmul_work(k2, k, m.min(k));
             // M = L Q with Q having orthonormal rows: QR of M†.
             let qr = self.site_matrix_right(i).adjoint().qr();
             let (q, r) = (qr.compute_thin_Q(), qr.thin_R().to_owned());
@@ -230,6 +315,7 @@ impl Mps {
 
     /// Applies a 2x2 unitary to qubit `q` (no change of bond dimension).
     pub fn apply_1q(&mut self, q: usize, m: &Mat2) {
+        self.stats.oneq_work += (self.sites[q].dl * self.sites[q].dr) as f64;
         let s = &mut self.sites[q];
         let dr = s.dr;
         for l in 0..s.dl {
@@ -247,6 +333,10 @@ impl Mps {
     fn apply_2q_adjacent(&mut self, i: usize, g: &Mat4) {
         self.move_center(i);
         let (dl, dr) = (self.sites[i].dl, self.sites[i + 1].dr);
+        let dm = self.sites[i].dr;
+        self.stats.mm_work += matmul_work(2 * dl, dm, 2 * dr) + (4 * dl * dr) as f64;
+        self.stats.svd_calls += 1;
+        self.stats.svd_work += svd_work(2 * dl, 2 * dr);
         // theta[(l, s1), (s2, r)] = sum_m A[l, s1, m] B[m, s2, r]
         let theta = &self.site_matrix_left(i) * &self.site_matrix_right(i + 1);
         debug_assert_eq!((theta.nrows(), theta.ncols()), (dl * 2, 2 * dr));
@@ -277,6 +367,9 @@ impl Mps {
             }
             keep += 1;
             kept_w += w;
+        }
+        if let Some(t) = &mut self.trace {
+            t.push(keep as u32);
         }
         let discarded = ((total - kept_w) / total).max(0.0);
         if discarded > 1e-15 {
