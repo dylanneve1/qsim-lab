@@ -40,6 +40,8 @@ pub mod blocked;
 pub mod circuit;
 pub mod compile;
 pub mod dag;
+pub mod dense_fusion;
+mod dense_kernels;
 pub mod gate;
 pub mod hsf;
 pub mod magic_atlas;

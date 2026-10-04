@@ -45,15 +45,17 @@ fn check<T: Real>(c: &Circuit, cfg: &BlockConfig, seed: u64, tol: f64) {
 }
 
 /// Configurations that force every code path at small n: tiny blocks,
-/// few or many slots, with and without 1q fusion.
+/// few or many slots, with and without 1q fusion, L1 tiling and dense
+/// k-qubit fusion.
 fn configs() -> Vec<BlockConfig> {
     let mut v = Vec::new();
-    for (kib, slots, fuse, split, sched, tile) in [
-        (1, 2, true, true, true, 0),
-        (1, 4, false, false, true, 128),
-        (2, 0, true, false, false, 256),
-        (4, 3, true, true, false, 512),
-        (256, 6, true, true, true, 4096),
+    for (kib, slots, fuse, split, sched, tile, dense) in [
+        (1, 2, true, true, true, 0, 0),
+        (1, 4, false, false, true, 128, 2),
+        (2, 0, true, false, false, 256, 3),
+        (4, 3, true, true, false, 512, 0),
+        (256, 6, true, true, true, 4096, 2),
+        (8, 3, true, false, true, 0, 3),
     ] {
         v.push(BlockConfig {
             block_bytes: kib << 10,
@@ -64,6 +66,8 @@ fn configs() -> Vec<BlockConfig> {
             schedule_diag: sched,
             simd: true,
             l1_tile_bytes: tile,
+            dense_fusion: dense,
+            dense_min_ops: 1,
         });
     }
     v
