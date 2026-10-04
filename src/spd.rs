@@ -111,7 +111,7 @@ impl Lattice {
         let mut idx = vec![vec![usize::MAX; row_len]; rows];
         let mut edges = Vec::new();
         let mut next = 0usize;
-        let mut row_ids = |r: usize, next: &mut usize, idx: &mut Vec<Vec<usize>>| {
+        let row_ids = |r: usize, next: &mut usize, idx: &mut Vec<Vec<usize>>| {
             for (o, slot) in idx[r].iter_mut().enumerate() {
                 let present = !(r == 0 && o == row_len - 1) && !(r == rows - 1 && o == 0);
                 if present {
@@ -470,11 +470,6 @@ struct Ctx<'a, const W: usize> {
 struct Acc {
     l1: f64,
     l2sq: f64,
-}
-
-#[inline]
-fn popcnt<const W: usize>(a: &[u64; W]) -> u32 {
-    a.iter().map(|w| w.count_ones()).sum()
 }
 
 impl<'a, const W: usize> Ctx<'a, W> {
