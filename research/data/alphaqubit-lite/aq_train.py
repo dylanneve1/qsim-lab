@@ -46,6 +46,16 @@ ap.add_argument("--max-minutes", type=float, default=45.0)
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
 ap.add_argument("--compile", type=int, default=1)
+# paper's noise curriculum (Methods eq. 6-7): sample DEM scale f with p_f(t) ~ 1 + w_c G(f_c(t), sigma_c; f),
+# f_c(t) = f_min + (1 - f_min) / (1 + exp(-s_c (t / t_c - 1))), t = training examples seen
+ap.add_argument("--curr-tc", type=float, default=0, help="t_c in examples (0 = no noise curriculum)")
+ap.add_argument("--curr-wc", type=float, default=12.0)
+ap.add_argument("--curr-sigma", type=float, default=0.05)
+ap.add_argument("--curr-fmin", type=float, default=0.0)
+ap.add_argument("--curr-sc", type=float, default=1.0)
+# rounds curriculum (paper, Pauli+ runs): max R grows linearly from --rmax0 to max(rounds) over --rcurr examples
+ap.add_argument("--rmax0", type=int, default=0)
+ap.add_argument("--rcurr", type=float, default=0)
 ap.add_argument("--eval-split", default="test")
 ap.add_argument("--eval-rounds", default=None, help="round counts for dev/test (default: --rounds)")
 ap.add_argument("--source", default="pij", help="pretraining sample source tag (aq_gen --source)")
@@ -101,8 +111,8 @@ for e in exps:
     DEV[key] = rows[tr_idx[len(tr_idx) - a.dev_shots:]]
     TEST[key] = (rows[te_idx], te_idx)
     if a.mode == "pretrain" and e["R"] in rounds:
-        SIM[key] = np.concatenate([np.load(os.path.join(a.data, "sim", f"{e['name']}.{a.source}.s{sc}.npy"))
-                                   for sc in a.scales.split(",")])
+        for sc in a.scales.split(","):
+            SIM.setdefault(float(sc), {})[key] = np.load(os.path.join(a.data, "sim", f"{e['name']}.{a.source}.s{sc}.npy"))
     if e["R"] not in rounds:
         TRAIN.pop(key)
     if e["R"] not in ap_eval_rounds:
@@ -203,7 +213,25 @@ if a.mode == "eval":
     sys.exit(0)
 
 # ------------------------------------------------------------------ training
-pool = SIM if a.mode == "pretrain" else TRAIN
+SCALES = sorted(SIM) if a.mode == "pretrain" else [1.0]
+
+
+def pick_pool(seen):
+    if a.mode != "pretrain":
+        return TRAIN
+    if a.curr_tc <= 0 or len(SCALES) == 1:
+        return SIM[SCALES[-1]] if len(SCALES) == 1 else SIM[SCALES[rng.integers(len(SCALES))]]
+    fc = a.curr_fmin + (1 - a.curr_fmin) / (1 + np.exp(-a.curr_sc * (seen / a.curr_tc - 1)))
+    w = np.array([1 + a.curr_wc * np.exp(-0.5 * ((f - fc) / a.curr_sigma) ** 2) for f in SCALES])
+    return SIM[SCALES[rng.choice(len(SCALES), p=w / w.sum())]]
+
+
+def pick_rounds(seen):
+    if a.rmax0 <= 0 or a.rcurr <= 0:
+        return int(rng.choice(rounds))
+    rmax = a.rmax0 + (max(rounds) - a.rmax0) * min(1.0, seen / a.rcurr)
+    ok = [r for r in rounds if r <= rmax] or [min(rounds)]
+    return int(rng.choice(ok))
 anchor = tree_map(lambda p: mx.array(p), model.parameters()) if a.wd_anchor > 0 else None
 WU = min(a.warmup, a.steps // 10)
 sched = optim.join_schedules([optim.linear_schedule(1e-7, a.lr, WU),
@@ -241,16 +269,20 @@ t0 = time.time(); paused = 0.0; seen = 0; run = []
 
 
 def evaluate(it):
+    dev = {k: v[:a.dev_max] for k, v in DEV.items()} if a.dev_max else DEV
     cur = model.parameters()
+    ler_raw, _, _ = ler_table(model, dev)
     model.update(ema)
-    ler, per, _ = ler_table(model, {k: v[:a.dev_max] for k, v in DEV.items()} if a.dev_max else DEV)
+    ler, per, _ = ler_table(model, dev)
     model.update(cur)
-    rec = dict(it=it, shots=seen, dev_ler=ler, train_s=round(time.time() - t0 - paused, 1),
+    rec = dict(it=it, shots=seen, dev_ler=ler, dev_ler_raw=ler_raw, train_s=round(time.time() - t0 - paused, 1),
                wall_s=round(time.time() - t0, 1), **mem_report())
-    rec["best"] = ler < BEST[0]
+    rec["best"] = min(ler, ler_raw) < BEST[0]
     if rec["best"]:
-        BEST[0] = ler
-        cur = model.parameters(); model.update(ema)
+        BEST[0] = min(ler, ler_raw)
+        cur = model.parameters()
+        if ler <= ler_raw:
+            model.update(ema)
         model.save_weights(os.path.join(a.out, "model.safetensors"))
         model.update(cur)
     model.save_weights(os.path.join(a.out, "last.safetensors"))
@@ -266,13 +298,14 @@ for it in range(1, a.steps + 1):
         if w is not None and w > 4.0:
             model.save_weights(os.path.join(a.out, "last.safetensors"))
             raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
-    R = int(rng.choice(rounds))
-    ev, y, cx = make_batch(pool, R, a.batch)
+    R = pick_rounds(seen)
+    ev, y, cx = make_batch(pick_pool(seen), R, a.batch)
     lmain = train_step(*tensors(ev, R, cx), mx.array(y))
     if anchor is not None:  # decoupled weight decay towards the pretrained weights (fine-tuning)
         lr = sched(opt.step)
         model.update(tree_map(lambda p, p0: p - lr * a.wd_anchor * (p - p0), model.parameters(), anchor))
-    ema = tree_map(lambda e, p: e + a.ema * (p - e), ema, model.parameters())
+    er = max(a.ema, 1.0 / (1.0 + 0.1 * it))  # EMA warm-up: horizon ~ it/10 steps until it reaches 1/ema
+    ema = tree_map(lambda e, p: e + er * (p - e), ema, model.parameters())
     mx.eval(model.parameters(), opt.state, ema, lmain)
     run.append(lmain.item()); seen += len(y)
     if it % 100 == 0:
