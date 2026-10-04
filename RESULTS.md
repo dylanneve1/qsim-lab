@@ -75,7 +75,7 @@ At d = 3, 7, 11, 15 with 10⁶ shots per side, every per-detector rate, every DE
 - On x86, on Stim's own circuit, qsim-lab and Stim are **at parity (0.89–1.01× against AVX2 Stim)**.
 - On qsim-lab's sequential circuit we are **1.6–1.7×** faster, because Stim pays per-instruction overhead for its about 2,000 one-gate lines.
 - 72–82% of our time goes to drawing noise variables (about 45 ns per fault event: RNG, `ln` for the geometric skip, Pauli choice), not to the GF(2) evaluation.
-- The bit-identical sparse path with `SmallRng` gains 5–25% on x86 and 30–45% on M1.
+- The new sparse sampling path (bit-identical to the dense path for the same RNG stream) combined with `SmallRng` cuts sampling time by 4–25% on x86 (an indicative run at load 15) and by 23–36% on the M1.
 - Our compile step costs 35–45 ms at d = 15, against about 1 ms for Stim.
 
 Data: `research/data/qec-r4/stim_*`.
