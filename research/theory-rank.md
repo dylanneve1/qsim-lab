@@ -47,16 +47,17 @@ although they are sums of two stabilizer states. This note explains why and turn
    r = 2^ν exactly for QFT|x⟩, r = 2^d for random Clifford+T, and **r > 2^n** for rotation-heavy
    circuits (e.g. HEA n = 6: r = 11,946 > 64). The terms are then distinct but linearly dependent, so
    r says nothing useful, and the compressed (2^d) or state-vector engines should be used.
-5. **Beyond state-vector, exact** (VPS EPYC, 1 thread, `nice 15`; load 6–10 from other agents, so
-   wall times are indicative only; checked against Grover's closed form):
+5. **Beyond state-vector, exact** (checked against Grover's closed form). Mac = M1 Pro, 1 thread,
+   under the bench lock, single run, Mac 1-min load 10–15 from other agents (`mac_timing.txt`). VPS =
+   EPYC, 1 thread, `nice 15`, load 6–10. Both are indicative only, not benchmarks.
 
-   | instance | qubits | gates (Toffolis) | max r | time | max error |
-   |---|---|---|---|---|---|
-   | Grover n = 20, **804 iterations (full search, P(w) = 0.99999976)** | 38 | 141,524 (57,888) | 20 | 123 s, 12 MB | 6.3e-13 rel. |
-   | Grover n = 64, 8 iterations | 126 | 4,720 (1,984) | 64 | 55 s, 5 MB | 9.8e-16 rel. |
-   | Grover n = 128, 1 iteration | 254 | 1,286 (504) | 127 | 83 s, 13 MB | 1.6e-16 rel. |
-   | windowed Shor oracle, 62-bit N, x = 1 | 256 | 85,718 (27,150) | 1 | 3.2 s | (r = 1; theory-shor T2c) |
-   | coined walk on 2^32 sites, 8 steps | 64 | 15,416 (15,376) | 15 | 47 s | (SV-checked at 2^8 sites) |
+   | instance | qubits | gates (Toffolis) | max r | Mac | VPS | max error |
+   |---|---|---|---|---|---|---|
+   | Grover n = 20, **804 iterations (full search, P(w) = 0.99999976)** | 38 | 141,524 (57,888) | 20 | **43 s** | 123 s, 12 MB | 6.3e-13 rel. |
+   | Grover n = 64, 8 iterations | 126 | 4,720 (1,984) | 64 | **15.6 s** | 55 s, 5 MB | 9.8e-16 rel. |
+   | Grover n = 128, 1 iteration | 254 | 1,286 (504) | 127 | **22.7 s** | 83 s, 13 MB | 1.6e-16 rel. |
+   | windowed Shor oracle, 62-bit N, x = 1 | 256 | 85,718 (27,150) | 1 | — | 3.2 s | (r = 1; theory-shor T2c) |
+   | coined walk on 2^32 sites, 8 steps | 64 | 15,416 (15,376) | 15 | — | 47 s | (SV-checked at 2^8 sites) |
 
    ```
    cargo build --release --example theory_rank
@@ -352,16 +353,18 @@ r·3n²/8 bytes (12 MB at 254 qubits).
 
 - r_k depends on the merge heuristics. Ray merges are canonical; pair merges stop at s ≤ 6 and are
   skipped while r > 256 (`pair_merge_max_r`), so r is an upper bound on χ, not χ itself. For the
-  Shor oracle with x half-superposed at 8 bits, r runs away after 90 % of the gates. With the r-limit
-  raised to 4096 (`RANK_PM_MAXR=4096`; `shorhalf8.json`) the result is: see that file.
+  Shor oracle with x half-superposed at 8 bits, r runs away after 90 % of the gates. Raising the r-limit
+  to 4096 (`RANK_PM_MAXR=4096`) did not help: the run hit its 20-minute timeout without finishing
+  (`shorhalf8.json`), because pair merging at r in the thousands is too slow.
 - r can exceed 2^n (distinct but linearly dependent rays). For rotation-heavy circuits use 2^d or SV.
 - QPE with a stabilizer eigenstate has d = ν = t but r ≈ 3^t: the engine is worse than the compressed
   state there.
 - Grover's success amplitude is exact only to rounding. At n = 20 after 804 iterations the relative
   error on 4.8e-7-sized amplitudes is 6.3e-13. The global sign (−1)^k matches.
-- Timings: VPS (4 vCPU EPYC, shared), 1 thread, `nice -n 15`, 1-min load 6–10 caused by other agents
-  during every run. These are not benchmark claims (LOAD RULE). They are within ~2× of an unloaded
-  run.
+- Timings: VPS (4 vCPU EPYC, shared), 1 thread, `nice -n 15`, 1-min load 6–10 from other agents, so
+  these are not benchmark claims (LOAD RULE). The Mac numbers for the three Grover demos are single
+  runs under the bench lock with the Mac oversubscribed (load 10–15), not min-of-3. Read all times
+  as upper bounds.
 - The walk and the Shor oracle are also easy for the sparse/branch engines. Only Grover is a family
   where this engine is the first exact simulator in the repo beyond SV size.
 
