@@ -12,75 +12,10 @@
 
 use qsim_lab::ft::backends::FrameBackend;
 use qsim_lab::ft::core::{Noise, ALL_COMPS, COMP_NAMES, N_COMP};
-use qsim_lab::ft::backends::FrameBackend as FB;
-use qsim_lab::ft::logical::{Encoded, Logical, MagicMode, Unencoded};
+use qsim_lab::ft::logical::{Checked, Encoded, MagicMode, Unencoded};
 use qsim_lab::ft::machine::{ideal_logical, FtConfig, Machine};
 use qsim_lab::ft::shor::{ideal_distribution, run_shor15, NLOG15};
 use std::time::Instant;
-
-/// Encoded frame machine that records logical faults after every operation.
-struct Checked(Encoded<FB>);
-impl Logical for Checked {
-    fn prep(&mut self, q: usize, b: bool) {
-        self.0.prep(q, b);
-        self.0.check_frames();
-    }
-    fn h(&mut self, q: usize) {
-        self.0.h(q);
-        self.0.check_frames();
-    }
-    fn s(&mut self, q: usize) {
-        self.0.s(q);
-        self.0.check_frames();
-    }
-    fn sdg(&mut self, q: usize) {
-        self.0.sdg(q);
-        self.0.check_frames();
-    }
-    fn t(&mut self, q: usize) {
-        self.0.t(q);
-        self.0.check_frames();
-    }
-    fn tdg(&mut self, q: usize) {
-        self.0.tdg(q);
-        self.0.check_frames();
-    }
-    fn cnot(&mut self, c: usize, t: usize) {
-        self.0.cnot(c, t);
-        self.0.check_frames();
-    }
-    fn meas(&mut self, q: usize) -> bool {
-        let r = self.0.meas(q);
-        self.0.check_frames();
-        r
-    }
-    fn sdg_slot(&mut self, q: usize, apply: bool) {
-        self.0.sdg_slot(q, apply);
-        self.0.check_frames();
-    }
-}
-
-/// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
-fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
-    let cfg = FtConfig { ec: true, inject_postselect: ps };
-    let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed), cfg, level);
-    let (mut nx, mut ny, mut nz) = (0u64, 0u64, 0u64);
-    for _ in 0..trials {
-        let q = m.alloc(level);
-        m.inject(level, q);
-        match ideal_logical(&m.b.frame, level, q) {
-            (true, false) => nx += 1,
-            (true, true) => ny += 1,
-            (false, true) => nz += 1,
-            _ => {}
-        }
-        m.release(level, q);
-    }
-    let t = trials as f64;
-    let (px, py, pz) = (nx as f64 / t, ny as f64 / t, nz as f64 / t);
-    let acc = trials as f64 / m.stats.inject_attempts.max(1) as f64;
-    (px, py, pz, pz + 0.5 * (px + py), acc)
-}
 
 fn gcd(a: u64, b: u64) -> u64 {
     if b == 0 {

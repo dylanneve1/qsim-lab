@@ -200,3 +200,46 @@ fn t_gadget_exrec_single_faults() {
         assert_eq!(bad, 0, "dagger={dagger}: {bad} failing single faults of {}", nloc * 30);
     }
 }
+
+/// The clean-run estimator: in runs without any logical-level fault the
+/// output must follow the ideal distribution exactly (the location structure
+/// does not depend on outcomes, so the fault flag is independent of them).
+#[test]
+fn clean_runs_follow_ideal_distribution() {
+    use qsim_lab::ft::logical::{Checked, Unencoded};
+    let ideal = ideal_distribution(7, 3);
+    for enc in [true, false] {
+        let mut h = [0f64; 8];
+        let mut nclean = 0f64;
+        let mut nf = 0;
+        for s in 0..30_000u64 {
+            let (y, faulty) = if enc {
+                let mut c = Checked(Encoded::frame(1, NLOG15, Noise::new(1e-3, s), FtConfig::default(), MagicMode::Raw, s));
+                let y = run_shor15(&mut c, 7, 3);
+                (y, c.0.counts.logical_fault)
+            } else {
+                let mut u = Unencoded::new(NLOG15, Noise::new(1e-2, s), false, s);
+                let y = run_shor15(&mut u, 7, 3);
+                (y, u.noise.faults.iter().sum::<u64>() > 0)
+            };
+            if !faulty {
+                h[y as usize] += 1.0;
+                nclean += 1.0;
+            } else {
+                nf += 1;
+            }
+        }
+        let mut chi2 = 0.0;
+        for y in 0..8 {
+            if ideal[y] == 0.0 {
+                assert_eq!(h[y], 0.0, "enc={enc}: clean run gave off-peak y={y}");
+            } else {
+                let e = nclean * ideal[y];
+                chi2 += (h[y] - e).powi(2) / e;
+            }
+        }
+        eprintln!("enc={enc}: clean {nclean}, faulty {nf}, chi2(3 dof) = {chi2:.2}");
+        assert!(nf > 1000);
+        assert!(chi2 < 16.3, "chi2 = {chi2} (p < 0.001)");
+    }
+}
