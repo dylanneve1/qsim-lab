@@ -296,30 +296,25 @@ pub fn eval_e<T: Real>(
     e: u64,
     inp: &[(u64, Complex<T>)],
 ) -> Arr<T> {
-    match lanes() {
-        4 => eval_e_l::<4, T>(prog, eq, xq, e, inp),
-        8 => eval_e_l::<8, T>(prog, eq, xq, e, inp),
-        32 => eval_e_l::<32, T>(prog, eq, xq, e, inp),
-        _ => eval_e_l::<16, T>(prog, eq, xq, e, inp),
-    }
+    let mut out = inp.to_vec();
+    eval_e_inplace(prog, eq, xq, e, &mut out);
+    out
 }
 
-/// Evaluates the `e = 0` block on every input branch (same checks as
-/// [`eval_e`]) and returns whether it is the identity on every branch,
-/// without storing the outputs.
-pub fn eval_e_identity<T: Real>(
+/// [`eval_e`] in place: every key of `buf` is replaced by its image.
+pub fn eval_e_inplace<T: Real>(
     prog: &SlicedProgram,
     eq: &[usize],
     xq: &[usize],
-    inp: &[(u64, Complex<T>)],
-) -> bool {
-    const B: usize = 1 << 16;
-    inp.par_chunks(B)
-        .map(|c| {
-            let out = eval_e(prog, eq, xq, 0, c);
-            out.iter().zip(c).all(|(o, i)| o.0 == i.0)
-        })
-        .reduce(|| true, |a, b| a && b)
+    e: u64,
+    buf: &mut [(u64, Complex<T>)],
+) {
+    match lanes() {
+        4 => eval_e_l::<4, T>(prog, eq, xq, e, buf),
+        8 => eval_e_l::<8, T>(prog, eq, xq, e, buf),
+        32 => eval_e_l::<32, T>(prog, eq, xq, e, buf),
+        _ => eval_e_l::<16, T>(prog, eq, xq, e, buf),
+    }
 }
 
 fn eval_e_l<const L: usize, T: Real>(
@@ -327,8 +322,8 @@ fn eval_e_l<const L: usize, T: Real>(
     eq: &[usize],
     xq: &[usize],
     e: u64,
-    inp: &[(u64, Complex<T>)],
-) -> Arr<T> {
+    out: &mut [(u64, Complex<T>)],
+) {
     let nq = prog.nq;
     assert!(xq.len() <= 64);
     let mut is_reg = vec![false; nq];
@@ -336,7 +331,6 @@ fn eval_e_l<const L: usize, T: Real>(
         is_reg[q] = true;
     }
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
-    let mut out: Arr<T> = inp.to_vec();
     out.par_chunks_mut(64 * L).for_each_init(
         || vec![[0u64; L]; nq + 2],
         |w, chunk| {
@@ -404,7 +398,6 @@ fn eval_e_l<const L: usize, T: Real>(
             }
         },
     );
-    out
 }
 
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
@@ -414,105 +407,22 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
     Complex64::new(z.re.to_f64(), z.im.to_f64())
 }
 
-/// Aligned chunks of several sorted arrays: `ranges[c][i]` is the index
-/// range of array `i` in chunk `c` (the key ranges are disjoint and ordered).
-fn chunks_k<T: Real>(arrs: &[&Arr<T>]) -> Vec<Vec<(usize, usize)>> {
-    let p = (rayon::current_num_threads() * 8).max(1);
-    let big = arrs.iter().max_by_key(|a| a.len()).unwrap();
-    let n = big.len();
-    let mut bounds: Vec<u64> = if n == 0 {
-        Vec::new()
-    } else {
-        (1..p).map(|i| big[n * i / p].0).collect()
-    };
-    bounds.dedup();
-    let mut out = Vec::with_capacity(bounds.len() + 1);
-    let mut lo = vec![0usize; arrs.len()];
-    for &k in &bounds {
-        let hi: Vec<usize> = arrs.iter().map(|a| a.partition_point(|e| e.0 < k)).collect();
-        out.push(lo.iter().copied().zip(hi.iter().copied()).collect());
-        lo = hi;
-    }
-    out.push(
-        lo.iter()
-            .copied()
-            .zip(arrs.iter().map(|a| a.len()))
-            .collect(),
-    );
-    out
-}
-
-/// k-way merge of the sorted arrays on one chunk: calls `f(key, vals)` for
-/// every key of the union, `vals[i]` = the value in array `i` (or 0).
-fn merge_k<T: Real>(
-    arrs: &[&Arr<T>],
-    rng: &[(usize, usize)],
-    mut f: impl FnMut(u64, &mut [Complex64]),
-) {
-    let k = arrs.len();
-    let mut vals = vec![Complex64::zero(); k];
-    // fast path: every array has the same keys on this chunk (the steady
-    // state, where V permutes the support onto itself)
-    let n0 = rng[0].1 - rng[0].0;
-    if rng.iter().all(|r| r.1 - r.0 == n0) {
-        let base = &arrs[0][rng[0].0..rng[0].1];
-        let same = (1..k).all(|i| {
-            arrs[i][rng[i].0..rng[i].1]
-                .iter()
-                .zip(base)
-                .all(|(a, b)| a.0 == b.0)
-        });
-        if same {
-            for t in 0..n0 {
-                for i in 0..k {
-                    vals[i] = c64(arrs[i][rng[i].0 + t].1);
-                }
-                f(base[t].0, &mut vals);
-            }
-            return;
-        }
-    }
-    let mut pos: Vec<usize> = rng.iter().map(|r| r.0).collect();
-    loop {
-        let mut key = u64::MAX;
-        let mut any = false;
-        for i in 0..k {
-            if pos[i] < rng[i].1 {
-                let ki = arrs[i][pos[i]].0;
-                if !any || ki < key {
-                    key = ki;
-                    any = true;
-                }
-            }
-        }
-        if !any {
-            return;
-        }
-        for i in 0..k {
-            vals[i] = if pos[i] < rng[i].1 && arrs[i][pos[i]].0 == key {
-                let v = c64(arrs[i][pos[i]].1);
-                pos[i] += 1;
-                v
-            } else {
-                Complex64::zero()
-            };
-        }
-        f(key, &mut vals);
-    }
-}
-
 /// The branches of one window after the block, and the semiclassical
 /// measurement of its exponent qubits in progress.
 ///
-/// `arrs[e]` holds `V^e ψ` (sorted; `arrs[0]` is `ψ` itself when the `e = 0`
-/// block is the identity). The measurement is applied **lazily**: for every
-/// work-register key the `2^w` values are combined level by level exactly
-/// as `C' = (C_lo ± e^{iφ} C_hi)/√(2p)` would combine materialised arrays
-/// (the same floating-point operations in the same order), so nothing but
-/// the `2^w` evaluated arrays and, at the end, the new state is stored.
+/// `ent` holds every evaluated branch `(e, V^e x)` as one array sorted by
+/// the packed key `(V^e x) << w | e`, so the `2^w` values of one
+/// work-register key are adjacent. The measurement is applied **lazily**:
+/// for every key the `2^w` values are combined level by level exactly as
+/// `C' = (C_lo ± e^{iφ} C_hi)/√(2p)` would combine materialised arrays (the
+/// same floating-point operations in the same order, rounded to `T` after
+/// every level), so nothing but the evaluated branches and, at the end,
+/// the new state is stored.
 #[derive(Clone, Debug)]
 pub struct WindowArrays<T: Real> {
-    pub arrs: std::sync::Arc<Vec<Arr<T>>>,
+    /// Window bits `w`.
+    pub w: usize,
+    pub ent: std::sync::Arc<Vec<(u64, Complex<T>)>>,
     /// Measured levels, highest exponent bit first: `(±e^{iφ}, 1/√(2p))`.
     pub levels: Vec<(Complex64, f64)>,
 }
@@ -520,11 +430,46 @@ pub struct WindowArrays<T: Real> {
 impl<T: Real> WindowArrays<T> {
     /// Number of exponent qubits still unmeasured.
     pub fn bits_left(&self) -> usize {
-        self.arrs.len().trailing_zeros() as usize - self.levels.len()
+        self.w - self.levels.len()
     }
     /// Total number of evaluated `(e, x)` branches.
     pub fn branches(&self) -> usize {
-        self.arrs.iter().map(Vec::len).sum()
+        self.ent.len()
+    }
+    /// Chunk boundaries of `ent` at key-group boundaries.
+    fn chunks(&self) -> Vec<(usize, usize)> {
+        let n = self.ent.len();
+        let p = (rayon::current_num_threads() * 8).max(1);
+        let w = self.w;
+        let mut b: Vec<usize> = (0..=p)
+            .map(|j| {
+                let mut i = n * j / p;
+                while i > 0 && i < n && self.ent[i].0 >> w == self.ent[i - 1].0 >> w {
+                    i += 1;
+                }
+                i
+            })
+            .collect();
+        b.dedup();
+        b.windows(2).map(|x| (x[0], x[1])).collect()
+    }
+    /// Calls `f(key, vals)` for every work-register key in `[lo, hi)`,
+    /// `vals[e]` = the amplitude of `(e, key)` (0 if absent).
+    #[inline]
+    fn groups(&self, (lo, hi): (usize, usize), mut f: impl FnMut(u64, &mut [Complex64])) {
+        let w = self.w;
+        let mask = (1u64 << w) - 1;
+        let mut vals = vec![Complex64::zero(); 1 << w];
+        let mut i = lo;
+        while i < hi {
+            let key = self.ent[i].0 >> w;
+            vals.iter_mut().for_each(|v| *v = Complex64::zero());
+            while i < hi && self.ent[i].0 >> w == key {
+                vals[(self.ent[i].0 & mask) as usize] = c64(self.ent[i].1);
+                i += 1;
+            }
+            f(key, &mut vals);
+        }
     }
     /// Applies the initial `2^{−w/2}` and the measured levels to the values
     /// at one key; returns how many entries of `vals` are live.
@@ -532,13 +477,13 @@ impl<T: Real> WindowArrays<T> {
     fn reduce(&self, vals: &mut [Complex64]) -> usize {
         let norm = (1.0 / vals.len() as f64).sqrt();
         for v in vals.iter_mut() {
-            *v = cvt::<T>(*v * norm).into_c64();
+            *v = c64(cvt::<T>(*v * norm));
         }
         let mut len = vals.len();
         for &(ph, k) in &self.levels {
             let h = len / 2;
             for e in 0..h {
-                vals[e] = cvt::<T>((vals[e] + ph * vals[e + h]) * k).into_c64();
+                vals[e] = c64(cvt::<T>((vals[e] + ph * vals[e + h]) * k));
             }
             len = h;
         }
@@ -549,12 +494,11 @@ impl<T: Real> WindowArrays<T> {
     pub fn probs(&self, phi: f64) -> (f64, f64) {
         assert!(self.bits_left() > 0);
         let ph = Complex64::from_polar(1.0, phi);
-        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
-        chunks_k(&refs)
+        self.chunks()
             .into_par_iter()
             .map(|ch| {
                 let (mut p0, mut p1) = (0.0, 0.0);
-                merge_k(&refs, &ch, |_, vals| {
+                self.groups(ch, |_, vals| {
                     let len = self.reduce(vals);
                     let h = len / 2;
                     for e in 0..h {
@@ -573,7 +517,6 @@ impl<T: Real> WindowArrays<T> {
     /// outcomes of the earlier measurements of the same window).
     pub fn joint_probs(&self, phi: &(dyn Fn(usize, u64) -> f64 + Sync)) -> Vec<f64> {
         let bl = self.bits_left();
-        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
         // phases per (level j, prefix): 2^bl − 1 of them
         let mut phs = Vec::new();
         for j in 0..bl {
@@ -582,13 +525,13 @@ impl<T: Real> WindowArrays<T> {
             }
         }
         let r = std::f64::consts::FRAC_1_SQRT_2;
-        chunks_k(&refs)
+        self.chunks()
             .into_par_iter()
             .map(|ch| {
                 let mut acc = vec![0.0f64; 1 << bl];
                 // scratch: one value vector per tree level
                 let mut lv: Vec<Vec<Complex64>> = (0..=bl).map(|j| vec![Complex64::zero(); 1 << (bl - j)]).collect();
-                merge_k(&refs, &ch, |_, vals| {
+                self.groups(ch, |_, vals| {
                     let len = self.reduce(vals);
                     lv[0][..len].copy_from_slice(&vals[..len]);
                     // depth-first over outcome prefixes
@@ -641,13 +584,13 @@ impl<T: Real> WindowArrays<T> {
     /// The arrays `C_{e''}` of the not-yet-measured exponent values `e''`
     /// (exact zeros dropped).
     pub fn materialize(&self) -> Vec<Arr<T>> {
-        let refs: Vec<&Arr<T>> = self.arrs.iter().collect();
         let nl = 1usize << self.bits_left();
-        let parts: Vec<Vec<Arr<T>>> = chunks_k(&refs)
+        let parts: Vec<Vec<Arr<T>>> = self
+            .chunks()
             .into_par_iter()
             .map(|ch| {
                 let mut out: Vec<Arr<T>> = vec![Vec::new(); nl];
-                merge_k(&refs, &ch, |key, vals| {
+                self.groups(ch, |key, vals| {
                     let len = self.reduce(vals);
                     debug_assert_eq!(len, nl);
                     for (o, &v) in out.iter_mut().zip(vals.iter()) {
@@ -670,16 +613,6 @@ impl<T: Real> WindowArrays<T> {
                 v
             })
             .collect()
-    }
-}
-
-trait IntoC64 {
-    fn into_c64(self) -> Complex64;
-}
-impl<T: Real> IntoC64 for Complex<T> {
-    #[inline]
-    fn into_c64(self) -> Complex64 {
-        c64(self)
     }
 }
 
@@ -736,53 +669,44 @@ impl<T: Real> GeState<T> {
     }
 
     /// Runs the window block on every `(e, x)` branch (`e < 2^w`) and
-    /// returns the evaluated arrays `V^e ψ` (sorted). The `e = 0` block is
-    /// evaluated too; when it is the identity (exact arithmetic; checked on
-    /// every branch) `ψ` itself is kept as `arrs[0]` instead of a copy.
+    /// returns them, sorted by work-register key (see [`WindowArrays`]).
+    /// The array is grown from `ψ`'s own buffer: segment `e` is a copy of
+    /// `ψ` evaluated in place under exponent value `e` (`e = 0` last).
     pub fn window(&mut self, wp: &WindowProg, w_used: usize) -> WindowArrays<T> {
         let t0 = std::time::Instant::now();
         let ne = 1usize << w_used;
-        let mut arrs = Vec::with_capacity(ne);
-        let mut t_eval = 0.0;
         let n_in = self.psi.len();
-        let psi = std::mem::take(&mut self.psi);
-        // e = 0 first, checked in place
-        let ta = std::time::Instant::now();
-        let id = eval_e_identity(&wp.prog, &wp.e, &wp.x, &psi);
-        t_eval += ta.elapsed().as_secs_f64();
-        let a0 = if id {
-            None
-        } else {
-            Some(eval_e(&wp.prog, &wp.e, &wp.x, 0, &psi))
-        };
-        for e in 1..ne as u64 {
+        let mut t_eval = 0.0;
+        let mut ent = std::mem::take(&mut self.psi);
+        ent.reserve_exact((ne - 1) * n_in);
+        for e in (1..ne).chain(std::iter::once(0)) {
+            if e > 0 {
+                ent.extend_from_within(0..n_in);
+            }
+            let seg = if e > 0 { ent.len() - n_in } else { 0 };
             let ta = std::time::Instant::now();
-            let a = eval_e(&wp.prog, &wp.e, &wp.x, e, &psi);
+            eval_e_inplace(&wp.prog, &wp.e, &wp.x, e as u64, &mut ent[seg..seg + n_in]);
             t_eval += ta.elapsed().as_secs_f64();
-            arrs.push(a);
+            let tag = e as u64;
+            let wsh = w_used;
+            ent[seg..seg + n_in].par_iter_mut().for_each(|v| {
+                assert!(v.0 >> (64 - wsh.max(1)) == 0 || wsh == 0, "key too wide");
+                v.0 = (v.0 << wsh) | tag;
+            });
         }
-        let mut arrs: Vec<Arr<T>> = match a0 {
-            None => std::iter::once(psi).chain(arrs).collect(),
-            Some(a) => {
-                drop(psi);
-                std::iter::once(a).chain(arrs).collect()
-            }
-        };
-        for (e, a) in arrs.iter_mut().enumerate() {
-            if e > 0 || !id {
-                a.par_sort_unstable_by_key(|v| v.0);
-            }
-            assert!(
-                a.par_windows(2).all(|w| w[0].0 != w[1].0),
-                "window block is not injective on the support"
-            );
-        }
+        ent.par_sort_unstable_by_key(|v| v.0);
+        // V^e is a permutation: no (e, key) may appear twice
+        assert!(
+            ent.par_windows(2).all(|w| w[0].0 != w[1].0),
+            "window block is not injective on the support"
+        );
         self.gate_branch_ops += (ne * n_in) as u128 * wp.prog.gates as u128;
         self.peak_branches = self.peak_branches.max(ne * n_in);
         self.prof[1] += t_eval;
         self.prof[2] += t0.elapsed().as_secs_f64() - t_eval;
         WindowArrays {
-            arrs: std::sync::Arc::new(arrs),
+            w: w_used,
+            ent: std::sync::Arc::new(ent),
             levels: Vec::new(),
         }
     }
@@ -921,6 +845,7 @@ pub fn run<T: Real>(
             // `shor::run_semiclassical`)
             let y0 = y;
             let jp = wa.joint_probs(&|j, pre| correction(i0 + j, y0 | (u128::from(pre) << i0)));
+            let t_joint = tm.elapsed().as_secs_f64();
             let tot: f64 = jp.iter().sum();
             assert!((tot - 1.0).abs() < 1e-6, "window norm {tot}");
             let mut pre = 0u64;
@@ -954,6 +879,15 @@ pub fn run<T: Real>(
                 st.finish(wa);
             }
             st.prof[3] += tm.elapsed().as_secs_f64();
+            if std::env::var_os("QSIM_GE_PROFILE").is_some() {
+                eprintln!(
+                    "[ge window {k}] in={} joint {:.3}s finish {:.3}s out={}",
+                    r.peak_branches,
+                    t_joint,
+                    tm.elapsed().as_secs_f64() - t_joint,
+                    st.psi.len()
+                );
+            }
         }
         r.y.push(y);
     }
