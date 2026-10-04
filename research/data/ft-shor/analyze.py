@@ -53,7 +53,8 @@ def peakmask(r):
 
 def plain_metrics(N, hist, ideal, pk, nf):
     f = hist / N
-    return dict(q=nf / N, tvd=0.5 * np.abs(f - ideal).sum(), fpeak=f[~pk].sum(), forder=0.0)
+    # off-peak excess over the ideal off-peak mass
+    return dict(q=nf / N, tvd=0.5 * np.abs(f - ideal).sum(), fpeak=f[~pk].sum() - ideal[~pk].sum(), forder=0.0)
 
 
 def metrics(N, hist_f, ideal=IDEAL, pk=PEAK):
@@ -378,3 +379,71 @@ if __name__ == "__main__":
     H = harm_table(pooled, HERE)
     print(open(os.path.join(HERE, "table_harm.md")).read())
     print(open(os.path.join(HERE, "crossovers_qh.txt")).read())
+    # best output-error estimate: q*h (pooled h) in the single-fault regime, direct TVD above
+    for k, d in pooled.items():
+        if k not in H:
+            continue
+        h, hlo, hhi = H[k]
+        for p, s in d.items():
+            if s["q"] <= 0.05:
+                s["out"] = s["q"] * h
+                s["out_lo"] = s["q_lo"] * hlo
+                s["out_hi"] = s["q_hi"] * hhi
+            else:
+                s["out"], s["out_lo"], s["out_hi"] = s["tvd"], s["tvd_lo"], s["tvd_hi"]
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    style = {"unenc": ("k", "o", "unencoded (Clifford+T)"), "unenc-ccx": ("0.5", "s", "unencoded (native CCX)"),
+             "L1-raw": ("C0", "^", "Steane L1, raw injection"), "L1-ideal": ("C0", "v", "Steane L1, ideal magic"),
+             "L2-raw": ("C3", "^", "Steane L2 [[49,1,9]], raw injection"), "L2-ideal": ("C3", "v", "Steane L2, ideal magic")}
+    lines = []
+    for pre, title, fn in (("", "Shor N = 15 (a = 7): output error", "outerr_vs_p.png"),
+                           ("N21:", "Shor N = 21 (a = 4, compiled): output error", "n21_outerr_vs_p.png")):
+        fig, ax = plt.subplots(figsize=(6.4, 4.6))
+        for k0, (c, mk, lab) in style.items():
+            k = pre + k0
+            if k not in pooled:
+                continue
+            ps = np.array(sorted(pooled[k]))
+            v = np.array([pooled[k][p].get("out", np.nan) for p in ps])
+            lo = np.array([pooled[k][p].get("out_lo", np.nan) for p in ps])
+            hi = np.array([pooled[k][p].get("out_hi", np.nan) for p in ps])
+            ls = "-" if ("raw" in k0 or k0.startswith("unenc")) else "--"
+            pos = v > 0
+            ax.errorbar(ps[pos], v[pos], yerr=[np.maximum(v - lo, 0)[pos], np.maximum(hi - v, 0)[pos]],
+                        color=c, marker=mk, ls=ls, label=lab, capsize=2, ms=4)
+            z = ~pos
+            if z.any():
+                ax.plot(ps[z], hi[z], color=c, marker="v", ls="none", mfc="none")
+        ax.set_xscale("log"); ax.set_yscale("log")
+        ax.set_xlabel("physical error rate p (per location)")
+        ax.set_ylabel("output error = TVD to ideal (q·h where q ≤ 5 %)")
+        ax.set_title(title); ax.grid(alpha=.3, which="both"); ax.legend(fontsize=7)
+        fig.tight_layout(); fig.savefig(os.path.join(HERE, fn), dpi=130); plt.close(fig)
+        for a in ("L1-raw", "L1-ideal", "L2-raw", "L2-ideal"):
+            for b in ("unenc", "unenc-ccx"):
+                lines.append(f"output-error crossover {pre}{a} vs {b}: {crossover(pooled, pre+a, pre+b, 'out')}")
+        lines.append(f"output-error crossover {pre}L2-ideal vs L1-ideal: {crossover(pooled, pre+'L2-ideal', pre+'L1-ideal', 'out')}")
+        lines.append(f"output-error crossover {pre}L2-raw vs L1-raw: {crossover(pooled, pre+'L2-raw', pre+'L1-raw', 'out')}")
+    open(os.path.join(HERE, "crossovers_out.txt"), "w").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    # output-error table
+    rows = ["| series | " + " | ".join(f"{p:.0e}" for p in [1e-5, 2e-5, 3e-5, 5e-5, 1e-4, 2e-4, 3e-4, 5e-4, 1e-3, 2e-3]) + " |",
+            "|---" * 11 + "|"]
+    for pre in ("", "N21:"):
+        for k0 in style:
+            k = pre + k0
+            if k not in pooled:
+                continue
+            cells = []
+            for p in [1e-5, 2e-5, 3e-5, 5e-5, 1e-4, 2e-4, 3e-4, 5e-4, 1e-3, 2e-3]:
+                s = pooled[k].get(p)
+                if s is None or "out" not in s:
+                    cells.append("")
+                elif s["out"] == 0:
+                    cells.append(f"< {s['out_hi']:.1e}")
+                else:
+                    cells.append(f"{s['out']:.2e}")
+            rows.append(f"| {k} | " + " | ".join(cells) + " |")
+    open(os.path.join(HERE, "table_outerr.md"), "w").write("\n".join(rows) + "\n")
