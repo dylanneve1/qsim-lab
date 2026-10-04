@@ -1,1 +1,2 @@
 {"distance": null, "count": 0, "nodes": 982846484, "mechanisms": 700, "seconds": 75.86183547973633}
+{"distance": null, "count": 0, "nodes": 6182973183, "mechanisms": 1978, "seconds": 495.6027240753174}

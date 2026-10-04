@@ -1,0 +1,6 @@
+/tmp/cg_d9_kf_r3.stim stim upper bound: 7 (35.9s, ev<=4, deg<=6)
+	Maximum resident set size (kbytes): 1099688
+	Exit status: 0
+/tmp/cg_d9_new_r3.stim stim upper bound: 8 (109.1s, ev<=4, deg<=6)
+	Maximum resident set size (kbytes): 2979732
+	Exit status: 0

@@ -1,0 +1,2 @@
+/tmp/cg_d11_kf_r1.stim stim upper bound: 9 (1.5s, ev<=4, deg<=6)
+/tmp/cg_d11_t7_r1.stim stim upper bound: 10 (2.1s, ev<=4, deg<=6)

@@ -1,0 +1,1 @@
+/tmp/cg_d9_kf_r9.stim stim upper bound: 7 (330.5s, ev<=4, deg<=6)

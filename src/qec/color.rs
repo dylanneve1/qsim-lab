@@ -55,9 +55,14 @@ pub struct ColorCode {
     pub plaquettes: Vec<Plaquette>,
 }
 
-/// Time step (`1..=6`) per plaquette and offset position; entries for absent
-/// positions are ignored.
+/// Time step (`1..=6` in Kishony-Fowler's design; up to [`MAX_STEP`] for
+/// deeper schedules) per plaquette and offset position; entries for absent
+/// positions are ignored. Each half of a round has as many CNOT layers as the
+/// largest step used (at least 6).
 pub type ColorSchedule = Vec<[u8; 6]>;
+
+/// Largest supported CNOT time step (layers per half-round).
+pub const MAX_STEP: usize = 12;
 
 /// Circuit-level noise models (all explicit ops except the readout flip).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -152,13 +157,14 @@ impl ColorCode {
     /// collision, plus any plaquette using a step twice or out of range.
     pub fn collisions(&self, s: &ColorSchedule) -> Vec<String> {
         let mut out = Vec::new();
-        let mut used: Vec<[Option<usize>; 7]> = vec![[None; 7]; self.data.len()];
+        let mut used: Vec<[Option<usize>; MAX_STEP + 1]> =
+            vec![[None; MAX_STEP + 1]; self.data.len()];
         for (pi, p) in self.plaquettes.iter().enumerate() {
-            let mut seen = [false; 7];
+            let mut seen = [false; MAX_STEP + 1];
             for k in 0..6 {
                 if let Some(q) = p.data[k] {
                     let t = s[pi][k] as usize;
-                    if !(1..=6).contains(&t) {
+                    if !(1..=MAX_STEP).contains(&t) {
                         out.push(format!("plaquette {pi} pos {k}: step {t} out of range"));
                         continue;
                     }
@@ -215,7 +221,20 @@ impl ColorCode {
                 }
             }
         };
-        let mut cx_layers: Vec<Vec<(usize, usize)>> = vec![Vec::new(); 7]; // (data, plaquette)
+        let nsteps = self
+            .plaquettes
+            .iter()
+            .enumerate()
+            .flat_map(|(pi, p)| {
+                (0..6)
+                    .filter(move |&k| p.data[k].is_some())
+                    .map(move |k| s[pi][k] as usize)
+            })
+            .max()
+            .unwrap_or(6)
+            .max(6);
+        assert!(nsteps <= MAX_STEP, "step {nsteps} > MAX_STEP");
+        let mut cx_layers: Vec<Vec<(usize, usize)>> = vec![Vec::new(); nsteps + 1]; // (data, plaquette)
         for (pi, p) in self.plaquettes.iter().enumerate() {
             for k in 0..6 {
                 if let Some(q) = p.data[k] {
@@ -281,7 +300,7 @@ impl ColorCode {
             if r > 0 {
                 reset_moment(&mut ops, &anc_z);
             }
-            for layer in &cx_layers[1..=6] {
+            for layer in &cx_layers[1..=nsteps] {
                 cx_moment(&mut ops, layer, true);
             }
             let zm: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, false)).collect();
@@ -291,7 +310,7 @@ impl ColorCode {
             }
             num_meas += np;
             reset_moment(&mut ops, &anc_x);
-            for layer in &cx_layers[1..=6] {
+            for layer in &cx_layers[1..=nsteps] {
                 cx_moment(&mut ops, layer, false);
             }
             // the last X measurement shares its moment with the final data

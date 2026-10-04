@@ -1,0 +1,13 @@
+d=13 D=11 R=1 mode=kf T=6 space=False: 7920 vars, 43506 clauses, 1955 signatures (317 always)
+iter 1: weight 7 count 83, +249 cuts (total 249), sat 0.00s dist 0.15s, elapsed 0s
+iter 2: weight 7 count 4, +12 cuts (total 261), sat 0.03s dist 0.29s, elapsed 1s
+iter 3: weight 8 count 118, +288 cuts (total 549), sat 0.00s dist 1.72s, elapsed 2s
+iter 4: weight 8 count 70, +183 cuts (total 732), sat 0.00s dist 1.98s, elapsed 4s
+iter 10: weight 8 count 12, +30 cuts (total 3081), sat 0.00s dist 2.55s, elapsed 29s
+iter 20: weight 9 count 266, +567 cuts (total 10971), sat 0.00s dist 18.68s, elapsed 148s
+iter 30: weight 8 count 11, +33 cuts (total 11409), sat 0.00s dist 3.11s, elapsed 176s
+iter 40: weight 8 count 8, +24 cuts (total 15141), sat 0.00s dist 2.87s, elapsed 243s
+iter 50: weight 8 count 3, +9 cuts (total 19647), sat 0.00s dist 2.81s, elapsed 339s
+iter 60: weight 9 count 792, +1869 cuts (total 25821), sat 0.00s dist 21.34s, elapsed 443s
+iter 70: weight 8 count 34, +96 cuts (total 31173), sat 0.01s dist 2.63s, elapsed 527s
+iter 80: weight 9 count 186, +504 cuts (total 34728), sat 0.00s dist 21.87s, elapsed 626s

@@ -1,0 +1,45 @@
+d=11 D=10 R=1 mode=kf T=7 space=False: 5970 vars, 34740 clauses, 1337 signatures (227 always)
+iter 1: weight 6 count 35, +105 cuts (total 105), sat 0.00s dist 0.04s, elapsed 0s
+iter 2: weight 6 count 2, +6 cuts (total 111), sat 0.02s dist 0.03s, elapsed 0s
+iter 3: weight 7 count 162, +390 cuts (total 501), sat 0.00s dist 0.25s, elapsed 1s
+iter 4: weight 7 count 36, +81 cuts (total 582), sat 0.00s dist 0.38s, elapsed 1s
+iter 10: weight 7 count 11, +30 cuts (total 2751), sat 0.00s dist 0.48s, elapsed 5s
+iter 20: weight 7 count 2, +3 cuts (total 3381), sat 0.01s dist 0.55s, elapsed 9s
+iter 30: weight 7 count 5, +9 cuts (total 6138), sat 0.01s dist 0.50s, elapsed 20s
+iter 40: weight 7 count 2, +6 cuts (total 8484), sat 0.00s dist 0.54s, elapsed 27s
+iter 50: weight 7 count 3, +9 cuts (total 10620), sat 0.00s dist 0.57s, elapsed 37s
+iter 60: weight 7 count 14, +42 cuts (total 12186), sat 0.00s dist 0.79s, elapsed 46s
+iter 70: weight 7 count 24, +66 cuts (total 13617), sat 0.01s dist 0.46s, elapsed 52s
+iter 80: weight 7 count 3, +9 cuts (total 18711), sat 0.01s dist 0.60s, elapsed 67s
+iter 90: weight 7 count 6, +18 cuts (total 22707), sat 0.01s dist 0.44s, elapsed 86s
+iter 100: weight 7 count 15, +45 cuts (total 25542), sat 0.00s dist 0.30s, elapsed 100s
+iter 110: weight 8 count 377, +906 cuts (total 29625), sat 0.00s dist 3.55s, elapsed 115s
+iter 120: weight 8 count 480, +1047 cuts (total 33462), sat 0.01s dist 2.39s, elapsed 134s
+iter 130: weight 8 count 516, +1104 cuts (total 39138), sat 0.01s dist 2.78s, elapsed 161s
+iter 140: weight 8 count 338, +825 cuts (total 43428), sat 0.01s dist 3.13s, elapsed 185s
+iter 150: weight 8 count 175, +363 cuts (total 46134), sat 0.00s dist 3.53s, elapsed 203s
+iter 160: weight 8 count 124, +306 cuts (total 48945), sat 0.00s dist 3.32s, elapsed 232s
+iter 170: weight 7 count 9, +27 cuts (total 51522), sat 0.01s dist 0.49s, elapsed 253s
+iter 180: weight 7 count 3, +6 cuts (total 54843), sat 0.01s dist 0.43s, elapsed 276s
+iter 190: weight 7 count 2, +6 cuts (total 57021), sat 0.00s dist 0.31s, elapsed 294s
+iter 200: weight 8 count 309, +756 cuts (total 61179), sat 0.00s dist 2.20s, elapsed 314s
+iter 210: weight 8 count 269, +615 cuts (total 67494), sat 0.00s dist 3.45s, elapsed 357s
+iter 220: weight 8 count 25, +54 cuts (total 72675), sat 0.00s dist 2.02s, elapsed 384s
+iter 230: weight 8 count 308, +681 cuts (total 75051), sat 0.01s dist 2.44s, elapsed 404s
+iter 240: weight 7 count 1, +3 cuts (total 77622), sat 0.00s dist 0.62s, elapsed 425s
+iter 250: weight 8 count 26, +30 cuts (total 82038), sat 0.00s dist 2.00s, elapsed 462s
+iter 260: weight 8 count 31, +66 cuts (total 83589), sat 0.00s dist 2.32s, elapsed 483s
+iter 270: weight 7 count 2, +6 cuts (total 87718), sat 0.02s dist 0.51s, elapsed 519s
+iter 280: weight 7 count 2, +6 cuts (total 90706), sat 0.01s dist 0.33s, elapsed 539s
+iter 290: weight 8 count 250, +621 cuts (total 96280), sat 0.01s dist 1.73s, elapsed 579s
+iter 300: weight 9 count 4785, +3117 cuts (total 101035), sat 0.00s dist 14.68s, elapsed 615s
+iter 310: weight 8 count 38, +96 cuts (total 104572), sat 0.00s dist 2.90s, elapsed 659s
+iter 320: weight 8 count 14, +33 cuts (total 106075), sat 0.00s dist 2.37s, elapsed 679s
+iter 330: weight 8 count 95, +237 cuts (total 114514), sat 0.01s dist 4.17s, elapsed 726s
+iter 340: weight 7 count 2, +6 cuts (total 115051), sat 0.05s dist 0.58s, elapsed 762s
+iter 350: weight 8 count 12, +24 cuts (total 122725), sat 0.00s dist 2.56s, elapsed 815s
+iter 360: weight 8 count 31, +69 cuts (total 127948), sat 0.01s dist 2.36s, elapsed 859s
+iter 370: weight 8 count 9, +21 cuts (total 137011), sat 0.05s dist 2.23s, elapsed 918s
+iter 380: weight 8 count 1, +3 cuts (total 140038), sat 0.02s dist 1.85s, elapsed 970s
+FOUND {"ox": [[1, 12, 2, 11], [3, 14, 4, 13], [6, 15, 16, 5], [8, 17, 18, 7], [20, 9, 19, 10], [11, 21, 0, 1], [22, 3, 23, 2, 12, 13], [15, 25, 14, 5, 4, 24], [27, 17, 6, 7, 26, 16], [29, 9, 18, 8, 19, 28], [12, 21, 30, 31, 22, 11], [13, 24, 32, 33, 23, 14], [25, 15, 35, 34, 26, 16], [28, 36, 37, 18, 27, 17], [20, 38, 19, 29], [39, 40, 31, 23, 22, 32], [24, 41, 34, 25, 42, 33], [44, 35, 27, 36, 43, 26], [38, 28, 46, 29, 37, 45], [47, 31, 39, 30], [40, 33, 49, 32, 48, 41], [51, 35, 34, 43, 50, 42], [45, 37, 44, 36, 52, 53], [48, 55, 39, 54, 40, 47], [50, 42, 41, 56, 57, 49], [52, 43, 58, 59, 51, 44], [60, 45, 53, 46], [55, 48, 56, 49, 62, 61], [50, 57, 58, 63, 64, 51], [59, 65, 60, 66, 53, 52], [54, 61, 67, 55], [57, 62, 69, 56, 68, 63], [71, 70, 65, 58, 64, 59], [61, 62, 73, 67, 68, 72], [70, 64, 74, 63, 69, 75], [65, 76, 71, 66], [68, 69, 74, 77, 78, 73], [70, 71, 80, 76, 75, 79], [81, 73, 72, 77], [79, 75, 78, 74, 82, 83], [81, 78, 84, 82, 77, 85], [79, 86, 80, 83], [87, 85, 86, 83, 88, 82], [85, 87, 89, 84], [87, 88, 89, 90]], "mz": [[5], [0, 5], [0, 6], [1, 6], [1, 7], [7, 2], [2, 8], [8, 3], [3, 9], [9, 4], [4], [5, 0, 10], [10, 0, 6], [11, 1, 6], [1, 7, 11], [7, 12, 2], [2, 8, 12], [8, 3, 13], [9, 13, 3], [14, 4, 9], [14, 4], [10, 5], [6, 10, 15], [6, 15, 11], [16, 11, 7], [12, 7, 16], [8, 12, 17], [8, 17, 13], [13, 18, 9], [9, 18, 14], [10, 19], [19, 15, 10], [11, 20, 15], [20, 11, 16], [16, 21, 12], [17, 21, 12], [13, 22, 17], [22, 13, 18], [18, 14], [15, 23, 19], [20, 15, 23], [16, 24, 20], [24, 16, 21], [25, 21, 17], [17, 22, 25], [22, 26, 18], [18, 26], [19, 23], [23, 27, 20], [20, 27, 24], [28, 24, 21], [21, 25, 28], [25, 22, 29], [26, 29, 22], [30, 23], [27, 23, 30], [27, 31, 24], [31, 28, 24], [28, 25, 32], [29, 25, 32], [26, 29], [33, 30, 27], [31, 33, 27], [28, 34, 31], [34, 28, 32], [29, 35, 32], [29, 35], [30, 33], [36, 31, 33], [36, 31, 34], [37, 34, 32], [32, 37, 35], [38, 33], [33, 38, 36], [36, 34, 39], [39, 37, 34], [37, 35], [36, 40, 38], [40, 39, 36], [39, 41, 37], [37, 41], [38, 40], [40, 39, 42], [42, 41, 39], [40, 43], [43, 42, 40], [42, 41], [42, 44, 43], [44, 42], [43, 44], [44]], "schedule": [[4, 2, 3, 0, 0, 1], [5, 2, 4, 0, 0, 1], [4, 5, 2, 0, 0, 6], [5, 6, 1, 0, 0, 7], [4, 2, 5, 0, 0, 3], [0, 5, 1, 7, 6, 0], [1, 3, 6, 2, 4, 5], [6, 2, 1, 4, 5, 3], [5, 1, 2, 4, 3, 6], [6, 1, 5, 2, 4, 3], [3, 4, 5, 1, 6, 2], [3, 5, 2, 7, 1, 6], [5, 4, 6, 7, 3, 1], [2, 3, 1, 4, 7, 6], [2, 0, 0, 1, 3, 5], [1, 2, 7, 4, 6, 3], [2, 5, 3, 4, 1, 6], [6, 1, 5, 4, 7, 2], [6, 3, 1, 4, 2, 5], [0, 1, 4, 2, 5, 0], [5, 3, 6, 2, 4, 1], [6, 2, 5, 3, 4, 7], [5, 7, 1, 2, 4, 3], [4, 2, 1, 5, 3, 6], [5, 6, 2, 3, 4, 7], [4, 5, 1, 7, 2, 6], [1, 0, 0, 4, 2, 3], [7, 6, 3, 5, 2, 1], [4, 5, 3, 7, 1, 2], [2, 5, 4, 6, 7, 1], [0, 4, 3, 6, 1, 0], [5, 3, 6, 1, 4, 2], [3, 1, 4, 7, 5, 6], [7, 4, 6, 3, 1, 5], [4, 7, 2, 3, 5, 6], [5, 0, 0, 7, 3, 6], [4, 5, 3, 2, 1, 6], [7, 3, 4, 2, 1, 6], [0, 1, 7, 5, 6, 0], [6, 7, 1, 2, 5, 4], [4, 7, 5, 3, 6, 2], [4, 0, 0, 5, 2, 6], [1, 5, 3, 4, 7, 2], [0, 4, 3, 1, 5, 0], [6, 0, 0, 4, 2, 5]], "schedule_z": null, "hook_free": [], "split": {}}
+RESULT FOUND after 387 iterations, 146980 cuts, 1199.2s
