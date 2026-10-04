@@ -767,7 +767,9 @@ mod tests {
         let mut b = BondBounds::new(2);
         b.apply_part(&Gate::H(0));
         for e in Estimator::ALL {
-            assert_eq!(b.bits(1, e), 0, "{e:?}");
+            // `Cut` only knows the cut size
+            let want = usize::from(e == Estimator::Cut);
+            assert_eq!(b.bits(1, e), want, "{e:?}");
         }
         b.apply_part(&Gate::Cnot(0, 1));
         for e in Estimator::ALL {
