@@ -29,7 +29,7 @@ found:
 | 4 | the decoder still used the hand-built phenomenological graph | no diagonal (space-time) edges, see §4 |
 | 5 | unused variables | clippy `-D warnings` failed |
 
-The auditor found bug 1 independently (exp/audit `research/audit.md` §6):
+The auditor found bug 1 independently (exp/audit `research/process/audit.md` §6):
 with reset-only noise, 12 detectors were off by up to 28.6σ.
 
 ## 2. What the code does now (`src/qec/dem.rs`, `src/qec/surface.rs`)

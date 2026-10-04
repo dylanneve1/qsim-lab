@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Markdown tables for research/qec-r4.md from the raw JSON in this directory."""
+"""Markdown tables for research/qec/qec-r4.md from the raw JSON in this directory."""
 import json, sys, os
 H = os.path.dirname(os.path.abspath(__file__))
 

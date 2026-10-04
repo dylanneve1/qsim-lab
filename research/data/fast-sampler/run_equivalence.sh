@@ -1,5 +1,5 @@
 #!/bin/bash
-# all equivalence cells of research/fast-sampler.md (VPS, nice'd)
+# all equivalence cells of research/qec/fast-sampler.md (VPS, nice'd)
 cd "$(dirname "$0")"
 export QSIM_STIM_COMPARE=${QSIM_STIM_COMPARE:-/tmp/qsim-wt/fast-sampler-target/release/examples/stim_compare}
 export WORK=${WORK:-/tmp/qsim-wt/fs-data/eq}

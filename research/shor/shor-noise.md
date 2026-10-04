@@ -24,7 +24,7 @@ statistics, not benchmarks; per-trajectory seconds are in the raw CSVs).
 
 ## 1. What is simulated
 
-* **Circuit**: exactly the round-4 record circuit (`research/shor.md`, round
+* **Circuit**: exactly the round-4 record circuit (`research/shor/shor.md`, round
   4): semiclassical order finding with one recycled control (qubit 0),
   t = 2n rounds, each `H`, controlled-`U^(2^(t−1−i))` as the Gidney windowed
   oracle (w = 4, 4n + 8 qubits, X/CNOT/CCX only), phase correction from the
@@ -165,7 +165,7 @@ dirty for ≥ 3 rounds.
 
 ### P_succ vs p, and the effective number of fatal locations
 
-![P_succ vs p](data/shor-noise/psucc_vs_p.png)
+![P_succ vs p](../data/shor-noise/psucc_vs_p.png)
 
 Bands: bootstrap 16–84 % over trajectories, plus the k > 3 tail bound
 (`psucc_vs_p.csv`). Main table (depolarizing; S_k with trajectory counts;
@@ -215,11 +215,11 @@ and the lower estimate S_lo in `strata.csv`; errors on G_eff and p½ in
   (bit-flip), 2.75× (phase-flip). In gates rather than locations:
   G_eff ≈ 1.55 × the gate count (n = 24).
 
-![G_eff vs n](data/shor-noise/geff_vs_n.png)
+![G_eff vs n](../data/shor-noise/geff_vs_n.png)
 
 ### Channels and ancilla reset
 
-![damage vs n](data/shor-noise/damage_vs_n.png)
+![damage vs n](../data/shor-noise/damage_vs_n.png)
 
 | channel | d (weighted mean over n) | n covered | per instance |
 |---|---|---|---|
@@ -237,7 +237,7 @@ gates; in this simulator it also removes the support blow-up.
 
 ## 5. Where faults are fatal: two benign windows
 
-![single fault by round](data/shor-noise/single_fault_by_round.png)
+![single fault by round](../data/shor-noise/single_fault_by_round.png)
 
 The success criterion depends on y only through how well y/2^t approximates
 some s/r. Two exact consequences:

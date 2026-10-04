@@ -1,4 +1,4 @@
-//! Executable checks for research/theory-colour.md (triangular 6.6.6 colour
+//! Executable checks for research/theory/theory-colour.md (triangular 6.6.6 colour
 //! code, one auxiliary per plaquette).
 //!
 //! * Theorem 1 (corner lemma) and Theorem 2 (boundary lemma). The explicit

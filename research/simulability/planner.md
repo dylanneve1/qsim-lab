@@ -54,7 +54,7 @@ Data and scripts are in `research/data/planner/`:
 
 ## 1. Set-up
 
-The dataset is unchanged from research/simulability.md: 314 instances in four families (ct, brick, arith, qaoa), with
+The dataset is unchanged from research/simulability/simulability.md: 314 instances in four families (ct, brick, arith, qaoa), with
 the request `<Z^{⊗n}>`. Mac timings come from the original sweep: M1 Pro, one thread, 10 s / 1 GiB budget.
 
 **New families (held out, never fitted):**

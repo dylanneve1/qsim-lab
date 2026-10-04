@@ -1,7 +1,7 @@
 # Planner v2: samples, amplitudes, cheaper planning, and the adder Auto misfire
 
 Branch `exp/planner-v2` (from main e7e102d). Author: qsim-planner-sampling agent (round 5, 4 Oct 2026).
-Builds on research/planner.md (Planner v1, expectation values only) and research/simulability.md.
+Builds on research/simulability/planner.md (Planner v1, expectation values only) and research/simulability/simulability.md.
 
 Code:
 - `src/planner.rs`: requests `Samples(shots)` and `Amplitudes(count)`; per-engine read-out models; evolution-only

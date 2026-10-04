@@ -2,7 +2,7 @@
 
 Branch `exp/colour-flags` (from `main` = e7e102d). Code: `src/qec/color.rs` (`memory_flagged`, `flag_slots`, `resources`, `parse_schedule_spec`), `examples/color_search.rs`, `examples/color_ler.rs`, `tests/colour_flags.rs`. Data and scripts: `research/data/colour-flags/`.
 
-This follows `research/colour-global.md` §6. There, full circuit distance d for the triangular 6.6.6 colour code (Kishony–Fowler (K–F) layout, arXiv:2603.28852) needed every boundary-touching plaquette (3d − 6 of them) to be hook-free, plus a 7th CNOT layer from d = 9. Those schedules were checked only in an idealised symbolic model (flagged hooks treated as *absent*, flag CNOTs not in the timing). The Rust generator had no flag qubits. Noise is the noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated. Memory runs over d rounds.
+This follows `research/qec/colour-global.md` §6. There, full circuit distance d for the triangular 6.6.6 colour code (Kishony–Fowler (K–F) layout, arXiv:2603.28852) needed every boundary-touching plaquette (3d − 6 of them) to be hook-free, plus a 7th CNOT layer from d = 9. Those schedules were checked only in an idealised symbolic model (flagged hooks treated as *absent*, flag CNOTs not in the timing). The Rust generator had no flag qubits. Noise is the noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated. Memory runs over d rounds.
 
 ## Headline
 

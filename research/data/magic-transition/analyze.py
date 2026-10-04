@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregation, finite-size scaling and figures for research/magic-transition.md.
+"""Aggregation, finite-size scaling and figures for research/simulability/magic-transition.md.
 
 usage: analyze.py <raw.csv> <outdir>
 """

@@ -1,7 +1,7 @@
 # Colour-code syndrome schedules: global search and optimality certificates
 
 Branch `exp/colour-global` (rebased on `main` = a4e9da2; the QEC code is unchanged since dd26f4b). Code and data: `research/data/colour-global/`.
-This follows `research/qec-r4.md` Part 2. Setting: triangular 6.6.6 colour code, Kishony–Fowler (K–F, arXiv:2603.28852) layout and round structure, Z memory, noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated.
+This follows `research/qec/qec-r4.md` Part 2. Setting: triangular 6.6.6 colour code, Kishony–Fowler (K–F, arXiv:2603.28852) layout and round structure, Z memory, noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated.
 
 **K–F's design space** (what qec-r4's local search explored):
 - one auxiliary per plaquette;

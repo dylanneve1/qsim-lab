@@ -1,10 +1,10 @@
 //! The magic atlas: how much non-stabilizer structure real algorithm
 //! circuits accumulate, gate by gate, measured by cheap exact invariants of
-//! the rotation frame (research/magic-atlas.md).
+//! the rotation frame (research/simulability/magic-atlas.md).
 //!
 //! For a unitary circuit `U` on `|0^n>` (lowered to Clifford + Z rotations)
 //! the rotation frame writes `U_k = C_k R_{m_k} ⋯ R_1` after gate `k`, with
-//! `R_j = exp(-iθ_j Q_j/2)` (research/pauli.md, src/adaptive.rs). [`profile`]
+//! `R_j = exp(-iθ_j Q_j/2)` (research/performance/pauli.md, src/adaptive.rs). [`profile`]
 //! records, in one O(gates · n/64) pass (plus O(n²·w) for the GF(2) basis):
 //!
 //! * `d_k = dim span{x(Q_1..Q_{m_k})}` — the active dimension: the exact

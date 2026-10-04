@@ -1,4 +1,4 @@
-//! Planner v2 (src/planner.rs, research/planner-v2.md): samples and
+//! Planner v2 (src/planner.rs, research/simulability/planner-v2.md): samples and
 //! amplitude requests, tiered planning, the plan cache.
 //!
 //! * every engine the planner can run for samples (state vector, sparse,

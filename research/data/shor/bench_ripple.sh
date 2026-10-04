@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Regenerates research/data/shor/ripple_benchmarks.txt (ripple-carry oracle,
+# research/shor/shor.md). Run from the repo root after `cargo build --release`.
 set -e
 Q=./target/release/qsim
 OUT=research/data/shor/ripple_benchmarks.txt

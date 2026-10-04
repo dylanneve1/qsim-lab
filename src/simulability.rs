@@ -1,4 +1,4 @@
-//! Phase diagram of exact simulability (research/simulability.md).
+//! Phase diagram of exact simulability (research/simulability/simulability.md).
 //!
 //! Three pieces, used by `examples/simulability.rs` and the Python driver in
 //! `research/data/simulability/`:

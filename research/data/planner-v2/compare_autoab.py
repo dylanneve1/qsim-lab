@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strategy::Auto A/B in one Mac session (research/planner-v2.md §5): `auto`
+"""Strategy::Auto A/B in one Mac session (research/simulability/planner-v2.md §5): `auto`
 (v2: ski-rental exploration past a switch, explore_frac 0.3) vs `auto0`
 (the round-4 logic, explore_frac 0), same binary (incl. the frame store's
 small-rotation change), each instance back to back in one worker. Control

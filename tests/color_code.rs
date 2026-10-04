@@ -149,7 +149,7 @@ fn noisy_dem_has_no_undetectable_single_logical_fault() {
 /// Exact circuit distances of the Kishony-Fowler schedule reproduce their
 /// d_circ = d - floor((d+3)/6) (noisy-CNOT model), with exact counts of
 /// minimum-weight logicals; cross-checked against MaxSAT/ILP in
-/// research/qec-r4.md.
+/// research/qec/qec-r4.md.
 #[test]
 fn kf_circuit_distance_matches_published_formula() {
     for (d, rounds, count) in [
@@ -193,7 +193,7 @@ fn load_schedule(text: &str) -> qsim_lab::qec::color::ColorSchedule {
 }
 
 /// The schedule found by the large-neighbourhood search at d = 5
-/// (research/qec-r4.md §2.4): collision-free, deterministic detectors, same
+/// (research/qec/qec-r4.md §2.4): collision-free, deterministic detectors, same
 /// circuit distance as Kishony-Fowler (4) with 197 instead of 388
 /// minimum-weight logicals over 5 rounds.
 #[test]

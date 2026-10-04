@@ -9,7 +9,7 @@ trees.
 
 **Summary.**
 
-| claim (as stated in research/shor.md, shor-noise.md, magic-atlas.md) | verdict |
+| claim (as stated in research/shor/shor.md, shor-noise.md, magic-atlas.md) | verdict |
 |---|---|
 | T1 `|S_i| ≤ B_i = min(2^i, r/gcd(r,2^(t−i)))` | **true**, proved (Thm 1a) |
 | T1 equality "except on a measure-zero set" | **false as worded.** The exceptional set is explicit (Thm 1b), has probability up to Θ(1/r_odd) per round, and is never empty in general: 131 of 45 267 exhaustively enumerated tree nodes. Corrected: P(round deficient) ≤ 4/r_odd (Thm 1c). |
@@ -405,7 +405,7 @@ stays empirical.
 
 ## Corrections to earlier notes
 
-1. research/shor.md, "|S_i| = B_i … the 12 exceptions are exact destructive interference": correct, and
+1. research/shor/shor.md, "|S_i| = B_i … the 12 exceptions are exact destructive interference": correct, and
    now characterised (Thm 1b). Any wording that calls them "measure zero" is wrong: they occur with
    probability up to Θ(1/r_odd) per round (Thm 1c). They are negligible for the record runs
    (r_odd ≥ 10³), not absent.

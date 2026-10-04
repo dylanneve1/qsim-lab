@@ -1,7 +1,7 @@
 # Exact exploitation of repeated blocks (`compile::repeat`)
 
 Owner request (1 Oct): "turn the circuits into graphs and optimize repeating
-parts." The circuit DAG IR (`src/dag.rs`, `research/dag.md`) already exists.
+parts." The circuit DAG IR (`src/dag.rs`, `research/compiler/dag.md`) already exists.
 This experiment looks for `circuit = prefix · B^r · suffix` (also nested, also
 with changing angles) and simulates `B^r` faster than `r` copies, exactly.
 

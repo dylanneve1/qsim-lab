@@ -1,4 +1,4 @@
-//! Campaign driver for research/magic-transition.md.
+//! Campaign driver for research/simulability/magic-transition.md.
 //!
 //! cargo run --release --example magic_transition -- scan n=64 pm=0.1,0.2 pt=0.05 samples=20
 //!   key=value options:
