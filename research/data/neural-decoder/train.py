@@ -91,7 +91,20 @@ log.write(json.dumps(dict(args=vars(a), params=int(nparams))) + "\n")
 json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=0, shots=0),
           open(os.path.join(a.out, "cfg.json"), "w"))
 t0 = time.time(); paused = 0.0; seen = 0; dropped = 0; run = []
-blocks_per = a.batch // 1024
+BUF = {}
+
+
+def next_batch(s, n):
+    """n shots from stream s (1024-shot blocks are buffered and sliced)"""
+    d, o = BUF.get(id(s), (None, None))
+    if d is None or len(o) < n:
+        nd_, no_ = s.read(max(1, -(-n // 1024)))
+        d = nd_ if d is None else np.concatenate([d, nd_])
+        o = no_ if o is None else np.concatenate([o, no_])
+    BUF[id(s)] = (d[n:], o[n:])
+    return d[:n], o[:n]
+
+
 for it in range(1, a.steps + 1):
     paused += wait_lock([s.p for s in streams])
     if it % 50 == 0:
@@ -101,7 +114,7 @@ for it in range(1, a.steps + 1):
             model.save_weights(os.path.join(a.out, "model.safetensors"))
             raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
     s = streams[it % len(streams)]
-    dets, obs = s.read(blocks_per)
+    dets, obs = next_batch(s, a.batch)
     tok, cnt = batch_tokens(dets, a.tmax)
     dropped += int((cnt > a.tmax).sum())
     keep = cnt <= a.tmax
