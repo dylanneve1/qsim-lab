@@ -50,7 +50,7 @@ class Stream:
 
 def tokens(dets, tmax, pad):
     """dense (B, nd) 0/1 -> (B, tmax) int32 fired-detector indices padded with `pad`, counts (B,)."""
-    cnt = dets.sum(1)
+    cnt = dets.sum(1, dtype=np.int64)
     b, j = np.nonzero(dets)
     start = np.concatenate([[0], np.cumsum(cnt)[:-1]])
     pos = np.arange(len(b)) - start[b]

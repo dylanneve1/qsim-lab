@@ -67,7 +67,7 @@ def batch_tokens(dets, tmax):
 
 def predict(m, dets, bs=4096):
     """logits for every shot; shots sorted by weight so T stays small; no shot dropped"""
-    cnt = dets.sum(1)
+    cnt = dets.sum(1, dtype=np.int64)
     order = np.argsort(cnt, kind="stable")
     out = np.empty(len(cnt), np.float32)
     for i in range(0, len(order), bs):
