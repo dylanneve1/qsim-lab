@@ -67,8 +67,8 @@ fn print_run(r: &shor_ge::GeRun, secs: f64) {
         r.gate_branch_ops as f64
     );
     println!(
-        "time {:.3} s  (build {:.3}, eval {:.3}, sort {:.3}, measure {:.3})",
-        secs, r.prof[0], r.prof[1], r.prof[2], r.prof[3]
+        "time {:.3} s  (build {:.3}, eval {:.3}, sort {:.3}, probs {:.3}, new state {:.3})",
+        secs, r.prof[0], r.prof[1], r.prof[2], r.prof[3], r.prof[4]
     );
 }
 

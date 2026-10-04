@@ -88,7 +88,7 @@ pub struct GeLayout {
 
 impl GeLayout {
     pub fn new(n: usize, o: &GeOpts) -> Self {
-        assert!(n >= 2 && o.we >= 1 && o.wm >= 1);
+        assert!(n >= 2 && (1..=6).contains(&o.we) && o.wm >= 1);
         let wa = o.we + o.wm;
         if o.coset == 0 {
             let win = WindowLayout {
@@ -460,12 +460,14 @@ impl<T: Real> WindowArrays<T> {
         let w = self.w;
         let mask = (1u64 << w) - 1;
         let mut vals = vec![Complex64::zero(); 1 << w];
-        let mut i = lo;
-        while i < hi {
-            let key = self.ent[i].0 >> w;
+        let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
+        let n = ent.len();
+        let mut i = 0;
+        while i < n {
+            let key = ent[i].0 >> w;
             vals.iter_mut().for_each(|v| *v = Complex64::zero());
-            while i < hi && self.ent[i].0 >> w == key {
-                vals[(self.ent[i].0 & mask) as usize] = c64(self.ent[i].1);
+            while i < n && ent[i].0 >> w == key {
+                vals[(ent[i].0 & mask) as usize] = c64(ent[i].1);
                 i += 1;
             }
             f(key, &mut vals);
@@ -475,7 +477,16 @@ impl<T: Real> WindowArrays<T> {
     /// at one key; returns how many entries of `vals` are live.
     #[inline]
     fn reduce(&self, vals: &mut [Complex64]) -> usize {
-        let norm = (1.0 / vals.len() as f64).sqrt();
+        const NORMS: [f64; 7] = [
+            1.0,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0.5,
+            0.353_553_390_593_273_8,
+            0.25,
+            0.176_776_695_296_636_9,
+            0.125,
+        ];
+        let norm = NORMS[self.w];
         for v in vals.iter_mut() {
             *v = c64(cvt::<T>(*v * norm));
         }
@@ -525,46 +536,82 @@ impl<T: Real> WindowArrays<T> {
             }
         }
         let r = std::f64::consts::FRAC_1_SQRT_2;
-        self.chunks()
-            .into_par_iter()
-            .map(|ch| {
-                let mut acc = vec![0.0f64; 1 << bl];
-                // scratch: one value vector per tree level
-                let mut lv: Vec<Vec<Complex64>> = (0..=bl).map(|j| vec![Complex64::zero(); 1 << (bl - j)]).collect();
-                self.groups(ch, |_, vals| {
-                    let len = self.reduce(vals);
-                    lv[0][..len].copy_from_slice(&vals[..len]);
-                    // depth-first over outcome prefixes
-                    fn rec(
-                        lv: &mut [Vec<Complex64>],
-                        phs: &[Complex64],
-                        j: usize,
-                        bl: usize,
-                        pre: u64,
-                        r: f64,
-                        acc: &mut [f64],
-                    ) {
-                        if j == bl {
-                            acc[pre as usize] += lv[j][0].norm_sqr();
-                            return;
-                        }
-                        let ph = phs[(1usize << j) - 1 + pre as usize];
-                        let h = 1usize << (bl - j - 1);
-                        for b in 0..2u64 {
+        let nb = 1usize << bl;
+        let ne = 1usize << self.w;
+        // The map from the 2^w values at a key to the 2^bl outcome
+        // amplitudes is linear: tabulate it (column e = image of δ_e under
+        // the measured levels and the butterfly over the remaining bits).
+        let mut mat = vec![Complex64::zero(); nb * ne];
+        {
+            let mut cur = vec![Complex64::zero(); nb];
+            let mut nxt = vec![Complex64::zero(); nb];
+            for e in 0..ne {
+                let mut vals = vec![Complex64::zero(); ne];
+                vals[e] = Complex64::new(1.0, 0.0);
+                // same reduction as `reduce`, without rounding to T
+                let mut len = ne;
+                for v in vals.iter_mut() {
+                    *v *= (1.0 / ne as f64).sqrt();
+                }
+                for &(ph, k) in &self.levels {
+                    let h = len / 2;
+                    for i in 0..h {
+                        vals[i] = (vals[i] + ph * vals[i + h]) * k;
+                    }
+                    len = h;
+                }
+                cur.copy_from_slice(&vals[..nb]);
+                for j in 0..bl {
+                    let lj = nb >> j;
+                    let h = lj / 2;
+                    for pre in 0..1usize << j {
+                        let ph = phs[(1usize << j) - 1 + pre];
+                        for b in 0..2usize {
                             let s = if b == 1 { -ph } else { ph };
-                            let (cur, nxt) = lv.split_at_mut(j + 1);
-                            for e in 0..h {
-                                nxt[0][e] = (cur[j][e] + s * cur[j][e + h]) * r;
+                            let o = (pre | (b << j)) * h;
+                            for i in 0..h {
+                                nxt[o + i] = (cur[pre * lj + i] + s * cur[pre * lj + i + h]) * r;
                             }
-                            rec(lv, phs, j + 1, bl, pre | (b << j), r, acc);
                         }
                     }
-                    rec(&mut lv, &phs, 0, bl, 0, r, &mut acc);
-                });
+                    std::mem::swap(&mut cur, &mut nxt);
+                }
+                for b in 0..nb {
+                    mat[b * ne + e] = cur[b];
+                }
+            }
+        }
+        let w = self.w;
+        let mask = (1u64 << w) - 1;
+        self.chunks()
+            .into_par_iter()
+            .map(|(lo, hi)| {
+                let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
+                let mut acc = vec![0.0f64; nb];
+                let mut amp = vec![Complex64::zero(); nb];
+                let mut key = ent.first().map_or(0, |v| v.0 >> w);
+                for v in ent {
+                    let k = v.0 >> w;
+                    if k != key {
+                        for (a, z) in acc.iter_mut().zip(amp.iter_mut()) {
+                            *a += z.norm_sqr();
+                            *z = Complex64::zero();
+                        }
+                        key = k;
+                    }
+                    let e = (v.0 & mask) as usize;
+                    let x = c64(v.1);
+                    for (b, z) in amp.iter_mut().enumerate() {
+                        *z += mat[b * ne + e] * x;
+                    }
+                }
+                for (a, z) in acc.iter_mut().zip(amp.iter()) {
+                    *a += z.norm_sqr();
+                }
                 acc
             })
             .reduce(
-                || vec![0.0; 1 << bl],
+                || vec![0.0; nb],
                 |mut a, b| {
                     for (x, y) in a.iter_mut().zip(b) {
                         *x += y;
@@ -585,21 +632,41 @@ impl<T: Real> WindowArrays<T> {
     /// (exact zeros dropped).
     pub fn materialize(&self) -> Vec<Arr<T>> {
         let nl = 1usize << self.bits_left();
+        let w = self.w;
+        let ne = 1usize << w;
+        let mask = (1u64 << w) - 1;
         let parts: Vec<Vec<Arr<T>>> = self
             .chunks()
             .into_par_iter()
-            .map(|ch| {
-                let mut out: Vec<Arr<T>> = vec![Vec::new(); nl];
-                self.groups(ch, |key, vals| {
-                    let len = self.reduce(vals);
+            .map(|(lo, hi)| {
+                let ent: &[(u64, Complex<T>)] = &self.ent[lo..hi];
+                let mut out: Vec<Arr<T>> = (0..nl)
+                    .map(|_| Vec::with_capacity(ent.len() / ne + 16))
+                    .collect();
+                let mut vals = [Complex64::zero(); 64];
+                let mut flush = |key: u64, vals: &mut [Complex64; 64]| {
+                    let len = self.reduce(&mut vals[..ne]);
                     debug_assert_eq!(len, nl);
-                    for (o, &v) in out.iter_mut().zip(vals.iter()) {
-                        let z = cvt::<T>(v);
+                    for (o, v) in out.iter_mut().zip(vals[..nl].iter()) {
+                        let z = cvt::<T>(*v);
                         if z != Complex::zero() {
                             o.push((key, z));
                         }
                     }
-                });
+                    vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
+                };
+                let mut key = ent.first().map_or(0, |v| v.0 >> w);
+                for v in ent {
+                    let k = v.0 >> w;
+                    if k != key {
+                        flush(key, &mut vals);
+                        key = k;
+                    }
+                    vals[(v.0 & mask) as usize] = c64(v.1);
+                }
+                if !ent.is_empty() {
+                    flush(key, &mut vals);
+                }
                 out
             })
             .collect();
@@ -627,8 +694,8 @@ pub struct GeState<T: Real> {
     pub peak_branches: usize,
     /// Σ over windows of (branches evaluated) × (block ops).
     pub gate_branch_ops: u128,
-    /// Seconds: build, eval, sort, measure.
-    pub prof: [f64; 4],
+    /// Seconds: build, eval, sort, window probabilities, new state.
+    pub prof: [f64; 5],
 }
 
 /// One window's program and I/O.
@@ -664,7 +731,7 @@ impl<T: Real> GeState<T> {
             peak,
             peak_branches: peak,
             gate_branch_ops: 0,
-            prof: [0.0; 4],
+            prof: [0.0; 5],
         }
     }
 
@@ -742,7 +809,7 @@ pub struct GeRun {
     pub peak_branches: usize,
     pub gate_branch_ops: u128,
     pub qubits: usize,
-    pub prof: [f64; 4],
+    pub prof: [f64; 5],
 }
 
 /// The windows of a register of `len` rounds with window `we`: round
@@ -878,7 +945,8 @@ pub fn run<T: Real>(
             if !final_window {
                 st.finish(wa);
             }
-            st.prof[3] += tm.elapsed().as_secs_f64();
+            st.prof[3] += t_joint;
+            st.prof[4] += tm.elapsed().as_secs_f64() - t_joint;
             if std::env::var_os("QSIM_GE_PROFILE").is_some() {
                 eprintln!(
                     "[ge window {k}] in={} joint {:.3}s finish {:.3}s out={}",
