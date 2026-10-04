@@ -18,11 +18,12 @@ def dec(orders, beam):
     cfg = tesseract.TesseractConfig(dem=dem, pqlimit=200_000, det_beam=beam, beam_climbing=True,
         det_orders=tu.build_det_orders(dem=dem, num_det_orders=orders, method=tu.DetOrder.DetIndex), no_revisit_dets=True)
     return tesseract.TesseractDecoder(cfg)
-light = dec(1, 5)
+bo, bb = map(int, os.environ.get("BASE", "1,5").split(","))
+light = dec(bo, bb)
 pred = light.decode_batch(dets)[:, 0]
 bad = np.nonzero(pred != obs)[0]
-print("light fails:", len(bad), "syndrome weights:", [int(dets[i].sum()) for i in bad], flush=True)
-for o, b in [(4, 8), (16, 15)]:
+print(f"base ({bo},{bb}) fails:", len(bad), "syndrome weights:", [int(dets[i].sum()) for i in bad], flush=True)
+for o, b in [(o, b) for o, b in [(4, 8), (16, 15), (32, 30)] if (o, b) > (bo, bb)]:
     D = dec(o, b)
     pr = D.decode_batch(dets[bad])[:, 0]
     print(f"orders {o} beam {b}: still failing {int((pr != obs[bad]).sum())} of {len(bad)}", flush=True)
