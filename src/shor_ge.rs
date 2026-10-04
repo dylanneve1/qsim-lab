@@ -1411,19 +1411,27 @@ pub fn eh_target(n_mod: u64, g: u64) -> u64 {
     pow_mod(g, (n_mod - 1) / 2, n_mod)
 }
 
-/// Ekerå–Håstad registers: `2m` bits with base `g`, `m` bits with base
-/// `y^{−1}` (computing `g^a y^{−b}`).
+/// Ekerå–Håstad registers, in the order they are run: the `m`-bit register
+/// `b` with base `y^{−1}` first, then the `2m`-bit register `a` with base
+/// `g` (computing `g^a y^{−b}`). The two registers' controlled
+/// multiplications commute and each has its own semiclassical QFT, so the
+/// order does not change the distribution of `(j, k)`; it changes the
+/// simulator's support. Running `b` first keeps the support inside
+/// `{y^{−b}}·⟨g^{2^{2m−i}}⟩`, which is `r_odd`-sized for most of the run
+/// when `y = g^d` lies in the odd-order part (`d ≡ 0 mod 2^{ν₂(r)}`), and
+/// at most `r` otherwise; `a` first reaches the full group `⟨g⟩` (`r`)
+/// after `2m` rounds and stays there for all `m` rounds of `b`.
 pub fn eh_regs(n_mod: u64, g: u64) -> Vec<ExpReg> {
     let m = eh_m(n_mod);
     let y = eh_target(n_mod, g);
     vec![
         ExpReg {
-            len: 2 * m,
-            base: g,
-        },
-        ExpReg {
             len: m,
             base: mod_inverse(y, n_mod),
+        },
+        ExpReg {
+            len: 2 * m,
+            base: g,
         },
     ]
 }
@@ -1557,7 +1565,8 @@ pub fn eh_run<T: Real>(
 ) -> (GeRun, Option<(u64, u64)>) {
     assert_eq!(gcd(g, n_mod), 1);
     let r = run::<T>(n_mod, &eh_regs(n_mod, g), o, rng);
-    let (f, _) = eh_postprocess(n_mod, g, r.y[0], r.y[1], 4096);
+    // registers run b first: y[0] = k (m bits), y[1] = j (2m bits)
+    let (f, _) = eh_postprocess(n_mod, g, r.y[1], r.y[0], 4096);
     (r, f)
 }
 

@@ -266,12 +266,19 @@ fn eh_distribution_matches_textbook() {
             let regs = shor_ge::eh_regs(n_mod, g);
             assert_eq!(regs[0].len + regs[1].len, 3 * m);
             let book = eh_textbook(n_mod, g);
+            let na = 1u128 << (2 * m);
+            let nb = 1usize << m;
             for o in [opts(1, 2, MbuOpts::LOOKUPS), opts(2, 2, MbuOpts::ALL)] {
-                let d = shor_ge::distribution(n_mod, &regs, &o, 1e-15);
+                // the engine runs register b (k, m bits) first: index k + 2^m j
+                let d0 = shor_ge::distribution(n_mod, &regs, &o, 1e-15);
+                let mut d = vec![0.0; d0.len()];
+                for (idx, &p) in d0.iter().enumerate() {
+                    let (k, j) = (idx % nb, idx / nb);
+                    d[j + (na as usize) * k] = p;
+                }
                 let e = max_diff(&book, &d);
                 assert!(e < 1e-12, "N={n_mod} g={g} {o:?}: {e:e}");
             }
-            let na = 1u128 << (2 * m);
             let mut ok = 0.0;
             for (idx, &p) in book.iter().enumerate() {
                 if p < 1e-15 {

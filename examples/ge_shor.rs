@@ -100,8 +100,8 @@ fn main() {
                     "EH  N={n_mod}  g={a}  m={}  exponent bits={}  j={}  k={}  factors={f:?}",
                     shor_ge::eh_m(n_mod),
                     3 * shor_ge::eh_m(n_mod),
-                    r.y[0],
-                    r.y[1]
+                    r.y[1],
+                    r.y[0]
                 );
                 print_run(&r, secs);
             } else {
