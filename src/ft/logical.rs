@@ -214,7 +214,14 @@ pub struct Encoded<B: Phys> {
 }
 
 impl Encoded<FrameBackend> {
-    pub fn frame(k: usize, nlog: usize, noise: Noise, cfg: FtConfig, magic: MagicMode, seed: u64) -> Self {
+    pub fn frame(
+        k: usize,
+        nlog: usize,
+        noise: Noise,
+        cfg: FtConfig,
+        magic: MagicMode,
+        seed: u64,
+    ) -> Self {
         let mut m = Machine::new(FrameBackend::default(), noise, cfg, k);
         let blocks = (0..nlog).map(|_| m.alloc(k)).collect();
         Encoded {
@@ -231,7 +238,15 @@ impl Encoded<FrameBackend> {
 }
 
 impl Encoded<DenseBackend> {
-    pub fn dense(k: usize, nlog: usize, cap: usize, noise: Noise, cfg: FtConfig, magic: MagicMode, seed: u64) -> Self {
+    pub fn dense(
+        k: usize,
+        nlog: usize,
+        cap: usize,
+        noise: Noise,
+        cfg: FtConfig,
+        magic: MagicMode,
+        seed: u64,
+    ) -> Self {
         let mut m = Machine::new(DenseBackend::new(cap, seed), noise, cfg, k);
         let blocks = (0..nlog).map(|_| m.alloc(k)).collect();
         Encoded {
@@ -551,8 +566,17 @@ impl Logical for Checked {
 }
 
 /// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
-pub fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
-    let cfg = FtConfig { ec: true, inject_postselect: ps };
+pub fn inject_errors(
+    level: usize,
+    p: f64,
+    trials: u64,
+    seed: u64,
+    ps: bool,
+) -> (f64, f64, f64, f64, f64) {
+    let cfg = FtConfig {
+        ec: true,
+        inject_postselect: ps,
+    };
     let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed), cfg, level);
     let (mut nx, mut ny, mut nz) = (0u64, 0u64, 0u64);
     for _ in 0..trials {
@@ -571,4 +595,3 @@ pub fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> 
     let acc = trials as f64 / m.stats.inject_attempts.max(1) as f64;
     (px, py, pz, pz + 0.5 * (px + py), acc)
 }
-

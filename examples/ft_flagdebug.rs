@@ -30,20 +30,51 @@ impl W {
             }
         }
         if bad {
-            self.first = Some((self.op, format!("{name} {which} measflip={}", self.e.counts.logical_fault)));
+            self.first = Some((
+                self.op,
+                format!("{name} {which} measflip={}", self.e.counts.logical_fault),
+            ));
         }
     }
 }
 impl Logical for W {
-    fn prep(&mut self, q: usize, b: bool) { self.e.prep(q, b); self.chk(&format!("prep{q}")) }
-    fn h(&mut self, q: usize) { self.e.h(q); self.chk(&format!("h{q}")) }
-    fn s(&mut self, q: usize) { self.e.s(q); self.chk(&format!("s{q}")) }
-    fn sdg(&mut self, q: usize) { self.e.sdg(q); self.chk(&format!("sdg{q}")) }
-    fn t(&mut self, q: usize) { self.e.t(q); self.chk(&format!("t{q}")) }
-    fn tdg(&mut self, q: usize) { self.e.tdg(q); self.chk(&format!("tdg{q}")) }
-    fn cnot(&mut self, c: usize, t: usize) { self.e.cnot(c, t); self.chk(&format!("cnot{c}{t}")) }
-    fn meas(&mut self, q: usize) -> bool { let r = self.e.meas(q); self.chk(&format!("meas{q}")); r }
-    fn sdg_slot(&mut self, q: usize, a: bool) { self.e.sdg_slot(q, a); self.chk(&format!("slot{q}")) }
+    fn prep(&mut self, q: usize, b: bool) {
+        self.e.prep(q, b);
+        self.chk(&format!("prep{q}"))
+    }
+    fn h(&mut self, q: usize) {
+        self.e.h(q);
+        self.chk(&format!("h{q}"))
+    }
+    fn s(&mut self, q: usize) {
+        self.e.s(q);
+        self.chk(&format!("s{q}"))
+    }
+    fn sdg(&mut self, q: usize) {
+        self.e.sdg(q);
+        self.chk(&format!("sdg{q}"))
+    }
+    fn t(&mut self, q: usize) {
+        self.e.t(q);
+        self.chk(&format!("t{q}"))
+    }
+    fn tdg(&mut self, q: usize) {
+        self.e.tdg(q);
+        self.chk(&format!("tdg{q}"))
+    }
+    fn cnot(&mut self, c: usize, t: usize) {
+        self.e.cnot(c, t);
+        self.chk(&format!("cnot{c}{t}"))
+    }
+    fn meas(&mut self, q: usize) -> bool {
+        let r = self.e.meas(q);
+        self.chk(&format!("meas{q}"));
+        r
+    }
+    fn sdg_slot(&mut self, q: usize, a: bool) {
+        self.e.sdg_slot(q, a);
+        self.chk(&format!("slot{q}"))
+    }
 }
 
 fn main() {
@@ -53,7 +84,18 @@ fn main() {
     let n: u64 = a[3].parse().unwrap();
     let mut hist: BTreeMap<String, u64> = BTreeMap::new();
     for s in 0..n {
-        let mut w = W { e: Encoded::frame(k, NLOG15, Noise::new(p, 77 + s), FtConfig::default(), MagicMode::Model(0.0), s), op: 0, first: None };
+        let mut w = W {
+            e: Encoded::frame(
+                k,
+                NLOG15,
+                Noise::new(p, 77 + s),
+                FtConfig::default(),
+                MagicMode::Model(0.0),
+                s,
+            ),
+            op: 0,
+            first: None,
+        };
         run_shor15(&mut w, 7, 3);
         if let Some((op, d)) = w.first {
             println!("shot {s}: op {op} {d}");

@@ -176,7 +176,11 @@ mod tests {
             }
             for y in 0..8 {
                 let f = hist[y] as f64 / n as f64;
-                assert!((f - ideal[y]).abs() < 0.03, "a={a} y={y} {f} vs {}", ideal[y]);
+                assert!(
+                    (f - ideal[y]).abs() < 0.03,
+                    "a={a} y={y} {f} vs {}",
+                    ideal[y]
+                );
                 if ideal[y] == 0.0 {
                     assert_eq!(hist[y], 0);
                 }

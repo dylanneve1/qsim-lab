@@ -99,7 +99,11 @@ impl DenseBackend {
 
 impl Phys for DenseBackend {
     fn ensure(&mut self, n: usize) {
-        assert!(n <= self.cap, "dense backend capacity {} exceeded ({n})", self.cap);
+        assert!(
+            n <= self.cap,
+            "dense backend capacity {} exceeded ({n})",
+            self.cap
+        );
     }
     fn prep0(&mut self, q: usize) {
         self.reset(q);
@@ -143,4 +147,3 @@ impl Phys for DenseBackend {
         }
     }
 }
-

@@ -12,7 +12,9 @@ fn main() {
     let p: f64 = a[2].parse().unwrap();
     let n: u64 = a[3].parse().unwrap();
     let seed: u64 = a[4].parse().unwrap();
-    let names = ["prep0", "prep+", "ec", "h", "s", "id", "cnot", "measZ", "measX", "inject"];
+    let names = [
+        "prep0", "prep+", "ec", "h", "s", "id", "cnot", "measZ", "measX", "inject",
+    ];
     let only: Option<String> = a.get(5).cloned();
     for (oi, name) in names.iter().enumerate() {
         if let Some(o) = &only {
@@ -20,7 +22,12 @@ fn main() {
                 continue;
             }
         }
-        let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed + oi as u64), FtConfig::default(), k);
+        let mut m = Machine::new(
+            FrameBackend::default(),
+            Noise::new(p, seed + oi as u64),
+            FtConfig::default(),
+            k,
+        );
         let x = m.alloc(k);
         let y = m.alloc(k);
         let mut fail = 0u64;
@@ -72,6 +79,10 @@ fn main() {
             };
             fail += bad as u64;
         }
-        println!("level={k} p={p:e} gadget={name} trials={n} fail={fail} rate={:.3e} locs={:.0}", fail as f64 / n as f64, locs as f64 / n as f64);
+        println!(
+            "level={k} p={p:e} gadget={name} trials={n} fail={fail} rate={:.3e} locs={:.0}",
+            fail as f64 / n as f64,
+            locs as f64 / n as f64
+        );
     }
 }

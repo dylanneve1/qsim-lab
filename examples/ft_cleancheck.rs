@@ -11,9 +11,20 @@ fn main() {
     let mut hf = [0u64; 8];
     for s in 0..n {
         let sd = seed * 1_000_003 + s;
-        let mut c = Checked(Encoded::frame(1, NLOG15, Noise::new(p, sd), FtConfig::default(), MagicMode::Raw, sd));
+        let mut c = Checked(Encoded::frame(
+            1,
+            NLOG15,
+            Noise::new(p, sd),
+            FtConfig::default(),
+            MagicMode::Raw,
+            sd,
+        ));
         let y = run_shor15(&mut c, 7, 3);
-        if c.0.counts.logical_fault { hf[y as usize] += 1 } else { h[y as usize] += 1 }
+        if c.0.counts.logical_fault {
+            hf[y as usize] += 1
+        } else {
+            h[y as usize] += 1
+        }
     }
     println!("p={p} clean={:?} faulty={:?}", h, hf);
 }

@@ -13,7 +13,9 @@
 use qsim_lab::ft::core::{Noise, ALL_COMPS, COMP_NAMES, N_COMP};
 use qsim_lab::ft::logical::{inject_errors, Checked, Encoded, MagicMode, Unencoded};
 use qsim_lab::ft::machine::FtConfig;
-use qsim_lab::ft::shor::{ideal_distribution, ideal_qpe_distribution, run_shor15, run_shor21_compiled, NLOG15, NLOG21};
+use qsim_lab::ft::shor::{
+    ideal_distribution, ideal_qpe_distribution, run_shor15, run_shor21_compiled, NLOG15, NLOG21,
+};
 use std::time::Instant;
 
 fn gcd(a: u64, b: u64) -> u64 {
@@ -52,7 +54,11 @@ fn main() {
             let nlog = if n21 { NLOG21 } else { NLOG15 };
             let mask: u32 = a.get(9).map(|s| s.parse().unwrap()).unwrap_or(ALL_COMPS);
             let t = 3usize;
-            let ideal = if n21 { ideal_qpe_distribution(3, t) } else { ideal_distribution(base, t) };
+            let ideal = if n21 {
+                ideal_qpe_distribution(3, t)
+            } else {
+                ideal_distribution(base, t)
+            };
             let mut hist = [0u64; 8];
             let mut lfault = 0u64;
             let mut hist_f = [0u64; 8];
@@ -83,8 +89,19 @@ fn main() {
                 noise.mask = mask;
                 let y = match mode {
                     "enc" => {
-                        let mut ce = Checked(Encoded::frame(level, nlog, noise, FtConfig::default(), mm, sd));
-                        let y = if n21 { run_shor21_compiled(&mut ce, t) } else { run_shor15(&mut ce, base, t) };
+                        let mut ce = Checked(Encoded::frame(
+                            level,
+                            nlog,
+                            noise,
+                            FtConfig::default(),
+                            mm,
+                            sd,
+                        ));
+                        let y = if n21 {
+                            run_shor21_compiled(&mut ce, t)
+                        } else {
+                            run_shor15(&mut ce, base, t)
+                        };
                         let e = ce.0;
                         if e.counts.logical_fault {
                             lfault += 1;
@@ -108,7 +125,11 @@ fn main() {
                     }
                     "unenc" | "unenc-ccx" => {
                         let mut u = Unencoded::new(nlog, noise, mode == "unenc-ccx", sd);
-                        let y = if n21 { run_shor21_compiled(&mut u, t) } else { run_shor15(&mut u, base, t) };
+                        let y = if n21 {
+                            run_shor21_compiled(&mut u, t)
+                        } else {
+                            run_shor15(&mut u, base, t)
+                        };
                         if u.noise.faults.iter().sum::<u64>() > 0 {
                             lfault += 1;
                             hist_f[y as usize] += 1;
@@ -126,23 +147,42 @@ fn main() {
             }
             let n = shots as f64;
             // peak: |y/2^t - s/r| < 1/(2 r^2) for some s
-            let rr: u64 = if n21 { 3 } else { ideal.iter().filter(|&&v| v > 0.0).count() as u64 };
+            let rr: u64 = if n21 {
+                3
+            } else {
+                ideal.iter().filter(|&&v| v > 0.0).count() as u64
+            };
             let is_peak = |y: usize| {
-                (0..rr).any(|s| ((y as f64) / 8.0 - s as f64 / rr as f64).abs() < 1.0 / (2.0 * (rr * rr) as f64))
+                (0..rr).any(|s| {
+                    ((y as f64) / 8.0 - s as f64 / rr as f64).abs() < 1.0 / (2.0 * (rr * rr) as f64)
+                })
             };
             let peak: u64 = (0..8).filter(|&y| is_peak(y)).map(|y| hist[y]).sum();
             // y whose continued fraction gives r directly (s/r in lowest terms)
             let r = rr;
             let order: u64 = (0..8u64)
-                .filter(|&y| is_peak(y as usize) && {
-                    let s = ((y as f64) * r as f64 / 8.0).round() as u64 % r;
-                    gcd(s, r) == 1
+                .filter(|&y| {
+                    is_peak(y as usize) && {
+                        let s = ((y as f64) * r as f64 / 8.0).round() as u64 % r;
+                        gcd(s, r) == 1
+                    }
                 })
                 .map(|y| hist[y as usize])
                 .sum();
-            let tvd: f64 = 0.5 * (0..8).map(|y| (hist[y] as f64 / n - ideal[y]).abs()).sum::<f64>();
+            let tvd: f64 = 0.5
+                * (0..8)
+                    .map(|y| (hist[y] as f64 / n - ideal[y]).abs())
+                    .sum::<f64>();
             let fs: Vec<String> = (0..N_COMP)
-                .map(|c| format!("f_{}={:.4} l_{}={:.0}", COMP_NAMES[c], faults[c] as f64 / n, COMP_NAMES[c], comp_locs[c] as f64 / n))
+                .map(|c| {
+                    format!(
+                        "f_{}={:.4} l_{}={:.0}",
+                        COMP_NAMES[c],
+                        faults[c] as f64 / n,
+                        COMP_NAMES[c],
+                        comp_locs[c] as f64 / n
+                    )
+                })
                 .collect();
             println!(
                 "kind=shor inst={inst} mode={mode} level={level} magic={magic} p={p:e} shots={shots} seed={seed} a={base} mask={mask} \

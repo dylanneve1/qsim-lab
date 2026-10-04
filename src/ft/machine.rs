@@ -526,7 +526,11 @@ mod tests {
                 // a second EC: the output of the first must be correctable
                 m.ec(1, q);
                 let (x, z) = ideal_logical(&m.b.frame, 1, q);
-                if plus { !z } else { !x }
+                if plus {
+                    !z
+                } else {
+                    !x
+                }
             });
             assert!(t > 1000);
             assert_eq!(f, 0, "plus={plus}: {f} of {t} single faults fail");

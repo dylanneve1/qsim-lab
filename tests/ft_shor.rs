@@ -38,7 +38,15 @@ fn frame_equals_dense_per_shot_clifford_with_ec() {
             outs[0] = r;
         }
         {
-            let mut e = Encoded::dense(1, 1, 21, Noise::new(p, 1000 + s), cfg, MagicMode::Raw, 77 + s);
+            let mut e = Encoded::dense(
+                1,
+                1,
+                21,
+                Noise::new(p, 1000 + s),
+                cfg,
+                MagicMode::Raw,
+                77 + s,
+            );
             let mut r = false;
             circ(&mut |op| match op {
                 0 => e.prep(0, false),
@@ -79,34 +87,46 @@ fn two_prop_z(a: u32, na: u32, b: u32, nb: u32) -> f64 {
 /// the dense state at ≤ 16 qubits).
 #[test]
 fn frame_matches_dense_statistics_t_gadget() {
-    let cfg = FtConfig { ec: false, inject_postselect: false };
+    let cfg = FtConfig {
+        ec: false,
+        inject_postselect: false,
+    };
     let p = 0.02;
     type Circ = fn(&mut dyn Logical) -> bool;
     let circuits: [(Circ, f64); 3] = [
-        (|l| {
-            l.prep(0, false);
-            l.h(0);
-            l.t(0);
-            l.h(0);
-            l.meas(0)
-        }, 0.146),
-        (|l| {
-            l.prep(0, false);
-            l.h(0);
-            l.t(0);
-            l.h(0);
-            l.tdg(0);
-            l.h(0);
-            l.meas(0)
-        }, 0.0),
-        (|l| {
-            l.prep(0, true);
-            l.h(0);
-            l.tdg(0);
-            l.tdg(0);
-            l.h(0);
-            l.meas(0)
-        }, 0.5),
+        (
+            |l| {
+                l.prep(0, false);
+                l.h(0);
+                l.t(0);
+                l.h(0);
+                l.meas(0)
+            },
+            0.146,
+        ),
+        (
+            |l| {
+                l.prep(0, false);
+                l.h(0);
+                l.t(0);
+                l.h(0);
+                l.tdg(0);
+                l.h(0);
+                l.meas(0)
+            },
+            0.0,
+        ),
+        (
+            |l| {
+                l.prep(0, true);
+                l.h(0);
+                l.tdg(0);
+                l.tdg(0);
+                l.h(0);
+                l.meas(0)
+            },
+            0.5,
+        ),
     ];
     for (ci, (c, _)) in circuits.iter().enumerate() {
         let (nf, nd) = (20_000u32, 1_500u32);
@@ -117,7 +137,15 @@ fn frame_matches_dense_statistics_t_gadget() {
         }
         let mut kd = 0;
         for s in 0..nd as u64 {
-            let mut e = Encoded::dense(1, 1, 16, Noise::new(p, 9_000_000 + s), cfg, MagicMode::Raw, s);
+            let mut e = Encoded::dense(
+                1,
+                1,
+                16,
+                Noise::new(p, 9_000_000 + s),
+                cfg,
+                MagicMode::Raw,
+                s,
+            );
             kd += c(&mut e) as u32;
         }
         let z = two_prop_z(kf, nf, kd, nd);
@@ -134,7 +162,14 @@ fn encoded_shor15_noiseless() {
         let n = if k == 1 { 400 } else { 20 };
         let mut hist = [0u32; 8];
         for s in 0..n {
-            let mut e = Encoded::frame(k, NLOG15, Noise::new(0.0, s), FtConfig::default(), MagicMode::Raw, s);
+            let mut e = Encoded::frame(
+                k,
+                NLOG15,
+                Noise::new(0.0, s),
+                FtConfig::default(),
+                MagicMode::Raw,
+                s,
+            );
             hist[run_shor15(&mut e, 7, 3) as usize] += 1;
         }
         for y in 0..8 {
@@ -157,7 +192,14 @@ fn t_gadget_exrec_single_faults() {
     use qsim_lab::ft::machine::ideal_logical;
     for dagger in [false, true] {
         let run = |script: Vec<(u64, u8)>, seed: u64| -> (bool, u64) {
-            let mut e = Encoded::frame(1, 1, Noise::scripted(script), FtConfig::default(), MagicMode::Model(0.0), seed);
+            let mut e = Encoded::frame(
+                1,
+                1,
+                Noise::scripted(script),
+                FtConfig::default(),
+                MagicMode::Model(0.0),
+                seed,
+            );
             e.m.noise.suspended = true;
             e.prep(0, false);
             e.h(0);
@@ -197,7 +239,12 @@ fn t_gadget_exrec_single_faults() {
                 }
             }
         }
-        assert_eq!(bad, 0, "dagger={dagger}: {bad} failing single faults of {}", nloc * 30);
+        assert_eq!(
+            bad,
+            0,
+            "dagger={dagger}: {bad} failing single faults of {}",
+            nloc * 30
+        );
     }
 }
 
@@ -214,7 +261,14 @@ fn clean_runs_follow_ideal_distribution() {
         let mut nf = 0;
         for s in 0..30_000u64 {
             let (y, faulty) = if enc {
-                let mut c = Checked(Encoded::frame(1, NLOG15, Noise::new(1e-3, s), FtConfig::default(), MagicMode::Raw, s));
+                let mut c = Checked(Encoded::frame(
+                    1,
+                    NLOG15,
+                    Noise::new(1e-3, s),
+                    FtConfig::default(),
+                    MagicMode::Raw,
+                    s,
+                ));
                 let y = run_shor15(&mut c, 7, 3);
                 (y, c.0.counts.logical_fault)
             } else {
