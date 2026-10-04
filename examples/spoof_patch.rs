@@ -24,7 +24,7 @@ fn main() {
     eprintln!("patch: {} qubits, {} edges", patch.n, patch.edges.len());
     // exact: evolve step by step, record <Z_0> (qubit 0 of the patch = Eagle 62)
     let one = KickedIsing::new(patch.clone(), 1, theta).to_circuit();
-    let mut sv = StateVector::new(patch.n);
+    let mut sv: StateVector<f64> = StateVector::new(patch.n);
     let mut exact = vec![1.0];
     for _ in 0..max_steps {
         sv.apply_circuit(&one).unwrap();
