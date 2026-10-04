@@ -116,7 +116,27 @@ controlled swaps.
 | **all (global passes)** | **1 039 807** | **−39.0 %** | **256 006** | **−51.5 %** |
 | all + window DP | 1 036 327 | −39.2 % | 256 163 | −51.5 % |
 
-BLOCKPASS_ROW
+**Default (`Opts::ALL`) = block passes.** Running the peephole and the SAT
+rules over the whole 17 k-gate circuit of every round costs 0.5–1.2 s of
+build per run (2 passes each, 62 rounds), which made small instances
+slower end to end. `block_passes` runs both passes once per multiplier on
+the modular-adder block, which is identical in every window. It gives the
+same gate count (31-bit: **1 039 303** gates, 261 454 CCX, −39.0 % /
+−50.5 %; build 94 ms vs 572 ms). It loses about 2 % of the Toffoli saving:
+junction rewrites between a lookup and the adder. The global variant stays
+available as `block_passes: false`.
+
+| instance | baseline gates / CCX | ALL (block passes) | Δ | ALL, global passes | Δ |
+|---|---|---|---|---|---|
+| 20-bit N = 1 005 973 (88 q) | 501 808 / 176 800 | 271 380 / 70 720 | −45.9 % / −60.0 % | 269 848 / 68 058 | −46.2 % / −61.5 % |
+| 24-bit N = 10 161 323 (104 q) | 819 104 / 277 632 | 463 922 / 120 672 | −43.4 % / −56.5 % | 462 867 / 116 872 | −43.5 % / −57.9 % |
+| 28-bit N = 221 643 407 (120 q) | 1 264 308 / 409 248 | 736 962 / 189 728 | −41.7 % / −53.6 % | 739 283 / 185 014 | −41.5 % / −54.8 % |
+| 31-bit N = 1 537 596 787 (132 q) | 1 704 428 / 528 178 | 1 039 303 / 261 454 | −39.0 % / −50.5 % | 1 039 807 / 256 006 | −39.0 % / −51.5 % |
+
+(Bases as in the round-4 record runs; counts are whole-run sums over the
+2n controlled-U rounds, `research/data/superopt/counts_final.txt`.) The
+relative saving shrinks with n because the lookup share of the circuit
+falls as the n-proportional adders grow.
 
 Window sweep with everything on (`… sweep`): w = 3 / 4 / 5 / 6 give
 1.21 M / 1.06 M / 1.20 M / 1.50 M gates (baseline: 1.80 / 1.70 / 2.14 /
@@ -137,7 +157,53 @@ upward: the first SAT k is the minimum, and each smaller k was refuted
 spec. Optional CCX caps (sequential-counter cardinality) with NOP padding
 give Toffoli-minimal circuits.
 
-SATTABLE
+Certificates (`research/data/superopt/sat*.jsonl`; "refuted" = every
+smaller gate count proved UNSAT):
+
+| block (spec) | wires | SAT optimum | refuted | our construction |
+|---|---|---|---|---|
+| comparator n = 1, `t ^= [b < a]` | 3 | **2 gates** (1 CCX): `CNOT(a0,t) CCX(a0,b0,t)` | k ≤ 1 | 7 gates / 2 CCX (Cuccaro half-sub; the SAT rules shorten it in the circuit) |
+| comparator n = 2, no ancilla | 5 | **8 gates** (6 CCX) | k ≤ 7 | 13 gates / 4 CCX + clean `c0` |
+| comparator n = 2, clean `c0` allowed | 6 | **8 gates** (5 CCX), does not use `c0` | k ≤ 7 | 13 / 4 |
+| adder n = 2 (`b += a`, b has a carry bit), no ancilla | 5 | **7 gates** (5 CCX) | k ≤ 6 | Cuccaro: 13 gates / 4 CCX + `c0` |
+| adder n = 2, 1 clean ancilla | 6 | **7 gates** (5 CCX) | k ≤ 6 | 13 / 4 |
+| modadd N = 3 (b, L < 3, 2 bits), no ancilla | 4 | **6 gates** (4 CCX) | k ≤ 5 | general construction at n = 2: 62 gates / 16 CCX (47 / 15 after peephole + SAT rules) |
+| modadd N = 3, 1 clean ancilla | 5 | **6 gates** (4 CCX) | k ≤ 5 | — |
+| controlled lookup w = 2, T = [0,5,3,7] (3 bits), 1 or 2 clean ancillas | 7–8 | **6 gates** (all CCX; uses an output bit as a temporary control and toggles it back) | k ≤ 5 | unary + optimal fan-out: 13 gates / 6 CCX |
+| same lookup, minimum CCX at ≤ 10 gates | 8 | ≤ 4 CCX found; the ≤ 3 CCX query hit the 50-min timeout (open) | — | 6 CCX |
+| linear table T = [0,5,3,6] (T[3] = T[1] ⊕ T[2]) | 7 | 4 gates, ≤ 2 CCX | k ≤ 3 | — |
+| comparator n = 3 | 7 | COMPARE3 | | 19 / 6 |
+| comparator n = 2, minimum CCX (≤ 13 gates, NOP padding) | 6 | not resolved: the first query (≤ 4 CCX) ran > 12 min, killed | | 4 |
+
+What these say. At these tiny widths our general constructions are 1.6–2×
+longer than optimal in gates. They are often *better* in Toffolis: the
+gate-optimal circuits trade CNOTs for CCX (5–6 CCX vs 4). The optimal
+small circuits do not extend into a better n-bit family that we could
+find. The 7-gate n = 2 adder writes carries straight into the next sum
+bit; its general form is the no-ancilla adders of Takahashi–Tani–Kunihiro,
+which cost more Toffolis. The constant-specific modadd (6 gates for N = 3)
+is a truth-table optimum and doesn't extend to general N. So the
+certificates mostly certify "small-n optima are constant-specific". The
+transferable output of the SAT work is the **window rules** below.
+
+**SAT peephole on the real circuit** (`tools/superopt/peep.py`, section 1
+`sat_rules`). It slides over the round-0 controlled-U of each record
+instance. From every gate it takes the longest run of consecutive gates on
+≤ 5 wires (≤ 10 gates), plus the wires whose value is known at that point
+(constant propagation from "ancillas start at 0"). It asks SAT for the
+shortest equivalent on every input consistent with those constants.
+Results: 220–226 distinct windows per circuit, 32–35 of them improvable,
+37 distinct rules over the four instances. 33 of these do not increase CCX
+and are kept. A second iteration on the rewritten circuits found only 2–3
+more gates per circuit, so this window shape has converged. The applied
+rewrites are:
+`MAJ; CNOT(carry, out); UMA → CCX; CNOT; CCX; CNOT`. This is the Cuccaro
+top-bit simplification (7 → 4 gates), at every adder's carry-out. The same
+idea gives the comparator's top (7 → 4–5). Several constant-aware rules
+use `c0 = 0`, `t = 1` or a 0 ancilla to drop a CCX entirely (e.g. `6 → 3`
+gates, 2 → 1 CCX). The rest are 1-gate CNOT/CCX reorderings at block
+junctions. Net effect: −1.6 % gates, −2.4 % CCX on top of everything
+else.
 
 ## 4. Verification
 
@@ -170,8 +236,53 @@ TIMINGTABLE
 
 ## 6. Literature: known vs new
 
-LITERATURE
+| our block | literature | verdict |
+|---|---|---|
+| unary-iteration lookup, `2(2^w−1)` CCX reversible | Babbush et al. 2018 (arXiv:1805.03662, Fig. 7): `L − 1` Toffolis with temporary-AND (measurement) uncompute, `2(L − 1)` reversible; Gidney 2019 windowed arithmetic (arXiv:1905.07682) uses it | **known**. Our baseline simply didn't implement it: the LSB-first prefix sharing never shares in counting order |
+| lookup with fewer ancillas | Khattar & Gidney 2024 (arXiv:2407.17966): unary iteration with conditionally clean ancillae, 2.5N Toffolis with log* n ancillas | theirs uses fewer qubits and more Toffolis; ours (w ancillas, 2N) is the standard trade-off |
+| unlookup | Gidney 2019: measurement-based unlookup, O(√L) Toffolis | **better than ours**, but needs X-basis measurement and phase fix-ups. The exact sliced engine tracks X/CNOT/CCX permutations only, so it is out of scope (it would roughly halve the lookup Toffolis again) |
+| tree-XOR optimal fan-out DP | — | not found in the papers we checked (Babbush 2018, Gidney 2019, Khattar–Gidney 2024); elementary; CNOT-only (−20 % of lookup gates, no Toffoli change). Possibly folklore in production QROM code |
+| comparator-based modadd, 8n Toffolis (3 adders + 1 comparator) | Cuccaro et al. 2004 (quant-ph/0410184) comparator; VBE/Beauregard structures; Häner–Roetteler–Svore 2017 (arXiv:1611.07995) | **known**; the existing generic peephole already derives it from the baseline's `sub L; add L` |
+| Toffoli cost of addition | Gidney 2017 (arXiv:1709.06648): n Toffolis per adder with temporary AND | **better than ours** (≈ half) in a measurement-capable model; our 2n is the reversible Cuccaro count |
+| comparators | Vandaele 2026 (arXiv:2603.12917): Θ(n) gates, Θ(log n) depth, minimal qubits | ours is a plain ripple (2n CCX, linear depth); not better |
+| the `K` register (n qubits holding N) | Gidney 2025, classical–quantum adder with 3 clean ancillae and 4n Toffolis (arXiv:2507.23079) | would save n qubits at +2n Toffolis per constant addition; not adopted (qubit count is not the simulator's cost driver) |
+| modular reduction at all | Gidney–Ekerå 2019 (arXiv:1905.09749): coset representation; Gidney 2025 (arXiv:2505.15917): approximate residue arithmetic (Chevignard–Fouque–Schrottenloher 2024) | **better than ours** and the real state of the art. They remove the comparison/reduction adders entirely, at the price of a bounded approximation. This exact-arithmetic study deliberately did not adopt them |
+| MAJ;CNOT;UMA top-bit (7 → 4), constant-aware window rewrites | Cuccaro 2004 top-bit simplification; Takahashi et al. (2009) ancilla-free adders; T-count/T-depth ripple-adder optimisations (arXiv:2401.17921) | the top-bit rule is **known**. The constant-aware rule table is a mechanical rediscovery plus a few junction-specific rewrites; nothing structurally new |
+| SAT exact synthesis of reversible circuits | Große, Wille, Dueck, Drechsler 2009 (SAT-based exact Toffoli synthesis); Golubitsky & Maslov 2012 (all optimal 4-bit NCT circuits) | **known technique**. Our certificates (≤ 8 wires, partially specified with clean-ancilla don't-cares) are small and confirm the expected picture |
+
+**Bottom line.** Against our own implementation: −39 % gates, −51 %
+Toffolis, −28 % end-to-end time at 31 bits, with no new qubits. Against
+the published state of the art: nothing here beats Gidney–Ekerå-style
+constructions. Those use measurement-based uncomputation (lookups and
+adders at about half our Toffoli count) and avoid exact modular reduction.
+The optimised oracle is now a faithful exact reversible version of the
+standard windowed multiplier, which is what the baseline was meant to be.
 
 ## 7. What did not work / limits
 
-LIMITS
+* **Toffolis are still 8n per modular adder.** This dominates: 82 % of the
+  CCX per round. Every exact reversible alternative we considered needs
+  ≥ 8n. Folding `−N` into the lookup table (look up `T − N`, one (n+1)-bit
+  adder, a conditional `+N`, an extra lookup that converts `T − N` back to
+  `T`, then the comparator) would give `6n + O(2^w)` CCX. It saves ~12 % of
+  modadd Toffolis but no gates, so it was not implemented.
+* **Window rules are consecutive-gate windows.** The SAT peephole does not
+  commute gates past each other. Commutation-aware windows (the peephole
+  pass's DAG) could find more; the consecutive shape converged after two
+  iterations.
+* **SAT scaling.** The gate-count search proves n = 2 blocks in seconds.
+  The n = 3 comparator reached k = 7 UNSAT in 49 s, and later k took much
+  longer (COMPARE3NOTE). Toffoli-minimisation with NOP padding is weak: the
+  n = 2 comparator's "≤ 4 CCX" query did not finish in 12 min. A dedicated
+  encoding (symmetry breaking for commuting gates, a CCX-count objective
+  via assumptions) would be the next step.
+* **Build cost.** With passes on the whole circuit (`block_passes: false`),
+  the build costs 0.5–1.2 s per run and made the 24-bit run 4× slower
+  (0.29 → 1.4 s). The block-pass default fixes this (24-bit: 0.31 → 0.30
+  s). `run_semiclassical` builds every round's circuit twice: once for the
+  gate count and once in the engine.
+* The window-size DP gains 0.3 %; w = 4 remains optimal at n ≤ 31.
+* Time saving < gate saving. Only the gate evaluation (≈ 80 % of the
+  31-bit run) scales with gates; sort, P(1) merge and collapse are
+  unchanged. The 28-bit run is evaluation-light (sort/collapse are ~25 %),
+  so it saves less.
