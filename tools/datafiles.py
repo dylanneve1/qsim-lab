@@ -14,7 +14,7 @@ listed in research/data/.gitignore, so `unpack` leaves `git status` clean.
 Analysis scripts under research/data/ read the original (uncompressed)
 paths: run `tools/datafiles.py unpack` once before re-running them.
 
-Files read by Rust tests/examples are never packed (see KEEP).
+Files read by the Rust tests or examples are never packed (see KEEP).
 Memory: xz preset 6e (8 MiB dictionary, < 100 MB RSS) — safe on the VPS.
 """
 import hashlib
