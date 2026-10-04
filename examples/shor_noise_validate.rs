@@ -46,7 +46,9 @@ fn chi2_two_sample(a: &[u64], b: &[u64]) -> (f64, usize) {
 
 fn erfc(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs());
-    let y = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    let y = t
+        * (0.254829592
+            + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
     let e = y * (-x * x).exp();
     if x >= 0.0 {
         e
@@ -86,7 +88,11 @@ fn main() {
     for (n, a, oracle, dense, reset) in cases {
         let inst = Instance::new(n, a, oracle);
         let r = noisy::order_of(a, n);
-        for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip, NoiseKind::PhaseFlip] {
+        for kind in [
+            NoiseKind::Depolarizing,
+            NoiseKind::BitFlip,
+            NoiseKind::PhaseFlip,
+        ] {
             let nc = NoisyCircuit::new(&inst, kind);
             let l = nc.num_locations();
             let p = 1.5 / l as f64; // ~1.5 faults per run
@@ -108,7 +114,8 @@ fn main() {
             let yr: Vec<u128> = (0..mr)
                 .into_par_iter()
                 .map(|j| {
-                    let mut rng = StdRng::seed_from_u64(seed.wrapping_mul(7_000_003) + 0x5555 + j as u64);
+                    let mut rng =
+                        StdRng::seed_from_u64(seed.wrapping_mul(7_000_003) + 0x5555 + j as u64);
                     let bits = if dense {
                         let mut s = StateVectorF64::new(nc.nq);
                         circ.run(&mut s, &mut rng).unwrap()

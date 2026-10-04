@@ -183,7 +183,11 @@ impl NoisyCircuit {
     pub fn new(inst: &Instance, kind: NoiseKind) -> Self {
         assert!(matches!(inst.oracle, Oracle::Ripple | Oracle::Windowed(_)));
         let nq = inst.qubits();
-        assert!(nq <= 129, "the noisy engine keys the {} non-control qubits in a u128", nq - 1);
+        assert!(
+            nq <= 129,
+            "the noisy engine keys the {} non-control qubits in a u128",
+            nq - 1
+        );
         let mut rounds = Vec::with_capacity(inst.t);
         for i in 0..inst.t {
             let mult = inst.mults[inst.t - 1 - i];
@@ -194,7 +198,9 @@ impl NoisyCircuit {
                 .ops
                 .iter()
                 .map(|op| match op {
-                    Op::Gate(g @ (Gate::X(_) | Gate::Cnot(..) | Gate::Ccx(..) | Gate::Swap(..))) => *g,
+                    Op::Gate(
+                        g @ (Gate::X(_) | Gate::Cnot(..) | Gate::Ccx(..) | Gate::Swap(..)),
+                    ) => *g,
                     o => panic!("{o:?} is not a basis-state permutation gate"),
                 })
                 .collect();
@@ -962,7 +968,11 @@ mod tests {
                 super::super::sliced::SlicedState::<f64>::new(&inst),
                 0.0,
             );
-            let m = d.iter().zip(&s).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max);
+            let m = d
+                .iter()
+                .zip(&s)
+                .map(|(x, y)| (x - y).abs())
+                .fold(0.0, f64::max);
             assert!(m < 1e-12, "N={n}: {m:e}");
         }
     }
@@ -970,7 +980,11 @@ mod tests {
     #[test]
     fn locations_round_trip_and_sampling() {
         let inst = Instance::new(21, 2, Oracle::Windowed(2));
-        for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip, NoiseKind::PhaseFlip] {
+        for kind in [
+            NoiseKind::Depolarizing,
+            NoiseKind::BitFlip,
+            NoiseKind::PhaseFlip,
+        ] {
             let nc = NoisyCircuit::new(&inst, kind);
             let l = nc.num_locations();
             let mut kinds = std::collections::HashMap::new();
@@ -980,7 +994,10 @@ mod tests {
             }
             let t = inst.t as u64;
             assert_eq!(kinds["h1"], t);
-            assert_eq!(kinds.get("prep").copied().unwrap_or(0), if kind == NoiseKind::PhaseFlip { 0 } else { t });
+            assert_eq!(
+                kinds.get("prep").copied().unwrap_or(0),
+                if kind == NoiseKind::PhaseFlip { 0 } else { t }
+            );
             let slots: u64 = nc.rounds.iter().map(|r| r.gate_slots()).sum();
             assert_eq!(kinds["gate"], slots);
             let mut rng = StdRng::seed_from_u64(3);

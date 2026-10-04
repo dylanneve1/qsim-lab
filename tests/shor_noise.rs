@@ -57,7 +57,13 @@ fn pauli_gate(p: Pauli, q: usize) -> Gate {
 
 /// One round on the reference simulator, gate by gate. Returns `(P(1),
 /// readout flipped)`.
-fn ref_round<S: RefSim>(s: &mut S, nc: &NoisyCircuit, i: usize, y_low: u128, fs: &[Fault]) -> (f64, bool) {
+fn ref_round<S: RefSim>(
+    s: &mut S,
+    nc: &NoisyCircuit,
+    i: usize,
+    y_low: u128,
+    fs: &[Fault],
+) -> (f64, bool) {
     let at = |site: Site| fs.iter().find(|f| f.site == site).map(|f| f.pauli);
     if at(Site::Prep).is_some() {
         s.g(&Gate::X(0));
@@ -93,12 +99,24 @@ fn ref_round<S: RefSim>(s: &mut S, nc: &NoisyCircuit, i: usize, y_low: u128, fs:
 fn ref_distribution<S: RefSim>(s: S, nc: &NoisyCircuit, faults: &[Fault]) -> Vec<f64> {
     let t = nc.inst.t;
     let mut out = vec![0.0; 1 << t];
-    fn walk<S: RefSim>(s: S, nc: &NoisyCircuit, faults: &[Fault], i: usize, y: u128, p: f64, out: &mut [f64]) {
+    fn walk<S: RefSim>(
+        s: S,
+        nc: &NoisyCircuit,
+        faults: &[Fault],
+        i: usize,
+        y: u128,
+        p: f64,
+        out: &mut [f64],
+    ) {
         if i == nc.inst.t {
             out[y as usize] += p;
             return;
         }
-        let fs: Vec<Fault> = faults.iter().filter(|f| f.round as usize == i).copied().collect();
+        let fs: Vec<Fault> = faults
+            .iter()
+            .filter(|f| f.round as usize == i)
+            .copied()
+            .collect();
         let mut s = s;
         let (p1, flip) = ref_round(&mut s, nc, i, y, &fs);
         for bit in [false, true] {
@@ -111,7 +129,15 @@ fn ref_distribution<S: RefSim>(s: S, nc: &NoisyCircuit, faults: &[Fault]) -> Vec
             if bit {
                 c.g(&Gate::X(0)); // reset
             }
-            walk(c, nc, faults, i + 1, y | (u128::from(bit ^ flip) << i), p * pb, out);
+            walk(
+                c,
+                nc,
+                faults,
+                i + 1,
+                y | (u128::from(bit ^ flip) << i),
+                p * pb,
+                out,
+            );
         }
     }
     walk(s, nc, faults, 0, 0, 1.0, &mut out);
@@ -141,7 +167,10 @@ fn patterns(nc: &NoisyCircuit, count: usize, seed: u64) -> Vec<Vec<Fault>> {
 }
 
 fn max_diff(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
 }
 
 #[test]
@@ -161,7 +190,11 @@ fn fixed_faults_match_dense_ripple() {
 fn fixed_faults_match_sparse_windowed() {
     for (n, a, w, seed) in [(15u64, 2u64, 2usize, 2u64), (21, 5, 1, 3), (21, 2, 4, 4)] {
         let inst = Instance::new(n, a, Oracle::Windowed(w));
-        for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip, NoiseKind::PhaseFlip] {
+        for kind in [
+            NoiseKind::Depolarizing,
+            NoiseKind::BitFlip,
+            NoiseKind::PhaseFlip,
+        ] {
             let nc = NoisyCircuit::new(&inst, kind);
             for (j, fs) in patterns(&nc, 30, seed).iter().enumerate() {
                 let d = noisy::trajectory_distribution(&nc, fs);
@@ -187,12 +220,22 @@ fn fixed_faults_match_sparse_on_a_path() {
                 let mut r = SparseState::basis_state(nc.nq, 2);
                 let mut y = 0u128;
                 for i in 0..inst.t {
-                    let fi: Vec<Fault> = fs.iter().filter(|f| f.round as usize == i).copied().collect();
+                    let fi: Vec<Fault> = fs
+                        .iter()
+                        .filter(|f| f.round as usize == i)
+                        .copied()
+                        .collect();
                     let (p, flip) = s.round(&nc, i, y, &fi, usize::MAX).unwrap();
                     let (pr, flip_r) = ref_round(&mut r, &nc, i, y, &fi);
                     assert_eq!(flip, flip_r);
                     assert!((p - pr).abs() < 1e-12, "N={n} k={k} round {i}: {p} vs {pr}");
-                    let bit = if p < 1e-9 { false } else if p > 1.0 - 1e-9 { true } else { rng.random::<f64>() < p };
+                    let bit = if p < 1e-9 {
+                        false
+                    } else if p > 1.0 - 1e-9 {
+                        true
+                    } else {
+                        rng.random::<f64>() < p
+                    };
                     s.collapse(bit);
                     r.collapse(0, bit);
                     if bit {
@@ -243,7 +286,9 @@ pub fn chi2_pvalue(chi: f64, df: usize) -> f64 {
 fn erfc(x: f64) -> f64 {
     // Abramowitz–Stegun 7.1.26 (|err| < 1.5e-7)
     let t = 1.0 / (1.0 + 0.3275911 * x.abs());
-    let y = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    let y = t
+        * (0.254829592
+            + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
     let e = y * (-x * x).exp();
     if x >= 0.0 {
         e
@@ -274,7 +319,10 @@ fn sampler_matches_stock_noisy_circuit_run() {
         for _ in 0..m {
             let mut s = SparseState::basis_state(nc.nq, 0);
             let bits = circ.run(&mut s, &mut rng).unwrap();
-            let y = bits.iter().enumerate().fold(0usize, |acc, (i, &b)| acc | (usize::from(b) << i));
+            let y = bits
+                .iter()
+                .enumerate()
+                .fold(0usize, |acc, (i, &b)| acc | (usize::from(b) << i));
             hb[y] += 1;
         }
         let (chi, df) = chi2_two_sample(&ha, &hb);
@@ -310,7 +358,10 @@ fn ancilla_reset_sampler_matches_stock_circuit_with_resets() {
     for _ in 0..m {
         let mut s = SparseState::basis_state(nc.nq, 0);
         let bits = circ.run(&mut s, &mut rng).unwrap();
-        let y = bits.iter().enumerate().fold(0usize, |acc, (i, &b)| acc | (usize::from(b) << i));
+        let y = bits
+            .iter()
+            .enumerate()
+            .fold(0usize, |acc, (i, &b)| acc | (usize::from(b) << i));
         hb[y] += 1;
     }
     let (chi, df) = chi2_two_sample(&ha, &hb);

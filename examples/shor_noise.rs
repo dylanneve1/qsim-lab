@@ -51,7 +51,11 @@ fn main() {
     let r = noisy::order_of(a, n_mod);
     let lay = WindowLayout::new(inst.m, w);
     if mode == "info" {
-        for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip, NoiseKind::PhaseFlip] {
+        for kind in [
+            NoiseKind::Depolarizing,
+            NoiseKind::BitFlip,
+            NoiseKind::PhaseFlip,
+        ] {
             let nc = NoisyCircuit::new(&inst, kind);
             let gates: usize = nc.rounds.iter().map(|r| r.gates.len()).sum();
             println!(
@@ -113,75 +117,81 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(rayon::current_num_threads());
     let f32_amps = std::env::var_os("QSIM_NOISE_F32").is_some();
-    jobs.chunks(conc.max(1)).for_each(|batch| batch.par_iter().for_each(|&(k, j)| {
-        let mut rng = StdRng::seed_from_u64(seed_of(seed, k, j));
-        let faults = match p {
-            Some(p) => nc.sample_p(p, &mut rng),
-            None => nc.sample_k(k as usize, &mut rng),
-        };
-        let t0 = std::time::Instant::now();
-        let tr = if f32_amps {
-            noisy::run_trajectory_opts::<f32, _>(&nc, &faults, cap, reset, &mut rng)
-        } else {
-            noisy::run_trajectory_opts::<f64, _>(&nc, &faults, cap, reset, &mut rng)
-        };
-        let secs = t0.elapsed().as_secs_f64();
-        let fdesc: Vec<String> = faults
-            .iter()
-            .map(|f| {
-                let (gname, q, role, gfrac) = match (f.site, nc.gate_qubit(f)) {
-                    (Site::Gate { gate, .. }, Some((g, q))) => {
-                        let name = match g {
-                            qsim_lab::Gate::X(_) => "x",
-                            qsim_lab::Gate::Cnot(..) => "cx",
-                            qsim_lab::Gate::Ccx(..) => "ccx",
-                            qsim_lab::Gate::Swap(..) => "swap",
-                            _ => "?",
-                        };
-                        let frac = gate as f64 / nc.rounds[f.round as usize].gates.len() as f64;
-                        (name, q as i64, noisy::windowed_role(&lay, q), frac)
-                    }
-                    _ => ("-", 0, "ctrl", -1.0),
-                };
-                format!(
-                    "{}/{}/{}/{}/{}/{}/{:.5}",
-                    f.round,
-                    f.site.kind_name(),
-                    gname,
-                    q,
-                    role,
-                    f.pauli.name(),
-                    gfrac
-                )
-            })
-            .collect();
-        let kk = if p.is_some() { faults.len() as u64 } else { k };
-        let order_ok = tr.order == Some(r);
-        // textbook criterion: r is a continued-fraction convergent denominator of y / 2^t
-        let strict = tr.measured.is_some_and(|y| {
-            qsim_lab::shor::convergents(y, inst.t as u32).contains(&u128::from(r))
-        });
-        let line = format!(
-            "{},{n_mod},{a},{r},{},{kk},{j},{},{},{},{},{},{},{},{},{secs:.4},{},{}",
-            inst.m,
-            kind.name(),
-            tr.measured.map_or(-1i128, |y| y as i128),
-            u8::from(strict),
-            u8::from(order_ok),
-            u8::from(tr.factor.is_some()),
-            tr.capped.map_or(-1i64, |c| c.round as i64),
-            tr.peak,
-            tr.dirty_from.map_or(-1i64, |d| d as i64),
-            tr.work_ops,
-            tr.support_trace
+    jobs.chunks(conc.max(1)).for_each(|batch| {
+        batch.par_iter().for_each(|&(k, j)| {
+            let mut rng = StdRng::seed_from_u64(seed_of(seed, k, j));
+            let faults = match p {
+                Some(p) => nc.sample_p(p, &mut rng),
+                None => nc.sample_k(k as usize, &mut rng),
+            };
+            let t0 = std::time::Instant::now();
+            let tr = if f32_amps {
+                noisy::run_trajectory_opts::<f32, _>(&nc, &faults, cap, reset, &mut rng)
+            } else {
+                noisy::run_trajectory_opts::<f64, _>(&nc, &faults, cap, reset, &mut rng)
+            };
+            let secs = t0.elapsed().as_secs_f64();
+            let fdesc: Vec<String> = faults
                 .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(";"),
-            fdesc.join("|")
-        );
-        let mut o = stdout.lock();
-        writeln!(o, "{line}").unwrap();
-    }));
-    eprintln!("total {:.2}s for {} trajectories", t_all.elapsed().as_secs_f64(), jobs.len());
+                .map(|f| {
+                    let (gname, q, role, gfrac) = match (f.site, nc.gate_qubit(f)) {
+                        (Site::Gate { gate, .. }, Some((g, q))) => {
+                            let name = match g {
+                                qsim_lab::Gate::X(_) => "x",
+                                qsim_lab::Gate::Cnot(..) => "cx",
+                                qsim_lab::Gate::Ccx(..) => "ccx",
+                                qsim_lab::Gate::Swap(..) => "swap",
+                                _ => "?",
+                            };
+                            let frac = gate as f64 / nc.rounds[f.round as usize].gates.len() as f64;
+                            (name, q as i64, noisy::windowed_role(&lay, q), frac)
+                        }
+                        _ => ("-", 0, "ctrl", -1.0),
+                    };
+                    format!(
+                        "{}/{}/{}/{}/{}/{}/{:.5}",
+                        f.round,
+                        f.site.kind_name(),
+                        gname,
+                        q,
+                        role,
+                        f.pauli.name(),
+                        gfrac
+                    )
+                })
+                .collect();
+            let kk = if p.is_some() { faults.len() as u64 } else { k };
+            let order_ok = tr.order == Some(r);
+            // textbook criterion: r is a continued-fraction convergent denominator of y / 2^t
+            let strict = tr.measured.is_some_and(|y| {
+                qsim_lab::shor::convergents(y, inst.t as u32).contains(&u128::from(r))
+            });
+            let line = format!(
+                "{},{n_mod},{a},{r},{},{kk},{j},{},{},{},{},{},{},{},{},{secs:.4},{},{}",
+                inst.m,
+                kind.name(),
+                tr.measured.map_or(-1i128, |y| y as i128),
+                u8::from(strict),
+                u8::from(order_ok),
+                u8::from(tr.factor.is_some()),
+                tr.capped.map_or(-1i64, |c| c.round as i64),
+                tr.peak,
+                tr.dirty_from.map_or(-1i64, |d| d as i64),
+                tr.work_ops,
+                tr.support_trace
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(";"),
+                fdesc.join("|")
+            );
+            let mut o = stdout.lock();
+            writeln!(o, "{line}").unwrap();
+        })
+    });
+    eprintln!(
+        "total {:.2}s for {} trajectories",
+        t_all.elapsed().as_secs_f64(),
+        jobs.len()
+    );
 }

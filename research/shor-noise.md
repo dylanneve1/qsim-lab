@@ -402,6 +402,10 @@ removing persistent ancilla dirt (reset) or biasing noise towards Z.
 * `examples/shor_noise.rs` (one CSV row per trajectory: recorded y, metrics,
   support trace, every fault as round/site/gate/qubit/register/Pauli),
   `examples/shor_noise_validate.rs`.
+* Data provenance: the trajectories were produced by the `shor_noise`
+  example built from this branch at 90838a2/fa4c0ce (depolarizing, bit-flip,
+  phase-flip; same engine code) and 8ad57ea (ancilla-reset runs); the engine
+  is unchanged since, later commits are formatting and docs.
 * `research/data/shor-noise/`: `raw/*.csv.gz` (all trajectories; `mac_*` from
   the Mac queue, `vps_*` from the VPS, `rdep20_*` the r-dependence runs),
   `analyze.py` → `analysis.txt`, `strata.csv`, `summary.csv`,
