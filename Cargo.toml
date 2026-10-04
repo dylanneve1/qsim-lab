@@ -9,6 +9,9 @@ repository = "https://github.com/dylanneve1/qsim-lab"
 readme = "README.md"
 keywords = ["quantum", "simulator", "stabilizer", "mps"]
 categories = ["science", "simulation"]
+# Lab notebooks and their data stay in the repository, not in packages (crate
+# or the qsimlab sdist, which packages this crate as a path dependency).
+exclude = ["research/", "audit-adapters/", "tools/", "*.sh"]
 
 [workspace]
 members = [".", "python"]

@@ -150,8 +150,8 @@ def _cirq_native(cirq: Any, op: Any, idx: Dict[Any, int], out: Circuit, c_if) ->
         out.cp(qs[0], qs[1], math.pi * float(g.exponent), c_if=c_if)
         return True
     for cls, name in ((cirq.Rx, "rx"), (cirq.Ry, "ry"), (cirq.Rz, "rz")):
-        if isinstance(g, cls) and not _symbolic(g._rads):
-            out.append(name, qs, (float(g._rads),), c_if=c_if)
+        if isinstance(g, cls) and not _symbolic(g.exponent):
+            out.append(name, qs, (math.pi * float(g.exponent),), c_if=c_if)
             return True
     return False
 
@@ -243,12 +243,12 @@ def _from_cirq_op(cirq, op, idx, out: Circuit, keys: Dict[str, int], c_if, depth
         raise UnsupportedOperationError(f"cannot convert non-unitary operation {op!r}")
     if len(qs) == 1:
         th, ph, la, alpha = _u3_from_matrix(cirq.unitary(op))
+        if c_if is not None and abs(alpha) > 1e-12:
+            # a phase on a conditioned gate is a classically controlled phase: not expressible
+            raise UnsupportedOperationError(f"{op!r}: conditional gate with a non-trivial phase")
         out.u(qs[0], th, ph, la, c_if=c_if)
         if c_if is None:
             out.global_phase += alpha
-        elif abs(alpha) > 1e-12:
-            out.p(qs[0], 0.0)  # keep structure; phase on a conditional gate is a controlled phase
-            raise UnsupportedOperationError(f"{op!r}: conditional gate with a non-trivial phase")
         return
     target = cirq.unitary(op)
     sub = cirq.decompose_once(op, default=None)
@@ -262,13 +262,12 @@ def _from_cirq_op(cirq, op, idx, out: Circuit, keys: Dict[str, int], c_if, depth
     ov = np.vdot(got.ravel(), target.ravel())
     if abs(abs(ov) - len(target)) > 1e-8 * len(target):
         raise UnsupportedOperationError(f"decomposition of {op!r} is not exact")
-    before = out.global_phase
+    if c_if is not None and abs(cmath.phase(ov)) > 1e-9:
+        raise UnsupportedOperationError(f"{op!r}: conditional gate decomposes with a phase")
     for s in sub:
         _from_cirq_op(cirq, s, idx, out, keys, c_if, depth + 1)
     if c_if is None:
-        out.global_phase = before + (out.global_phase - before) + cmath.phase(ov)
-    elif abs(cmath.phase(ov)) > 1e-9:
-        raise UnsupportedOperationError(f"{op!r}: conditional gate decomposes with a phase")
+        out.global_phase += cmath.phase(ov)
 
 
 def to_cirq(circuit: Circuit) -> Any:

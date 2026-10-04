@@ -590,8 +590,15 @@ impl PyCircuit {
         })
     }
 
+    /// Same ops, phase, readout error and QEC annotations (how the circuit
+    /// was built, e.g. with `repeat()`, does not matter).
     fn __eq__(&self, other: &PyCircuit) -> bool {
-        self.data == other.data
+        let (a, b) = (&*self.data, &*other.data);
+        a.circuit == b.circuit
+            && a.global_phase == b.global_phase
+            && a.readout_error == b.readout_error
+            && a.detectors == b.detectors
+            && a.observables == b.observables
     }
 }
 

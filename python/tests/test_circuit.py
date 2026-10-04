@@ -78,6 +78,7 @@ def test_compose_shifts_measurement_indices():
     c.compose(body)
     assert c.instructions()[2].c_if == (1, True)
     assert c.detectors == [[1]]
+    assert Circuit(2).repeat(Circuit(2).h(0), 2) == Circuit(2).h(0).h(0)
     r = Circuit(2).repeat(body, 3)
     assert r.num_measurements == 3
     assert [i.c_if for i in r.instructions() if i.c_if] == [(0, True), (1, True), (2, True)]
