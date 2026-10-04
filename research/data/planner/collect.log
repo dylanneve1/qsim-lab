@@ -1,0 +1,17 @@
+314 instances to do
+0 arith:bits=6,h=0,reps=1 0.000905
+20 arith:bits=8,h=1,reps=4 0.00525
+40 arith:bits=10,h=4,reps=2 0.005756
+60 brick:n=12,D=1,nn=1 2.3e-05
+80 brick:n=20,D=6,nn=1 0.016632
+100 brick:n=16,D=1,nn=0 0.000897
+120 ct:n=24,L=2,t=0,nn=1 0.000297
+140 ct:n=24,L=8,t=0,nn=1 0.001613
+160 ct:n=24,L=32,t=0,nn=1 2.160488
+180 ct:n=32,L=2,t=8,nn=1 0.000136
+200 ct:n=32,L=8,t=48,nn=1 0.001142
+220 ct:n=20,L=1,t=8,nn=0 0.001348
+240 ct:n=20,L=8,t=24,nn=0 61.012278
+260 ct:n=24,L=8,t=0,nn=0 None
+280 qaoa:n=16,p=1,deg=3,nn=0 0.024349
+300 qaoa:n=20,p=3,deg=3,nn=0 None
