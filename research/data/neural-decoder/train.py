@@ -25,7 +25,7 @@ ap.add_argument("--readout", default="cls")
 ap.add_argument("--lr", type=float, default=1e-3)
 ap.add_argument("--tmax", type=int, default=64)
 ap.add_argument("--val", default=None)
-ap.add_argument("--val-shots", type=int, default=1 << 17)
+ap.add_argument("--val-shots", type=int, default=1 << 15)
 ap.add_argument("--seed", type=int, default=1000)
 ap.add_argument("--resume", default=None)
 ap.add_argument("--eval-every", type=int, default=2000)
@@ -56,8 +56,19 @@ def loss_fn(m, tok, y):
 lg = nn.value_and_grad(model, loss_fn)
 
 
+EMA = [None]
+SKIPPED = [0]
+
+
 def step(tok, y):
+    """one AdamW step; a batch whose loss exceeds 4x the running mean is skipped (spike guard)"""
     loss, g = lg(model, tok, y)
+    mx.eval(loss)
+    lv = loss.item()
+    if EMA[0] is not None and lv > 4 * EMA[0] + 0.01:
+        SKIPPED[0] += 1
+        return loss
+    EMA[0] = lv if EMA[0] is None else 0.99 * EMA[0] + 0.01 * lv
     g, _ = optim.clip_grad_norm(g, 1.0)
     opt.update(model, g)
     return loss
@@ -90,6 +101,7 @@ log = open(os.path.join(a.out, "log.jsonl"), "a")
 log.write(json.dumps(dict(args=vars(a), params=int(nparams))) + "\n")
 json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=0, shots=0),
           open(os.path.join(a.out, "cfg.json"), "w"))
+BEST = [1 << 62]
 t0 = time.time(); paused = 0.0; seen = 0; dropped = 0; run = []
 BUF = {}
 
@@ -125,7 +137,7 @@ for it in range(1, a.steps + 1):
     run.append(loss.item()); seen += len(obs)
     if it % 200 == 0:
         print(f"it {it} loss {np.mean(run):.5f} shots {seen} {seen / (time.time() - t0 - paused):.0f}/s "
-              f"lr {sched(opt.step).item():.2e} dropped {dropped} paused {paused:.0f}s", flush=True)
+              f"lr {sched(opt.step).item():.2e} dropped {dropped} skipped {SKIPPED[0]} paused {paused:.0f}s", flush=True)
         run = []
     over = time.time() - t0 > 60 * a.max_minutes
     if it % 200 == 0:
@@ -133,15 +145,23 @@ for it in range(1, a.steps + 1):
     if (it % a.eval_every == 0 or it == a.steps or over):
         rec = dict(it=it, shots=seen, train_s=round(time.time() - t0 - paused, 1), wall_s=round(time.time() - t0, 1),
                    params=int(nparams), **mem_report())
+        best = False
         if val is not None:
             pr = predict(model, val[0]) > 0
             f = int((pr != val[1].astype(bool)).sum())
-            rec.update(val_fails=f, val_shots=len(pr), val_pL=f / len(pr))
+            rec.update(val_fails=f, val_shots=len(pr), val_pL=f / len(pr), skipped=SKIPPED[0])
+            best = f < BEST[0]
+            if best:
+                BEST[0] = f
+        rec["best"] = best
         print(json.dumps(rec), flush=True)
         log.write(json.dumps(rec) + "\n"); log.flush()
-        model.save_weights(os.path.join(a.out, "model.safetensors"))
-        json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=it, shots=seen),
-                  open(os.path.join(a.out, "cfg.json"), "w"))
+        model.save_weights(os.path.join(a.out, "last.safetensors"))
+        if best or val is None:  # model.safetensors = best validation checkpoint
+            model.save_weights(os.path.join(a.out, "model.safetensors"))
+        if best or val is None:
+            json.dump(dict(H=a.H, L=a.L, heads=a.heads, readout=a.readout, prefix=a.prefix, stims=stims, it=it,
+                           shots=seen), open(os.path.join(a.out, "cfg.json"), "w"))
     if over:
         print(f"wall-clock cap {a.max_minutes} min reached at it {it}", flush=True)
         break
