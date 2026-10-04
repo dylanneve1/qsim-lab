@@ -1191,6 +1191,13 @@ pub struct AdaptiveOptions {
     /// Prior for the log2 growth of the term count per rotation that does
     /// not grow the x-span (random circuits: about 0.5; worst case 1).
     pub growth_prior: f64,
+    /// [`Strategy::Auto`] only switches once the Heisenberg sweep has spent
+    /// at least `rent_factor` × the projected cost of finishing densely
+    /// (ski rental). The growth projection alone misfired by up to 350× on
+    /// permutation-heavy circuits whose term count never grows
+    /// (research/planner.md §4); with the guard Auto costs at most about
+    /// `(1 + rent_factor)` × switching at once. `0` disables the guard.
+    pub rent_factor: f64,
 }
 
 impl Default for AdaptiveOptions {
@@ -1202,6 +1209,7 @@ impl Default for AdaptiveOptions {
             dense_secs_per_op: 2e-9,
             term_secs_per_visit: 6e-8,
             growth_prior: 0.5,
+            rent_factor: 1.0,
         }
     }
 }
@@ -1233,6 +1241,17 @@ pub struct AdaptiveReport {
 /// cannot increase the term count (its branch leaves the span and is pruned
 /// at the next projection); one that does not grow it multiplies the count
 /// by `2^growth`, with `growth` (log2 per such rotation) measured live.
+/// Projected seconds of switching to the dense register at stage `k` with
+/// `t` live terms (evolution of the remaining rotations + evaluation).
+fn dense_finish_secs(k: usize, t: usize, d: &[usize], opt: &AdaptiveOptions) -> f64 {
+    let dim = (1u64 << d[k].min(62)) as f64;
+    let prefix: f64 = (1..=k).map(|i| (1u64 << d[i].min(62)) as f64).sum();
+    let terms = t.max(1) as f64;
+    let groups = terms.min(dim);
+    let eval = dim * terms.min(groups * (d[k] as f64 + 1.0));
+    opt.dense_secs_per_op * (prefix + eval)
+}
+
 fn auto_decide(
     k: usize,
     t: usize,
@@ -1343,7 +1362,17 @@ pub fn expectation(
                     opt.term_secs_per_visit
                 };
                 meter.observe(k, t, d);
-                auto_decide(k, t, d, visit, meter.growth(), opt)
+                if !auto_decide(k, t, d, visit, meter.growth(), opt) {
+                    return false;
+                }
+                // The frame overflowed its term budget: switch if possible.
+                if t == usize::MAX || opt.rent_factor <= 0.0 {
+                    return true;
+                }
+                // Ski rental: the frame has to have spent a fraction of what
+                // switching costs before we buy the dense register.
+                let spent = visits as f64 * visit;
+                spent >= opt.rent_factor * dense_finish_secs(k, t, d, opt)
             }
         }
     };
