@@ -297,7 +297,7 @@ pub fn eval_e<T: Real>(
     inp: &[(u64, Complex<T>)],
 ) -> Arr<T> {
     let mut out = inp.to_vec();
-    eval_e_inplace(prog, eq, xq, e, &mut out);
+    let _ = eval_e_inplace(prog, eq, xq, e, &mut out);
     out
 }
 
@@ -308,7 +308,7 @@ pub fn eval_e_inplace<T: Real>(
     xq: &[usize],
     e: u64,
     buf: &mut [(u64, Complex<T>)],
-) {
+) -> bool {
     match lanes() {
         4 => eval_e_l::<4, T>(prog, eq, xq, e, buf),
         8 => eval_e_l::<8, T>(prog, eq, xq, e, buf),
@@ -317,31 +317,13 @@ pub fn eval_e_inplace<T: Real>(
     }
 }
 
-/// Evaluates the `e = 0` block on every input branch (same checks as
-/// [`eval_e`]) and returns whether it is the identity on every branch,
-/// without storing the outputs (chunk-wise copies).
-pub fn eval_e_identity<T: Real>(
-    prog: &SlicedProgram,
-    eq: &[usize],
-    xq: &[usize],
-    inp: &[(u64, Complex<T>)],
-) -> bool {
-    const B: usize = 1 << 14;
-    inp.par_chunks(B)
-        .map(|c| {
-            let out = eval_e(prog, eq, xq, 0, c);
-            out.iter().zip(c).all(|(o, i)| o.0 == i.0)
-        })
-        .reduce(|| true, |a, b| a && b)
-}
-
 fn eval_e_l<const L: usize, T: Real>(
     prog: &SlicedProgram,
     eq: &[usize],
     xq: &[usize],
     e: u64,
     out: &mut [(u64, Complex<T>)],
-) {
+) -> bool {
     let nq = prog.nq;
     assert!(xq.len() <= 64);
     let mut is_reg = vec![false; nq];
@@ -349,7 +331,7 @@ fn eval_e_l<const L: usize, T: Real>(
         is_reg[q] = true;
     }
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
-    out.par_chunks_mut(64 * L).for_each_init(
+    out.par_chunks_mut(64 * L).map_init(
         || vec![[0u64; L]; nq + 2],
         |w, chunk| {
             for wq in w.iter_mut() {
@@ -381,6 +363,7 @@ fn eval_e_l<const L: usize, T: Real>(
                 }
             }
             prog.eval(w);
+            let mut same = true;
             for l in 0..L {
                 for (j, &q) in eq.iter().enumerate() {
                     let want = if (e >> j) & 1 == 1 { valid[l] } else { 0 };
@@ -411,11 +394,14 @@ fn eval_e_l<const L: usize, T: Real>(
                 }
                 transpose64(&mut blk);
                 for (o, &k) in oc.iter_mut().zip(blk.iter()) {
+                    same &= o.0 == k;
                     o.0 = k;
                 }
             }
+            same
         },
-    );
+    )
+    .reduce(|| true, |a, b| a && b)
 }
 
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
@@ -786,11 +772,6 @@ impl<T: Real> GeState<T> {
         let ne = 1usize << w_used;
         let n_in = self.psi.len();
         let mut t_eval = 0.0;
-        // e = 0: evaluated on every branch; when it is the identity (exact
-        // arithmetic) ψ itself is the e = 0 run, already sorted
-        let ta = std::time::Instant::now();
-        let id = eval_e_identity(&wp.prog, &wp.e, &wp.x, &self.psi);
-        t_eval += ta.elapsed().as_secs_f64();
         let mut ent = std::mem::take(&mut self.psi);
         ent.reserve_exact((ne - 1) * n_in);
         for e in 1..ne {
@@ -800,11 +781,11 @@ impl<T: Real> GeState<T> {
             eval_e_inplace(&wp.prog, &wp.e, &wp.x, e as u64, &mut ent[seg..seg + n_in]);
             t_eval += ta.elapsed().as_secs_f64();
         }
-        if !id {
-            let ta = std::time::Instant::now();
-            eval_e_inplace(&wp.prog, &wp.e, &wp.x, 0, &mut ent[..n_in]);
-            t_eval += ta.elapsed().as_secs_f64();
-        }
+        // e = 0 last, in place; when it is the identity on every branch
+        // (exact arithmetic) segment 0 is still ψ, already sorted
+        let ta = std::time::Instant::now();
+        let id = eval_e_inplace(&wp.prog, &wp.e, &wp.x, 0, &mut ent[..n_in]);
+        t_eval += ta.elapsed().as_secs_f64();
         let wsh = w_used as u32;
         ent.par_chunks_mut(n_in.max(1)).enumerate().for_each(|(e, seg)| {
             for v in seg.iter_mut() {
@@ -834,14 +815,24 @@ impl<T: Real> GeState<T> {
     /// Takes the state back from a fully measured window.
     pub fn finish(&mut self, wa: WindowArrays<T>) {
         assert_eq!(wa.bits_left(), 0);
-        let chunks: Vec<(usize, usize)> = wa.chunks().iter().map(|c| (c.2, c.3)).collect();
+        let chunks4 = wa.chunks();
+        let chunks: Vec<(usize, usize)> = chunks4.iter().map(|c| (c.2, c.3)).collect();
         let levels = wa.levels.clone();
         let (w, split) = (wa.w, wa.split);
         self.psi = if split > 0 {
-            // two runs: out of place
-            let m = wa.materialize().pop().unwrap();
-            drop(wa);
-            m
+            let tmp = WindowArrays {
+                w,
+                ent: std::sync::Arc::new(Vec::new()),
+                split,
+                levels: levels.clone(),
+            };
+            match std::sync::Arc::try_unwrap(wa.ent) {
+                Ok(ent) => finish_runs_in_place(&tmp, ent, split, &chunks4),
+                Err(ent) => {
+                    let wa = WindowArrays { ent, ..tmp };
+                    wa.materialize().pop().unwrap()
+                }
+            }
         } else {
             match std::sync::Arc::try_unwrap(wa.ent) {
                 // sole owner, one run: the new state in place
@@ -930,6 +921,88 @@ fn finish_in_place<T: Real>(
     ent.truncate(dst);
     ent.shrink_to_fit();
     ent
+}
+
+/// [`finish_in_place`] for two sorted runs `ent[..split]` (`e = 0`, i.e.
+/// `ψ`) and `ent[split..]`: outputs are written into the `e = 0` run behind
+/// its read pointer; a chunk whose outputs would overtake that pointer
+/// (the support grows in this window) continues in a side buffer.
+fn finish_runs_in_place<T: Real>(
+    wa: &WindowArrays<T>,
+    mut ent: Vec<(u64, Complex<T>)>,
+    split: usize,
+    chunks: &[(usize, usize, usize, usize)],
+) -> Arr<T> {
+    let w = wa.w;
+    let ne = 1usize << w;
+    let mask = (1u64 << w) - 1;
+    let results: Vec<(usize, Arr<T>)> = {
+        let (a, b) = ent.split_at_mut(split);
+        let b: &[(u64, Complex<T>)] = b;
+        let mut jobs = Vec::with_capacity(chunks.len());
+        let mut rest: &mut [(u64, Complex<T>)] = a;
+        let mut at = 0;
+        for &(a0, a1, b0, b1) in chunks {
+            let (_, r) = std::mem::take(&mut rest).split_at_mut(a0 - at);
+            let (c, r) = r.split_at_mut(a1 - a0);
+            jobs.push((c, &b[b0 - split..b1 - split]));
+            rest = r;
+            at = a1;
+        }
+        jobs.into_par_iter()
+            .map(|(a, b)| {
+                let mut vals = [Complex64::zero(); 64];
+                let (mut ia, mut ib, mut o) = (0usize, 0usize, 0usize);
+                let mut ovf: Arr<T> = Vec::new();
+                while ia < a.len() || ib < b.len() {
+                    let ka = if ia < a.len() { a[ia].0 >> w } else { u64::MAX };
+                    let kb = if ib < b.len() { b[ib].0 >> w } else { u64::MAX };
+                    let key = ka.min(kb);
+                    while ia < a.len() && a[ia].0 >> w == key {
+                        vals[(a[ia].0 & mask) as usize] = c64(a[ia].1);
+                        ia += 1;
+                    }
+                    while ib < b.len() && b[ib].0 >> w == key {
+                        vals[(b[ib].0 & mask) as usize] = c64(b[ib].1);
+                        ib += 1;
+                    }
+                    let len = wa.reduce(&mut vals[..ne]);
+                    debug_assert_eq!(len, 1);
+                    let z = cvt::<T>(vals[0]);
+                    if z != Complex::zero() {
+                        if ovf.is_empty() && o < ia {
+                            a[o] = (key, z);
+                            o += 1;
+                        } else {
+                            ovf.push((key, z));
+                        }
+                    }
+                    vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
+                }
+                (o, ovf)
+            })
+            .collect()
+    };
+    if results.iter().all(|r| r.1.is_empty()) {
+        let mut dst = 0;
+        for (&(a0, _, _, _), &(cnt, _)) in chunks.iter().zip(&results) {
+            if a0 != dst {
+                ent.copy_within(a0..a0 + cnt, dst);
+            }
+            dst += cnt;
+        }
+        ent.truncate(dst);
+        ent.shrink_to_fit();
+        ent
+    } else {
+        let total: usize = results.iter().map(|r| r.0 + r.1.len()).sum();
+        let mut out = Vec::with_capacity(total);
+        for (&(a0, _, _, _), (cnt, ovf)) in chunks.iter().zip(&results) {
+            out.extend_from_slice(&ent[a0..a0 + cnt]);
+            out.extend_from_slice(ovf);
+        }
+        out
+    }
 }
 
 /// One exponent register of a phase-estimation schedule.
