@@ -372,16 +372,16 @@ impl SRow {
 // GF(2) frame on Vec<u64>: L x = coordinates of x in a basis built in axis
 // order; L^{-T} z = B^T z.
 
-struct Gf2Frame {
+pub(crate) struct Gf2Frame {
     n: usize,
     w: usize,
-    basis: Vec<Vec<u64>>,
+    pub(crate) basis: Vec<Vec<u64>>,
     /// (pivot, reduced vector, combination of basis indices)
     ech: Vec<(usize, Vec<u64>, Vec<u64>)>,
 }
 
 impl Gf2Frame {
-    fn new(n: usize, w: usize) -> Self {
+    pub(crate) fn new(n: usize, w: usize) -> Self {
         Gf2Frame {
             n,
             w,
@@ -390,7 +390,7 @@ impl Gf2Frame {
         }
     }
 
-    fn reduce(&self, v: &[u64]) -> (Vec<u64>, Vec<u64>) {
+    pub(crate) fn reduce(&self, v: &[u64]) -> (Vec<u64>, Vec<u64>) {
         let mut v = v.to_vec();
         let mut comb = vec![0u64; self.w];
         for (p, e, c) in &self.ech {
@@ -402,7 +402,7 @@ impl Gf2Frame {
         (v, comb)
     }
 
-    fn push(&mut self, v: &[u64]) -> bool {
+    pub(crate) fn push(&mut self, v: &[u64]) -> bool {
         let (r, mut comb) = self.reduce(v);
         let Some(p) = (0..self.n).find(|&i| get(&r, i)) else {
             return false;
@@ -419,7 +419,7 @@ impl Gf2Frame {
         true
     }
 
-    fn complete(&mut self) {
+    pub(crate) fn complete(&mut self) {
         for q in 0..self.n {
             let mut e = vec![0u64; self.w];
             flip(&mut e, q);
@@ -429,7 +429,7 @@ impl Gf2Frame {
 
     /// Image of the Hermitian string `i^{|x∧z|} X^x Z^z` (words: x then z)
     /// under `V · V†`: `(negated, x', z')`.
-    fn apply(&self, p: &[u64]) -> (bool, Vec<u64>, Vec<u64>) {
+    pub(crate) fn apply(&self, p: &[u64]) -> (bool, Vec<u64>, Vec<u64>) {
         let w = self.w;
         let (x, z) = (&p[..w], &p[w..2 * w]);
         let (r, x2) = self.reduce(x);
@@ -449,17 +449,17 @@ impl Gf2Frame {
 // ---------------------------------------------------------------------------
 // Compilation for the Schrödinger picture.
 
-struct StateCompiled {
-    n: usize,
-    w: usize,
+pub(crate) struct StateCompiled {
+    pub(crate) n: usize,
+    pub(crate) w: usize,
     /// Hermitian axis words (x then z) and angle.
-    rots: Vec<(Vec<u64>, f64)>,
-    tab: HeisenbergTableau,
+    pub(crate) rots: Vec<(Vec<u64>, f64)>,
+    pub(crate) tab: HeisenbergTableau,
     /// The Clifford `C`, in time order (used to expand the state in tests).
     cliffords: Vec<Gate>,
 }
 
-fn compile_state(circuit: &Circuit) -> Result<StateCompiled, SimError> {
+pub(crate) fn compile_state(circuit: &Circuit) -> Result<StateCompiled, SimError> {
     let n = circuit.num_qubits;
     let mut tab = HeisenbergTableau::new(n);
     let w = tab.words();

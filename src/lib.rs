@@ -42,6 +42,7 @@ pub mod compile;
 pub mod dag;
 pub mod gate;
 pub mod hsf;
+pub mod magic_atlas;
 pub mod mps;
 pub mod noise;
 pub mod ooc;

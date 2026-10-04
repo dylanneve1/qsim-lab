@@ -285,25 +285,54 @@ impl HeisenbergTableau {
         let w = self.w;
         let mut acc = vec![0u64; 2 * w];
         let mut e: i32 = (0..w).map(|i| (p[i] & p[w + i]).count_ones() as i32).sum();
-        for q in 0..self.n {
-            let (wi, b) = (q / 64, 1u64 << (q % 64));
-            for (bitset, gen) in [(p[wi] & b != 0, q), (p[w + wi] & b != 0, self.n + q)] {
-                if bitset {
-                    if self.neg[gen] {
-                        e += 2;
+        // Only the qubits in the support of `p` contribute (same order as a
+        // full 0..n scan: X_q then Z_q, ascending q).
+        for wi in 0..w {
+            let mut sup = p[wi] | p[w + wi];
+            while sup != 0 {
+                let q = wi * 64 + sup.trailing_zeros() as usize;
+                sup &= sup - 1;
+                let b = 1u64 << (q % 64);
+                for (bitset, gen) in [(p[wi] & b != 0, q), (p[w + wi] & b != 0, self.n + q)] {
+                    if bitset {
+                        if self.neg[gen] {
+                            e += 2;
+                        }
+                        mul_words(
+                            &mut acc,
+                            &mut e,
+                            &self.img[gen * 2 * w..(gen + 1) * 2 * w],
+                            w,
+                        );
                     }
-                    mul_words(
-                        &mut acc,
-                        &mut e,
-                        &self.img[gen * 2 * w..(gen + 1) * 2 * w],
-                        w,
-                    );
                 }
             }
         }
         let e = e.rem_euclid(4);
         debug_assert!(e % 2 == 0, "image of a Hermitian string must be Hermitian");
         (e == 2, acc)
+    }
+
+    /// `C -> C K` for a Clifford `K` given as gates in time order: every
+    /// image becomes `K† img K` (conjugation by `G† · G` for the gates of
+    /// `K` from the last to the first).
+    pub(crate) fn post_conjugate(&mut self, gates: &[Gate]) {
+        let w = self.w;
+        for g in gates.iter().rev() {
+            let ginv = g.inverse();
+            let qs = g.qubits();
+            for gen in 0..2 * self.n {
+                let im = &mut self.img[gen * 2 * w..(gen + 1) * 2 * w];
+                // skip images with no support on the gate's qubits (only
+                // Paulis, whose conjugation is a sign, need every image)
+                let touches = qs
+                    .iter()
+                    .any(|&q| (im[q / 64] | im[w + q / 64]) >> (q % 64) & 1 == 1);
+                if touches && conj_string(im, w, &ginv) == 1 {
+                    self.neg[gen] ^= true;
+                }
+            }
+        }
     }
 
     /// `C -> G C`: new image of a generator `g` is `old(G† g G)`.
