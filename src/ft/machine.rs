@@ -484,6 +484,7 @@ mod tests {
                 tried += 1;
                 if !body(&mut m) {
                     failed += 1;
+                    eprintln!("single fault fails: loc {l} code {code}");
                 }
             }
         }
@@ -527,9 +528,16 @@ mod tests {
             m.noise.suspended = false;
             m.ec(1, a);
             m.ec(1, b);
+            let l0 = m.noise.loc;
             m.cnot(1, a, b);
+            let l1 = m.noise.loc;
             m.h(1, a);
+            let l2 = m.noise.loc;
             m.s(1, b);
+            let l3 = m.noise.loc;
+            if m.noise.suspended {
+                eprintln!("boundaries {l0} {l1} {l2} {l3}");
+            }
             m.noise.suspended = true;
             m.ec(1, a);
             m.ec(1, b);
