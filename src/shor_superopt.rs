@@ -59,6 +59,11 @@ pub struct Opts {
     /// Apply the SAT-derived window rewrite rules
     /// ([`sat_peephole`], `src/shor_superopt_rules.txt`).
     pub sat_rules: bool,
+    /// Run the peephole / SAT-rule passes once on the modular-adder block
+    /// (identical in every window) instead of on the whole controlled-U
+    /// circuit: much cheaper to build, and the passes then miss only the
+    /// rewrites that straddle a block junction.
+    pub block_passes: bool,
 }
 
 impl Opts {
@@ -73,6 +78,7 @@ impl Opts {
         peephole: false,
         window_dp: false,
         sat_rules: false,
+        block_passes: false,
     };
     /// Everything on.
     pub const ALL: Opts = Opts {
@@ -85,6 +91,7 @@ impl Opts {
         peephole: true,
         window_dp: false,
         sat_rules: true,
+        block_passes: true,
     };
 }
 
@@ -346,6 +353,7 @@ fn emit_window(
     w: usize,
     base: u64,
     madd: &[bool],
+    block: Option<&Circuit>,
 ) {
     let n = lay.n;
     let table: Vec<u64> = (0..1u64 << w)
@@ -368,7 +376,12 @@ fn emit_window(
     for g in &gates[..keep] {
         c.gate(*g);
     }
-    add_mod_reg(c, lay, n_mod, o);
+    match block {
+        Some(b) => {
+            c.append(b);
+        }
+        None => add_mod_reg(c, lay, n_mod, o),
+    }
     if o.keep_chain {
         for g in gates[..keep].iter().rev() {
             c.gate(*g);
@@ -409,7 +422,7 @@ pub fn window_sizes(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Vec<usi
                 continue;
             }
             let mut c = Circuit::new(lay.num_qubits());
-            emit_window(&mut c, lay, n_mod, o, s, w, base[s], &madd);
+            emit_window(&mut c, lay, n_mod, o, s, w, base[s], &madd, None);
             let cost = c.ops.len() + best[s + w].0;
             if cost < best[s].0 {
                 best[s] = (cost, w);
@@ -440,14 +453,37 @@ fn madd_mask(lay: &WindowLayout) -> Vec<bool> {
 pub fn cmult(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circuit {
     let mut c = Circuit::new(lay.num_qubits());
     let madd = madd_mask(lay);
+    let block = o.block_passes.then(|| modadd_block(lay, n_mod, o));
     let mut start = 0;
     let mut base = a % n_mod;
     for w in window_sizes(lay, a, n_mod, o) {
-        emit_window(&mut c, lay, n_mod, o, start, w, base, &madd);
+        emit_window(&mut c, lay, n_mod, o, start, w, base, &madd, block.as_ref());
         for _ in 0..w {
             base = (u128::from(base) * 2 % u128::from(n_mod)) as u64;
         }
         start += w;
+    }
+    c
+}
+
+/// The modular adder with the peephole / SAT-rule passes applied to it
+/// alone. At its start `K`, `c0`, `t` and `b[n]` are 0 (known constants for
+/// the rules); `b`, `L` and everything else are unknown.
+pub fn modadd_block(lay: &WindowLayout, n_mod: u64, o: &Opts) -> Circuit {
+    let mut c = Circuit::new(lay.num_qubits());
+    add_mod_reg(&mut c, lay, n_mod, o);
+    if o.peephole {
+        c = reversible_peephole(&c);
+    }
+    if o.sat_rules {
+        let mut init = vec![None; lay.num_qubits()];
+        for &q in lay.k.iter().chain([&lay.c0, &lay.t, &lay.b[lay.n]]) {
+            init[q] = Some(false);
+        }
+        c = sat_peephole_init(&c, &init);
+        if o.peephole {
+            c = reversible_peephole(&c);
+        }
     }
     c
 }
@@ -463,6 +499,9 @@ pub fn controlled_ua(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Circui
         c.cnot(b, x);
     }
     c.append(&cmult(lay, inv, n_mod, o).inverse());
+    if o.block_passes {
+        return c;
+    }
     if o.peephole {
         c = reversible_peephole(&c);
     }
@@ -623,12 +662,19 @@ fn const_step(val: &mut [Option<bool>], g: &Gate) {
 /// "qubits `>= anc_from` start at 0"), and replaced by the rule's shorter
 /// equivalent. Repeated until nothing changes.
 pub fn sat_peephole(c: &Circuit, anc_from: usize) -> Circuit {
+    let init: Vec<Option<bool>> = (0..c.num_qubits)
+        .map(|q| if q < anc_from { None } else { Some(false) })
+        .collect();
+    sat_peephole_init(c, &init)
+}
+
+/// [`sat_peephole`] with an explicit initial constant map (`Some(b)`: the
+/// qubit is known to hold `b` on every input the circuit is used on).
+pub fn sat_peephole_init(c: &Circuit, init: &[Option<bool>]) -> Circuit {
     let rules = sat_rules();
     let mut gates: Vec<Gate> = c.gates().copied().collect();
     for _pass in 0..8 {
-        let mut val: Vec<Option<bool>> = (0..c.num_qubits)
-            .map(|q| if q < anc_from { None } else { Some(false) })
-            .collect();
+        let mut val: Vec<Option<bool>> = init.to_vec();
         let mut out: Vec<Gate> = Vec::with_capacity(gates.len());
         let mut changed = false;
         let mut i = 0;

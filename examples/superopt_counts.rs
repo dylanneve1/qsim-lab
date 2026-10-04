@@ -130,6 +130,7 @@ fn main() {
         ("all but peephole", Opts { peephole: false, ..Opts::ALL }),
         ("all but sat_rules", Opts { sat_rules: false, ..Opts::ALL }),
         ("all + window_dp", Opts { window_dp: true, ..Opts::ALL }),
+        ("all, global passes", Opts { block_passes: false, ..Opts::ALL }),
         ("all", Opts::ALL),
     ];
     println!(
