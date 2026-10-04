@@ -74,6 +74,18 @@ impl SparseState {
         Self { n, amps, peak: 1 }
     }
 
+    /// A state with the given amplitudes (taken as is, not normalised).
+    pub fn from_amplitudes(n: usize, amps: impl IntoIterator<Item = (u64, Complex64)>) -> Self {
+        assert!(n <= 64, "SparseState supports at most 64 qubits");
+        let mut m = map_with_capacity(0);
+        for (k, a) in amps {
+            assert!(n == 64 || k >> n == 0, "basis index out of range");
+            m.insert(k, a);
+        }
+        let peak = m.len();
+        Self { n, amps: m, peak }
+    }
+
     pub fn num_qubits(&self) -> usize {
         self.n
     }

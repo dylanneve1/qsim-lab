@@ -189,7 +189,8 @@ impl FanoutPlan {
             .collect()
     }
 
-    fn nonempty(&self, d: usize, h: usize) -> bool {
+    /// Whether node `(d, h)` or any node below it has a non-empty mask.
+    pub fn nonempty(&self, d: usize, h: usize) -> bool {
         if self.use_[d][h] != 0 {
             return true;
         }
