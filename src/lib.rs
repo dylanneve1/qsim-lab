@@ -43,6 +43,7 @@ pub mod dag;
 pub mod dense_fusion;
 mod dense_kernels;
 pub mod gate;
+pub mod graph;
 pub mod hsf;
 pub mod magic_atlas;
 #[cfg(all(feature = "metal", target_os = "macos"))]
