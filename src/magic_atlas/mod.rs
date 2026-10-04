@@ -27,6 +27,8 @@
 //!   non-Clifford rotations, and the affine support bound of
 //!   [`crate::simulability::support_bound`].
 
+#![allow(clippy::needless_range_loop)]
+
 pub mod families;
 
 use crate::adaptive::rotate_dense;

@@ -2,6 +2,7 @@
 //! reference state vector, the algorithm circuits against their classical
 //! semantics, and the state-magic estimator against known values.
 
+#![allow(clippy::needless_range_loop)]
 use num_complex::Complex64;
 use qsim_lab::adaptive::{self, CompressedState};
 use qsim_lab::circuit::Circuit;
@@ -405,7 +406,7 @@ fn recycled_shor_oracle_is_exact_far_beyond_state_vector() {
     let (n_mod, a) = families::shor_modulus(8);
     let u: u64 = 1;
     let v: u64 = a % n_mod;
-    let bit = |val: u64, q: usize| q >= 1 && q <= 8 && (val >> (q - 1)) & 1 == 1;
+    let bit = |val: u64, q: usize| (1..=8).contains(&q) && (val >> (q - 1)) & 1 == 1;
     for q in 0..n {
         let mut z = vec![false; n];
         z[q] = true;

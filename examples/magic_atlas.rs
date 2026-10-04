@@ -10,6 +10,7 @@
 //! magic_atlas demo-qpe T S                        # compressed state on stabilizer-eigenstate QPE, checked analytically
 //! magic_atlas demo-qft N                          # factored engine on QFT|x>, checked against the product formula
 //! ```
+#![allow(clippy::needless_range_loop)]
 use qsim_lab::adaptive::CompressedState;
 use qsim_lab::circuit::Circuit;
 use qsim_lab::gate::Gate;
@@ -343,7 +344,7 @@ fn main() {
             let secs = t0.elapsed().as_secs_f64();
             let (n_mod, a) = families::shor_modulus(nb);
             let (u, v) = (1u64, a % n_mod);
-            let bit = |val: u64, q: usize| q >= 1 && q <= nb && (val >> (q - 1)) & 1 == 1;
+            let bit = |val: u64, q: usize| (1..=nb).contains(&q) && (val >> (q - 1)) & 1 == 1;
             let mut err: f64 = 0.0;
             let t1 = Instant::now();
             for q in 0..n {

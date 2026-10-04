@@ -6,6 +6,8 @@
 //! A family is selected by a spec string `name:key=value,...`, e.g.
 //! `qft:n=64,cut=0,in=basis`. Unknown keys are an error.
 
+#![allow(clippy::needless_range_loop)]
+
 use crate::circuit::Circuit;
 use crate::gate::Gate;
 use rand::rngs::StdRng;
