@@ -232,6 +232,24 @@ d single data errors on A meet the bound. ∎
   - Certified constructions: d = 5 and 7 with 6 + 6 layers, d = 9 with 7 + 7 layers (`colour-global.md` §6).
   - d = 11, space-only and free orders: §8.
 
+### 6.1 Why boundary-only fails at d = 11: interior middle hooks
+
+The peer branch `exp/colour-flags` certifies `d11_D11_hfbnd_free` (DRAT VERIFIED). With all 27 boundary plaquettes hook-free and free orders at any depth, D = 11 is UNSAT.
+
+We extracted a deletion-minimal unsat core of its 14,262 cut logicals with `cg_core.py`, giving 151 logicals in `core_d11_hfbnd_free.txt`. We decoded each mechanism into a single data error or an interior hook class (`core_an.py`). The findings:
+
+- **The obstruction is purely spatial.** Every mechanism of every core logical is a clean data error of one layer. Partial (Z-half) errors and time-like errors play no role.
+- **96 of the 151 core logicals use exactly one interior hook.** These cut the orders whose single hook is malign. They are what restricts each interior hexagon to the 48 safe orders of §5.
+- **The other 55 use 2–4 interior hooks, and every one of them includes a weight-3 "middle" hook** (X on the auxiliary after its 3rd CNOT), often an alternating triple {a, c, e} or {b, d, f}.
+  - A weight-3 hook is never malign alone (§5), because no weight-d logical contains three qubits of a plaquette.
+  - With a neighbouring plaquette's weight-2 or weight-3 hook it is: the extra qubits cancel, and 2 hooks + 8 data errors = 10 faults.
+  - These are interior analogues of K–F's "fractional hook errors".
+  - At d ≤ 9 the interior is too small for such pairs to sit on a weight-d logical. At d = 11 it is not.
+
+**Removing middle hooks restores d (space-only check).** In addition to the 27 boundary plaquettes, allow two-auxiliary (cat-split) measurement of interior plaquettes. A 3 + 3 split has only weight-2 residuals, so no middle hook. Then D = 11 is **FOUND** in the space-only model: `cg_sat.py 11 11 1 free --space --hookfree 27 --hookfree-set boundary --split 45`. The solver used splits on 10 of the 18 interior hexagons; this count was not minimised. The 1-round spacetime run is reported under "Status" below.
+
+So, empirically: the boundary needs fully hook-free measurement (T2), and from d = 11 on, interior hexagons need their middle hook removed. Neither interior requirement is proved for general d.
+
 ## 7. C2: the optimum in K–F's design space
 
 Let OPT(d) be the largest d_circ over K–F's design space: one auxiliary per plaquette, one collision-free 6-step table for both halves.
