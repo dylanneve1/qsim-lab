@@ -29,6 +29,16 @@ The result does not depend on the request or the kernel build:
   43 %, 6.9×);
 - with the state-vector times re-measured on main's new NEON kernels: 84 %, 1.29× (§6.1b).
 
+*Audit §16 notes.* (1) The pooled numbers are dominated by the `ct` family (156 of 314 instances,
+93 % / 1.08×); per held-out family the model gets ct 93 %, arith 88 %, brick 70 %, qaoa 71 %
+(geo slowdown 1.08 / 1.07 / 1.51 / 1.96), and the worst single choice is 162× (qaoa) — reproduced
+from `raw/*.csv` with `fit.py` and an independent per-family scoring. (2) `support_bound` (the
+`sup` feature) was not a valid upper bound: a Toffoli with one constant control whose target and
+other-control forms cancelled was marked constant, under-counting (`H1 CX12 CCX012 CX21 H1`: true
+support 2², bound 2¹). Fixed on exp/r4-audit2 (`tests/audit_r4b.rs`, 4,000-circuit fuzz against the
+state vector); recomputing `sup` for all 60 Toffoli instances of this dataset and all 96 Toffoli rows
+of the magic atlas changes no value, so no number here moves.
+
 The resource coordinates are magic (`d`), entanglement (a bond bound) and superposition (a support
 bound), and each engine owns one corner of that space (§5b). Two of the work estimates are close to
 exact operation counts (fitted slope ≈ 1: state vector 0.93, compressed state 0.98). The weak link
@@ -82,7 +92,7 @@ Each engine gets one *work estimate* `R_e` (log2 of a predicted operation count)
 | engine | feature | definition | rigorous? |
 |---|---|---|---|
 | sv | `sv_l` | `n + log2 gates` | exact up to fusion |
-| sparse | `sparse_l` | `log2 gates + sup`, `sup` = affine GF(2) bound on log2 of the support: wires are constant / affine in "branch variables" / opaque; only non-monomial 1q gates create variables | upper bound on nnz |
+| sparse | `sparse_l` | `log2 gates + sup`, `sup` = affine GF(2) bound on log2 of the support: wires are constant / affine in "branch variables" / opaque; only non-monomial 1q gates create variables | upper bound on nnz (after the audit §16 fix to the Toffoli rule) |
 | mps | `mps_l` | `log2 Σ_gates Σ_cuts swept 2^{3 b_cut(t)}` (+4 bits for SWAP-routed cuts), `b_cut` = time-resolved crossing count (CNOT/CZ/CPhase = 1 bit, others 2) capped by the cut size **and by the support** (`Schmidt rank ≤ nnz ≤ 2^{#branching gates so far}`) | upper bound on χ (tested) |
 | hsf | `hsf_l` | `log2(2^k · gates · 2^{max(n_A,n_B)} + 2^{k+n})`, `k` = path bits of the KL partition after modelling exact zero-path pruning (a cut CNOT/CZ whose diagonal-side qubit is still in a definite Z state adds no path) | heuristic |
 | cstate | `dense_l` | `log2 Σ_j 2^{d_j}`, `d_j` = active-dimension profile of the rotation frame (`adaptive::active_dimension_profile`) | exact op count |

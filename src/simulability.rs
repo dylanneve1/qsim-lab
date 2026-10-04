@@ -722,19 +722,14 @@ pub fn support_bound(n: usize, gates: &[Gate]) -> usize {
                 let cb = matches!(wire[b], Wire::Const);
                 if ca && cb {
                     // X or nothing
-                } else if ca {
-                    // CNOT(b, t) or nothing: stays within affine closure only
-                    // if we knew the constant; be conservative.
-                    wire[t] = xor(&wire[t], &wire[b]);
-                    if !matches!(wire[t], Wire::Const) {
-                        wire[t] = Wire::Opaque;
-                    }
-                } else if cb {
-                    wire[t] = xor(&wire[t], &wire[a]);
-                    if !matches!(wire[t], Wire::Const) {
-                        wire[t] = Wire::Opaque;
-                    }
                 } else {
+                    // One constant control: CNOT from the other control *or
+                    // nothing*, and `Wire::Const` does not record which.
+                    // Neither `t` nor `t ^ other` is a safe affine form for
+                    // both cases (the old rule kept `t` constant when the
+                    // two forms cancelled, which under-counts: audit §16),
+                    // so the target becomes opaque. Two non-constant
+                    // controls: AND of two forms, opaque as well.
                     wire[t] = Wire::Opaque;
                 }
             }

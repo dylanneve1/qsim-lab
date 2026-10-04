@@ -449,7 +449,7 @@ matters. The memory wall on the 16 GB Mac is a peak support of ≈ 2·10^8
 **Audit note (exp/shor-r4-audit) on the word "record".** It means the largest
 N this repo has factored by simulating every gate of an X/CNOT/Toffoli Shor
 circuit. It is not a record for simulated Shor in general: e.g. Willsch et al.
-2023 (arXiv:2308.05047) factored the 40-bit 549 755 813 701 = 712 321 × 771 781
+2023 (arXiv:2308.05047) factored the 39-bit 549 755 813 701 = 712 321 × 771 781
 by simulating Shor's algorithm on a GPU supercomputer (a different circuit
 construction, so not a like-for-like comparison), and no simulation of this
 kind is a classical factoring speed-up (see above).

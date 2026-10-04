@@ -98,7 +98,7 @@ work counter equals `Σ 2·|S_i|·G_i` exactly in all 15; peak support equals
    join coexist); 16/24 B is the stored state alone.
 4. "gate-level record" → "this repo's gate-level record", plus a note that
    simulated Shor has been run at larger N elsewhere (Willsch et al. 2023,
-   40-bit N on a GPU supercomputer, different construction).
+   39-bit N, 549 755 813 701, on a GPU supercomputer, different construction).
 
 ## Framing
 

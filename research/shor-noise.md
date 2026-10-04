@@ -10,8 +10,9 @@ location for n = 24** (≈ one expected fault per run: p½·L = 0.91–1.06 at
 every size). The survivable faults are structure, not luck: X/Y faults are
 fatal except in the last ν₂(r) rounds, Z faults are harmless in the
 spare-low-bit rounds and half-harmless elsewhere (phase-flip noise is 2.4×
-less damaging than bit-flip), a three-rate window model reproduces every
-instance's d to ±0.02 and predicts d → 0.79 at large n, and an ideal ancilla
+less damaging than bit-flip), a three-rate window model (rates fitted on the
+pooled data) reproduces the instances' d with rms error 0.022 (max 0.040)
+and predicts d → 0.79 at large n, and an ideal ancilla
 reset between rounds cuts d to 0.47 ± 0.01.
 
 All numbers below are ±1σ (binomial / bootstrap over trajectories) unless
@@ -195,9 +196,15 @@ and the lower estimate S_lo in `strata.csv`; errors on G_eff and p½ in
 * **Naive model check.** P_succ = S₀(1 − p)^{G_eff} with independent fatal
   faults predicts S_k = S₀(1 − d)^k. Fitting d to k = 1…3 jointly (`dfit`)
   gives the same d as k = 1 alone (within 1σ at 13 of 15 sizes, 1.6σ at
-  worst), and the direct-p runs
-  agree (table in §3), so the exponential form holds up to ≥ 3 faults; there
-  is no sign of faults "cancelling" or compounding.
+  worst), and the direct-p runs agree (table in §3), so the exponential form
+  is a good description at pL ≲ 2. **Audit correction (§16 of audit.md):**
+  it is *not* exact at k = 3. S₃ exceeds S₀(1 − d)³ at 13 of 15 sizes
+  (e.g. n = 10: 0.045 vs 0.022; n = 23: 0.082 vs 0.037; mean z ≈ +1.9 per
+  size, pooled ≈ 7σ): there is a success floor of a few percent (y still
+  lands in a good window after the state is scrambled; cf. ĉ = 2.1 % for
+  v-capped runs). The joint fit hides this because k = 1 dominates it. The
+  effect on p½ is below 1 % (the k ≥ 3 weight at pL ≈ 1 is ~8 %), but at
+  large pL P_succ decays to that floor, not to 0.
 * **Scaling.** G_eff ∝ n^2.66 over n = 10–24, the same exponent as L (n^2.69;
   L/n³ falls from 181 to 135, the windowed oracle's lower-order terms), so
   **G_eff/L = d does not drift with n** in this range: weighted mean
@@ -360,7 +367,7 @@ removing persistent ancilla dirt (reset) or biasing noise towards Z.
   polynomial ("p must fall like 1/L") behaviour expected without error
   correction; nothing here contradicts the asymptotic results.
 * **Large exact Shor simulations**: Willsch et al. (arXiv:2308.05047) simulated
-  Shor for a 40-bit N on a GPU supercomputer (noiseless; their companion
+  Shor for a 39-bit N (549 755 813 701) on a GPU supercomputer (noiseless; their companion
   review arXiv:2410.14397 studies errors for which Shor provably fails). To our
   knowledge, **circuit-level Pauli-noise statistics of a complete gate-level
   Shor circuit beyond ~10 bits have not been reported**; this note does it to

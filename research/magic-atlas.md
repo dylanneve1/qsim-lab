@@ -15,12 +15,19 @@ compressed-state shortcut is gone) within its first few percent of gates — QFT
 adders on superposed input, Shor, Grover, Trotter after one step, QAOA, VQE ansätze — and for these
 "generic" circuits d equals the stabilizer nullity of the state (max over the circuit, 33/33
 instances at n ≤ 12; gate by gate for HEA, QAOA, Trotter and QPE), so d is a tight, O(gates·n) magic
-measure there.** The big exception is arithmetic: Toffoli networks on
+measure there.** *(Audit §16 qualification: in 17 of those 33 instances d = n, where ν = n is what any
+state without a Pauli symmetry has, and 12 more sit at d = n − 1 with one Z₂ symmetry (QAOA, Heisenberg,
+HHL); only QPE with a stabilizer eigenstate (4 instances, d = t ≈ n/2) tests d = ν well below
+saturation. The gate-by-gate equality during the growth phase is the stronger evidence. ν was
+re-computed independently for 8 instances, all checkpoints, exact agreement.)* The big exception is arithmetic: Toffoli networks on
 classical or two-branch data have d = n and T-counts up to 2·10⁵ yet zero magic at every Toffoli
 boundary, and a new "magic-recycling" variant of the compressed state that absorbs stabilizer factors
 back into the Clifford frame turns that into exact simulations with a 1–2-qubit register — e.g. the
 windowed Shor oracle for a 62-bit modulus (256 qubits, 85,718 gates, T-count 190,050) in 1.3 s on a
-laptop.
+laptop. *(Audit §16 context: that state is (|0,1⟩ + |1,a⟩)/√2, two classical branches of a permutation
+circuit; a plain two-branch bit-tracking evaluation of the same 256-qubit gate list takes 0.05 s in
+Python. The result shows that the frame engine finds this structure on its own, not that the
+simulation is hard.)*
 
 ## 1. What is measured
 
@@ -206,6 +213,9 @@ recycled engine costs nothing extra when it cannot recycle (≤ 1.3× of plain f
    in 0.33 s, 62-bit N (256 qubits, T-count 190,050) in 1.3 s. All the magic of order finding comes
    from the *counting-register superposition*: the full circuit with 2n counting qubits has d = n and
    recycling fails (>16) at every size; with x half-superposed the register stays > 16 as well.
+   *(Audit: as a simulation task this instance is easy for any branch/permutation engine — two
+   basis branches, 0.05 s in plain Python for the 62-bit case; see audit.md §16. The point is that a
+   generic Clifford+T frame engine recovers it automatically.)*
 2. **QFT of a basis state: d = n − 1, ν = n − 2, f = 1.** Maximal by both circuit and state magic
    measures, yet a product state; the factored frame simulates n = 1024 (525,826 gates) exactly in
    0.5 s. The AQFT cutoff does not change d or f at all (d = 255, f = 1 for every cut at n = 256): the

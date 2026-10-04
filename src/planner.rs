@@ -514,9 +514,7 @@ fn run_one(
             }
             let mask = obs.iter().fold(0u64, |m, &q| m ^ (1u64 << q));
             Ok(Outcome::Value(
-                s.iter()
-                    .map(|(x, a)| parity(x, mask) * a.norm_sqr())
-                    .sum(),
+                s.iter().map(|(x, a)| parity(x, mask) * a.norm_sqr()).sum(),
             ))
         }
         // the compressed state runs exactly as the cost model measured it

@@ -339,8 +339,8 @@ budget is 0.2× the best predicted time, so it rarely runs long enough to matter
 5. **Auto.** It needs a forecast of the frame's peak term count. Until then, use the planner, which avoids Auto.
 6. **The `mpsb` exactness gate.** Should a bound-capped run's discarded weight, which is provably numerical noise, be held
    to the 1e-10 gate?
-7. **simulability.rs `support_bound`.** It still has the Toffoli constant-control shortcut fixed in `mps_cost`. It only
-   affects the old `sparse_l` feature's claim to be an upper bound.
+7. ~~**simulability.rs `support_bound`.**~~ Fixed on exp/r4-audit2 (audit.md §16): the constant-control Toffoli now
+   makes the target opaque; a counterexample and a fuzz test are in `tests/audit_r4b.rs`. No dataset feature value changed.
 
 ## 8. Reproduce
 ```
