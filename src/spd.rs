@@ -55,6 +55,9 @@
 //! `δ = 0` with no weight cap is exact (differential-tested against the
 //! dense state vector and the exact Clifford+Rz Pauli-path engine).
 
+// Bit-array loops over the W words of a key read best indexed.
+#![allow(clippy::needless_range_loop)]
+
 use crate::circuit::Circuit;
 use rayon::prelude::*;
 use std::collections::{HashMap, VecDeque};
@@ -116,7 +119,7 @@ impl Lattice {
         let mut next = 0usize;
         let row_ids = |r: usize, next: &mut usize, idx: &mut Vec<Vec<usize>>| {
             for (o, slot) in idx[r].iter_mut().enumerate() {
-                let present = !(r == 0 && o == row_len - 1) && !(r == rows - 1 && o == 0);
+                let present = !((r == 0 && o == row_len - 1) || (r == rows - 1 && o == 0));
                 if present {
                     *slot = *next;
                     *next += 1;
@@ -325,7 +328,6 @@ impl PauliObs {
             .chars()
             .enumerate()
             .filter(|(_, c)| *c != 'I')
-            .map(|(i, c)| (i, c))
             .collect();
         Self::single(v)
     }
@@ -435,8 +437,8 @@ fn fmix(mut k: u64) -> u64 {
 fn key_hash<const W: usize>(k: &Key<W>) -> u64 {
     let mut h = 0x9e37_79b9_7f4a_7c15u64;
     for i in 0..W {
-        h = (h.rotate_left(23) ^ k.x[i]).wrapping_mul(0x51_7cc1_b727_220a_95);
-        h = (h.rotate_left(23) ^ k.z[i]).wrapping_mul(0x51_7cc1_b727_220a_95);
+        h = (h.rotate_left(23) ^ k.x[i]).wrapping_mul(0x517c_c1b7_2722_0a95);
+        h = (h.rotate_left(23) ^ k.z[i]).wrapping_mul(0x517c_c1b7_2722_0a95);
     }
     fmix(h)
 }
@@ -736,9 +738,7 @@ fn run<const W: usize>(
     if model.final_rx {
         passes.push(false);
     }
-    for _ in 2..=model.steps {
-        passes.push(true);
-    }
+    passes.extend(std::iter::repeat(true).take(model.steps.saturating_sub(1)));
     let nm = passes.len().saturating_sub(opt.stream);
     for &with_zz in &passes[..nm] {
         match merge_pass(&ctx, &terms, with_zz, opt.max_terms) {
