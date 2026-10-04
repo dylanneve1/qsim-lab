@@ -242,7 +242,9 @@ class AlphaQubitLite(nn.Module):
         meas = mx.cumsum(ev, axis=1) % 2
         bemb = self.bias_embedding() if self.use_bias else mx.zeros((1,))
         x = mx.zeros((B, S, self.D))
-        step = self._step if not checkpoint else mx.checkpoint(self._step)
+        # nn.utils.checkpoint passes the module parameters as explicit inputs: a bare mx.checkpoint(self._step)
+        # silently drops the gradients w.r.t. captured parameters (found by test_aq gradient check)
+        step = self._step if not checkpoint else nn.utils.checkpoint(self, self._step)
         zeros = mx.zeros((B, S))
         cvec = self.ctx(ctx)
         aux = []

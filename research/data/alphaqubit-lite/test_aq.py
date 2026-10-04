@@ -100,8 +100,44 @@ def test_dem_circuit(root, nd_tool=None, shots=400_000):
         compare(ref, bits.astype(np.uint8), rng, "FastSampler (nd_tool) vs stim DEM sampler")
 
 
+def test_gradients(root):
+    """checkpointed (+ compiled) training gradients == plain autodiff (regression test: a bare
+    mx.checkpoint over a closure drops the gradients of captured module parameters)"""
+    os.environ.setdefault("AQ_NO_MEMCAP", "1")
+    from functools import partial
+    import mlx.core as mx, mlx.nn as nn
+    from mlx.utils import tree_flatten
+    from aq_model import AlphaQubitLite
+    e = [x for x in syc_experiments(root) if x["d"] == 3 and x["R"] == 5][0]
+    dets, obs, txt = syc_load(e)
+    L = Layout(txt, 3, 5)
+    g = to_grid(dets[:6], L).astype(np.float32)
+    mx.random.seed(0)
+    m = AlphaQubitLite(L.cell, L.onbasis, 3, D=32, conv=16, key=8, bias_dim=8)
+    args = (mx.array(g[:, :5]), mx.array(g[:, 5]), mx.zeros((6,), dtype=mx.int32), mx.full((6,), 5, dtype=mx.int32),
+            mx.array(obs[:6].astype(np.float32)))
+
+    def mk(ck):
+        def loss(m, X, F, C, R, y):
+            lo, aux = m(X, F, C, R, checkpoint=ck)
+            return (nn.losses.binary_cross_entropy(lo[:, 0], y, with_logits=True, reduction="mean")
+                    + 0.02 * nn.losses.binary_cross_entropy(aux, (mx.cumsum(X, axis=1) % 2)[:, 1:], with_logits=True,
+                                                            reduction="mean"))
+        return nn.value_and_grad(m, loss)
+    _, g0 = mk(False)(m, *args)
+    _, g1 = mk(True)(m, *args)
+    _, g2 = partial(mx.compile, inputs=m.state, outputs=m.state)(lambda *a: mk(True)(m, *a))(*args)
+    a0, a1, a2 = (dict(tree_flatten(x)) for x in (g0, g1, g2))
+    for k in a0:
+        sc = float(mx.abs(a0[k]).max()) + 1e-12
+        assert float(mx.abs(a0[k] - a1[k]).max()) / sc < 1e-4, ("checkpoint", k)
+        assert float(mx.abs(a0[k] - a2[k]).max()) / sc < 1e-4, ("compile", k)
+    print(f"gradients: checkpointed and compiled == plain autodiff for all {len(a0)} tensors")
+
+
 if __name__ == "__main__":
     root = sys.argv[1]
     test_layout(root)
+    test_gradients(root)
     test_dem_circuit(root, sys.argv[2] if len(sys.argv) > 2 else None)
     print("ok")
