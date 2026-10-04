@@ -82,6 +82,38 @@ def decode(e, fold, dec, dets, obs):
         dc = tesseract.TesseractDecoder(cfg)
         pred = dc.decode_batch(dets[:n].astype(bool))
         return pred[:, 0].astype(bool) != obs[:n].astype(bool)
+    if dec.startswith("bposd"):
+        # qsim-lab BP+OSD-CS (50 min-sum iterations, scale 0.625, OSD order) via nd_tool, 1 thread
+        import subprocess, tempfile
+        order = dec.split(":")[1] if ":" in dec else "10"
+        nd_tool = os.environ.get("ND_TOOL", os.path.expanduser("~/qsim-aq-data/bin/nd_tool"))
+        n = min(len(obs), a.tess_shots)
+        with tempfile.TemporaryDirectory() as td:
+            nd = dets.shape[1]
+            with open(os.path.join(td, "dem.tab"), "w") as f:
+                f.write(f"# detectors {nd}\n")
+                for inst in dem.flattened():
+                    if inst.type != "error":
+                        continue
+                    par = {}
+                    for t in inst.targets_copy():
+                        if t.is_separator():
+                            continue
+                        k = ("D" if t.is_relative_detector_id() else "L", t.val)
+                        par[k] = par.get(k, 0) ^ 1
+                    ds = sorted(v for (kind, v), x in par.items() if x and kind == "D")
+                    ob = sum(1 << v for (kind, v), x in par.items() if x and kind == "L")
+                    f.write(f"{inst.args_copy()[0]:e}\t{ob}\t{' '.join(map(str, ds))}\n")
+            bits = np.concatenate([dets[:n], obs[:n, None]], 1).astype(np.uint8)
+            pad = (-n) % 64
+            bits = np.concatenate([bits, np.zeros((pad, nd + 1), np.uint8)])
+            blk = bits.reshape(-1, 64, nd + 1).transpose(0, 2, 1)            # (blocks, rows, 64)
+            words = np.packbits(blk, axis=2, bitorder="little").view("<u8")[..., 0]
+            words.astype("<u8").tofile(os.path.join(td, "s.ptb64"))
+            subprocess.run([nd_tool, "bposd", os.path.join(td, "dem.tab"), os.path.join(td, "s.ptb64"),
+                            os.path.join(td, "pred"), "1", order], check=True, capture_output=True)
+            pred = np.fromfile(os.path.join(td, "pred"), dtype=np.uint8)[:n].astype(bool)
+        return pred != obs[:n].astype(bool)
     raise SystemExit(dec)
 
 
