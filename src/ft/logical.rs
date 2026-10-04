@@ -293,11 +293,15 @@ impl<B: Phys> Logical for Encoded<B> {
     fn prep(&mut self, q: usize, bit: bool) {
         let (k, b) = (self.k, self.blocks[q]);
         self.m.prep0(k, b);
-        if bit {
-            self.m.pauli_block(k, b, PX);
-        }
-        if let Some(sv) = &mut self.sv {
-            sv.reset(q, bit, &mut self.mrng);
+        match &mut self.sv {
+            // frame model: the ideal state carries the |1⟩, the frame only errors
+            Some(sv) => sv.reset(q, bit, &mut self.mrng),
+            // dense model: apply the (noiseless, Pauli-frame) logical X
+            None => {
+                if bit {
+                    self.m.pauli_block(k, b, PX);
+                }
+            }
         }
     }
     fn h(&mut self, q: usize) {

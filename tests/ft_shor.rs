@@ -140,6 +140,10 @@ fn encoded_shor15_noiseless() {
         for y in 0..8 {
             if ideal[y] == 0.0 {
                 assert_eq!(hist[y], 0, "level {k}: y={y}");
+            } else {
+                let f = hist[y] as f64 / n as f64;
+                let tol = if k == 1 { 0.08 } else { 0.25 };
+                assert!((f - ideal[y]).abs() < tol, "level {k}: y={y} freq {f}");
             }
         }
     }
