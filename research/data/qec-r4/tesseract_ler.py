@@ -51,6 +51,9 @@ def make():
 
 
 def work_chunk(idx):
+    # polite on the shared Mac: never decode while a peer's timing run holds the bench lock
+    while os.path.isdir("/tmp/qsim-mac-bench.lock"):
+        time.sleep(5)
     dec = make()
     sl = slice(idx[0], idx[1])
     pred = dec.decode_batch(dets[sl])
@@ -58,7 +61,7 @@ def work_chunk(idx):
 
 
 t1 = time.time()
-step = max(1, shots // (workers * 8))
+step = int(os.environ.get("TESS_CHUNK", max(1, shots // (workers * 8))))
 chunks = [(i, min(shots, i + step)) for i in range(0, shots, step)]
 with mp.get_context("fork").Pool(workers) as pool:
     fails = sum(pool.map(work_chunk, chunks))
