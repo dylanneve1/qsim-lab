@@ -46,9 +46,9 @@ from other agents was 8–13 during the timings.
      holding `Σ_j |x + jN⟩`, plain `(n + c)`-bit Gidney additions, no
      modular reduction. **Approximate**, and the simulator measures the
      approximation exactly: total variation distance to the exact
-     output distribution halves per padding qubit, TV ≈ (3–6)·2^{−c} at
-     n = 6–9 bits (0.16 / 0.08 / 0.04 at c = 4 / 5 / 6 for N = 55,
-     exact).
+     output distribution halves per padding qubit, TV ≈ (1.5–7.5)·2^{−c}
+     at n = 5–9 bits, growing with the number of additions (0.16 / 0.08 /
+     0.04 at c = 4 / 5 / 6 for N = 55, exact).
 * **Toffolis per factoring run at 31 bits** (N = 1 537 596 787; the
   exp/mbu-shor record circuit was **119 096**):
 
@@ -229,21 +229,22 @@ option sets) equals the textbook
 
 ### 2.1 Success probability per run
 
-| N (bits) | method | P(p, q found from one run) |
-|---|---|---|
-| 35 (6) | exact (whole distribution) | 0.9388 (g = 2 and 3) |
-| 77 (7) | exact | 0.9346 |
-| 143 (8) | exact | 0.9207 |
-| 60 491 (16) | Monte Carlo, 400 random g, gate level | 0.880 ± 0.032 |
-| 1 005 973 (20) | Monte Carlo, 200 random g | 0.930 ± 0.035 |
-| 1 005 973 (20) | same runs, Shor (`shor::postprocess`) | 0.930 ± 0.035 |
-| TBD | odd-order base | TBD |
+| N (bits) | method | EH, random base | EH, odd-order base `h^{2^n}` | Shor, same bases |
+|---|---|---|---|---|
+| 35 (6) | exact (whole distribution) | 0.9388 (g = 2 and 3) | | |
+| 77 (7) | exact | 0.9346 | | |
+| 143 (8) | exact | 0.9207 | | |
+| 60 491 (16) | gate-level Monte Carlo, 800 / 400 runs | 0.884 ± 0.022 | 0.915 ± 0.027 | 0.921 ± 0.019 |
+| 1 005 973 (20) | 500 / 300 runs | 0.912 ± 0.025 | 0.883 ± 0.036 | 0.918 ± 0.024 |
+| 10 161 323 (24) | 60 runs | 0.90 ± 0.08 | 0.97 ± 0.05 | 0.97 ± 0.05 |
 
-(±: 95 % normal intervals.) For comparison, Shor with the repo's
+(±: 95 % normal intervals; `research/data/ge-shor/eh_mc.log`; every run is
+a full gate-level simulation with `w_e = 2`, `w_m = 3`, MBU lookups.)
+"Shor" is order finding on the same random base with the repo's
 post-processing (convergents, up to 256 multiples, small-factor
-stripping, `a^{r/2} ≢ −1`) succeeded in 0.945 ± 0.022 (16-bit) and
-0.930 ± 0.035 (20-bit) of runs on the same bases: one EH run is as good
-as one Shor run here, with 25 % fewer multiplications. These sizes are far
+stripping, then `gcd(a^{r/2} ± 1, N)`); it found the order in 98–100 % of
+runs and a factor in ≈ 92 %. One EH run succeeds about as often as one
+Shor run here, with 25 % fewer multiplications. These sizes are far
 below EH's asymptotic regime (`r` is only ≈ `2^{2m}`, not ≫ `2^{ℓ+m}`), so
 the numbers are measurements, not EH's bounds.
 
@@ -310,18 +311,41 @@ without wrapping.
 `ge_shor cosetmc` samples outcome paths from the coset circuit and runs
 the exact circuit in lockstep on the same outcomes, so `Q(y)`, `P(y)` and
 the deviant weight after every window are exact per path; TV =
-`E_Q[(1 − P/Q)_+]` is an unbiased path average. VPS, `w_e = w_m = 2`:
+`E_Q[(1 − P/Q)_+]` is an unbiased path average (standard error ≤
+0.5/√paths: ±0.035 at 200 paths, ±0.065 at 60, ±0.09 at 30). VPS,
+`w_e = w_m = 2`, `research/data/ge-shor/coset_paths.log`:
 
-TBD table
+| N (bits) | c = 2 | c = 4 | c = 6 | c = 8 | deviant weight per window, c = 4 / 6 / 8 | peak coset support (c = 6) |
+|---|---|---|---|---|---|---|
+| 143 (8) | 0.58 | 0.21 | 0.08 | ≈ 0 (30 paths) | 0.04–0.08 / 0.01–0.02 / ≤ 0.007 | 0.86 M |
+| 221 (8) | 0.57 | 0.15 | 0.07 | 0.03 | 0.06–0.08 / 0.03 / 0.01 | 0.17 M |
+| 391 (9) | 0.82 | 0.27 | 0.12 | 0.03 | 0.14–0.19 / 0.04–0.07 / 0.01–0.02 | 4.5 M |
+| 899 (10) | 0.96 | 0.39 | 0.04 (60 paths) | | 0.15–0.24 / 0.01–0.04 / | 59 M |
+
+The **deviant weight** (probability on branches that are no longer
+congruent to the exact state, i.e. that wrapped) is ≈ (0.5–1.5)·2^{−c}
+after the first window and **grows only slowly** over the run — by a
+factor 0.05–2 from the first to the last of 8–10 windows, not by the
+number of windows: a wrapped branch is a garbage residue that no longer
+interferes with the good ones, and each window's measurement renormalises
+the state (for small orders the good part dominates the outcomes and the
+deviant weight even shrinks, N = 143). The output TV is 3–8× the
+per-window deviant weight. So the deviation does not accumulate like
+`(number of additions)·2^{−c}` along one path; the fit of §3.3 in A is an
+upper-bound style extrapolation.
 
 ### 3.3 Padding needed at 31 bits
 
-Fitting `TV ≈ κ · A · 2^{−c}` (A = number of lookup-additions in the run)
-to §3.1–3.2 gives κ ≈ 0.025–0.045. The 31-bit EH circuit (w_e = 2,
-w_m = 3) has A ≈ 720, so TV ≈ 25·2^{−c}: c ≈ 8 for TV ≈ 0.1, c ≈ 11 for
-0.01. GE19 use `c_pad ≈ 2 lg n + lg(1/ε)` (≈ 13 here). The Toffoli counts
-for c = 8 / 12 / 16 at 31 bits are 45 926 / 54 501 / 61 785. This
-extrapolation from n ≤ 9 is the weakest number in this note.
+Fitting `TV ≈ κ · A · 2^{−c}` (A = number of lookup-additions in the
+run, `2 ⌈(n+c)/w_m⌉` per window) to §3.1–3.2 at c = 6 gives κ between
+0.014 (N = 65, lots of headroom `2^n/N`) and 0.052 (N = 391), with no
+clear trend in n beyond A. The 31-bit EH circuit (`w_e = 2`, `w_m = 3`,
+24 windows) has A ≈ 670, so TV ≈ (9–35)·2^{−c}: c ≈ 9 for TV ≤ 0.1,
+c ≈ 12 for TV ≤ 0.01. GE19 use `c_pad = 2 lg n + lg(1/ε)` (≈ 13–17 here).
+The Toffoli counts for c = 8 / 12 / 16 at 31 bits are 45 926 / 54 501 /
+61 785. This extrapolation from n ≤ 9 is the weakest number in this note.
+The strict success probability degrades less than TV: at c = 6 it is
+within 0.025 of the exact circuit's for every N of §3.1.
 
 ## 4. Counts
 
