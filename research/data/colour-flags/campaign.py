@@ -47,7 +47,8 @@ while True:
         break
     for job in active:
         f, n, c = done.get(job["tag"], (0, 0, 0))
-        seed = int.from_bytes(job["tag"].encode()[:6], "little") * 1000 + c + 1
+        # distinct per tag and chunk; SEED_OFFSET separates machines sharing a tag
+        seed = int.from_bytes(job["tag"].encode()[-6:], "little") * 1000 + c + 1 + int(os.environ.get("SEED_OFFSET", "0"))
         if os.environ.get("NOLOCK") != "1":
             while True:
                 try:
