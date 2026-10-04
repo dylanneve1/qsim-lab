@@ -184,3 +184,128 @@ mod tests {
         }
     }
 }
+
+// ------------------------------------------------------------ N = 21 (compiled)
+
+/// Logical layout for the compiled N = 21 instance: 0 = control, 1 = b0,
+/// 2 = b1.
+pub const NLOG21: usize = 3;
+
+/// Controlled multiplication by 4 (`inverse = false`) or 16 (`inverse = true`)
+/// mod 21 on the *orbit-encoded* work register {1 → 00, 4 → 01, 16 → 10}
+/// (code 11 unused, fixed). Found by exhaustive search as the cheapest
+/// controlled 3-cycle: 1 CNOT + 2 Toffolis. This is a *compiled* circuit in
+/// the sense of Smolin, Smith & Vargo (it uses knowledge of the orbit of 1
+/// under multiplication by 4), the same kind as the N = 21 experiments of
+/// Martín-López et al. (2012) and Skosana & Tame (2021); it is used here only
+/// as a second, slightly larger fault-tolerance workload.
+pub fn controlled_cycle21<L: Logical>(l: &mut L, inverse: bool) {
+    if !inverse {
+        l.cnot(0, 2);
+        l.ccx(0, 2, 1);
+        l.ccx(0, 1, 2);
+    } else {
+        l.cnot(0, 1);
+        l.ccx(0, 1, 2);
+        l.ccx(0, 2, 1);
+    }
+}
+
+/// Semiclassical order finding for N = 21, a = 4 (r = 3) with the compiled
+/// orbit-encoded multipliers; returns y.
+pub fn run_shor21_compiled<L: Logical>(l: &mut L, t: usize) -> u64 {
+    assert!(t <= 3);
+    l.prep(1, false);
+    l.prep(2, false);
+    let mut y = 0u64;
+    for j in 0..t {
+        l.prep(0, false);
+        l.h(0);
+        // 4^(2^e) mod 21 alternates 4, 16, 4, 16, ... (4^2 = 16, 16^2 = 4)
+        let e = t - 1 - j;
+        controlled_cycle21(l, e % 2 == 1);
+        for i in 0..j {
+            let bit = (y >> i) & 1 == 1;
+            match j - i + 1 {
+                2 => l.sdg_slot(0, bit),
+                3 => {
+                    if bit {
+                        l.tdg(0)
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+        l.h(0);
+        if l.meas(0) {
+            y |= 1 << j;
+        }
+    }
+    y
+}
+
+/// Exact distribution of y for phase estimation of an order-r unitary on an
+/// eigenvector-uniform start state with t bits (textbook QPE = semiclassical).
+pub fn ideal_qpe_distribution(r: u64, t: usize) -> Vec<f64> {
+    let m = 1usize << t;
+    let mut d = vec![0.0; m];
+    for (y, dy) in d.iter_mut().enumerate() {
+        for s in 0..r {
+            let phi = s as f64 / r as f64 - y as f64 / m as f64;
+            let (mut re, mut im) = (0.0, 0.0);
+            for x in 0..m {
+                let a = 2.0 * std::f64::consts::PI * x as f64 * phi;
+                re += a.cos();
+                im += a.sin();
+            }
+            *dy += (re * re + im * im) / (m * m) as f64 / r as f64;
+        }
+    }
+    d
+}
+
+#[cfg(test)]
+mod tests21 {
+    use super::super::core::Noise;
+    use super::super::logical::Unencoded;
+    use super::*;
+
+    #[test]
+    fn cycle21_is_multiplication_on_the_orbit() {
+        let code = |v: u64| match v {
+            1 => 0u64,
+            4 => 1,
+            16 => 2,
+            _ => unreachable!(),
+        };
+        for inv in [false, true] {
+            for v in [1u64, 4, 16] {
+                let mut u = Unencoded::new(NLOG21, Noise::new(0.0, 1), false, 3);
+                u.prep(0, true);
+                let c = code(v);
+                u.prep(1, c & 1 == 1);
+                u.prep(2, c & 2 == 2);
+                controlled_cycle21(&mut u, inv);
+                let got = (u.sv.prob1(1) > 0.5) as u64 | (((u.sv.prob1(2) > 0.5) as u64) << 1);
+                let m = if inv { 16 } else { 4 };
+                assert_eq!(got, code(v * m % 21));
+            }
+        }
+    }
+
+    #[test]
+    fn noiseless_shor21_matches_qpe() {
+        let ideal = ideal_qpe_distribution(3, 3);
+        assert!((ideal.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        let n = 20000;
+        let mut hist = [0u32; 8];
+        for s in 0..n {
+            let mut u = Unencoded::new(NLOG21, Noise::new(0.0, 1), false, s);
+            hist[run_shor21_compiled(&mut u, 3) as usize] += 1;
+        }
+        for y in 0..8 {
+            let f = hist[y] as f64 / n as f64;
+            assert!((f - ideal[y]).abs() < 0.012, "y={y} {f} vs {}", ideal[y]);
+        }
+    }
+}
