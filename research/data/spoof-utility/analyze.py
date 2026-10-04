@@ -306,6 +306,66 @@ def main():
                 f"| {r['fig']} | {r['lattice']} | {r['steps']} | {r['theta']:.4f} | {r['delta']:.0e} | {r['value']:+.5f} | {deficit(r):+.1e} | {r['cone']} | {r['words']} | {r['peak_terms']} | {r['seconds']:.2f} |"
             )
 
+    # ---------------- M_z finite size ----------------
+    out.append("\n### M_z after 5 steps vs lattice size (smallest δ per point; δ is absolute, per-site coefficients are 1/n)\n")
+    out.append("| θ_h | 127 (exact, Kim et al.) | 127 SPD | 433 SPD | 1121 SPD | 1121 − 127 |")
+    out.append("|---|---|---|---|---|---|")
+    mzs = {L: select(runs, "3a" if L == 127 else "mz", lattice=L, steps=5) for L in (127, 433, 1121)}
+    ex = load_xy("kim/fig3a_exact.txt")
+    for th in sorted(mzs[1121]):
+        v = {L: (mzs[L][th][-1][1] if th in mzs[L] else float("nan")) for L in mzs}
+        dd = {L: (mzs[L][th][-1][0] if th in mzs[L] else float("nan")) for L in mzs}
+        out.append(
+            f"| {th:.4f} | {ex.get(th, float('nan')):+.5f} | {v[127]:+.5f} (δ {dd[127]:.0e}) | {v[433]:+.5f} (δ {dd[433]:.0e}) | {v[1121]:+.5f} (δ {dd[1121]:.0e}) | {v[1121] - v[127]:+.4f} |"
+        )
+
+    # ---------------- 1121-qubit reliability map ----------------
+    mp = {}
+    for r in runs:
+        if r["fig"] == "z559" and r["lattice"] == 1121 and r["depol"] == 0 and r.get("max_weight", -1) == -1:
+            key = (r["steps"], round(r["theta"], 4))
+            if r["aborted"]:
+                mp.setdefault(key, None)
+                continue
+            old = mp.get(key)
+            if old is None or r["delta"] < old["delta"]:
+                mp[key] = r
+    if mp:
+        steps_l = sorted({k[0] for k in mp})
+        th_l = sorted({k[1] for k in mp})
+        M = np.full((len(steps_l), len(th_l)), np.nan)
+        out.append("\n### Bulk ⟨Z_559⟩ on the 1121-qubit lattice: value (norm deficit, δ) per depth and θ\n")
+        out.append("| steps \\ θ_h | " + " | ".join(f"{t}" for t in th_l) + " |")
+        out.append("|---" * (len(th_l) + 1) + "|")
+        for i, st in enumerate(steps_l):
+            cells = []
+            for j, t in enumerate(th_l):
+                r = mp.get((st, t))
+                if r is None:
+                    cells.append("–")
+                    continue
+                d = abs(deficit(r))
+                M[i, j] = d
+                cells.append(f"{r['value']:+.3f} ({d:.0e}, {r['delta']:.0e})")
+            out.append(f"| {st} | " + " | ".join(cells) + " |")
+        fm, ax = plt.subplots(figsize=(9, 3.8))
+        im = ax.imshow(np.log10(np.maximum(M, 1e-8)), cmap="Blues", vmin=-8, vmax=0, aspect="auto", origin="lower")
+        ax.set_xticks(range(len(th_l)))
+        ax.set_xticklabels([str(t) for t in th_l])
+        ax.set_yticks(range(len(steps_l)))
+        ax.set_yticklabels([str(s) for s in steps_l])
+        ax.set_xlabel("$\\theta_h$")
+        ax.set_ylabel("Trotter steps")
+        for i in range(len(steps_l)):
+            for j in range(len(th_l)):
+                if not np.isnan(M[i, j]):
+                    ax.text(j, i, f"{M[i, j]:.0e}", ha="center", va="center", fontsize=7, color="white" if M[i, j] > 1e-3 else "#0b0b0b")
+        cb = fm.colorbar(im, ax=ax)
+        cb.set_label("log10 norm deficit $|1-\\|O\\|^2|$")
+        ax.set_title("1121-qubit heavy hex, bulk $\\langle Z_{559}\\rangle$: discarded weight at the smallest δ that fits in 3 GB", fontsize=9)
+        fm.tight_layout()
+        fm.savefig("map_1121.png", dpi=120)
+
     # ---------------- weight cap ----------------
     wc = [r for r in runs if r.get("max_weight", -1) != -1]
     if wc:
