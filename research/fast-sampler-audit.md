@@ -11,7 +11,9 @@ ptb64 output, d = 3–15, p = 0.1/0.3%), with an unchanged output distribution.
 - One real bug, in the Stim front-end rather than the sampler: any circuit with a detector or
   observable whose *noiseless* parity is 1 made `stim_compare` panic. This includes Stim's own
   colour code at d ≥ 5. Fixed in 050580c.
-- The Mac speed numbers reproduce (27×). VPS: see §3.
+- The speed numbers reproduce. Per-shot sampling: 11.7× / 9.2× on x86 at d = 7 / 15, p = 0.1%,
+  against native AVX2 `stim detect` (author: 11.1× / 9.2×), and 27× on the M1. Whole-process at
+  realistic shot counts on x86: 0.4× (d = 15, 10⁴ shots, Stim wins), 2.5–3.7× at 10⁵, 7–9× at 10⁶.
 - The technique is not new in kind. Fault-sparse detector sampling ("sample errors, XOR their detector
   sets", O(npd + 1)) is described in the Stim paper (§5.6). Gidney did not implement it because he
   expected the constant factors to lose at p ≈ 0.1%. The hit model's per-Pauli parity probability
@@ -207,7 +209,42 @@ Compile at d = 15 is 40 ms on the M1. Stim's DEM extraction is 37 ms (pip) and i
 
 ### 3.2 x86 (VPS, EPYC-Rome AVX2, native AVX2 Stim)
 
-VPS_TIMING_PLACEHOLDER
+`timing_vps.jsonl`, `vps_audit_timing.sh`. Each job waited for 1-min load < 4. The load at the end
+of every job was 3.9: just under the rule, on a shared machine. Stim is native AVX2 1.16.0.
+
+Sampling only, Mshot/s (`timing.py`, the author's script, unchanged; ptb64 to /dev/null, min of 3,
+interleaved):
+
+| d | p | shots | Stim pip write | Stim native detect (net) | Stim DEM sampler pip / native (net) | ours | ours / best Stim | author |
+|---|---|---|---|---|---|---|---|---|
+| 7 | 0.1% | 1,000,000 | 4.39 | 4.75 | 1.31 / 1.61 | 55.5 | **11.7×** | 11.1× |
+| 15 | 0.1% | 128,000 | 0.44 | 0.50 | 0.105 / 0.135 | 4.58 | **9.2×** | 9.2× |
+
+Whole process, min of 3, seconds, against Stim's best mode. Stim's DEM route
+(`analyze_errors` + `sample_dem`) is never the best.
+
+| d | shots | stim detect | Stim DEM route | ours (parse + compile + sample + write) | best Stim / ours |
+|---|---|---|---|---|---|
+| 7 | 10,240 | 0.0038 | 0.028 | 0.0038 | **0.99×** |
+| 7 | 102,400 | 0.0218 | 0.086 | 0.0059 | **3.7×** |
+| 7 | 1,024,000 | 0.215 | 0.622 | 0.0242 | **8.9×** |
+| 15 | 10,240 | 0.024 | 0.331 | 0.060 | **0.40×** (Stim wins) |
+| 15 | 102,400 | 0.208 | 0.951 | 0.083 | **2.5×** |
+| 15 | 1,024,000 | 2.13 | 7.38 | 0.306 | **7.0×** |
+
+Our compile at d = 15 is 56 ms; Stim's in-process DEM extraction is 64 ms.
+
+**Conclusion on fairness.**
+- The headline sampling ratios reproduce on both machines, within about 5%.
+- The comparison is against Stim's best mode: the DEM sampler is 3–4× slower than `stim detect` here.
+- The "minus 64-shot run" subtraction favours Stim, as the author says.
+
+The one framing that needs qualifying is the *end-to-end* one. Our compile (56 ms at d = 15) is
+larger than Stim's whole small run, so for small jobs Stim still wins:
+- d = 15: below about 3·10⁴ shots, 0.40× at 10⁴;
+- d = 7: about break-even at 10⁴.
+
+At 10⁶ shots the end-to-end lead is 7–9× on x86 and about 20× on the M1.
 
 ## 4. Prior art: what is actually new
 

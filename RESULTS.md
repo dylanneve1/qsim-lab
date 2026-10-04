@@ -112,6 +112,23 @@ parse and compile.
 - **Compile is our weak spot:** about 55 ms at d = 15 against 3.5 ms for Stim's whole small run. At
   128k shots the end-to-end lead is therefore 2.5–3.7×; for ≥ 10⁶ shots it approaches the sampling
   ratio.
+- **Independent audit (`research/fast-sampler-audit.md`).**
+  - Sampling ratios reproduced on x86 (d = 7 / 15, p = 0.1%: 11.7× / 9.2×, load 3.9) and on the
+    M1 (26.7× / 27.0×).
+  - Whole-process timing on x86 against Stim's best mode (`stim detect`; the DEM route is slower):
+
+    | d | 10⁴ shots | 10⁵ shots | 10⁶ shots |
+    |---|---|---|---|
+    | 7 | 0.99× | 3.7× | 8.9× |
+    | 15 | **0.40×** | 2.5× | 7.0× |
+
+    So below about 3·10⁴ shots at d = 15, Stim is faster end to end.
+  - Exactness verified against an exact branching ground truth, including channels near and past
+    full mixing, and on circuits the author did not test (colour, repetition, unrotated surface
+    code, random circuits).
+  - One front-end crash was fixed: detectors with noiseless parity 1.
+  - The method is the fault-sparse detector sampling described in the Stim paper (§5.6, not
+    implemented there). The new part is making its constant factors win.
 - Mac (M1 Pro, under the bench lock, load 2.9–6.7): 27–40× against pip Stim (d = 15: 6.5 / 3.2
   Mshot/s against 0.24 / 0.11). Stim has no NEON backend, so this overstates the algorithmic gain;
   the x86 ratio against AVX2 Stim is the fair one.
