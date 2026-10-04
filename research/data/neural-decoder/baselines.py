@@ -70,9 +70,12 @@ for arg in sys.argv[5:]:
     elif kind[0] == "bposd":
         order = kind[1] if len(kind) > 1 else "10"
         z = kind[2] if len(kind) > 2 else "all"
-        r = subprocess.run([ND_TOOL, "bposd", pre + ".dem", test, out + ".bposd.pred", os.environ.get("BPOSD_THREADS", "2"), order, z],
-                           check=True, capture_output=True, text=True)
-        js = json.loads(r.stdout)
+        pr = subprocess.Popen([ND_TOOL, "bposd", pre + ".dem", test, out + ".bposd.pred",
+                               os.environ.get("BPOSD_THREADS", "2"), order, z], stdout=subprocess.PIPE, text=True)
+        while pr.poll() is None:  # MAC SHARING RULE: SIGSTOP the decoder while a peer holds the bench lock
+            wait_lock([pr])
+            time.sleep(5)
+        js = json.loads(pr.stdout.read())
         pred = np.fromfile(out + ".bposd.pred", dtype=np.uint8)[:N].astype(bool)
         os.remove(out + ".bposd.pred")
         name = f"bposd{order}" + ("z" if z == "zonly" else "")
