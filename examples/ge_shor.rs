@@ -207,7 +207,12 @@ fn main() {
                 };
                 let t0 = Instant::now();
                 let d = shor_ge::distribution(n_mod, &regs, &o, 1e-15);
-                let tv: f64 = 0.5 * exact.iter().zip(&d).map(|(x, y)| (x - y).abs()).sum::<f64>();
+                let tv: f64 = 0.5
+                    * exact
+                        .iter()
+                        .zip(&d)
+                        .map(|(x, y)| (x - y).abs())
+                        .sum::<f64>();
                 let (cnt, _, nq) = shor_ge::schedule_counts(n_mod, &regs, &o);
                 println!(
                     "c={c} qubits={nq} toffoli={} TV={tv:.6} P(strict)={:.6} P(factor)={:.6} Σ={:.12} ({:.1} s)",
@@ -248,7 +253,11 @@ fn main() {
             }
             let k = paths as f64;
             let nw = fin[0].len();
-            let mean_last: f64 = fin.iter().map(|f| f[nw - 1]).filter(|x| x.is_finite()).sum::<f64>()
+            let mean_last: f64 = fin
+                .iter()
+                .map(|f| f[nw - 1])
+                .filter(|x| x.is_finite())
+                .sum::<f64>()
                 / fin.iter().filter(|f| f[nw - 1].is_finite()).count().max(1) as f64;
             let mean_first: f64 = fin.iter().map(|f| f[0]).sum::<f64>() / k;
             println!(

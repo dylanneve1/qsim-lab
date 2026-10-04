@@ -4,11 +4,11 @@
 //! support law for windowed rounds; Ekerå–Håstad against its exact
 //! textbook distribution; coset arithmetic as an approximation whose
 //! effect is measured exactly.
+use num_complex::Complex64;
 use qsim_lab::algorithms::{gcd, pow_mod};
 use qsim_lab::shor::{self, Instance, Oracle};
 use qsim_lab::shor_ge::{self, ExpReg, GeOpts, GeState, WindowProg};
 use qsim_lab::shor_mbu::{MbuOpts, Outcomes};
-use num_complex::Complex64;
 
 fn bases(n: u64, count: usize) -> Vec<u64> {
     (2..n).filter(|&a| gcd(a, n) == 1).take(count).collect()
@@ -39,7 +39,8 @@ fn windowed_distribution_matches_textbook() {
         for a in bases(n, count) {
             let full = shor::full_qft_distribution(n, a);
             let perm = Instance::new(n, a, Oracle::Permutation);
-            let d_perm = shor::semiclassical_distribution(&perm, shor::sparse_initial(&perm), 1e-15);
+            let d_perm =
+                shor::semiclassical_distribution(&perm, shor::sparse_initial(&perm), 1e-15);
             assert!(max_diff(&full, &d_perm) < 1e-12);
             for we in [1usize, 2, 3, 4] {
                 for (wm, mbu) in [(2, MbuOpts::ALL), (3, MbuOpts::LOOKUPS), (1, MbuOpts::NONE)] {
@@ -107,7 +108,13 @@ fn support_closed(n_mod: u64, a: u64, t: usize, i: usize, y: u128) -> usize {
 /// plus the work identity `W = Σ_windows 2^w |S_{i0}| G`.
 #[test]
 fn windowed_support_law_on_trees() {
-    for (n_mod, a, we) in [(15u64, 7u64, 2usize), (21, 2, 3), (143, 2, 2), (65, 2, 4), (91, 3, 3)] {
+    for (n_mod, a, we) in [
+        (15u64, 7u64, 2usize),
+        (21, 2, 3),
+        (143, 2, 2),
+        (65, 2, 4),
+        (91, 3, 3),
+    ] {
         let n = shor::work_bits(n_mod);
         let t = 2 * n;
         let o = opts(we, 3, MbuOpts::LOOKUPS);
@@ -144,13 +151,18 @@ fn windowed_support_law_on_trees() {
             let (i0, w, ref wp) = progs[k];
             let mut st = st;
             let s0 = st.psi.len();
-            assert_eq!(s0, support_closed(n_mod, a, t, i0, y), "N={n_mod} i={i0} y={y}");
+            assert_eq!(
+                s0,
+                support_closed(n_mod, a, t, i0, y),
+                "N={n_mod} i={i0} y={y}"
+            );
             let before = st.gate_branch_ops;
             let wa = st.window(wp, w);
             assert_eq!(
                 st.gate_branch_ops - before,
                 ((1u128 << w) * s0 as u128) * wp.prog.gates as u128
             );
+            #[allow(clippy::type_complexity)]
             fn inner(
                 ctx: (u64, u64, usize, &[(usize, usize, WindowProg)], usize),
                 st: &GeState<f64>,
@@ -203,7 +215,15 @@ fn windowed_support_law_on_trees() {
                     }
                     let mut w2 = wa.clone();
                     w2.collapse(phi, bit, pb);
-                    inner(ctx, st, w2, j + 1, y | (u128::from(bit) << i), nodes, budget);
+                    inner(
+                        ctx,
+                        st,
+                        w2,
+                        j + 1,
+                        y | (u128::from(bit) << i),
+                        nodes,
+                        budget,
+                    );
                 }
             }
             inner((n_mod, a, t, progs, k), &st, wa, 0, y, nodes, budget);
@@ -339,8 +359,7 @@ fn windowed_run_reproduces_semiclassical_bits() {
         for we in [1usize, 2, 3] {
             let mut r3 = rng2.clone();
             let o = opts(we, 3, MbuOpts::LOOKUPS);
-            let (run, _, _) =
-                shor_ge::shor_run::<f64>(n_mod, a, &o, &mut || r3.random::<f64>());
+            let (run, _, _) = shor_ge::shor_run::<f64>(n_mod, a, &o, &mut || r3.random::<f64>());
             assert_eq!(run.y[0], base.measured, "N={n_mod} we={we}");
         }
         let _ = &mut rng2;

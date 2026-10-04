@@ -1,0 +1,11 @@
+n   GE19-headline  GE19-model(best ce,cm)          ours-model coset c=2lg n+? (best we,wm)
+   20           2417       1.44e+04 (ce=3,cm=2)      2.277e+04 (c=13, we=2, wm=3)  ours/GE19-model=1.58
+   24           4179       2.15e+04 (ce=3,cm=3)      3.329e+04 (c=13, we=3, wm=2)  ours/GE19-model=1.55
+   28           6638       3.36e+04 (ce=3,cm=3)      4.586e+04 (c=14, we=2, wm=3)  ours/GE19-model=1.36
+   31           9011      4.435e+04 (ce=3,cm=3)      5.832e+04 (c=14, we=2, wm=3)  ours/GE19-model=1.31
+   64      7.943e+04      2.621e+05 (ce=3,cm=4)      2.709e+05 (c=16, we=3, wm=3)  ours/GE19-model=1.03
+  128      6.365e+05      1.573e+06 (ce=3,cm=4)      1.359e+06 (c=18, we=4, wm=3)  ours/GE19-model=0.86
+  256        5.1e+06      9.437e+06 (ce=4,cm=4)      7.353e+06 (c=20, we=4, wm=4)  ours/GE19-model=0.78
+  512      4.087e+07      6.056e+07 (ce=5,cm=4)      4.183e+07 (c=22, we=4, wm=4)  ours/GE19-model=0.69
+ 1024      3.275e+08      3.879e+08 (ce=5,cm=5)      2.577e+08 (c=24, we=4, wm=5)  ours/GE19-model=0.66
+ 2048      2.624e+09      2.579e+09 (ce=6,cm=5)      1.609e+09 (c=26, we=5, wm=5)  ours/GE19-model=0.62

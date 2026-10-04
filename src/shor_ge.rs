@@ -331,77 +331,78 @@ fn eval_e_l<const L: usize, T: Real>(
         is_reg[q] = true;
     }
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
-    out.par_chunks_mut(64 * L).map_init(
-        || vec![[0u64; L]; nq + 2],
-        |w, chunk| {
-            for wq in w.iter_mut() {
-                *wq = [0; L];
-            }
-            w[nq] = [u64::MAX; L];
-            let mut valid = [0u64; L];
-            for (l, v) in valid.iter_mut().enumerate() {
-                let lo = l * 64;
-                if chunk.len() > lo {
-                    let k = (chunk.len() - lo).min(64);
-                    *v = if k == 64 { u64::MAX } else { (1u64 << k) - 1 };
+    out.par_chunks_mut(64 * L)
+        .map_init(
+            || vec![[0u64; L]; nq + 2],
+            |w, chunk| {
+                for wq in w.iter_mut() {
+                    *wq = [0; L];
                 }
-            }
-            for (j, &q) in eq.iter().enumerate() {
-                if (e >> j) & 1 == 1 {
-                    w[q] = valid;
+                w[nq] = [u64::MAX; L];
+                let mut valid = [0u64; L];
+                for (l, v) in valid.iter_mut().enumerate() {
+                    let lo = l * 64;
+                    if chunk.len() > lo {
+                        let k = (chunk.len() - lo).min(64);
+                        *v = if k == 64 { u64::MAX } else { (1u64 << k) - 1 };
+                    }
                 }
-            }
-            let mut blk = [0u64; 64];
-            for (l, c) in chunk.chunks(64).enumerate() {
-                for (b, x) in blk.iter_mut().zip(c) {
-                    *b = x.0;
-                }
-                blk[c.len()..].fill(0);
-                transpose64(&mut blk);
-                for (j, &q) in xq.iter().enumerate() {
-                    w[q][l] = blk[j];
-                }
-            }
-            prog.eval(w);
-            let mut same = true;
-            for l in 0..L {
                 for (j, &q) in eq.iter().enumerate() {
-                    let want = if (e >> j) & 1 == 1 { valid[l] } else { 0 };
-                    assert_eq!(
-                        w[q][l] & valid[l],
-                        want,
-                        "exponent qubit changed by the window block"
-                    );
+                    if (e >> j) & 1 == 1 {
+                        w[q] = valid;
+                    }
                 }
-                let mut dirty = 0u64;
-                for &q in &anc {
-                    dirty |= w[q][l];
+                let mut blk = [0u64; 64];
+                for (l, c) in chunk.chunks(64).enumerate() {
+                    for (b, x) in blk.iter_mut().zip(c) {
+                        *b = x.0;
+                    }
+                    blk[c.len()..].fill(0);
+                    transpose64(&mut blk);
+                    for (j, &q) in xq.iter().enumerate() {
+                        w[q][l] = blk[j];
+                    }
                 }
-                assert_eq!(dirty & valid[l], 0, "ancillas did not return to 0");
-                if prog.signed {
-                    let want = if prog.global_neg { valid[l] } else { 0 };
-                    assert_eq!(
-                        w[nq + 1][l] & valid[l],
-                        want,
-                        "measurement-based uncomputation left a relative sign"
-                    );
+                prog.eval(w);
+                let mut same = true;
+                for l in 0..L {
+                    for (j, &q) in eq.iter().enumerate() {
+                        let want = if (e >> j) & 1 == 1 { valid[l] } else { 0 };
+                        assert_eq!(
+                            w[q][l] & valid[l],
+                            want,
+                            "exponent qubit changed by the window block"
+                        );
+                    }
+                    let mut dirty = 0u64;
+                    for &q in &anc {
+                        dirty |= w[q][l];
+                    }
+                    assert_eq!(dirty & valid[l], 0, "ancillas did not return to 0");
+                    if prog.signed {
+                        let want = if prog.global_neg { valid[l] } else { 0 };
+                        assert_eq!(
+                            w[nq + 1][l] & valid[l],
+                            want,
+                            "measurement-based uncomputation left a relative sign"
+                        );
+                    }
                 }
-            }
-            for (l, oc) in chunk.chunks_mut(64).enumerate() {
-                blk.fill(0);
-                for (j, &q) in xq.iter().enumerate() {
-                    blk[j] = w[q][l];
+                for (l, oc) in chunk.chunks_mut(64).enumerate() {
+                    blk.fill(0);
+                    for (j, &q) in xq.iter().enumerate() {
+                        blk[j] = w[q][l];
+                    }
+                    transpose64(&mut blk);
+                    for (o, &k) in oc.iter_mut().zip(blk.iter()) {
+                        same &= o.0 == k;
+                        o.0 = k;
+                    }
                 }
-                transpose64(&mut blk);
-                for (o, &k) in oc.iter_mut().zip(blk.iter()) {
-                    same &= o.0 == k;
-                    o.0 = k;
-                }
-            }
-            same
-        },
-    )
-    .reduce(|| true, |a, b| a && b)
+                same
+            },
+        )
+        .reduce(|| true, |a, b| a && b)
 }
 
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
@@ -476,7 +477,11 @@ impl<T: Real> WindowArrays<T> {
     /// Visits the entries of one chunk in packed-key order (a 2-way merge
     /// of the two runs).
     #[inline]
-    fn stream(&self, (a0, a1, b0, b1): (usize, usize, usize, usize), mut f: impl FnMut(&(u64, Complex<T>))) {
+    fn stream(
+        &self,
+        (a0, a1, b0, b1): (usize, usize, usize, usize),
+        mut f: impl FnMut(&(u64, Complex<T>)),
+    ) {
         let ent: &[(u64, Complex<T>)] = &self.ent;
         let (mut i, mut j) = (a0, b0);
         while i < a1 && j < b1 {
@@ -682,9 +687,8 @@ impl<T: Real> WindowArrays<T> {
             .into_par_iter()
             .map(|ch| {
                 let est = (ch.1 - ch.0) + (ch.3 - ch.2);
-                let mut out: Vec<Arr<T>> = (0..nl)
-                    .map(|_| Vec::with_capacity(est / ne + 16))
-                    .collect();
+                let mut out: Vec<Arr<T>> =
+                    (0..nl).map(|_| Vec::with_capacity(est / ne + 16)).collect();
                 self.groups(ch, |key, vals| {
                     let len = self.reduce(vals);
                     debug_assert_eq!(len, nl);
@@ -787,12 +791,17 @@ impl<T: Real> GeState<T> {
         let id = eval_e_inplace(&wp.prog, &wp.e, &wp.x, 0, &mut ent[..n_in]);
         t_eval += ta.elapsed().as_secs_f64();
         let wsh = w_used as u32;
-        ent.par_chunks_mut(n_in.max(1)).enumerate().for_each(|(e, seg)| {
-            for v in seg.iter_mut() {
-                assert!(v.0 >> (64 - wsh) == 0, "key too wide to pack the exponent value");
-                v.0 = (v.0 << wsh) | e as u64;
-            }
-        });
+        ent.par_chunks_mut(n_in.max(1))
+            .enumerate()
+            .for_each(|(e, seg)| {
+                for v in seg.iter_mut() {
+                    assert!(
+                        v.0 >> (64 - wsh) == 0,
+                        "key too wide to pack the exponent value"
+                    );
+                    v.0 = (v.0 << wsh) | e as u64;
+                }
+            });
         let split = if id { n_in } else { 0 };
         ent[split..].par_sort_unstable_by_key(|v| v.0);
         // V^e is a permutation: no (e, key) may appear twice
@@ -1309,7 +1318,7 @@ pub fn distribution_sparse(n_mod: u64, regs: &[ExpReg], o: &GeOpts, prune: f64) 
         .collect();
     let s = SparseState::from_amplitudes(lay.nq, init);
     let mut out = vec![0.0; 1 << total];
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
     fn walk(
         plan: &[(usize, usize, usize, usize, Vec<MbuOp>)],
         e: &[usize],
@@ -1460,7 +1469,7 @@ pub fn split_from_sum(n_mod: u64, s: u128) -> Option<(u64, u64)> {
     }
     let p = (s - r) / 2;
     let q = (s + r) / 2;
-    (p > 1 && p * q == n).then(|| (p as u64, q as u64))
+    (p > 1 && p * q == n).then_some((p as u64, q as u64))
 }
 
 /// Ekerå–Håstad classical post-processing for `s = 1` (Ekerå–Håstad 2017,
@@ -1524,10 +1533,30 @@ pub fn eh_postprocess(
         coef(box_x.1, box_z.0),
         coef(box_x.1, box_z.1),
     ];
-    let amin = corners.iter().map(|c| c.0).fold(f64::INFINITY, f64::min).floor() as i128 - 1;
-    let amax = corners.iter().map(|c| c.0).fold(f64::NEG_INFINITY, f64::max).ceil() as i128 + 1;
-    let cmin = corners.iter().map(|c| c.1).fold(f64::INFINITY, f64::min).floor() as i128 - 1;
-    let cmax = corners.iter().map(|c| c.1).fold(f64::NEG_INFINITY, f64::max).ceil() as i128 + 1;
+    let amin = corners
+        .iter()
+        .map(|c| c.0)
+        .fold(f64::INFINITY, f64::min)
+        .floor() as i128
+        - 1;
+    let amax = corners
+        .iter()
+        .map(|c| c.0)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil() as i128
+        + 1;
+    let cmin = corners
+        .iter()
+        .map(|c| c.1)
+        .fold(f64::INFINITY, f64::min)
+        .floor() as i128
+        - 1;
+    let cmax = corners
+        .iter()
+        .map(|c| c.1)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil() as i128
+        + 1;
     if (amax - amin + 1).saturating_mul(cmax - cmin + 1) > (max_cands as i128) * 64 {
         return (None, 0);
     }
@@ -1644,12 +1673,7 @@ fn coset_bad_weight(n_mod: u64, nr: usize, exact: &Arr<f64>, cos: &Arr<f64>) -> 
 /// for this path. `TV(P, Q) = E_{y∼Q}[(1 − P(y)/Q(y))_+]` and
 /// `P_succ(exact) = E_{y∼Q}[succ(y) P(y)/Q(y)]` are then unbiased path
 /// averages.
-pub fn coset_path(
-    n_mod: u64,
-    a: u64,
-    o: &GeOpts,
-    rng: &mut dyn FnMut() -> f64,
-) -> CosetPath {
+pub fn coset_path(n_mod: u64, a: u64, o: &GeOpts, rng: &mut dyn FnMut() -> f64) -> CosetPath {
     assert!(o.coset > 0);
     let n = crate::shor::work_bits(n_mod);
     let oe = GeOpts { coset: 0, ..*o };
