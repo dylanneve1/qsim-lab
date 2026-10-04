@@ -692,6 +692,9 @@ pub fn sat_peephole(c: &Circuit, anc_from: usize) -> Circuit {
             i += 1;
         }
         gates = out;
+        if std::env::var_os("QSIM_SATPEEP_DEBUG").is_some() {
+            eprintln!("sat_peephole pass {_pass}: {} gates, changed={changed}", gates.len());
+        }
         if !changed {
             break;
         }
