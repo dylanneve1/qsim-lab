@@ -61,14 +61,17 @@ SKIPPED = [0]
 
 
 def step(tok, y):
-    """one AdamW step; a batch whose loss exceeds 4x the running mean is skipped (spike guard)"""
+    """one AdamW step; a batch whose loss exceeds 8x the running mean + 0.05 is skipped (spike guard)"""
     loss, g = lg(model, tok, y)
     mx.eval(loss)
     lv = loss.item()
-    if EMA[0] is not None and lv > 4 * EMA[0] + 0.01:
+    # the running mean includes skipped batches (an EMA of accepted batches only drifts low and then skips
+    # ever more of the hard batches: seen in the first d = 7 continuation, 4% skipped)
+    spike = EMA[0] is not None and lv > 8 * EMA[0] + 0.05
+    EMA[0] = lv if EMA[0] is None else 0.99 * EMA[0] + 0.01 * lv
+    if spike:
         SKIPPED[0] += 1
         return loss
-    EMA[0] = lv if EMA[0] is None else 0.99 * EMA[0] + 0.01 * lv
     g, _ = optim.clip_grad_norm(g, 1.0)
     opt.update(model, g)
     return loss
