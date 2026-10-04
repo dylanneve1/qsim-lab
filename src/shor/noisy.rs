@@ -181,7 +181,10 @@ pub struct NoisyCircuit {
 
 impl NoisyCircuit {
     pub fn new(inst: &Instance, kind: NoiseKind) -> Self {
-        assert!(matches!(inst.oracle, Oracle::Ripple | Oracle::Windowed(_)));
+        assert!(matches!(
+            inst.oracle,
+            Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
+        ));
         let nq = inst.qubits();
         assert!(
             nq <= 129,

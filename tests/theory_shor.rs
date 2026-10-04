@@ -27,6 +27,18 @@ use std::f64::consts::PI;
 
 // ---------------------------------------------------------------- helpers
 
+/// The oracle the gate-level checks run on: the windowed oracle (w = 4),
+/// or its superoptimised version when this file is compiled as a module of
+/// `tests/theory_shor_opt.rs` (exp/superopt), so every theorem is
+/// re-checked on the optimised circuit without duplicating the tests.
+fn theory_oracle() -> Oracle {
+    if module_path!().contains("theory_shor_opt") {
+        Oracle::WindowedOpt(4)
+    } else {
+        Oracle::Windowed(4)
+    }
+}
+
 fn mulmod(a: u64, b: u64, n: u64) -> u64 {
     (u128::from(a) * u128::from(b) % u128::from(n)) as u64
 }
@@ -237,7 +249,7 @@ fn t1_support_law_on_gate_level_tree() {
     let mut defic = 0u64;
     let mut float_residue = 0u64;
     for &(n, a) in cases {
-        let inst = Instance::new(n, a, Oracle::Windowed(4));
+        let inst = Instance::new(n, a, theory_oracle());
         let t = inst.t;
         let r = order(a, n);
         // exhaustive for t <= 12, otherwise 200 random root-to-leaf paths
@@ -387,7 +399,7 @@ fn t1_exception_probability_bound() {
 #[test]
 fn t1_work_counter_identity() {
     for &(n, a) in &[(143u64, 5u64), (221, 2), (899, 2), (4087, 3)] {
-        let inst = Instance::new(n, a, Oracle::Windowed(4));
+        let inst = Instance::new(n, a, theory_oracle());
         let t = inst.t;
         let r = order(a, n);
         let mut s = SlicedState::<f64>::new(&inst);
@@ -851,7 +863,7 @@ fn random_gate_fault<R: Rng>(
 fn t3_end_window_is_exactly_harmless() {
     let mut rng = StdRng::seed_from_u64(6);
     for &(n, a) in &[(15u64, 7u64), (21, 2), (35, 8), (51, 2)] {
-        let inst = Instance::new(n, a, Oracle::Windowed(4));
+        let inst = Instance::new(n, a, theory_oracle());
         let nc = NoisyCircuit::new(&inst, NoiseKind::Depolarizing);
         let t = inst.t;
         let r = order(a, n);
@@ -934,7 +946,7 @@ fn t3_start_window_lower_bound_for_phase_faults() {
     let mut worst_margin = f64::INFINITY;
     let mut x_below = 0;
     for &(n, a) in &[(35u64, 11u64), (35, 8), (39, 22), (33, 10)] {
-        let inst = Instance::new(n, a, Oracle::Windowed(4));
+        let inst = Instance::new(n, a, theory_oracle());
         let nc = NoisyCircuit::new(&inst, NoiseKind::Depolarizing);
         let t = inst.t;
         let r = order(a, n);
@@ -1021,7 +1033,7 @@ fn eval_prefix(gates: &[Gate], mut s: u128) -> u128 {
 fn t3_phase_fault_textbook_formula() {
     let mut rng = StdRng::seed_from_u64(8);
     for &(n, a) in &[(15u64, 7u64), (15, 2), (21, 2)] {
-        let inst = Instance::new(n, a, Oracle::Windowed(4));
+        let inst = Instance::new(n, a, theory_oracle());
         let nc = NoisyCircuit::new(&inst, NoiseKind::PhaseFlip);
         let t = inst.t;
         let tt = 1usize << t;
