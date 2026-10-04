@@ -775,6 +775,17 @@ impl<T: Real> GeState<T> {
         let t0 = std::time::Instant::now();
         let ne = 1usize << w_used;
         let n_in = self.psi.len();
+        // memory guard: QSIM_GE_MAX_GB caps the window's branch array
+        if let Some(gb) = std::env::var("QSIM_GE_MAX_GB")
+            .ok()
+            .and_then(|v| v.parse::<f64>().ok())
+        {
+            let need = (ne * n_in * std::mem::size_of::<(u64, Complex<T>)>()) as f64 / 1e9;
+            assert!(
+                need <= gb,
+                "window needs {need:.2} GB of branches (2^{w_used} × {n_in}), over QSIM_GE_MAX_GB = {gb}"
+            );
+        }
         let mut t_eval = 0.0;
         let mut ent = std::mem::take(&mut self.psi);
         ent.reserve_exact((ne - 1) * n_in);

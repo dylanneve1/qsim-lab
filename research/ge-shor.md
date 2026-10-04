@@ -255,8 +255,8 @@ its last rounds (`g^2`, `g`) fill the whole group `⟨g⟩` (support `r`), and
 all `m` rounds of the second register run at support `r`. Running the
 `m`-bit register first keeps the support inside `Y·⟨g^{2^{2m−i}}⟩`,
 `Y = {y^{−b}}`, i.e. `r_odd` times the number of cosets of the odd-order
-subgroup that `Y` meets: `r_odd` if `d ≡ 0 (mod 2^{ν₂(r)})` (the 31-bit
-N: d = 40 892 ≡ 0 mod 4 = 2^{ν₂(r)}), up to `r` otherwise. Choosing an
+subgroup that `Y` meets: `r_odd` if `d ≡ 0 (mod 2^{ν₂(r)})`, up to `r`
+otherwise (all three record N have odd `d`: 3 221, 14 903, 40 893). Choosing an
 **odd-order base** `g = h^{2^n}` (no knowledge of the factors needed; EH
 works for any base of large enough order) makes `ν₂(r) = 0` and the
 support `≤ r_odd` throughout, *smaller* than Shor's `max(r_odd, r/2)`
