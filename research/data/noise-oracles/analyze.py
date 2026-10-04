@@ -39,6 +39,8 @@ def load():
             r['file'] = base
             r['realcap'] = int(info['cap'])
             r['variant'] = r['oracle'] + ('+reset' if info.get('reset_ancillas') == 'true' else '')
+            if info.get('design', 'None') != 'None':
+                r['variant'] += '+' + info['design'].lower()
             for tag in ('+design', ):
                 if tag in base:
                     r['variant'] += tag
@@ -98,15 +100,27 @@ def main():
 
     # ---- calibration
     out.append('## calibration: weighted success among v-capped trajectories (no binding cap)')
+    # success of trajectories that exceeded the v-cap but completed: the
+    # calibration runs (n = 10, 11, no binding cap) and, for the MBU
+    # oracles, every run with cap 16r (n >= 12; their dirty supports stay
+    # small), which is the relevant regime for n = 24
     cal = defaultdict(lambda: [0, 0.0, 0.0])
+    caln = defaultdict(lambda: [0, 0.0])
     for r in rows:
-        if r['cal'] and r['vcap'] and not r['really_capped']:
+        if not r['vcap'] or r['really_capped']:
+            continue
+        use = r['cal'] if r['oracle'] == 'WindowedOpt(4)' else (r['n'] >= 12 and r['realcap'] >= 16 * r['r'])
+        if use:
             c = cal[r['oracle']]
             c[0] += 1; c[1] += r['w'] * r['ok']; c[2] += r['w']
+        cn = caln[(r['oracle'], r['n'])]
+        cn[0] += 1; cn[1] += r['w'] * r['ok']
     chat = {}
     for o, (m, s, wsum) in sorted(cal.items()):
         chat[o] = s / wsum if wsum else 0.0
         out.append(f'{SHORT.get(o, o)}: {s:.1f}/{wsum:.1f} (M={m}) = {chat[o]:.4f}')
+    out.append('per n (all completed v-capped trajectories): ' + ', '.join(
+        f"{SHORT.get(o, o)} n={n}: {x[1]:.0f}/{x[0]}" for (o, n), x in sorted(caln.items())))
     CH = lambda o: chat.get(o, 0.021)
 
     # ---- strata
@@ -119,7 +133,7 @@ def main():
     def est(v, o, lo=False):
         s = 0.0
         for r in v:
-            if r['vcap']:
+            if r['really_capped']:
                 s += 0.0 if lo else CH(o) * r['w']
             else:
                 s += r['w'] * r['ok']
@@ -349,6 +363,41 @@ def main():
         if mc[0] and md[0]:
             dinf = 1 - (cf * mc[1] / mc[0] + (1 - cf) * md[1] / md[0])
             out.append(f'{SHORT.get(var, var)}: clean fraction {cf:.3f}, middle clean {mc[1]/mc[0]:.3f}, middle dirty {md[1]/md[0]:.3f} -> d_inf = {dinf:.3f}')
+
+    # ---- T3 (b) start-window lower bound for clean faults, (d) dephasing
+    # upper bound for dirty faults, per round, pooled into bound buckets
+    out.append('\n## T3(b): clean single faults in rounds with Delta_i >= 1: measured P(ok) vs mean bound L(Delta_i)')
+    out.append('## T3(d): dirty single faults: measured P(ok) vs mean dephasing bound 1/r + r_odd 2^(i+1+nu-t) (rounds with bound < 0.1)')
+    tb = defaultdict(lambda: [0, 0.0, 0.0])
+    for (var, kind, n, k), v in cells.items():
+        if k != 1 or kind != 'depol':
+            continue
+        for r in v:
+            f = r['flist'][0]
+            i = int(f[0]); t = r['t']; rr = r['r']; nu = nu2(rr); rodd = rr >> nu
+            if r['really_capped']:
+                okv = CH(r['oracle']) * r['w']
+            else:
+                okv = r['w'] * r['ok']
+            if not r['dirty']:
+                delta = 2.0 ** (t - i - 2) / rr ** 2
+                if delta >= 1:
+                    cd = math.ceil(delta)
+                    Lb = 1 - 1 / (2 * (cd - 3)) if cd >= 4 else 8 / math.pi ** 2
+                    a = tb[(var, 'b')]
+                    a[0] += 1; a[1] += okv; a[2] += Lb
+            else:
+                if i < t - nu:
+                    B = 1 / rr + rodd * 2.0 ** (i + 1 + nu - t)
+                    if B < 0.1:
+                        a = tb[(var, 'd')]
+                        a[0] += 1; a[1] += okv; a[2] += B
+    for var in ORDER:
+        for th in ['b', 'd']:
+            m, x, b = tb.get((var, th), [0, 0, 0])
+            if m:
+                se = math.sqrt(max(x / m * (1 - x / m), 1e-4) / m)
+                out.append(f"{SHORT.get(var, var):<14} T3({th}) M={m:<5} measured {x / m:.3f}±{se:.3f}  mean bound {b / m:.4f}  ({'>=' if th == 'b' else '<='} expected)")
 
     open(os.path.join(HERE, 'analysis.txt'), 'w').write('\n'.join(out) + '\n')
     print('\n'.join(out))

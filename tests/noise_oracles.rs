@@ -63,6 +63,7 @@ fn ref_round(
                     }
                 }
             }
+            NOp::Ctrl(..) => unreachable!("windowed rounds use ref_distribution_windowed"),
             NOp::ResetZ(g) => {
                 let grp = &res.rounds[i].groups[g as usize];
                 // joint value of the group: the most probable one (ties: the
@@ -227,7 +228,7 @@ fn special_patterns(res: &Resolved, rng: &mut StdRng) -> Vec<Vec<Fault>> {
             if let Some(prev) = (0..g).rev().find(|&h| match r.ops[h] {
                 NOp::G(gg) => gg.qubits().contains(&(q as usize)),
                 NOp::MeasX(qq, _) => qq == q,
-                NOp::ResetZ(_) => false,
+                NOp::ResetZ(_) | NOp::Ctrl(..) => false,
             }) {
                 if let NOp::G(gg) = r.ops[prev] {
                     let slot = gg.qubits().iter().position(|&x| x == q as usize).unwrap();
@@ -433,4 +434,203 @@ fn reset_variants_match_sparse_reference() {
         "too few patterns with a dirty reset ({dirty_resets})"
     );
     eprintln!("{checked} reset-variant patterns agree ({dirty_resets} with a non-trivial reset)");
+}
+
+/// Reference walk of a windowed exponentiation (exponent qubits `res.eq`,
+/// `we` per window, highest power measured first).
+fn ref_distribution_windowed(gc: &GenCircuit, res: &Resolved, faults: &[Fault]) -> Vec<f64> {
+    let t = gc.inst.t;
+    let mut out = vec![0.0; 1 << t];
+    let at = |k: usize, gi: usize, slot: u8| {
+        faults
+            .iter()
+            .find(|f| {
+                f.round as usize == k
+                    && f.site
+                        == Site::Gate {
+                            gate: gi as u32,
+                            slot,
+                        }
+            })
+            .map(|f| f.pauli)
+    };
+    #[allow(clippy::too_many_arguments)]
+    fn bits(
+        s: SparseState,
+        gc: &GenCircuit,
+        res: &Resolved,
+        at: &dyn Fn(usize, usize, u8) -> Option<Pauli>,
+        k: usize,
+        jj: usize,
+        y: u128,
+        p: f64,
+        out: &mut [f64],
+    ) {
+        let we = gc.we;
+        if jj == we {
+            window(s, gc, res, at, k + 1, y, p, out);
+            return;
+        }
+        let r = &res.rounds[k];
+        let i = k * we + jj;
+        let j = (we - 1 - jj) as u8;
+        let q = res.eq[j as usize] as usize;
+        let find = |kind: u8| {
+            let gi = r.ops.iter().position(|o| *o == NOp::Ctrl(kind, j)).unwrap();
+            at(k, gi, 0)
+        };
+        let mut s = s;
+        let y_low = y & ((1u128 << i) - 1);
+        if y_low != 0 {
+            s.apply_gate(&Gate::Phase(q, Instance::correction(i, y_low)))
+                .unwrap();
+        }
+        if let Some(pp) = find(2) {
+            s.apply_gate(&pauli_gate(pp, q)).unwrap();
+        }
+        s.apply_gate(&Gate::H(q)).unwrap();
+        if let Some(pp) = find(3) {
+            s.apply_gate(&pauli_gate(pp, q)).unwrap();
+        }
+        let flip = find(4).is_some();
+        let p1 = s.prob_one(q);
+        for bit in [false, true] {
+            let pb = if bit { p1 } else { 1.0 - p1 };
+            if pb <= 1e-14 {
+                continue;
+            }
+            let mut c = s.clone();
+            c.collapse(q, bit);
+            if bit {
+                c.apply_gate(&Gate::X(q)).unwrap();
+            }
+            let rec = u128::from(bit ^ flip) << i;
+            bits(c, gc, res, at, k, jj + 1, y | rec, p * pb, out);
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn window(
+        s: SparseState,
+        gc: &GenCircuit,
+        res: &Resolved,
+        at: &dyn Fn(usize, usize, u8) -> Option<Pauli>,
+        k: usize,
+        y: u128,
+        p: f64,
+        out: &mut [f64],
+    ) {
+        if k == gc.inst.t / gc.we {
+            out[y as usize] += p;
+            return;
+        }
+        let mut s = s;
+        let r = &res.rounds[k];
+        let mut wf = 1.0;
+        for (gi, op) in r.ops.iter().enumerate() {
+            let slot_fault = |slot: u8| at(k, gi, slot);
+            match *op {
+                NOp::Ctrl(0, j) => {
+                    let q = res.eq[j as usize] as usize;
+                    if slot_fault(0).is_some() {
+                        s.apply_gate(&Gate::X(q)).unwrap();
+                    }
+                    s.apply_gate(&Gate::H(q)).unwrap();
+                }
+                NOp::Ctrl(1, j) => {
+                    if let Some(pp) = slot_fault(0) {
+                        s.apply_gate(&pauli_gate(pp, res.eq[j as usize] as usize))
+                            .unwrap();
+                    }
+                }
+                NOp::Ctrl(..) => {}
+                NOp::G(g) => {
+                    s.apply_gate(&g).unwrap();
+                    for (slot, q) in g.qubits().into_iter().enumerate() {
+                        if let Some(pp) = slot_fault(slot as u8) {
+                            s.apply_gate(&pauli_gate(pp, q)).unwrap();
+                        }
+                    }
+                }
+                NOp::MeasX(q, m) => {
+                    let q = q as usize;
+                    let proj = m ^ slot_fault(0).is_some();
+                    s.apply_gate(&Gate::H(q)).unwrap();
+                    let p1 = s.prob_one(q);
+                    let pr = if proj { p1 } else { 1.0 - p1 };
+                    if pr < 1e-14 {
+                        return;
+                    }
+                    s.collapse(q, proj);
+                    wf *= 2.0 * pr;
+                    if proj {
+                        s.apply_gate(&Gate::X(q)).unwrap();
+                    }
+                    if slot_fault(1).is_some() {
+                        s.apply_gate(&Gate::X(q)).unwrap();
+                    }
+                }
+                NOp::ResetZ(_) => unreachable!(),
+            }
+        }
+        bits(s, gc, res, at, k, 0, y, p * wf, out);
+    }
+    let mut s = SparseState::new(gc.nq);
+    s.apply_gate(&Gate::X(1)).unwrap();
+    window(s, gc, res, &at, 0, 0, 1.0, &mut out);
+    out
+}
+
+#[test]
+fn windowed_exponentiation_matches_textbook_and_sparse_reference() {
+    let mut rng = StdRng::seed_from_u64(31337);
+    let mut checked = 0;
+    for (n_mod, a, we, wm) in [(15u64, 7u64, 2usize, 2usize), (21, 2, 2, 2), (15, 2, 4, 2)] {
+        for kind in [
+            NoiseKind::Depolarizing,
+            NoiseKind::BitFlip,
+            NoiseKind::PhaseFlip,
+        ] {
+            let gc = GenCircuit::new_ge(n_mod, a, we, wm, kind);
+            let res = gc.resolve_rng(&mut rng);
+            // noiseless: the textbook distribution of order finding
+            let d0 = noisy_gen::trajectory_distribution::<u128>(&gc, &res, &[]);
+            let tb = qsim_lab::shor::full_qft_distribution(n_mod, a);
+            assert_close(&d0, &tb, &format!("noiseless GE N={n_mod} we={we}"));
+            let mut pats: Vec<Vec<Fault>> = Vec::new();
+            for k in [1usize, 1, 1, 1, 2, 2, 3] {
+                pats.push(res.sample_k(k, &mut rng));
+            }
+            // every control site of the exponent qubits in window 0 and 1
+            for k in 0..2usize {
+                let r = &res.rounds[k];
+                for (gi, op) in r.ops.iter().enumerate() {
+                    if let NOp::Ctrl(kind_, _) = op {
+                        for pauli in [Pauli::X, Pauli::Y, Pauli::Z] {
+                            if matches!(kind_, 0 | 4) && pauli != Pauli::X {
+                                continue;
+                            }
+                            if kind == NoiseKind::PhaseFlip && matches!(kind_, 0 | 4) {
+                                continue;
+                            }
+                            pats.push(vec![Fault {
+                                round: k as u32,
+                                site: Site::Gate {
+                                    gate: gi as u32,
+                                    slot: 0,
+                                },
+                                pauli,
+                            }]);
+                        }
+                    }
+                }
+            }
+            for f in &pats {
+                let e = noisy_gen::trajectory_distribution::<u128>(&gc, &res, f);
+                let r = ref_distribution_windowed(&gc, &res, f);
+                assert_close(&e, &r, &format!("GE N={n_mod} we={we} {kind:?} {f:?}"));
+                checked += 1;
+            }
+        }
+    }
+    eprintln!("{checked} windowed-exponentiation patterns agree");
 }

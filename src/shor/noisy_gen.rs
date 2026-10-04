@@ -150,6 +150,13 @@ pub enum NOp {
     /// (design variants: mid-circuit reset of qubits that should be clean;
     /// the outcome is discarded). One location per qubit: a reset flip.
     ResetZ(u32),
+    /// A control-site location of exponent qubit `j` in a windowed
+    /// exponentiation round ([`GenCircuit::new_ge`]): kind 0 = preparation
+    /// flip (X before the first H), 1 = Pauli after the first H, 2 = Pauli
+    /// after the phase correction, 3 = Pauli after the second H, 4 = readout
+    /// flip. No operation by itself (the H / phase / measurement of the
+    /// exponent qubits are applied by the engine after the block).
+    Ctrl(u8, u8),
 }
 
 /// Block tags: `block | part | INV`.
@@ -166,6 +173,8 @@ pub mod tag {
     pub const OTHER: u8 = 0x40;
     /// A [`super::NOp::ResetZ`] (design variants).
     pub const RESET: u8 = 0x50;
+    /// Exponent-qubit control sites (windowed exponentiation).
+    pub const CTRL: u8 = 0x60;
     pub const BLOCK: u8 = 0x70;
 
     /// Lookup: unary-iteration / AND-chain gates (target an AND ancilla,
@@ -200,6 +209,7 @@ pub mod tag {
             MODADD => "modadd",
             SWAP => "swap",
             RESET => "reset",
+            CTRL => "ctrl",
             _ => "other",
         }
     }
@@ -234,6 +244,13 @@ fn op_slots(op: &NOp, groups: &[Vec<u32>], kind: NoiseKind) -> u64 {
         NOp::G(g) => g.arity() as u64,
         NOp::MeasX(..) => 2 * u64::from(flips),
         NOp::ResetZ(gi) => groups[*gi as usize].len() as u64 * u64::from(flips),
+        NOp::Ctrl(k, _) => {
+            if matches!(k, 1..=3) {
+                1
+            } else {
+                u64::from(flips)
+            }
+        }
     }
 }
 
@@ -291,6 +308,11 @@ pub struct Resolved {
     pub kind: NoiseKind,
     pub rounds: Vec<Round>,
     loc_prefix: Vec<u64>,
+    /// Per-round control sites (`Prep`, `H1`, `Phase`, `H2`, `Meas`); false
+    /// for windowed exponentiation, whose control sites are [`NOp::Ctrl`].
+    ctrl_sites: bool,
+    /// Exponent qubits (windowed exponentiation; empty otherwise).
+    pub eq: Vec<u32>,
 }
 
 impl Resolved {
@@ -305,6 +327,23 @@ impl Resolved {
             kind,
             rounds,
             loc_prefix,
+            ctrl_sites: true,
+            eq: Vec::new(),
+        }
+    }
+
+    /// Windows of a windowed exponentiation: every location is an op slot.
+    pub fn new_windowed(rounds: Vec<Round>, kind: NoiseKind, eq: Vec<u32>) -> Self {
+        let mut loc_prefix = vec![0u64];
+        for r in &rounds {
+            loc_prefix.push(loc_prefix.last().unwrap() + r.gate_slots());
+        }
+        Self {
+            kind,
+            rounds,
+            loc_prefix,
+            ctrl_sites: false,
+            eq,
         }
     }
 
@@ -319,6 +358,17 @@ impl Resolved {
         let mut l = g - self.loc_prefix[i];
         let pm = has_prep_meas(self.kind);
         let rc = &self.rounds[i];
+        if !self.ctrl_sites {
+            let gi = rc.slot_prefix.partition_point(|&x| x <= l) - 1;
+            let slot = (l - rc.slot_prefix[gi]) as u8;
+            return (
+                i,
+                Site::Gate {
+                    gate: gi as u32,
+                    slot,
+                },
+            );
+        }
         if pm {
             if l == 0 {
                 return (i, Site::Prep);
@@ -357,7 +407,7 @@ impl Resolved {
             Site::Gate { gate, .. }
                 if matches!(
                     self.rounds[round].ops[gate as usize],
-                    NOp::MeasX(..) | NOp::ResetZ(..)
+                    NOp::MeasX(..) | NOp::ResetZ(..) | NOp::Ctrl(0 | 4, _)
                 ) =>
             {
                 Pauli::X
@@ -420,6 +470,7 @@ impl Resolved {
                     NOp::G(g) => g.qubits()[slot as usize],
                     NOp::MeasX(q, _) => q as usize,
                     NOp::ResetZ(g) => r.groups[g as usize][slot as usize] as usize,
+                    NOp::Ctrl(_, j) => self.eq[j as usize] as usize,
                 };
                 Some((op, q, r.tags[gate as usize]))
             }
@@ -430,11 +481,24 @@ impl Resolved {
     /// Compiles round `i` with its faults spliced in. Words: `0..nq` qubits,
     /// `nq` all-ones, `nq + 1` the sign.
     fn program(&self, nq: usize, i: usize, faults: &[Fault]) -> (Vec<Seg>, PostFaults) {
+        let (segs, post, _) = self.program_w(nq, i, faults);
+        (segs, post)
+    }
+
+    /// [`Self::program`] plus the post-block faults of every exponent qubit
+    /// (windowed exponentiation).
+    fn program_w(
+        &self,
+        nq: usize,
+        i: usize,
+        faults: &[Fault],
+    ) -> (Vec<Seg>, PostFaults, Vec<PostFaults>) {
         let nqu = nq as u32;
         let (one, sign) = (nqu, nqu + 1);
         let rc = &self.rounds[i];
         let mut gf: Vec<(u32, u8, Pauli)> = Vec::new();
         let mut post = PostFaults::default();
+        let mut wpost = vec![PostFaults::default(); self.eq.len()];
         let mut ops = Vec::with_capacity(rc.ops.len() + rc.ops.len() / 4 + 8);
         let mut segs: Vec<Seg> = Vec::new();
         let push_pauli = |ops: &mut Vec<[u32; 3]>, q: u32, p: Pauli| {
@@ -508,6 +572,18 @@ impl Resolved {
                         ops.push([t, one, one]);
                     }
                 }
+                NOp::Ctrl(k, j) => {
+                    let q = self.eq[j as usize];
+                    for &(_, _, p) in fs {
+                        match k {
+                            0 => push_pauli(&mut ops, q, Pauli::Z),
+                            1 => push_pauli(&mut ops, q, p),
+                            2 => wpost[j as usize].phase = Some(p),
+                            3 => wpost[j as usize].h2 = Some(p),
+                            _ => wpost[j as usize].meas = true,
+                        }
+                    }
+                }
                 NOp::ResetZ(g) => {
                     let grp = rc.groups[g as usize].clone();
                     let mut flips = Vec::new();
@@ -528,7 +604,7 @@ impl Resolved {
             .flat_map(|s| &s.ops)
             .flatten()
             .all(|&x| x <= sign));
-        (segs, post)
+        (segs, post, wpost)
     }
 }
 
@@ -571,6 +647,9 @@ enum Source {
     /// Measurement-based oracle: resolved per trajectory from its recorded
     /// outcomes.
     Mbu(MbuOpts, usize),
+    /// Gidney–Ekerå windowed exponentiation (`shor_ge`, exact arithmetic):
+    /// one engine round per exponent window of `we` rounds.
+    Ge(crate::shor_ge::GeOpts),
 }
 
 /// Where the design variants put Z-basis measure-and-resets
@@ -648,6 +727,8 @@ pub struct GenCircuit {
     pub nq: usize,
     src: Source,
     pub resets: ResetMode,
+    /// Exponent window (1 = one recycled control per round).
+    pub we: usize,
 }
 
 impl GenCircuit {
@@ -694,6 +775,32 @@ impl GenCircuit {
             nq,
             src,
             resets: ResetMode::None,
+            we: 1,
+        }
+    }
+
+    /// Windowed exponentiation (research/ge-shor.md): `we` exponent qubits
+    /// per window (`we` divides `t = 2n`), `wm`-bit multiplicand windows,
+    /// all MBU constructions, exact modular arithmetic.
+    pub fn new_ge(n_mod: u64, a: u64, we: usize, wm: usize, kind: NoiseKind) -> Self {
+        use crate::shor_ge::{GeLayout, GeOpts};
+        let inst = Instance::new(n_mod, a, Oracle::WindowedMbu(wm));
+        assert!(we >= 1 && inst.t % we == 0, "the window must divide t = 2n");
+        let o = GeOpts {
+            we,
+            wm,
+            mbu: MbuOpts::ALL,
+            coset: 0,
+        };
+        let lay = GeLayout::new(inst.m, &o);
+        assert!(lay.nq <= 193);
+        Self {
+            inst,
+            kind,
+            nq: lay.nq,
+            src: Source::Ge(o),
+            resets: ResetMode::None,
+            we,
         }
     }
 
@@ -707,12 +814,13 @@ impl GenCircuit {
             nq,
             src: Source::Fixed(Arc::new(Resolved::new(rounds, kind))),
             resets: ResetMode::None,
+            we: 1,
         }
     }
 
     /// Whether the op stream depends on recorded measurement outcomes.
     pub fn is_mbu(&self) -> bool {
-        matches!(self.src, Source::Mbu(..))
+        matches!(self.src, Source::Mbu(..) | Source::Ge(..))
     }
 
     /// The trajectory's resolved circuit, with every recorded X-basis
@@ -732,6 +840,34 @@ impl GenCircuit {
                     })
                     .collect();
                 Arc::new(Resolved::new(rounds, self.kind))
+            }
+            Source::Ge(o) => {
+                let inst = &self.inst;
+                let lay = crate::shor_ge::GeLayout::new(inst.m, o);
+                let we = o.we;
+                let rounds = (0..inst.t / we)
+                    .map(|k| {
+                        let i0 = k * we;
+                        let g = inst.mults[inst.t - i0 - we];
+                        let (body, btags) = ge_round(&lay, o, inst.n_mod, g, bit);
+                        let mut ops = Vec::with_capacity(body.len() + 5 * we);
+                        let mut tags = Vec::with_capacity(body.len() + 5 * we);
+                        for j in 0..we as u8 {
+                            ops.extend([NOp::Ctrl(0, j), NOp::Ctrl(1, j)]);
+                        }
+                        ops.extend(body);
+                        tags.resize(2 * we, tag::CTRL | tag::GATE);
+                        tags.extend(btags);
+                        for jj in 0..we {
+                            let j = (we - 1 - jj) as u8;
+                            ops.extend([NOp::Ctrl(2, j), NOp::Ctrl(3, j), NOp::Ctrl(4, j)]);
+                            tags.extend([tag::CTRL | tag::GATE; 3]);
+                        }
+                        Round::new(ops, tags, self.kind)
+                    })
+                    .collect();
+                let eq = lay.e.iter().map(|&q| q as u32).collect();
+                Arc::new(Resolved::new_windowed(rounds, self.kind, eq))
             }
         }
     }
@@ -771,7 +907,7 @@ fn modadd_parts(ops: &[NOp], k: &[usize], inv: bool) -> Vec<u8> {
     let touches_k = |op: &NOp| match op {
         NOp::G(g) => g.qubits().iter().any(|q| k.contains(q)),
         NOp::MeasX(q, _) => k.contains(&(*q as usize)),
-        NOp::ResetZ(_) => false,
+        NOp::ResetZ(_) | NOp::Ctrl(..) => false,
     };
     let first = ops.iter().position(touches_k);
     let last = ops.iter().rposition(touches_k);
@@ -1095,6 +1231,36 @@ fn mbu_round(
     let modadd = shor_mbu::modadd_ops(&lay, n_mod, o);
     let len1 = shor_mbu::cmult(&lay, mult, n_mod, o, &modadd).len();
     let swap_end = len1 + 3 * win.n;
+    tag_top(&lops, len1, swap_end, &win.k, bit)
+}
+
+/// One window of the Gidney–Ekerå windowed exponentiation, resolved and
+/// tagged (multiply-add by `g^e`, swap, inverse multiply-add by `g^{−e}`).
+fn ge_round(
+    lay: &crate::shor_ge::GeLayout,
+    o: &crate::shor_ge::GeOpts,
+    n_mod: u64,
+    g: u64,
+    bit: &mut dyn FnMut() -> bool,
+) -> (Vec<NOp>, Vec<u8>) {
+    let ml = lay.mbu.as_ref().expect("exact arithmetic");
+    let lops = crate::shor_ge::window_ops(lay, g, n_mod, o);
+    let modadd = shor_mbu::modadd_ops(ml, n_mod, &o.mbu);
+    let len1 = crate::shor_ge::emult(lay, g, n_mod, o, &modadd).len();
+    let swap_end = len1 + 3 * lay.nr;
+    tag_top(&lops, len1, swap_end, &ml.win.k, bit)
+}
+
+/// Resolves and tags a controlled-`U` / window block whose top-level ops are
+/// `[multiply-add (lookups, modular adders, unlookups)][swap: len1..swap_end]
+/// [inverse multiply-add]`.
+fn tag_top(
+    lops: &[LOp],
+    len1: usize,
+    swap_end: usize,
+    k: &[usize],
+    bit: &mut dyn FnMut() -> bool,
+) -> (Vec<NOp>, Vec<u8>) {
     assert!(lops.len() >= swap_end);
     let mut ops = Vec::new();
     let mut tags = Vec::new();
@@ -1147,7 +1313,7 @@ fn mbu_round(
                     part: None,
                 };
                 resolve_tagged(&lops[s..j], bit, &mut ops, &mut tags, c);
-                let parts = modadd_parts(&ops[o0..], &win.k, inv != 0);
+                let parts = modadd_parts(&ops[o0..], k, inv != 0);
                 for (t, p) in tags[o0..].iter_mut().zip(parts) {
                     if *t & tag::PART == tag::GATE {
                         *t = (*t & !tag::PART) | p;
@@ -1367,6 +1533,8 @@ pub struct GenState<K: Key, T: Real> {
     /// Rounds in which branches collided (some X-measured qubit was not a
     /// function of the rest).
     pub collision_rounds: usize,
+    /// Work-register width (for the dirty-ancilla check of windowed rounds).
+    pub work_bits: usize,
 }
 
 impl<K: Key, T: Real> Default for GenState<K, T> {
@@ -1390,6 +1558,7 @@ impl<K: Key, T: Real> GenState<K, T> {
             support_trace: Vec::new(),
             log_weight: 0.0,
             collision_rounds: 0,
+            work_bits: 0,
         }
     }
 
@@ -1583,6 +1752,428 @@ impl<K: Key, T: Real> GenState<K, T> {
     }
 }
 
+/// The state of a windowed-exponentiation round after its block: for every
+/// rest-of-register key (exponent qubits removed), the `2^we` amplitudes of
+/// the exponent register. The exponent qubits are then phase-corrected,
+/// H-transformed and measured one at a time ([`WinState::prepare`],
+/// [`WinState::collapse`]).
+#[derive(Clone, Debug)]
+pub struct WinState<K: Key> {
+    rest: Vec<K>,
+    amps: Vec<Complex64>,
+    ne: usize,
+    post: Vec<PostFaults>,
+    total: f64,
+}
+
+impl<K: Key> WinState<K> {
+    /// Phase correction `phi`, the post-phase fault, H and the post-H fault
+    /// on exponent bit `j`; returns `(P(bit j = 1), readout flipped)`.
+    pub fn prepare(&mut self, j: usize, phi: f64) -> (f64, bool) {
+        let ne = self.ne;
+        let ph = Complex64::from_polar(1.0, phi);
+        let pf = self.post[j];
+        let h = std::f64::consts::FRAC_1_SQRT_2;
+        let m = 1usize << j;
+        let fix = |a0: &mut Complex64, a1: &mut Complex64, p: Option<Pauli>| {
+            if let Some(p) = p {
+                if matches!(p, Pauli::Z | Pauli::Y) {
+                    *a1 = -*a1;
+                }
+                if matches!(p, Pauli::X | Pauli::Y) {
+                    std::mem::swap(a0, a1);
+                }
+            }
+        };
+        self.amps.par_chunks_mut(ne).for_each(|v| {
+            for e in 0..ne {
+                if e & m != 0 {
+                    continue;
+                }
+                let (mut a0, mut a1) = (v[e], v[e | m] * ph);
+                fix(&mut a0, &mut a1, pf.phase);
+                let (mut b0, mut b1) = ((a0 + a1) * h, (a0 - a1) * h);
+                fix(&mut b0, &mut b1, pf.h2);
+                v[e] = b0;
+                v[e | m] = b1;
+            }
+        });
+        let p1: f64 = self
+            .amps
+            .par_chunks(ne)
+            .map(|v| {
+                (0..ne)
+                    .filter(|e| e & m != 0)
+                    .map(|e| v[e].norm_sqr())
+                    .sum::<f64>()
+            })
+            .sum();
+        (p1 / self.total, pf.meas)
+    }
+
+    /// Projects exponent bit `j` onto `bit` and resets it to 0.
+    pub fn collapse(&mut self, j: usize, bit: bool) {
+        let ne = self.ne;
+        let m = 1usize << j;
+        let mass: f64 = self
+            .amps
+            .par_chunks(ne)
+            .map(|v| {
+                (0..ne)
+                    .filter(|e| (e & m != 0) == bit)
+                    .map(|e| v[e].norm_sqr())
+                    .sum::<f64>()
+            })
+            .sum();
+        assert!(
+            mass > 0.0,
+            "cannot collapse onto a zero-probability outcome"
+        );
+        let k = 1.0 / mass.sqrt();
+        self.amps.par_chunks_mut(ne).for_each(|v| {
+            for e in 0..ne {
+                if e & m != 0 {
+                    continue;
+                }
+                let src = if bit { v[e | m] } else { v[e] };
+                v[e] = src * k;
+                v[e | m] = Complex64::zero();
+            }
+        });
+        self.total = 1.0;
+    }
+}
+
+impl<K: Key, T: Real> GenState<K, T> {
+    /// Runs the block of window `k` of a windowed exponentiation on every
+    /// `(e, x)` branch; returns the exponent-register state and `W`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn window_block(
+        &mut self,
+        res: &Resolved,
+        nq: usize,
+        k: usize,
+        we: usize,
+        faults: &[Fault],
+        cap: usize,
+        choose: &mut dyn FnMut(&[f64]) -> (usize, f64),
+    ) -> Result<(WinState<K>, f64), Capped> {
+        self.support_trace.push(self.keys.len());
+        let (segs, _, wpost) = res.program_w(nq, k, faults);
+        let eq = &res.eq;
+        assert_eq!(eq.len(), we);
+        assert_eq!(eq[0], 0, "exponent bit 0 is the control word");
+        let ne = 1usize << we;
+        let s = self.keys.len();
+        let emask: K = group_mask(&eq[1..]);
+        let mut keys: Vec<K> = Vec::with_capacity(ne * s);
+        let mut ctrls: Vec<bool> = Vec::with_capacity(ne * s);
+        let mut amps: Vec<Complex<T>> = Vec::with_capacity(ne * s);
+        for e in 0..ne {
+            let mut eb = K::default();
+            for (j, &q) in eq.iter().enumerate().skip(1) {
+                if (e >> j) & 1 == 1 {
+                    let b = q as usize - 1;
+                    eb.set_word(b / 64, eb.word(b / 64) | (1u64 << (b % 64)));
+                }
+            }
+            for (kk, a) in self.keys.iter().zip(&self.amps) {
+                let mut kk = *kk;
+                for wi in 0..K::WORDS {
+                    kk.set_word(wi, kk.word(wi) | eb.word(wi));
+                }
+                keys.push(kk);
+                ctrls.push(e & 1 == 1);
+                amps.push(*a);
+            }
+        }
+        let mut reset_w = 1.0f64;
+        let mut out: Vec<OutBranch<K, T>> = Vec::new();
+        for (si, seg) in segs.iter().enumerate() {
+            out = vec![(K::default(), Complex::zero(), false); keys.len()];
+            eval_dispatch(&seg.ops, nq, &keys, &amps, &ctrls, &mut out);
+            if let Some((grp, flips)) = &seg.reset {
+                reset_w *= reset_group(&mut out, &group_mask::<K>(grp), choose);
+                if !flips.is_empty() {
+                    let fm: K = group_mask(flips);
+                    for e in out.iter_mut() {
+                        for wi in 0..K::WORDS {
+                            e.0.set_word(wi, e.0.word(wi) ^ fm.word(wi));
+                        }
+                    }
+                }
+            }
+            if si + 1 < segs.len() {
+                keys = out.iter().map(|e| e.0).collect();
+                amps = out.iter().map(|e| e.1).collect();
+                ctrls = out.iter().map(|e| e.2).collect();
+            }
+        }
+        drop(keys);
+        drop(amps);
+        drop(ctrls);
+        self.work_ops += (ne * s) as u128 * res.rounds[k].ops.len() as u128;
+        let mut inv = K::default();
+        for wi in 0..K::WORDS {
+            inv.set_word(wi, !emask.word(wi));
+        }
+        // (rest, e, amplitude)
+        let mut v: Vec<(K, usize, Complex<T>)> = out
+            .into_par_iter()
+            .map(|(key, a, c)| {
+                let mut e = usize::from(c);
+                for (j, &q) in eq.iter().enumerate().skip(1) {
+                    if key.bit(q as usize - 1) {
+                        e |= 1 << j;
+                    }
+                }
+                (group_bits(&key, &inv), e, a)
+            })
+            .collect();
+        v.par_sort_unstable_by_key(|x| (x.0, x.1));
+        let scale = (1.0 / ne as f64).sqrt();
+        let mut rest: Vec<K> = Vec::new();
+        let mut wamps: Vec<Complex64> = Vec::new();
+        let mut collided = false;
+        let mut last: Option<(K, usize)> = None;
+        for (key, e, a) in v {
+            if rest.last() != Some(&key) {
+                rest.push(key);
+                wamps.extend(std::iter::repeat_n(Complex64::zero(), ne));
+            } else if last == Some((key, e)) {
+                collided = true;
+            }
+            last = Some((key, e));
+            let base = (rest.len() - 1) * ne;
+            wamps[base + e] += c64(a) * scale;
+        }
+        if collided {
+            self.collision_rounds += 1;
+        }
+        self.peak = self.peak.max(rest.len());
+        if self.dirty_from.is_none() {
+            // exponent bits are measured and reset; key bits >= n of the
+            // rest are ancillas
+            let n = self.work_bits;
+            if rest.iter().any(|kk| kk.any_from(n)) {
+                self.dirty_from = Some(k);
+            }
+        }
+        if rest.len() > cap {
+            return Err(Capped {
+                round: k,
+                support: rest.len(),
+            });
+        }
+        let total: f64 = wamps.par_iter().map(|a| a.norm_sqr()).sum();
+        self.keys = Vec::new();
+        self.amps = Vec::new();
+        Ok((
+            WinState {
+                rest,
+                amps: wamps,
+                ne,
+                post: wpost,
+                total,
+            },
+            total * reset_w,
+        ))
+    }
+
+    /// Takes the state back from a fully measured window.
+    pub fn finish_window(&mut self, ws: WinState<K>) {
+        let ne = ws.ne;
+        let mut keys = Vec::with_capacity(ws.rest.len());
+        let mut amps = Vec::with_capacity(ws.rest.len());
+        for (r, key) in ws.rest.iter().enumerate() {
+            let a = ws.amps[r * ne];
+            if a.norm_sqr() > 1e-28 {
+                keys.push(*key);
+                amps.push(cvt::<T>(a));
+            }
+        }
+        self.keys = keys;
+        self.amps = amps;
+    }
+}
+
+/// [`run_trajectory`] for a windowed exponentiation.
+fn run_trajectory_windowed<K: Key, T: Real, R: Rng + ?Sized>(
+    gc: &GenCircuit,
+    res: &Resolved,
+    faults: &[Fault],
+    cap: usize,
+    rng: &mut R,
+) -> GenTrajectory {
+    let inst = &gc.inst;
+    let we = gc.we;
+    let nw = inst.t / we;
+    let mut by_round: Vec<Vec<Fault>> = vec![Vec::new(); nw];
+    for f in faults {
+        by_round[f.round as usize].push(*f);
+    }
+    let mut s = GenState::<K, T>::new();
+    s.work_bits = inst.m;
+    let mut y = 0u128;
+    for (k, fs) in by_round.iter().enumerate() {
+        let mut choose = |pr: &[f64]| {
+            let mut u = rng.random::<f64>();
+            for (j, &x) in pr.iter().enumerate() {
+                if u < x {
+                    return (j, 1.0);
+                }
+                u -= x;
+            }
+            (pr.len() - 1, 1.0)
+        };
+        match s.window_block(res, gc.nq, k, we, fs, cap, &mut choose) {
+            Ok((mut ws, wn)) => {
+                s.log_weight += wn.ln();
+                if wn <= 0.0 {
+                    return GenTrajectory {
+                        measured: Some(y),
+                        order: None,
+                        factor: None,
+                        peak: s.peak,
+                        capped: None,
+                        dirty_from: s.dirty_from,
+                        work_ops: s.work_ops,
+                        support_trace: std::mem::take(&mut s.support_trace),
+                        weight: 0.0,
+                        collision_rounds: s.collision_rounds,
+                    };
+                }
+                for jj in 0..we {
+                    let i = k * we + jj;
+                    let j = we - 1 - jj;
+                    let (p1, flip) = ws.prepare(j, Instance::correction(i, y));
+                    let bit = rng.random::<f64>() < p1;
+                    ws.collapse(j, bit);
+                    if bit ^ flip {
+                        y |= 1 << i;
+                    }
+                }
+                s.finish_window(ws);
+            }
+            Err(c) => {
+                let mut st = std::mem::take(&mut s.support_trace);
+                st.push(c.support);
+                return GenTrajectory {
+                    support_trace: st,
+                    measured: None,
+                    order: None,
+                    factor: None,
+                    peak: s.peak,
+                    capped: Some(c),
+                    dirty_from: s.dirty_from,
+                    work_ops: s.work_ops,
+                    weight: s.log_weight.exp(),
+                    collision_rounds: s.collision_rounds,
+                };
+            }
+        }
+    }
+    let (order, factor) = postprocess(inst.n_mod, inst.a, y, inst.t as u32);
+    GenTrajectory {
+        support_trace: std::mem::take(&mut s.support_trace),
+        measured: Some(y),
+        order,
+        factor,
+        peak: s.peak,
+        capped: None,
+        dirty_from: s.dirty_from,
+        work_ops: s.work_ops,
+        weight: s.log_weight.exp(),
+        collision_rounds: s.collision_rounds,
+    }
+}
+
+/// [`trajectory_distribution`] for a windowed exponentiation.
+fn trajectory_distribution_windowed<K: Key>(
+    gc: &GenCircuit,
+    res: &Resolved,
+    faults: &[Fault],
+) -> Vec<f64> {
+    let t = gc.inst.t;
+    let we = gc.we;
+    let nw = t / we;
+    let mut by_round: Vec<Vec<Fault>> = vec![Vec::new(); nw];
+    for f in faults {
+        by_round[f.round as usize].push(*f);
+    }
+    let mut out = vec![0.0; 1usize << t];
+    #[allow(clippy::too_many_arguments)]
+    fn bits<K: Key>(
+        gc: &GenCircuit,
+        res: &Resolved,
+        by_round: &[Vec<Fault>],
+        s: &GenState<K, f64>,
+        ws: WinState<K>,
+        k: usize,
+        jj: usize,
+        y: u128,
+        p: f64,
+        out: &mut [f64],
+    ) {
+        let we = gc.we;
+        if jj == we {
+            let mut c = s.clone();
+            c.finish_window(ws);
+            walk(gc, res, by_round, c, k + 1, y, p, out);
+            return;
+        }
+        let i = k * we + jj;
+        let j = we - 1 - jj;
+        let mut ws = ws;
+        let (p1, flip) = ws.prepare(j, Instance::correction(i, y));
+        for bit in [false, true] {
+            let pb = if bit { p1 } else { 1.0 - p1 };
+            if pb <= 1e-300 {
+                continue;
+            }
+            let mut w2 = ws.clone();
+            w2.collapse(j, bit);
+            let rec = u128::from(bit ^ flip) << i;
+            bits(gc, res, by_round, s, w2, k, jj + 1, y | rec, p * pb, out);
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn walk<K: Key>(
+        gc: &GenCircuit,
+        res: &Resolved,
+        by_round: &[Vec<Fault>],
+        mut s: GenState<K, f64>,
+        k: usize,
+        y: u128,
+        p: f64,
+        out: &mut [f64],
+    ) {
+        if k == gc.inst.t / gc.we {
+            out[y as usize] += p;
+            return;
+        }
+        let (ws, wn) = s
+            .window_block(
+                res,
+                gc.nq,
+                k,
+                gc.we,
+                &by_round[k],
+                usize::MAX,
+                &mut argmax_choice,
+            )
+            .unwrap();
+        if wn <= 1e-300 {
+            return;
+        }
+        bits(gc, res, by_round, &s, ws, k, 0, y, p * wn, out);
+    }
+    let mut s0 = GenState::<K, f64>::new();
+    s0.work_bits = gc.inst.m;
+    walk::<K>(gc, res, &by_round, s0, 0, 0, 1.0, &mut out);
+    out
+}
+
 /// Outcome of one trajectory.
 #[derive(Clone, Debug)]
 pub struct GenTrajectory {
@@ -1611,6 +2202,10 @@ pub fn run_trajectory<K: Key, T: Real, R: Rng + ?Sized>(
     rng: &mut R,
 ) -> GenTrajectory {
     assert!(gc.nq - 1 <= 64 * K::WORDS, "key too narrow");
+    if gc.we > 1 {
+        assert!(!reset_ancillas, "no ideal reset in windowed exponentiation");
+        return run_trajectory_windowed::<K, T, R>(gc, res, faults, cap, rng);
+    }
     let inst = &gc.inst;
     let mut by_round: Vec<Vec<Fault>> = vec![Vec::new(); inst.t];
     for f in faults {
@@ -1701,6 +2296,9 @@ pub fn trajectory_distribution<K: Key>(
     res: &Resolved,
     faults: &[Fault],
 ) -> Vec<f64> {
+    if gc.we > 1 {
+        return trajectory_distribution_windowed::<K>(gc, res, faults);
+    }
     let t = gc.inst.t;
     let mut by_round: Vec<Vec<Fault>> = vec![Vec::new(); t];
     for f in faults {

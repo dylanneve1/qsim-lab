@@ -61,6 +61,7 @@ fn gate_name(op: &NOp) -> &'static str {
         NOp::G(qsim_lab::Gate::Cz(..)) => "cz",
         NOp::MeasX(..) => "measx",
         NOp::ResetZ(..) => "resetz",
+        NOp::Ctrl(..) => "ctrl",
         _ => "?",
     }
 }
@@ -68,19 +69,43 @@ fn gate_name(op: &NOp) -> &'static str {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mode = args.first().map(String::as_str).unwrap_or("info");
-    let oracle = parse_oracle(&args[1]);
+    // `ge:WE:WM` = Gidney–Ekerå windowed exponentiation (WE exponent
+    // qubits per window, WM-bit multiplicand windows, all MBU constructions)
+    let ge: Option<(usize, usize)> = args[1].strip_prefix("ge:").map(|r| {
+        let (we, wm) = r.split_once(':').expect("ge:WE:WM");
+        (we.parse().unwrap(), wm.parse().unwrap())
+    });
+    let oracle = match ge {
+        Some((_, wm)) => Oracle::WindowedMbu(wm),
+        None => parse_oracle(&args[1]),
+    };
     let n_mod: u64 = args[2].parse().unwrap();
     let a: u64 = args[3].parse().unwrap();
     let inst = Instance::new(n_mod, a, oracle);
     let r = noisy::order_of(a, n_mod);
-    let w = match oracle {
-        Oracle::Windowed(w)
-        | Oracle::WindowedOpt(w)
-        | Oracle::WindowedMbu(w)
-        | Oracle::WindowedMbuLookup(w) => w,
+    let w = match (ge, oracle) {
+        (Some((we, wm)), _) => we + wm,
+        (
+            None,
+            Oracle::Windowed(w)
+            | Oracle::WindowedOpt(w)
+            | Oracle::WindowedMbu(w)
+            | Oracle::WindowedMbuLookup(w),
+        ) => w,
         _ => 4,
     };
     let lay = WindowLayout::new(inst.m, w);
+    let make = |kind: NoiseKind, design: ResetMode| match ge {
+        Some((we, wm)) => {
+            assert_eq!(design, ResetMode::None, "no reset designs for ge");
+            GenCircuit::new_ge(n_mod, a, we, wm, kind)
+        }
+        None => GenCircuit::with_resets(&inst, kind, design),
+    };
+    let oname = match ge {
+        Some((we, wm)) => format!("Ge({we};{wm})"),
+        None => format!("{oracle:?}"),
+    };
     if mode == "info" {
         let mut rng = StdRng::seed_from_u64(1);
         for kind in [
@@ -88,7 +113,7 @@ fn main() {
             NoiseKind::BitFlip,
             NoiseKind::PhaseFlip,
         ] {
-            let gc = GenCircuit::new(&inst, kind);
+            let gc = make(kind, ResetMode::None);
             let mut ls = Vec::new();
             let mut stats = Vec::new();
             for _ in 0..if gc.is_mbu() { 8 } else { 1 } {
@@ -109,7 +134,7 @@ fn main() {
                 / (ls.len().max(2) - 1) as f64)
                 .sqrt();
             println!(
-                "N={n_mod} n={} a={a} r={r} oracle={oracle:?} qubits={} kind={} ops={} meas={} ccx={} L_mean={mean:.0} L_sd={sd:.1}",
+                "N={n_mod} n={} a={a} r={r} oracle={oname} qubits={} kind={} ops={} meas={} ccx={} L_mean={mean:.0} L_sd={sd:.1}",
                 inst.m,
                 gc.nq,
                 kind.name(),
@@ -130,6 +155,7 @@ fn main() {
                     NOp::G(g) => g.arity() as u64,
                     NOp::MeasX(..) => 2,
                     NOp::ResetZ(g) => rd.groups[*g as usize].len() as u64,
+                    NOp::Ctrl(..) => 1,
                 };
             }
         }
@@ -144,7 +170,7 @@ fn main() {
         Ok("window") => ResetMode::Window,
         _ => ResetMode::None,
     };
-    let gc = GenCircuit::with_resets(&inst, kind, design);
+    let gc = make(kind, design);
     let m: u64 = args[6].parse().unwrap();
     let seed: u64 = args[7].parse().unwrap();
     let cap: usize = args.get(8).map_or(1 << 26, |s| s.parse().unwrap());
@@ -174,7 +200,7 @@ fn main() {
         let mut o = stdout.lock();
         writeln!(
             o,
-            "# N={n_mod} n={} a={a} r={r} oracle={oracle:?} qubits={} kind={} t={} mode={mode} p={:?} cap={cap} seed={seed} reset_ancillas={reset} wide_keys={wide} design={design:?}",
+            "# N={n_mod} n={} a={a} r={r} oracle={oname} qubits={} kind={} t={} mode={mode} p={:?} cap={cap} seed={seed} reset_ancillas={reset} wide_keys={wide} design={design:?}",
             inst.m,
             gc.nq,
             kind.name(),
@@ -188,7 +214,7 @@ fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(rayon::current_num_threads());
-    let oname = format!("{oracle:?}");
+
     let t_all = std::time::Instant::now();
     jobs.chunks(conc.max(1)).for_each(|batch| {
         batch.par_iter().for_each(|&(k, j)| {
@@ -234,7 +260,12 @@ fn main() {
                             }
                             let frac =
                                 gate as f64 / res.rounds[f.round as usize].ops.len() as f64;
-                            (name, q as i64, noisy_gen::role(&lay, q), tag::name(t), frac)
+                            let role = if res.eq.iter().skip(1).any(|&e| e as usize == q) {
+                                "exp"
+                            } else {
+                                noisy_gen::role(&lay, q)
+                            };
+                            (name, q as i64, role, tag::name(t), frac)
                         }
                         _ => ("-".into(), 0, "ctrl", "control".into(), -1.0),
                     };
