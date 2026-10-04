@@ -55,7 +55,10 @@ impl std::ops::Sub for C {
 impl std::ops::Mul for C {
     type Output = C;
     fn mul(self, o: C) -> C {
-        C::new(self.re * o.re - self.im * o.im, self.re * o.im + self.im * o.re)
+        C::new(
+            self.re * o.re - self.im * o.im,
+            self.re * o.im + self.im * o.re,
+        )
     }
 }
 impl std::ops::Neg for C {
@@ -159,7 +162,8 @@ pub fn enum_states(n: usize) -> Vec<Vec<C>> {
                             let mut p = 0;
                             for a in 0..k {
                                 for b in (a + 1)..k {
-                                    if (y >> a & 1 == 1) && (y >> b & 1 == 1) && (qq >> p & 1 == 1) {
+                                    if (y >> a & 1 == 1) && (y >> b & 1 == 1) && (qq >> p & 1 == 1)
+                                    {
                                         f += 2;
                                     }
                                     p += 1;
@@ -341,15 +345,30 @@ pub fn psi1(kind: &str) -> [C; 2] {
 }
 /// Non-product targets (permutation-symmetric, real): "W" and "D<k>" (Dicke with weight k).
 pub fn special_target(kind: &str, n: usize) -> Option<Vec<C>> {
-    let w: Option<u32> = if kind == "W" { Some(1) } else if let Some(r) = kind.strip_prefix('D') { r.parse().ok() } else { None };
+    let w: Option<u32> = if kind == "W" {
+        Some(1)
+    } else if let Some(r) = kind.strip_prefix('D') {
+        r.parse().ok()
+    } else {
+        None
+    };
     let w = w?;
-    let v: Vec<C> = (0..(1usize << n)).map(|x| if x.count_ones() == w { C::new(1., 0.) } else { C::default() }).collect();
+    let v: Vec<C> = (0..(1usize << n))
+        .map(|x| {
+            if x.count_ones() == w {
+                C::new(1., 0.)
+            } else {
+                C::default()
+            }
+        })
+        .collect();
     let nr = norm2(&v).sqrt();
     Some(v.iter().map(|z| z.scale(1.0 / nr)).collect())
 }
 pub fn perm_conj_generators(t: &Table) -> Vec<Vec<u32>> {
     let n = t.n;
-    let mut maps: Vec<Box<dyn Fn(&[C]) -> Vec<C>>> = vec![Box::new(|v: &[C]| v.iter().map(|z| z.conj()).collect())];
+    let mut maps: Vec<Box<dyn Fn(&[C]) -> Vec<C>>> =
+        vec![Box::new(|v: &[C]| v.iter().map(|z| z.conj()).collect())];
     if n >= 2 {
         let mut sw: Vec<usize> = (0..n).collect();
         sw.swap(0, 1);
@@ -357,7 +376,9 @@ pub fn perm_conj_generators(t: &Table) -> Vec<Vec<u32>> {
         let cyc: Vec<usize> = (0..n).map(|j| (j + 1) % n).collect();
         maps.push(Box::new(move |v: &[C]| permute_qubits(&cyc, v)));
     }
-    maps.iter().map(|f| t.states.iter().map(|s| t.lookup(&f(s)).unwrap()).collect()).collect()
+    maps.iter()
+        .map(|f| t.states.iter().map(|s| t.lookup(&f(s)).unwrap()).collect())
+        .collect()
 }
 pub fn tensor_power(p: &[C; 2], n: usize) -> Vec<C> {
     (0..(1usize << n))
@@ -418,7 +439,14 @@ impl Table {
     /// Only the 6^n product stabilizer states (for the product-stabilizer-rank model).
     pub fn products(n: usize) -> Table {
         let s = 1.0 / 2f64.sqrt();
-        let one = [[C::new(1., 0.), C::default()], [C::default(), C::new(1., 0.)], [C::new(s, 0.), C::new(s, 0.)], [C::new(s, 0.), C::new(-s, 0.)], [C::new(s, 0.), C::new(0., s)], [C::new(s, 0.), C::new(0., -s)]];
+        let one = [
+            [C::new(1., 0.), C::default()],
+            [C::default(), C::new(1., 0.)],
+            [C::new(s, 0.), C::new(s, 0.)],
+            [C::new(s, 0.), C::new(-s, 0.)],
+            [C::new(s, 0.), C::new(0., s)],
+            [C::new(s, 0.), C::new(0., -s)],
+        ];
         let mut states = vec![];
         let mut index = HashMap::new();
         for code in 0..6usize.pow(n as u32) {
@@ -429,7 +457,10 @@ impl Table {
                 c /= 6;
                 // new qubit becomes the most significant bit
                 let mut w = vec![C::default(); v.len() * 2];
-                for x in 0..v.len() { w[x] = v[x] * f[0]; w[x + v.len()] = v[x] * f[1]; }
+                for x in 0..v.len() {
+                    w[x] = v[x] * f[0];
+                    w[x + v.len()] = v[x] * f[1];
+                }
                 v = w;
             }
             index.insert(key_of(&canonical(&v)), states.len() as u32);
@@ -479,7 +510,11 @@ pub fn sym_generators(t: &Table, p: &[C; 2]) -> Vec<Vec<u32>> {
     let psi = tensor_power(p, n);
     for f in &maps {
         assert!(parallel(&f(&psi), &psi));
-        let perm: Vec<u32> = t.states.iter().map(|s| t.lookup(&f(s)).expect("not a stabilizer state")).collect();
+        let perm: Vec<u32> = t
+            .states
+            .iter()
+            .map(|s| t.lookup(&f(s)).expect("not a stabilizer state"))
+            .collect();
         gens.push(perm);
     }
     gens
@@ -517,13 +552,19 @@ pub fn orbits(nst: usize, gens: &[Vec<u32>]) -> Vec<u32> {
     }
     let mut rs: Vec<(usize, u32)> = size.iter().map(|(&r, &s)| (s, r)).collect();
     rs.sort();
-    let id: HashMap<u32, u32> = rs.iter().enumerate().map(|(i, &(_, r))| (r, i as u32)).collect();
+    let id: HashMap<u32, u32> = rs
+        .iter()
+        .enumerate()
+        .map(|(i, &(_, r))| (r, i as u32))
+        .collect();
     roots.iter().map(|r| id[r]).collect()
 }
 
 pub fn group_closure(gens: &[Vec<u32>], cap: usize) -> Option<Vec<Vec<u16>>> {
     let nst = gens[0].len();
-    if nst > 65535 { return None; }
+    if nst > 65535 {
+        return None;
+    }
     let idp: Vec<u16> = (0..nst as u16).collect();
     let mut seen: HashSet<Vec<u16>> = HashSet::new();
     seen.insert(idp.clone());
@@ -558,7 +599,9 @@ pub fn lsq(vs: &[&[C]], psi: &[C]) -> (Vec<C>, f64) {
     }
     // gaussian elimination with partial pivoting
     for col in 0..k {
-        let piv = (col..k).max_by(|&x, &y| a[x][col].abs().partial_cmp(&a[y][col].abs()).unwrap()).unwrap();
+        let piv = (col..k)
+            .max_by(|&x, &y| a[x][col].abs().partial_cmp(&a[y][col].abs()).unwrap())
+            .unwrap();
         a.swap(col, piv);
         let d = a[col][col];
         if d.abs() < 1e-14 {
@@ -594,7 +637,9 @@ pub fn gram_det(vs: &[&[C]]) -> f64 {
     }
     let mut det = 1.0;
     for col in 0..k {
-        let piv = (col..k).max_by(|&x, &y| a[x][col].abs().partial_cmp(&a[y][col].abs()).unwrap()).unwrap();
+        let piv = (col..k)
+            .max_by(|&x, &y| a[x][col].abs().partial_cmp(&a[y][col].abs()).unwrap())
+            .unwrap();
         a.swap(col, piv);
         let d = a[col][col];
         det *= d.abs();
@@ -650,7 +695,14 @@ pub struct SearchStats {
 /// (normalised), i.e. all rank-k decompositions with no vanishing coefficient, up to the symmetry
 /// group; returns orbit representatives (possibly with repeats) found in canonical (min-orbit-index
 /// first) form.  Completeness argument: see research/stabrank-lower.md, "Search".
-pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<Vec<u16>>>, st: &mut SearchStats) -> Vec<Dec> {
+pub fn search(
+    t: &Table,
+    psi: &[C],
+    k: usize,
+    orbit: &[u32],
+    group: Option<&Vec<Vec<u16>>>,
+    st: &mut SearchStats,
+) -> Vec<Dec> {
     let nst = t.states.len();
     let dim = psi.len();
     let mut found = vec![];
@@ -691,7 +743,16 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
         f1: Vec<C>,
         f2: Vec<C>,
     }
-    fn rec(cx: &Ctx, chosen: &mut Vec<u32>, qs: &mut Vec<Vec<C>>, ips: &mut Vec<Vec<C>>, minidx: u32, allowed: &dyn Fn(usize, u32) -> bool, found: &mut Vec<Dec>, st: &mut SearchStats) {
+    fn rec(
+        cx: &Ctx,
+        chosen: &mut Vec<u32>,
+        qs: &mut Vec<Vec<C>>,
+        ips: &mut Vec<Vec<C>>,
+        minidx: u32,
+        allowed: &dyn Fn(usize, u32) -> bool,
+        found: &mut Vec<Dec>,
+        st: &mut SearchStats,
+    ) {
         let nst = cx.t.states.len();
         if chosen.len() + 2 == cx.k {
             // hash step: candidates v with orbit >= minidx, not chosen
@@ -719,7 +780,12 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
                 }
                 let s = a.n2() + b.n2();
                 let ab = a * b.conj();
-                pts.push((2.0 * ab.re / s, 2.0 * ab.im / s, (a.n2() - b.n2()) / s, v as u32));
+                pts.push((
+                    2.0 * ab.re / s,
+                    2.0 * ab.im / s,
+                    (a.n2() - b.n2()) / s,
+                    v as u32,
+                ));
             }
             pts.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
             let eps = 1e-6;
@@ -773,7 +839,16 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
             ips.pop();
         }
     }
-    let cx = Ctx { t, psi, k, orbit, fv1, fv2, f1, f2 };
+    let cx = Ctx {
+        t,
+        psi,
+        k,
+        orbit,
+        fv1,
+        fv2,
+        f1,
+        f2,
+    };
     assert!(k >= 2);
     if k == 2 {
         // psi in span(a,b): b in span(psi,a)
@@ -806,17 +881,28 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
     }
     let stabs: Vec<Vec<usize>> = match group {
         Some(g) => (0..norbits)
-            .map(|o| (0..g.len()).filter(|&e| g[e][rep[o] as usize] as u32 == rep[o]).collect())
+            .map(|o| {
+                (0..g.len())
+                    .filter(|&e| g[e][rep[o] as usize] as u32 == rep[o])
+                    .collect()
+            })
             .collect(),
         None => vec![],
     };
-    let nthreads: usize = std::env::var("THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+    let nthreads: usize = std::env::var("THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results = std::sync::Mutex::new((found, 0u64, 0u64, 0u64));
     std::thread::scope(|sc| {
         for _ in 0..nthreads {
             sc.spawn(|| {
-                let mut lst = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+                let mut lst = SearchStats {
+                    w_count: 0,
+                    cand_count: 0,
+                    verified: 0,
+                };
                 let mut lfound = vec![];
                 loop {
                     let o = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -828,7 +914,11 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
                     let mut qs = vec![q0.clone()];
                     let mut ips = vec![ip0.clone()];
                     // level 0 must be the orbit representative r1
-                    let stab_o = if group.is_some() { Some(&stabs[o]) } else { None };
+                    let stab_o = if group.is_some() {
+                        Some(&stabs[o])
+                    } else {
+                        None
+                    };
                     let allowed = |level: usize, v: u32| -> bool {
                         if level == 0 {
                             return v as usize == r1;
@@ -846,9 +936,24 @@ pub fn search(t: &Table, psi: &[C], k: usize, orbit: &[u32], group: Option<&Vec<
                         true
                     };
                     let w0 = lst.w_count;
-                    rec(&cx, &mut chosen, &mut qs, &mut ips, o as u32, &allowed, &mut lfound, &mut lst);
+                    rec(
+                        &cx,
+                        &mut chosen,
+                        &mut qs,
+                        &mut ips,
+                        o as u32,
+                        &allowed,
+                        &mut lfound,
+                        &mut lst,
+                    );
                     if std::env::var("PROGRESS").is_ok() {
-                        eprintln!("orbit {}/{} W={} found_so_far={}", o, norbits, lst.w_count - w0, lfound.len());
+                        eprintln!(
+                            "orbit {}/{} W={} found_so_far={}",
+                            o,
+                            norbits,
+                            lst.w_count - w0,
+                            lfound.len()
+                        );
                     }
                 }
                 let mut r = results.lock().unwrap();
@@ -879,7 +984,9 @@ pub fn expand(t: &Table, psi: &[C], reps: &[Dec], gens: &[Vec<u32>]) -> Vec<Dec>
         }
         let mut stack = vec![s0];
         while let Some(s) = stack.pop() {
-            out.push(check_set(t, psi, &s).expect("image of a decomposition must be a decomposition"));
+            out.push(
+                check_set(t, psi, &s).expect("image of a decomposition must be a decomposition"),
+            );
             for g in gens {
                 let mut im: Vec<u32> = s.iter().map(|&i| g[i as usize]).collect();
                 im.sort();
@@ -894,13 +1001,16 @@ pub fn expand(t: &Table, psi: &[C], reps: &[Dec], gens: &[Vec<u32>]) -> Vec<Dec>
 
 /// l1 norms of the coefficient vectors of decompositions (normalised target, normalised terms).
 pub fn l1_norms(ds: &[Dec]) -> Vec<f64> {
-    ds.iter().map(|d| d.coef.iter().map(|z| z.abs()).sum()).collect()
+    ds.iter()
+        .map(|d| d.coef.iter().map(|z| z.abs()).sum())
+        .collect()
 }
 /// The l1-ratio criterion (research/stabrank-lower.md, Cor. 7): returns true if NO two optimal
 /// decompositions have l1 norms in ratio r (so a plateau chi_n = chi_{n-1} is impossible).
 pub fn l1_ratio_obstruction(ds: &[Dec], r: f64) -> bool {
     let l = l1_norms(ds);
-    !l.iter().any(|&a| l.iter().any(|&b| (b - r * a).abs() < 1e-7 * b.max(1.0)))
+    !l.iter()
+        .any(|&a| l.iter().any(|&b| (b - r * a).abs() < 1e-7 * b.max(1.0)))
 }
 
 /// One representative per orbit of decompositions under the group generated by `gens`.
@@ -908,8 +1018,12 @@ pub fn orbit_reps(t: &Table, psi: &[C], all: &[Dec], gens: &[Vec<u32>]) -> Vec<D
     let mut seen: HashSet<Vec<u32>> = HashSet::new();
     let mut reps = vec![];
     for d in all {
-        if seen.contains(&d.idx) { continue; }
-        for o in expand(t, psi, std::slice::from_ref(d), gens) { seen.insert(o.idx); }
+        if seen.contains(&d.idx) {
+            continue;
+        }
+        for o in expand(t, psi, std::slice::from_ref(d), gens) {
+            seen.insert(o.idx);
+        }
         reps.push(d.clone());
     }
     reps
@@ -925,7 +1039,13 @@ pub fn glue(t: &Table, dset: &[Dec], p: &[C; 2], n: usize) -> Vec<(Vec<Vec<C>>, 
 }
 /// As `glue`, with the A-side (<0|-restriction) decompositions taken from `aside` only (e.g. orbit
 /// representatives under the symmetry group of psi^{⊗(n-1)}, which fixes the last qubit).
-pub fn glue_from(t: &Table, aside: &[Dec], dset: &[Dec], p: &[C; 2], n: usize) -> Vec<(Vec<Vec<C>>, Vec<C>)> {
+pub fn glue_from(
+    t: &Table,
+    aside: &[Dec],
+    dset: &[Dec],
+    p: &[C; 2],
+    n: usize,
+) -> Vec<(Vec<Vec<C>>, Vec<C>)> {
     let k = dset[0].idx.len();
     let ratio = p[1].div(p[0]); // psi_1/psi_0
     let rabs = ratio.abs();
@@ -1009,7 +1129,14 @@ pub fn permutations(k: usize) -> Vec<Vec<usize>> {
 /// <s|_M v != 0 for every product of single-qubit stabilizer states s on every m-subset M.
 pub fn min_restriction_ok(v: &[C], n: usize, m: usize) -> bool {
     let s = 1.0 / 2f64.sqrt();
-    let one = [[C::new(1., 0.), C::default()], [C::default(), C::new(1., 0.)], [C::new(s, 0.), C::new(s, 0.)], [C::new(s, 0.), C::new(-s, 0.)], [C::new(s, 0.), C::new(0., s)], [C::new(s, 0.), C::new(0., -s)]];
+    let one = [
+        [C::new(1., 0.), C::default()],
+        [C::default(), C::new(1., 0.)],
+        [C::new(s, 0.), C::new(s, 0.)],
+        [C::new(s, 0.), C::new(-s, 0.)],
+        [C::new(s, 0.), C::new(0., s)],
+        [C::new(s, 0.), C::new(0., -s)],
+    ];
     // iterate subsets of size m and product bras
     for mask in 0..(1usize << n) {
         if mask.count_ones() as usize != m {
@@ -1058,9 +1185,21 @@ fn write_decs(path: &str, t: &Table, ds: &[Dec]) {
     // compact: state indices refer to enum_states(n) order (deterministic); coefficients for the
     // normalised target.
     let mut f = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
-    writeln!(f, "# n={} k={} count={}  format: idx:re,im per term (idx = position in enum_states(n))", t.n, ds.first().map(|d| d.idx.len()).unwrap_or(0), ds.len()).unwrap();
+    writeln!(
+        f,
+        "# n={} k={} count={}  format: idx:re,im per term (idx = position in enum_states(n))",
+        t.n,
+        ds.first().map(|d| d.idx.len()).unwrap_or(0),
+        ds.len()
+    )
+    .unwrap();
     for d in ds {
-        let parts: Vec<String> = d.idx.iter().zip(&d.coef).map(|(&i, c)| format!("{}:{:.15},{:.15}", i, c.re, c.im)).collect();
+        let parts: Vec<String> = d
+            .idx
+            .iter()
+            .zip(&d.coef)
+            .map(|(&i, c)| format!("{}:{:.15},{:.15}", i, c.re, c.im))
+            .collect();
         writeln!(f, "{}", parts.join(" ")).unwrap();
     }
 }
@@ -1073,7 +1212,12 @@ pub fn completions(t: &Table, d: &[C]) -> Vec<(f64, Vec<C>)> {
     let s = 1.0 / 2f64.sqrt();
     let mut out = vec![(1.0, vec![C::default(); d.len()])];
     let sd = d.iter().filter(|z| z.abs() > 1e-9).count();
-    let phases = [C::new(1., 0.), C::new(0., 1.), C::new(-1., 0.), C::new(0., -1.)];
+    let phases = [
+        C::new(1., 0.),
+        C::new(0., 1.),
+        C::new(-1., 0.),
+        C::new(0., -1.),
+    ];
     for b in &t.states {
         if b.iter().filter(|z| z.abs() > 1e-9).count() != sd {
             continue;
@@ -1093,7 +1237,14 @@ pub fn completions(t: &Table, d: &[C]) -> Vec<(f64, Vec<C>)> {
 /// which the <0|-restriction of the last qubit is DEGENERATE (contains a zero, two parallel
 /// vectors, or is linearly dependent), given all optimal (k-1)-term decompositions `dopt` of
 /// psi^{⊗(n-1)} (k-1 = chi(psi^{⊗(n-1)})).  Returns the decompositions found (term vectors).
-pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, taus: bool) -> (Vec<Vec<Vec<C>>>, u64) {
+pub fn degenerate_search(
+    t: &Table,
+    dopt: &[Dec],
+    alpha: C,
+    beta: C,
+    k: usize,
+    taus: bool,
+) -> (Vec<Vec<Vec<C>>>, u64) {
     let dim = t.states[0].len();
     let psi_prev: Vec<C> = {
         // reconstruct psi^{⊗(n-1)} from the first decomposition
@@ -1111,7 +1262,9 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
     let mut cache: HashMap<u32, Vec<(f64, Vec<C>)>> = HashMap::new();
     for d in dopt {
         for &ix in &d.idx {
-            cache.entry(ix).or_insert_with(|| completions(t, &t.states[ix as usize]));
+            cache
+                .entry(ix)
+                .or_insert_with(|| completions(t, &t.states[ix as usize]));
         }
     }
     let target_full = |terms: &Vec<Vec<C>>| -> bool {
@@ -1149,7 +1302,12 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
                 }
             }
             if norm2(&r) > 1e-12 && is_stabilizer(&r) {
-                let mut terms: Vec<Vec<C>> = (0..m).map(|i| { let (x, y) = &opts[i][choice[i]]; mk(*x, tops[i], y) }).collect();
+                let mut terms: Vec<Vec<C>> = (0..m)
+                    .map(|i| {
+                        let (x, y) = &opts[i][choice[i]];
+                        mk(*x, tops[i], y)
+                    })
+                    .collect();
                 let rn = norm2(&r).sqrt();
                 let mut last = vec![C::default(); dim];
                 last.extend(r.iter().map(|z| z.scale(1.0 / rn)));
@@ -1161,11 +1319,15 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
             let mut j = 0;
             while j < m {
                 choice[j] += 1;
-                if choice[j] < opts[j].len() { break; }
+                if choice[j] < opts[j].len() {
+                    break;
+                }
                 choice[j] = 0;
                 j += 1;
             }
-            if j == m { break; }
+            if j == m {
+                break;
+            }
         }
         // ---- types IIIa / IIIb: restrictions (D_1..D_m, tau) with tau = sum_j e_j D_j
         // (IIIa: tau = D_j0, e = unit vector).  c_j = (alpha d_j - t e_j)/x_j, c_tau = t/x_tau;
@@ -1178,7 +1340,9 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
         }
         if taus {
             for (ix, st) in t.states.iter().enumerate() {
-                if d.idx.contains(&(ix as u32)) { continue; }
+                if d.idx.contains(&(ix as u32)) {
+                    continue;
+                }
                 let refs: Vec<&[C]> = tops.iter().map(|v| v.as_slice()).collect();
                 let (e, res) = lsq(&refs, st);
                 if res < 1e-8 {
@@ -1207,14 +1371,23 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
                     let delta: Vec<C> = (0..dim).map(|q| dl[q] + yt[q].scale(1.0 / xt)).collect();
                     // need r0 = t * delta
                     let dn = norm2(&delta);
-                    let ok = if dn < 1e-12 { norm2(&r0) < 1e-12 } else {
+                    let ok = if dn < 1e-12 {
+                        norm2(&r0) < 1e-12
+                    } else {
                         let tt = dot(&delta, &r0).div(C::new(dn, 0.));
                         let mut res = 0.0;
-                        for q in 0..dim { res += (r0[q] - tt * delta[q]).n2(); }
+                        for q in 0..dim {
+                            res += (r0[q] - tt * delta[q]).n2();
+                        }
                         res < 1e-12
                     };
                     if ok {
-                        let mut terms: Vec<Vec<C>> = (0..m).map(|i| { let (x, y) = &opts[i][choice[i]]; mk(*x, tops[i], y) }).collect();
+                        let mut terms: Vec<Vec<C>> = (0..m)
+                            .map(|i| {
+                                let (x, y) = &opts[i][choice[i]];
+                                mk(*x, tops[i], y)
+                            })
+                            .collect();
                         terms.push(mk(*xt, tau, yt));
                         if target_full(&terms) {
                             found.push(terms);
@@ -1224,11 +1397,15 @@ pub fn degenerate_search(t: &Table, dopt: &[Dec], alpha: C, beta: C, k: usize, t
                 let mut j = 0;
                 while j < m {
                     choice[j] += 1;
-                    if choice[j] < opts[j].len() { break; }
+                    if choice[j] < opts[j].len() {
+                        break;
+                    }
                     choice[j] = 0;
                     j += 1;
                 }
-                if j == m { break; }
+                if j == m {
+                    break;
+                }
             }
         }
     }
@@ -1246,12 +1423,30 @@ pub fn past_plateau(kind: &str, n: usize, verbose: bool) -> (usize, Vec<Vec<Vec<
     let gens = sym_generators(&t, &p);
     let orb = orbits(t.states.len(), &gens);
     let group = group_closure(&gens, 1000);
-    let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+    let mut st = SearchStats {
+        w_count: 0,
+        cand_count: 0,
+        verified: 0,
+    };
     let mut km1 = 2;
-    let reps = loop { let r = search(&t, &psi, km1, &orb, group.as_ref(), &mut st); if !r.is_empty() { break r; } km1 += 1; };
+    let reps = loop {
+        let r = search(&t, &psi, km1, &orb, group.as_ref(), &mut st);
+        if !r.is_empty() {
+            break r;
+        }
+        km1 += 1;
+    };
     let dopt = expand(&t, &psi, &reps, &gens);
     let k = km1 + 1;
-    if verbose { println!("{}^{}: chi = {} ({} optimal decompositions)", kind, n - 1, km1, dopt.len()); }
+    if verbose {
+        println!(
+            "{}^{}: chi = {} ({} optimal decompositions)",
+            kind,
+            n - 1,
+            km1,
+            dopt.len()
+        );
+    }
     let mut found: Vec<Vec<Vec<C>>> = vec![];
     let t1 = Table::new(1);
     let g1 = sym_generators(&t1, &p);
@@ -1259,23 +1454,54 @@ pub fn past_plateau(kind: &str, n: usize, verbose: bool) -> (usize, Vec<Vec<Vec<
     let cl = cliffords1();
     for oid in 0..=*o1.iter().max().unwrap() {
         let sidx = (0..6).find(|&i| o1[i] == oid).unwrap();
-        let u = *cl.iter().find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9).unwrap();
+        let u = *cl
+            .iter()
+            .find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9)
+            .unwrap();
         let udag: M2 = [u[0].conj(), u[2].conj(), u[1].conj(), u[3].conj()];
         let up = apply1(&u, &p);
         let (fd, combos) = degenerate_search(&t, &dopt, up[0], up[1], k, true);
-        if verbose { println!("  degenerate, bra #{}: combos {} found {}", sidx, combos, fd.len()); }
-        for f in fd { found.push(f.iter().map(|v| apply_local(&udag, n - 1, v)).collect()); }
+        if verbose {
+            println!(
+                "  degenerate, bra #{}: combos {} found {}",
+                sidx,
+                combos,
+                fd.len()
+            );
+        }
+        for f in fd {
+            found.push(f.iter().map(|v| apply_local(&udag, n - 1, v)).collect());
+        }
     }
-    let mins = expand(&t, &psi, &search(&t, &psi, k, &orb, group.as_ref(), &mut st), &gens);
+    let mins = expand(
+        &t,
+        &psi,
+        &search(&t, &psi, k, &orb, group.as_ref(), &mut st),
+        &gens,
+    );
     let mreps = orbit_reps(&t, &psi, &mins, &gens);
     let g = glue_from(&t, &mreps, &mins, &p, n);
-    if verbose { println!("  non-degenerate: {} minimal {}-term decompositions of {}^{} ({} orbits), glued {}", mins.len(), k, kind, n - 1, mreps.len(), g.len()); }
-    for (terms, _) in g { found.push(terms); }
+    if verbose {
+        println!(
+            "  non-degenerate: {} minimal {}-term decompositions of {}^{} ({} orbits), glued {}",
+            mins.len(),
+            k,
+            kind,
+            n - 1,
+            mreps.len(),
+            g.len()
+        );
+    }
+    for (terms, _) in g {
+        found.push(terms);
+    }
     let psin = tensor_power(&p, n);
     for f in &found {
         let refs: Vec<&[C]> = f.iter().map(|v| v.as_slice()).collect();
         let (c, res) = lsq(&refs, &psin);
-        assert!(res < 1e-8 && c.iter().all(|z| z.abs() > 1e-8) && f.iter().all(|v| is_stabilizer(v)));
+        assert!(
+            res < 1e-8 && c.iter().all(|z| z.abs() > 1e-8) && f.iter().all(|v| is_stabilizer(v))
+        );
     }
     (k, found)
 }
@@ -1283,25 +1509,59 @@ pub fn past_plateau(kind: &str, n: usize, verbose: bool) -> (usize, Vec<Vec<Vec<
 // ---------------------------------------------------------------- annealing (upper bounds)
 struct Rng(u64);
 impl Rng {
-    fn next(&mut self) -> u64 { self.0 ^= self.0 << 13; self.0 ^= self.0 >> 7; self.0 ^= self.0 << 17; self.0 }
-    fn below(&mut self, n: usize) -> usize { (self.next() % n as u64) as usize }
-    fn unif(&mut self) -> f64 { (self.next() >> 11) as f64 / (1u64 << 53) as f64 }
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n as u64) as usize
+    }
+    fn unif(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
 }
 fn apply_gate(v: &mut [C], n: usize, g: usize, a: usize, b: usize) {
     let s = 1.0 / 2f64.sqrt();
     match g {
-        0 => { // H on a
-            for x in 0..v.len() { if x >> a & 1 == 0 { let y = x | 1 << a; let (p, q) = (v[x], v[y]); v[x] = (p + q).scale(s); v[y] = (p - q).scale(s); } }
+        0 => {
+            // H on a
+            for x in 0..v.len() {
+                if x >> a & 1 == 0 {
+                    let y = x | 1 << a;
+                    let (p, q) = (v[x], v[y]);
+                    v[x] = (p + q).scale(s);
+                    v[y] = (p - q).scale(s);
+                }
+            }
         }
-        1 => { // S on a
-            for x in 0..v.len() { if x >> a & 1 == 1 { v[x] = v[x] * C::new(0., 1.); } }
+        1 => {
+            // S on a
+            for x in 0..v.len() {
+                if x >> a & 1 == 1 {
+                    v[x] = v[x] * C::new(0., 1.);
+                }
+            }
         }
-        2 => { // CNOT a->b
-            if a == b { return; }
-            for x in 0..v.len() { if x >> a & 1 == 1 && x >> b & 1 == 0 { v.swap(x, x | 1 << b); } }
+        2 => {
+            // CNOT a->b
+            if a == b {
+                return;
+            }
+            for x in 0..v.len() {
+                if x >> a & 1 == 1 && x >> b & 1 == 0 {
+                    v.swap(x, x | 1 << b);
+                }
+            }
         }
-        _ => { // X on a
-            for x in 0..v.len() { if x >> a & 1 == 0 { v.swap(x, x | 1 << a); } }
+        _ => {
+            // X on a
+            for x in 0..v.len() {
+                if x >> a & 1 == 0 {
+                    v.swap(x, x | 1 << a);
+                }
+            }
         }
     }
     let _ = n;
@@ -1311,26 +1571,44 @@ pub fn residual(vs: &[Vec<C>], psi: &[C]) -> f64 {
     let mut qs: Vec<Vec<C>> = vec![];
     for v in vs {
         let mut w = v.clone();
-        for q in &qs { let c = dot(q, &w); for x in 0..w.len() { w[x] = w[x] - c * q[x]; } }
+        for q in &qs {
+            let c = dot(q, &w);
+            for x in 0..w.len() {
+                w[x] = w[x] - c * q[x];
+            }
+        }
         let wn = norm2(&w).sqrt();
-        if wn < 1e-7 { continue; }
-        for z in w.iter_mut() { *z = z.scale(1.0 / wn); }
+        if wn < 1e-7 {
+            continue;
+        }
+        for z in w.iter_mut() {
+            *z = z.scale(1.0 / wn);
+        }
         qs.push(w);
     }
     let mut r = 1.0;
-    for q in &qs { r -= dot(q, psi).n2(); }
+    for q in &qs {
+        r -= dot(q, psi).n2();
+    }
     r.max(0.0)
 }
 pub fn anneal(psi: &[C], n: usize, k: usize, steps: u64, seed: u64) -> Option<Vec<Vec<C>>> {
     let mut rng = Rng(seed | 1);
     let dim = 1usize << n;
-    let mut cur: Vec<Vec<C>> = (0..k).map(|_| {
-        let mut v = vec![C::default(); dim]; v[0] = C::new(1., 0.);
-        for _ in 0..(10 * n * n) { let (g, a, b) = (rng.below(4), rng.below(n), rng.below(n)); apply_gate(&mut v, n, g, a, b); }
-        v
-    }).collect();
+    let mut cur: Vec<Vec<C>> = (0..k)
+        .map(|_| {
+            let mut v = vec![C::default(); dim];
+            v[0] = C::new(1., 0.);
+            for _ in 0..(10 * n * n) {
+                let (g, a, b) = (rng.below(4), rng.below(n), rng.below(n));
+                apply_gate(&mut v, n, g, a, b);
+            }
+            v
+        })
+        .collect();
     let mut e = residual(&cur, psi);
-    let beta0: f64 = 1.0; let beta1: f64 = 4000.0;
+    let beta0: f64 = 1.0;
+    let beta1: f64 = 4000.0;
     for st in 0..steps {
         let beta = beta0 * (beta1 / beta0).powf(st as f64 / steps as f64);
         let i = rng.below(k);
@@ -1338,8 +1616,14 @@ pub fn anneal(psi: &[C], n: usize, k: usize, steps: u64, seed: u64) -> Option<Ve
         let old = cur[i].clone();
         apply_gate(&mut cur[i], n, g, a, b);
         let e2 = residual(&cur, psi);
-        if e2 <= e || rng.unif() < (-(e2 - e) * beta).exp() { e = e2; } else { cur[i] = old; }
-        if e < 1e-12 { return Some(cur); }
+        if e2 <= e || rng.unif() < (-(e2 - e) * beta).exp() {
+            e = e2;
+        } else {
+            cur[i] = old;
+        }
+        if e < 1e-12 {
+            return Some(cur);
+        }
     }
     None
 }
@@ -1359,16 +1643,36 @@ fn main() {
             let kind = &args[2];
             let n: usize = args[3].parse().unwrap();
             let k: usize = args[4].parse().unwrap();
-            let t = if args.get(5).map(|s| s == "prod").unwrap_or(false) { Table::products(n) } else { Table::new(n) };
+            let t = if args.get(5).map(|s| s == "prod").unwrap_or(false) {
+                Table::products(n)
+            } else {
+                Table::new(n)
+            };
             let (psi, gens) = match special_target(kind, n) {
                 Some(v) => (v, perm_conj_generators(&t)),
-                None => { let p = psi1(kind); (tensor_power(&p, n), sym_generators(&t, &p)) }
+                None => {
+                    let p = psi1(kind);
+                    (tensor_power(&p, n), sym_generators(&t, &p))
+                }
             };
             let orb = orbits(t.states.len(), &gens);
-            let cap: usize = std::env::var("GROUP_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(1000);
+            let cap: usize = std::env::var("GROUP_CAP")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1000);
             let group = group_closure(&gens, cap);
-            eprintln!("n={} states={} orbits={} |G|={:?}", n, t.states.len(), orb.iter().max().unwrap() + 1, group.as_ref().map(|g| g.len()));
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+            eprintln!(
+                "n={} states={} orbits={} |G|={:?}",
+                n,
+                t.states.len(),
+                orb.iter().max().unwrap() + 1,
+                group.as_ref().map(|g| g.len())
+            );
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
             let t0 = std::time::Instant::now();
             let reps = search(&t, &psi, k, &orb, group.as_ref(), &mut st);
             let all = expand(&t, &psi, &reps, &gens);
@@ -1379,11 +1683,37 @@ fn main() {
             let path = format!("dec_{}{}_k{}.txt", kind, n, k);
             write_decs(&path, &t, &all);
             // l1 norms of coefficient vectors (normalised target and terms): symmetry invariant
-            let mut l1: Vec<i64> = all.iter().map(|d| (d.coef.iter().map(|z| z.abs()).sum::<f64>() * 1e9).round() as i64).collect();
+            let mut l1: Vec<i64> = all
+                .iter()
+                .map(|d| (d.coef.iter().map(|z| z.abs()).sum::<f64>() * 1e9).round() as i64)
+                .collect();
             l1.sort();
             let mut hist: Vec<(f64, usize)> = vec![];
-            for v in l1 { if let Some(last) = hist.last_mut() { if (last.0 * 1e9).round() as i64 == v { last.1 += 1; continue; } } hist.push((v as f64 / 1e9, 1)); }
-            if hist.len() <= 40 { println!("l1 norms: {}", hist.iter().map(|(v, c)| format!("{:.9}x{}", v, c)).collect::<Vec<_>>().join(" ")); } else { println!("l1 norms: {} distinct values, min {:.9} max {:.9}", hist.len(), hist[0].0, hist.last().unwrap().0); }
+            for v in l1 {
+                if let Some(last) = hist.last_mut() {
+                    if (last.0 * 1e9).round() as i64 == v {
+                        last.1 += 1;
+                        continue;
+                    }
+                }
+                hist.push((v as f64 / 1e9, 1));
+            }
+            if hist.len() <= 40 {
+                println!(
+                    "l1 norms: {}",
+                    hist.iter()
+                        .map(|(v, c)| format!("{:.9}x{}", v, c))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
+            } else {
+                println!(
+                    "l1 norms: {} distinct values, min {:.9} max {:.9}",
+                    hist.len(),
+                    hist[0].0,
+                    hist.last().unwrap().0
+                );
+            }
         }
         // anneal <kind> <n> <k> <steps> <restarts>
         "anneal" => {
@@ -1392,18 +1722,38 @@ fn main() {
             let k: usize = args[4].parse().unwrap();
             let steps: u64 = args[5].parse().unwrap();
             let restarts: u64 = args[6].parse().unwrap();
-            let psi = match special_target(kind, n) { Some(v) => v, None => tensor_power(&psi1(kind), n) };
+            let psi = match special_target(kind, n) {
+                Some(v) => v,
+                None => tensor_power(&psi1(kind), n),
+            };
             for r in 0..restarts {
                 if let Some(vs) = anneal(&psi, n, k, steps, 0x1234567 + 7919 * r) {
                     let refs: Vec<&[C]> = vs.iter().map(|v| v.as_slice()).collect();
                     let (c, res) = lsq(&refs, &psi);
                     assert!(vs.iter().all(|v| is_stabilizer(v)));
-                    println!("FOUND {}^{} rank<= {} at restart {} residual {:.2e}", kind, n, k, r, res);
-                    for (v, cc) in vs.iter().zip(&c) { let cv = canonical(v); println!("  c={:.12}{:+.12}i v={}", cc.re, cc.im, cv.iter().map(|z| format!("({:.6},{:.6})", z.re, z.im)).collect::<Vec<_>>().join(" ")); }
+                    println!(
+                        "FOUND {}^{} rank<= {} at restart {} residual {:.2e}",
+                        kind, n, k, r, res
+                    );
+                    for (v, cc) in vs.iter().zip(&c) {
+                        let cv = canonical(v);
+                        println!(
+                            "  c={:.12}{:+.12}i v={}",
+                            cc.re,
+                            cc.im,
+                            cv.iter()
+                                .map(|z| format!("({:.6},{:.6})", z.re, z.im))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        );
+                    }
                     return;
                 }
             }
-            println!("not found: {}^{} k={} steps={} restarts={}", kind, n, k, steps, restarts);
+            println!(
+                "not found: {}^{} k={} steps={} restarts={}",
+                kind, n, k, steps, restarts
+            );
         }
         // pblock <kind> <b>: kill probability for the block-local restricted model (uniform mu over
         // b-qubit stabilizer states non-orthogonal to psi^{⊗b}); prints p and exponent per qubit.
@@ -1412,10 +1762,15 @@ fn main() {
             let b: usize = args[3].parse().unwrap();
             let t = Table::new(b);
             let psi = tensor_power(&psi1(kind), b);
-            let mu: Vec<usize> = (0..t.states.len()).filter(|&i| dot(&t.states[i], &psi).abs() > 1e-9).collect();
+            let mu: Vec<usize> = (0..t.states.len())
+                .filter(|&i| dot(&t.states[i], &psi).abs() > 1e-9)
+                .collect();
             let mut minkill = usize::MAX;
             for tau in &t.states {
-                let kill = mu.iter().filter(|&&i| dot(&t.states[i], tau).abs() < 1e-9).count();
+                let kill = mu
+                    .iter()
+                    .filter(|&&i| dot(&t.states[i], tau).abs() < 1e-9)
+                    .count();
                 minkill = minkill.min(kill);
             }
             let p = minkill as f64 / mu.len() as f64;
@@ -1429,18 +1784,52 @@ fn main() {
             let n: usize = args[3].parse().unwrap();
             let p = psi1(kind);
             let (k, found) = past_plateau(kind, n, true);
-            println!("{}^{}: {}-term decompositions found (up to symmetry, with repeats): {}", kind, n, k, found.len());
+            println!(
+                "{}^{}: {}-term decompositions found (up to symmetry, with repeats): {}",
+                kind,
+                n,
+                k,
+                found.len()
+            );
             if n <= 4 && !found.is_empty() {
                 let psin = tensor_power(&p, n);
                 let tn = Table::new(n);
                 let gn = sym_generators(&tn, &p);
-                let ds: Vec<Dec> = found.iter().map(|f| { let mut ix: Vec<u32> = f.iter().map(|v| tn.lookup(v).unwrap()).collect(); ix.sort(); check_set(&tn, &psin, &ix).unwrap() }).collect();
+                let ds: Vec<Dec> = found
+                    .iter()
+                    .map(|f| {
+                        let mut ix: Vec<u32> = f.iter().map(|v| tn.lookup(v).unwrap()).collect();
+                        ix.sort();
+                        check_set(&tn, &psin, &ix).unwrap()
+                    })
+                    .collect();
                 let all = expand(&tn, &psin, &ds, &gn);
-                let mut l1: Vec<i64> = l1_norms(&all).iter().map(|x| (x * 1e9).round() as i64).collect();
+                let mut l1: Vec<i64> = l1_norms(&all)
+                    .iter()
+                    .map(|x| (x * 1e9).round() as i64)
+                    .collect();
                 l1.sort();
                 let mut hist: Vec<(i64, usize)> = vec![];
-                for v in l1 { if let Some(last) = hist.last_mut() { if last.0 == v { last.1 += 1; continue; } } hist.push((v, 1)); }
-                println!("{}^{}: total {} decompositions with {} terms; l1 norms: {}", kind, n, all.len(), k, hist.iter().map(|(v, c)| format!("{:.9}x{}", *v as f64 / 1e9, c)).collect::<Vec<_>>().join(" "));
+                for v in l1 {
+                    if let Some(last) = hist.last_mut() {
+                        if last.0 == v {
+                            last.1 += 1;
+                            continue;
+                        }
+                    }
+                    hist.push((v, 1));
+                }
+                println!(
+                    "{}^{}: total {} decompositions with {} terms; l1 norms: {}",
+                    kind,
+                    n,
+                    all.len(),
+                    k,
+                    hist.iter()
+                        .map(|(v, c)| format!("{:.9}x{}", *v as f64 / 1e9, c))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
                 write_decs(&format!("dec_{}{}_k{}.txt", kind, n, k), &tn, &all);
                 let oreps = orbit_reps(&tn, &psin, &all, &gn);
                 write_decs(&format!("dec_{}{}_k{}_reps.txt", kind, n, k), &tn, &oreps);
@@ -1449,7 +1838,13 @@ fn main() {
                     // non-degenerate half of the k-term search at n+1 (valid when chi(psi^{⊗n}) = k-1,
                     // i.e. these are the minimal k-term decompositions one past the plateau)
                     let g = glue_from(&tn, &oreps, &all, &p, n + 1);
-                    println!("{}^{}: non-degenerate {}-term decompositions (A side up to symmetry): {}", kind, n + 1, k, g.len());
+                    println!(
+                        "{}^{}: non-degenerate {}-term decompositions (A side up to symmetry): {}",
+                        kind,
+                        n + 1,
+                        k,
+                        g.len()
+                    );
                 }
             }
         }
@@ -1464,14 +1859,23 @@ fn main() {
             let psi = tensor_power(&p, n - 1);
             let gens = sym_generators(&t, &p);
             let orb = orbits(t.states.len(), &gens);
-            let cap: usize = std::env::var("GROUP_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(1000);
+            let cap: usize = std::env::var("GROUP_CAP")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1000);
             let group = group_closure(&gens, cap);
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
             // chi at n-1
             let mut km1 = 2;
             let reps = loop {
                 let r = search(&t, &psi, km1, &orb, group.as_ref(), &mut st);
-                if !r.is_empty() { break r; }
+                if !r.is_empty() {
+                    break r;
+                }
                 km1 += 1;
             };
             // orbit representatives of optimal decompositions under the (n-1)-qubit symmetry group
@@ -1479,12 +1883,23 @@ fn main() {
             let mut seen: HashSet<Vec<u32>> = HashSet::new();
             let mut orbreps = vec![];
             for dd in &all {
-                if seen.contains(&dd.idx) { continue; }
+                if seen.contains(&dd.idx) {
+                    continue;
+                }
                 let orbit_sets = expand(&t, &psi, std::slice::from_ref(dd), &gens);
-                for o in &orbit_sets { seen.insert(o.idx.clone()); }
+                for o in &orbit_sets {
+                    seen.insert(o.idx.clone());
+                }
                 orbreps.push(dd.clone());
             }
-            println!("{}^{}: chi = {}, {} optimal decompositions in {} orbits", kind, n - 1, km1, all.len(), orbreps.len());
+            println!(
+                "{}^{}: chi = {}, {} optimal decompositions in {} orbits",
+                kind,
+                n - 1,
+                km1,
+                all.len(),
+                orbreps.len()
+            );
             // bra representatives
             let t1 = Table::new(1);
             let g1 = sym_generators(&t1, &p);
@@ -1495,7 +1910,10 @@ fn main() {
             for oid in 0..=*o1.iter().max().unwrap() {
                 let sidx = (0..6).find(|&i| o1[i] == oid).unwrap();
                 let sv = &t1.states[sidx];
-                let u = cl.iter().find(|m| apply1(m, sv)[0].abs() > 1.0 - 1e-9).unwrap();
+                let u = cl
+                    .iter()
+                    .find(|m| apply1(m, sv)[0].abs() > 1.0 - 1e-9)
+                    .unwrap();
                 let up = apply1(u, &p);
                 // all optimal decompositions (not orbit representatives): an antiunitary symmetry of
                 // psi^{⊗(n-1)} need not fix the transformed target, so no reduction is used here.
@@ -1503,10 +1921,23 @@ fn main() {
                 println!("  bra s = state #{} (|<0|U s>|=1): alpha={:.6}{:+.6}i beta={:.6}{:+.6}i  combos={} found={}", sidx, up[0].re, up[0].im, up[1].re, up[1].im, combos, found.len());
                 total += found.len();
                 if let Some(f) = found.first() {
-                    for v in f { println!("    term {}", canonical(v).iter().map(|z| format!("({:.4},{:.4})", z.re, z.im)).collect::<Vec<_>>().join(" ")); }
+                    for v in f {
+                        println!(
+                            "    term {}",
+                            canonical(v)
+                                .iter()
+                                .map(|z| format!("({:.4},{:.4})", z.re, z.im))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        );
+                    }
                 }
             }
-            println!("degenerate-restriction decompositions with {} terms: {}", km1 + 1, total);
+            println!(
+                "degenerate-restriction decompositions with {} terms: {}",
+                km1 + 1,
+                total
+            );
         }
         // degcheck <kind> <n> <bra index 0..5>: validate degenerate_search against a direct exhaustive
         // search (no symmetry) for the transformed target at small n.
@@ -1519,16 +1950,33 @@ fn main() {
             let psi = tensor_power(&p, n - 1);
             let gens = sym_generators(&tp, &p);
             let orb = orbits(tp.states.len(), &gens);
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
             let mut km1 = 2;
-            let reps = loop { let r = search(&tp, &psi, km1, &orb, None, &mut st); if !r.is_empty() { break r; } km1 += 1; };
+            let reps = loop {
+                let r = search(&tp, &psi, km1, &orb, None, &mut st);
+                if !r.is_empty() {
+                    break r;
+                }
+                km1 += 1;
+            };
             let all = expand(&tp, &psi, &reps, &gens);
             let t1 = Table::new(1);
-            let u = cliffords1().into_iter().find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9).unwrap();
+            let u = cliffords1()
+                .into_iter()
+                .find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9)
+                .unwrap();
             let up = apply1(&u, &p);
             let (found, _) = degenerate_search(&tp, &all, up[0], up[1], km1 + 1, true);
             let mut fs: HashSet<Vec<Vec<i64>>> = HashSet::new();
-            for f in &found { let mut ks: Vec<Vec<i64>> = f.iter().map(|v| key_of(&canonical(v))).collect(); ks.sort(); fs.insert(ks); }
+            for f in &found {
+                let mut ks: Vec<Vec<i64>> = f.iter().map(|v| key_of(&canonical(v))).collect();
+                ks.sort();
+                fs.insert(ks);
+            }
             // direct: target psi^{⊗(n-1)} ⊗ (up0, up1), last qubit = MSB
             let t = Table::new(n);
             let mut tg: Vec<C> = psi.iter().map(|&z| z * up[0]).collect();
@@ -1541,10 +1989,27 @@ fn main() {
             let mut ndeg = 0;
             let mut ds: HashSet<Vec<Vec<i64>>> = HashSet::new();
             for d in &direct {
-                let tops: Vec<Vec<C>> = d.idx.iter().map(|&i| t.states[i as usize][..half].to_vec()).collect();
-                let nz: Vec<&[C]> = tops.iter().filter(|v| norm2(v) > 1e-12).map(|v| v.as_slice()).collect();
+                let tops: Vec<Vec<C>> = d
+                    .idx
+                    .iter()
+                    .map(|&i| t.states[i as usize][..half].to_vec())
+                    .collect();
+                let nz: Vec<&[C]> = tops
+                    .iter()
+                    .filter(|v| norm2(v) > 1e-12)
+                    .map(|v| v.as_slice())
+                    .collect();
                 let degen = nz.len() < tops.len() || gram_det(&nz) < 1e-10;
-                if degen { ndeg += 1; let mut ks: Vec<Vec<i64>> = d.idx.iter().map(|&i| key_of(&t.states[i as usize])).collect(); ks.sort(); ds.insert(ks); }
+                if degen {
+                    ndeg += 1;
+                    let mut ks: Vec<Vec<i64>> = d
+                        .idx
+                        .iter()
+                        .map(|&i| key_of(&t.states[i as usize]))
+                        .collect();
+                    ks.sort();
+                    ds.insert(ks);
+                }
             }
             println!("{}^{} bra#{}: direct {} decompositions with {} terms, of which degenerate {}; degenerate_search found {} (sets equal: {})", kind, n, sidx, direct.len(), km1+1, ndeg, fs.len(), fs == ds);
         }
@@ -1561,27 +2026,63 @@ fn main() {
             let gp = sym_generators(&tp, &p);
             let op = orbits(tp.states.len(), &gp);
             let grp = group_closure(&gp, 1000);
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
-            let dp = expand(&tp, &psip, &search(&tp, &psip, k, &op, grp.as_ref(), &mut st), &gp);
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
+            let dp = expand(
+                &tp,
+                &psip,
+                &search(&tp, &psip, k, &op, grp.as_ref(), &mut st),
+                &gp,
+            );
             let g = glue(&tp, &dp, &p, n);
             let mut gs: HashSet<Vec<Vec<i64>>> = HashSet::new();
-            for (terms, _) in &g { let mut ks: Vec<Vec<i64>> = terms.iter().map(|v| key_of(&canonical(v))).collect(); ks.sort(); gs.insert(ks); }
+            for (terms, _) in &g {
+                let mut ks: Vec<Vec<i64>> = terms.iter().map(|v| key_of(&canonical(v))).collect();
+                ks.sort();
+                gs.insert(ks);
+            }
             let t = Table::new(n);
             let psi = tensor_power(&p, n);
             let gn = sym_generators(&t, &p);
             let on = orbits(t.states.len(), &gn);
             let grn = group_closure(&gn, 1000);
-            let direct = expand(&t, &psi, &search(&t, &psi, k, &on, grn.as_ref(), &mut st), &gn);
+            let direct = expand(
+                &t,
+                &psi,
+                &search(&t, &psi, k, &on, grn.as_ref(), &mut st),
+                &gn,
+            );
             let half = 1usize << (n - 1);
             let mut ds: HashSet<Vec<Vec<i64>>> = HashSet::new();
             for d in &direct {
                 let mut ok = true;
                 for part in 0..2 {
-                    let v: Vec<Vec<C>> = d.idx.iter().map(|&i| t.states[i as usize][part * half..(part + 1) * half].to_vec()).collect();
-                    let nz: Vec<&[C]> = v.iter().filter(|x| norm2(x) > 1e-12).map(|x| x.as_slice()).collect();
-                    if nz.len() < v.len() || gram_det(&nz) < 1e-10 { ok = false; }
+                    let v: Vec<Vec<C>> = d
+                        .idx
+                        .iter()
+                        .map(|&i| t.states[i as usize][part * half..(part + 1) * half].to_vec())
+                        .collect();
+                    let nz: Vec<&[C]> = v
+                        .iter()
+                        .filter(|x| norm2(x) > 1e-12)
+                        .map(|x| x.as_slice())
+                        .collect();
+                    if nz.len() < v.len() || gram_det(&nz) < 1e-10 {
+                        ok = false;
+                    }
                 }
-                if ok { let mut ks: Vec<Vec<i64>> = d.idx.iter().map(|&i| key_of(&t.states[i as usize])).collect(); ks.sort(); ds.insert(ks); }
+                if ok {
+                    let mut ks: Vec<Vec<i64>> = d
+                        .idx
+                        .iter()
+                        .map(|&i| key_of(&t.states[i as usize]))
+                        .collect();
+                    ks.sort();
+                    ds.insert(ks);
+                }
             }
             println!("{}^{} k={}: |D_min(n-1)|={} glue sets={} direct={} direct-nondegenerate={} equal={}", kind, n, k, dp.len(), gs.len(), direct.len(), ds.len(), gs == ds);
         }
@@ -1596,20 +2097,57 @@ fn main() {
             let psi = tensor_power(&p, n - 1);
             let gens = sym_generators(&t, &p);
             let orb = orbits(t.states.len(), &gens);
-            let cap: usize = std::env::var("GROUP_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(1000);
+            let cap: usize = std::env::var("GROUP_CAP")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1000);
             let group = group_closure(&gens, cap);
             eprintln!("|G|={:?}", group.as_ref().map(|g| g.len()));
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
             let t0 = std::time::Instant::now();
             let reps = search(&t, &psi, k, &orb, group.as_ref(), &mut st);
             let all = expand(&t, &psi, &reps, &gens);
             let oreps = orbit_reps(&t, &psi, &all, &gens);
-            println!("{}^{}: {} minimal {}-term decompositions in {} orbits (search {:.0}s, W={})", kind, n - 1, all.len(), k, oreps.len(), t0.elapsed().as_secs_f64(), st.w_count);
-            write_decs(&format!("dec_{}{}_k{}_reps.txt", kind, n - 1, k), &t, &oreps);
+            println!(
+                "{}^{}: {} minimal {}-term decompositions in {} orbits (search {:.0}s, W={})",
+                kind,
+                n - 1,
+                all.len(),
+                k,
+                oreps.len(),
+                t0.elapsed().as_secs_f64(),
+                st.w_count
+            );
+            write_decs(
+                &format!("dec_{}{}_k{}_reps.txt", kind, n - 1, k),
+                &t,
+                &oreps,
+            );
             let g = glue_from(&t, &oreps, &all, &p, n);
-            println!("{}^{}: type-I x type-I {}-term decompositions (A side up to symmetry): {}", kind, n, k, g.len());
+            println!(
+                "{}^{}: type-I x type-I {}-term decompositions (A side up to symmetry): {}",
+                kind,
+                n,
+                k,
+                g.len()
+            );
             if let Some((terms, coefs)) = g.first() {
-                for (v, c) in terms.iter().zip(coefs) { println!("  c={:.12}{:+.12}i v={}", c.re, c.im, canonical(v).iter().map(|z| format!("({:.4},{:.4})", z.re, z.im)).collect::<Vec<_>>().join(" ")); }
+                for (v, c) in terms.iter().zip(coefs) {
+                    println!(
+                        "  c={:.12}{:+.12}i v={}",
+                        c.re,
+                        c.im,
+                        canonical(v)
+                            .iter()
+                            .map(|z| format!("({:.4},{:.4})", z.re, z.im))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
+                }
             }
         }
         // chain <kind> <n0> <k> <nmax>: all rank-k decompositions at n0 by exhaustive search, then
@@ -1624,13 +2162,25 @@ fn main() {
             let psi = tensor_power(&p, n0);
             let gens = sym_generators(&t, &p);
             let orb = orbits(t.states.len(), &gens);
-            let cap: usize = std::env::var("GROUP_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(1000);
+            let cap: usize = std::env::var("GROUP_CAP")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1000);
             let group = group_closure(&gens, cap);
-            let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+            let mut st = SearchStats {
+                w_count: 0,
+                cand_count: 0,
+                verified: 0,
+            };
             if k > 2 {
                 let lower = search(&t, &psi, k - 1, &orb, group.as_ref(), &mut st);
                 assert!(lower.is_empty(), "chi < k at n0");
-                println!("{}^{}: no rank-{} decomposition (exhaustive)", kind, n0, k - 1);
+                println!(
+                    "{}^{}: no rank-{} decomposition (exhaustive)",
+                    kind,
+                    n0,
+                    k - 1
+                );
             }
             let reps = search(&t, &psi, k, &orb, group.as_ref(), &mut st);
             let mut d = expand(&t, &psi, &reps, &gens);
@@ -1639,29 +2189,55 @@ fn main() {
                 let g = glue(&t, &d, &p, n);
                 // plateau lemma consistency: every term must be 1-uniform
                 let mut nonuni = 0;
-                for (terms, _) in &g { for v in terms { if !min_restriction_ok(v, n, 1) { nonuni += 1; } } }
+                for (terms, _) in &g {
+                    for v in terms {
+                        if !min_restriction_ok(v, n, 1) {
+                            nonuni += 1;
+                        }
+                    }
+                }
                 // dedupe as sets of canonical vectors
                 let mut sets: HashSet<Vec<Vec<i64>>> = HashSet::new();
                 for (terms, _) in &g {
-                    let mut ks: Vec<Vec<i64>> = terms.iter().map(|v| key_of(&canonical(v))).collect();
+                    let mut ks: Vec<Vec<i64>> =
+                        terms.iter().map(|v| key_of(&canonical(v))).collect();
                     ks.sort();
                     sets.insert(ks);
                 }
                 println!("{}^{}: gluing gives {} rank-{} decompositions (raw {}), non-1-uniform terms: {}", kind, n, sets.len(), k, g.len(), nonuni);
-                if g.is_empty() { println!("=> chi({}^{}) >= {}", kind, n, k + 1); break; }
-                if n == nmax { 
+                if g.is_empty() {
+                    println!("=> chi({}^{}) >= {}", kind, n, k + 1);
+                    break;
+                }
+                if n == nmax {
                     let (terms, coefs) = &g[0];
-                    for (v, c) in terms.iter().zip(coefs) { println!("  c={:.12}{:+.12}i  v={:?}", c.re, c.im, v.iter().map(|z| (format!("{:.4}",z.re), format!("{:.4}",z.im))).collect::<Vec<_>>()); }
-                    break; }
+                    for (v, c) in terms.iter().zip(coefs) {
+                        println!(
+                            "  c={:.12}{:+.12}i  v={:?}",
+                            c.re,
+                            c.im,
+                            v.iter()
+                                .map(|z| (format!("{:.4}", z.re), format!("{:.4}", z.im)))
+                                .collect::<Vec<_>>()
+                        );
+                    }
+                    break;
+                }
                 // convert to Dec over the n-qubit table
                 let tn = Table::new(n);
                 let psin = tensor_power(&p, n);
                 let mut nd = vec![];
                 let mut seen: HashSet<Vec<u32>> = HashSet::new();
                 for (terms, _) in &g {
-                    let idx: Vec<u32> = terms.iter().map(|v| tn.lookup(v).expect("glued term not stabilizer")).collect();
-                    let mut s2 = idx.clone(); s2.sort();
-                    if seen.insert(s2.clone()) { nd.push(check_set(&tn, &psin, &s2).expect("glued set must decompose")); }
+                    let idx: Vec<u32> = terms
+                        .iter()
+                        .map(|v| tn.lookup(v).expect("glued term not stabilizer"))
+                        .collect();
+                    let mut s2 = idx.clone();
+                    s2.sort();
+                    if seen.insert(s2.clone()) {
+                        nd.push(check_set(&tn, &psin, &s2).expect("glued set must decompose"));
+                    }
                 }
                 write_decs(&format!("dec_{}{}_k{}.txt", kind, n, k), &tn, &nd);
                 d = nd;
@@ -1679,32 +2255,63 @@ fn main() {
             let nst = t.states.len();
             let mut cnt = 0u64;
             if k == 2 {
-                for a in 0..nst { for b in (a+1)..nst {
-                    if check_set(&t, &psi, &[a as u32, b as u32]).is_some() { cnt += 1; }
-                }}
+                for a in 0..nst {
+                    for b in (a + 1)..nst {
+                        if check_set(&t, &psi, &[a as u32, b as u32]).is_some() {
+                            cnt += 1;
+                        }
+                    }
+                }
             } else if k == 4 {
-                for a in 0..nst { for b in (a+1)..nst { for c in (b+1)..nst { for d in (c+1)..nst {
-                    if check_set(&t, &psi, &[a as u32, b as u32, c as u32, d as u32]).is_some() { cnt += 1; }
-                }}}}
+                for a in 0..nst {
+                    for b in (a + 1)..nst {
+                        for c in (b + 1)..nst {
+                            for d in (c + 1)..nst {
+                                if check_set(&t, &psi, &[a as u32, b as u32, c as u32, d as u32])
+                                    .is_some()
+                                {
+                                    cnt += 1;
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
-                for a in 0..nst { for b in (a+1)..nst {
-                    // orthonormal basis of span(psi,a,b)
-                    let mut qs: Vec<Vec<C>> = vec![];
-                    for v in [&psi, &t.states[a], &t.states[b]] {
-                        let mut w = v.clone();
-                        for q in &qs { let c = dot(q, &w); for x in 0..w.len() { w[x] = w[x] - c * q[x]; } }
-                        let wn = norm2(&w).sqrt();
-                        if wn < 1e-6 { break; }
-                        for z in w.iter_mut() { *z = z.scale(1.0/wn); }
-                        qs.push(w);
+                for a in 0..nst {
+                    for b in (a + 1)..nst {
+                        // orthonormal basis of span(psi,a,b)
+                        let mut qs: Vec<Vec<C>> = vec![];
+                        for v in [&psi, &t.states[a], &t.states[b]] {
+                            let mut w = v.clone();
+                            for q in &qs {
+                                let c = dot(q, &w);
+                                for x in 0..w.len() {
+                                    w[x] = w[x] - c * q[x];
+                                }
+                            }
+                            let wn = norm2(&w).sqrt();
+                            if wn < 1e-6 {
+                                break;
+                            }
+                            for z in w.iter_mut() {
+                                *z = z.scale(1.0 / wn);
+                            }
+                            qs.push(w);
+                        }
+                        if qs.len() < 3 {
+                            continue;
+                        }
+                        for c in (b + 1)..nst {
+                            let v = &t.states[c];
+                            let r: f64 = 1.0 - qs.iter().map(|q| dot(q, v).n2()).sum::<f64>();
+                            if r < 1e-9
+                                && check_set(&t, &psi, &[a as u32, b as u32, c as u32]).is_some()
+                            {
+                                cnt += 1;
+                            }
+                        }
                     }
-                    if qs.len() < 3 { continue; }
-                    for c in (b+1)..nst {
-                        let v = &t.states[c];
-                        let r: f64 = 1.0 - qs.iter().map(|q| dot(q, v).n2()).sum::<f64>();
-                        if r < 1e-9 && check_set(&t, &psi, &[a as u32, b as u32, c as u32]).is_some() { cnt += 1; }
-                    }
-                }}
+                }
             }
             println!("brute {}^{} k={}: {} decompositions", kind, n, k, cnt);
         }

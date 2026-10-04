@@ -22,7 +22,11 @@ fn all_decs(kind: &str, n: usize, k: usize) -> (Table, Vec<Dec>) {
     let gens = sym_generators(&t, &p);
     let orb = orbits(t.states.len(), &gens);
     let group = group_closure(&gens, 1000);
-    let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+    let mut st = SearchStats {
+        w_count: 0,
+        cand_count: 0,
+        verified: 0,
+    };
     let reps = search(&t, &psi, k, &orb, group.as_ref(), &mut st);
     let all = expand(&t, &psi, &reps, &gens);
     (t, all)
@@ -35,7 +39,15 @@ fn brute_count(kind: &str, n: usize, k: usize) -> usize {
     let m = t.states.len() as u32;
     let mut cnt = 0;
     let mut idx = vec![0u32; k];
-    fn rec(t: &Table, psi: &[C], m: u32, idx: &mut Vec<u32>, pos: usize, start: u32, cnt: &mut usize) {
+    fn rec(
+        t: &Table,
+        psi: &[C],
+        m: u32,
+        idx: &mut Vec<u32>,
+        pos: usize,
+        start: u32,
+        cnt: &mut usize,
+    ) {
         if pos == idx.len() {
             if check_set(t, psi, idx).is_some() {
                 *cnt += 1;
@@ -144,7 +156,10 @@ fn plateau_gluing_reproduces_known_and_proves_face_state_bound() {
     let direct: HashSet<Vec<u32>> = d4direct.iter().map(|d| d.idx.clone()).collect();
     assert_eq!(glued, direct);
     // F^5: no rank-3 decomposition  =>  chi(F^{⊗5}) >= 4   (new; previously 3 <= chi <= 6)
-    let d4: Vec<Dec> = d4direct.iter().map(|d| check_set(&t4, &psi4, &d.idx).unwrap()).collect();
+    let d4: Vec<Dec> = d4direct
+        .iter()
+        .map(|d| check_set(&t4, &psi4, &d.idx).unwrap())
+        .collect();
     assert_eq!(glue_sets(&t4, &d4, "F", 5).1, 0);
 }
 
@@ -154,7 +169,10 @@ fn no_two_uniform_stabilizer_states_on_3_or_4_qubits() {
     //    for EVERY non-stabilizer single-qubit psi.
     for n in [3usize, 4] {
         let t = Table::new(n);
-        assert!(t.states.iter().all(|v| !min_restriction_ok(v, n, 2)), "n={n}");
+        assert!(
+            t.states.iter().all(|v| !min_restriction_ok(v, n, 2)),
+            "n={n}"
+        );
     }
     // sanity: 1-uniform states exist on 2 qubits (Bell states)
     let t = Table::new(2);
@@ -166,11 +184,18 @@ fn chi_three_copies_at_least_three_for_random_magic_states() {
     // direct check of the corollary on a few arbitrary single-qubit states
     let t = Table::new(3);
     for (th, ph) in [(0.3f64, 0.7f64), (1.1, 2.9), (0.05, 0.0), (2.0, 1.3)] {
-        let p = [C::new((th / 2.).cos(), 0.), C::new((th / 2.).sin() * ph.cos(), (th / 2.).sin() * ph.sin())];
+        let p = [
+            C::new((th / 2.).cos(), 0.),
+            C::new((th / 2.).sin() * ph.cos(), (th / 2.).sin() * ph.sin()),
+        ];
         let psi = tensor_power(&p, 3);
         let gens = sym_generators(&t, &p);
         let orb = orbits(t.states.len(), &gens);
-        let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+        let mut st = SearchStats {
+            w_count: 0,
+            cand_count: 0,
+            verified: 0,
+        };
         assert!(search(&t, &psi, 2, &orb, None, &mut st).is_empty());
     }
 }
@@ -181,7 +206,7 @@ fn l1_ratio_criterion() {
     let rh = (std::f64::consts::PI / 8.).cos() / (std::f64::consts::PI / 8.).sin(); // 1+sqrt2
     let pf = psi1("F");
     let rf = pf[0].abs() / pf[1].abs(); // cot(beta)
-    // chi(H^3) >= 3 and chi(H^4) >= 4 from the optimal decompositions one level down
+                                        // chi(H^3) >= 3 and chi(H^4) >= 4 from the optimal decompositions one level down
     assert!(l1_ratio_obstruction(&all_decs("H", 2, 2).1, rh));
     let (_, d3) = all_decs("H", 3, 3);
     assert!(l1_ratio_obstruction(&d3, rh));
@@ -233,7 +258,9 @@ fn h5_needs_five_terms() {
     assert_eq!(glue_sets(&t4, &d4, "H", 5).1, 0);
     // ... and the l1-ratio certificate: max/min l1 < 1 + sqrt 2
     let l = l1_norms(&d4);
-    let (mn, mx) = l.iter().fold((f64::MAX, 0f64), |(a, b), &x| (a.min(x), b.max(x)));
+    let (mn, mx) = l
+        .iter()
+        .fold((f64::MAX, 0f64), |(a, b), &x| (a.min(x), b.max(x)));
     assert!(mx / mn < 1.0 + 2f64.sqrt());
     assert!(l1_ratio_obstruction(&d4, 1.0 + 2f64.sqrt()));
 }
@@ -258,7 +285,10 @@ fn f5_needs_five_terms() {
     let cl = cliffords1();
     for oid in 0..=*o1.iter().max().unwrap() {
         let sidx = (0..6).find(|&i| o1[i] == oid).unwrap();
-        let u = cl.iter().find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9).unwrap();
+        let u = cl
+            .iter()
+            .find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9)
+            .unwrap();
         let up = apply1(u, &p);
         let (found, _) = degenerate_search(&t4, &dopt, up[0], up[1], 4, true);
         assert!(found.is_empty(), "bra #{sidx}");
