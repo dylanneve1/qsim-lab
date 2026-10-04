@@ -33,6 +33,8 @@
 //! sites, computable in polynomial time for any `n` ([`Mode::DimensionOnly`]),
 //! while `2^d` is the exact cost of the amplitude simulation.
 
+#![allow(clippy::needless_range_loop, clippy::unnecessary_unwrap)]
+
 pub mod circuit;
 pub mod ent;
 
