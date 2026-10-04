@@ -3,7 +3,7 @@
 //! 127-qubit runs have no exact reference beyond ~10 steps, this patch does.
 //!
 //! ```text
-//! cargo run --release --example spoof_patch -- [k=24] [theta=0.6] [steps=20] [deltas=1e-3,1e-4,...] [branch_factor=1] [only_steps]
+//! cargo run --release --example spoof_patch -- [k=24] [theta=0.6] [steps=20] [deltas=1e-3,1e-4,...] [branch_factor=1] [only_steps] [max_weight]
 //! ```
 //! Prints one JSON line per (steps, δ): exact <Z_root>, SPD value, norm, time.
 
@@ -22,6 +22,7 @@ fn main() {
         .unwrap_or(vec![1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6]);
     let branch_factor: f64 = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(1.0);
     let only_steps: Option<usize> = a.get(5).map(|s| s.parse().unwrap());
+    let max_weight: usize = a.get(6).map(|s| s.parse().unwrap()).unwrap_or(usize::MAX);
     let patch = Lattice::eagle127().bfs_patch(62, k);
     eprintln!("patch: {} qubits, {} edges", patch.n, patch.edges.len());
     // exact: evolve step by step, record <Z_0> (qubit 0 of the patch = Eagle 62)
@@ -45,12 +46,14 @@ fn main() {
                 &SpdOptions {
                     delta,
                     branch_factor,
+                    max_weight,
                     max_terms: 20_000_000,
                     ..SpdOptions::default()
                 },
             );
             println!(
-                "{{\"k\":{k},\"theta\":{theta},\"steps\":{steps},\"delta\":{delta:e},\"branch_factor\":{branch_factor},\"edges\":{},\"exact\":{:.10},\"spd\":{:.10},\"err\":{:.3e},\"norm2\":{:.6},\"peak_terms\":{},\"aborted\":{},\"seconds\":{:.3}}}",
+                "{{\"k\":{k},\"theta\":{theta},\"steps\":{steps},\"delta\":{delta:e},\"branch_factor\":{branch_factor},\"max_weight\":{},\"edges\":{},\"exact\":{:.10},\"spd\":{:.10},\"err\":{:.3e},\"norm2\":{:.6},\"peak_terms\":{},\"aborted\":{},\"seconds\":{:.3}}}",
+                if max_weight == usize::MAX { -1 } else { max_weight as i64 },
                 patch.edges.len(),
                 exact[steps],
                 r.value,
