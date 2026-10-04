@@ -364,7 +364,14 @@ pub fn plan(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan,
     } else {
         skip.push(Engine::Mps);
     }
-    if !clifford && cheap >= cfg.hsf_feature_min_secs {
+    // HSF only if it fits and nothing found so far is already cheap
+    let so_far = if f.mps_r.is_finite() {
+        cheap.min(predict(Engine::Mps, &f))
+    } else {
+        cheap
+    };
+    let hsf_fits = n <= (cfg.mem_bytes / 16).max(1).ilog2() as usize;
+    if !clifford && hsf_fits && so_far >= cfg.hsf_feature_min_secs {
         simulability::add_hsf_features(c, &mut f.base)?;
     } else {
         skip.push(Engine::Hsf);
