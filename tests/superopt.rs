@@ -17,7 +17,10 @@ fn dist<S: shor::OrderFindingState>(inst: &Instance, s: S) -> Vec<f64> {
 
 fn max_diff(a: &[f64], b: &[f64]) -> f64 {
     assert_eq!(a.len(), b.len());
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
 }
 
 #[test]
@@ -34,7 +37,10 @@ fn windowed_opt_distribution_matches_permutation() {
                 if n <= 21 && opt.qubits() <= 64 {
                     let d_gbg = dist(&opt, shor::sparse_initial(&opt));
                     let d = max_diff(&d_perm, &d_gbg);
-                    assert!(d < 1e-12, "N={n} w={w} a={a}: gate-by-gate opt vs perm {d:e}");
+                    assert!(
+                        d < 1e-12,
+                        "N={n} w={w} a={a}: gate-by-gate opt vs perm {d:e}"
+                    );
                 }
             }
         }
@@ -75,7 +81,11 @@ fn windowed_opt_beyond_64_qubits_matches_permutation() {
             let r = |inst: &Instance, b: Backend| {
                 shor::order_finding(inst, b, &mut StdRng::seed_from_u64(seed)).measured
             };
-            assert_eq!(r(&perm, Backend::FusedSparse), r(&opt, Backend::SlicedF64), "w={w}");
+            assert_eq!(
+                r(&perm, Backend::FusedSparse),
+                r(&opt, Backend::SlicedF64),
+                "w={w}"
+            );
         }
     }
 }
@@ -89,6 +99,11 @@ fn windowed_opt_counts_fewer_gates() {
     let r0 = shor::order_finding(&win, Backend::SlicedF64, &mut StdRng::seed_from_u64(1));
     let r1 = shor::order_finding(&opt, Backend::SlicedF64, &mut StdRng::seed_from_u64(1));
     assert_eq!(r0.measured, r1.measured);
-    assert!(r1.total_gates * 10 < r0.total_gates * 7, "{} vs {}", r1.total_gates, r0.total_gates);
+    assert!(
+        r1.total_gates * 10 < r0.total_gates * 7,
+        "{} vs {}",
+        r1.total_gates,
+        r0.total_gates
+    );
     assert!(r1.toffoli_gates * 10 < r0.toffoli_gates * 6);
 }

@@ -212,6 +212,7 @@ pub fn lookup_unary(
     let w = addr.len();
     assert_eq!(plan.w, w);
     assert!(and.len() >= w);
+    #[allow(clippy::too_many_arguments)]
     fn rec(
         c: &mut Circuit,
         d: usize,
@@ -344,6 +345,7 @@ fn emit_lookup(
 
 /// Emits one window (bits `start..start + w` of `x`, table
 /// `T[v] = v·base mod N` with `base = a·2^start mod N`).
+#[allow(clippy::too_many_arguments)]
 fn emit_window(
     c: &mut Circuit,
     lay: &WindowLayout,
@@ -739,7 +741,10 @@ pub fn sat_peephole_init(c: &Circuit, init: &[Option<bool>]) -> Circuit {
         }
         gates = out;
         if std::env::var_os("QSIM_SATPEEP_DEBUG").is_some() {
-            eprintln!("sat_peephole pass {_pass}: {} gates, changed={changed}", gates.len());
+            eprintln!(
+                "sat_peephole pass {_pass}: {} gates, changed={changed}",
+                gates.len()
+            );
         }
         if !changed {
             break;
@@ -774,7 +779,9 @@ mod tests {
     use crate::shor_ripple::{eval_circuit_on_key, gate_counts};
 
     fn lcg(s: &mut u64) -> u64 {
-        *s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *s = s
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         *s >> 11
     }
 
@@ -800,8 +807,9 @@ mod tests {
         // exhaustive over every 1-bit table on w <= 3: DP optimum equals
         // the minimum over all subsets of tree nodes
         for w in 1..=3usize {
-            let nodes: Vec<(usize, usize)> =
-                (0..=w).flat_map(|d| (0..1usize << d).map(move |h| (d, h))).collect();
+            let nodes: Vec<(usize, usize)> = (0..=w)
+                .flat_map(|d| (0..1usize << d).map(move |h| (d, h)))
+                .collect();
             let cover = |d: usize, h: usize| -> u64 {
                 let mut m = 0u64;
                 for v in 0..1usize << w {
@@ -857,7 +865,11 @@ mod tests {
                         for l0 in [0u64, 0b101101011] {
                             let k = ctrl | (v << 1) | (l0 << (2 * w + 1));
                             let out = eval_circuit_on_key(k, &c);
-                            let want = if ctrl == 1 { l0 ^ table[v as usize] } else { l0 };
+                            let want = if ctrl == 1 {
+                                l0 ^ table[v as usize]
+                            } else {
+                                l0
+                            };
                             assert_eq!(out & lo, k & lo);
                             assert_eq!(out >> (2 * w + 1), want, "w={w} c={ctrl} v={v}");
                         }

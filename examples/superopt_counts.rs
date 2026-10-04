@@ -21,11 +21,23 @@ fn main() {
         // dump round-0 controlled-U (baseline and all) as text gate lists
         let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
         let lay = WindowLayout::new(inst.m, w);
-        let nosat = Opts { sat_rules: false, ..Opts::ALL };
-        for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL), ("allnosat", nosat)] {
+        let nosat = Opts {
+            sat_rules: false,
+            ..Opts::ALL
+        };
+        for (name, o) in [
+            ("baseline", Opts::BASELINE),
+            ("all", Opts::ALL),
+            ("allnosat", nosat),
+        ] {
             let c = controlled_ua(&lay, inst.mults[0], n_mod, &o);
-            let mut out = format!("# N={n_mod} mult={} n={} w={w} qubits={} ancillas_from={}\n",
-                inst.mults[0], inst.m, lay.num_qubits(), inst.m + 1);
+            let mut out = format!(
+                "# N={n_mod} mult={} n={} w={w} qubits={} ancillas_from={}\n",
+                inst.mults[0],
+                inst.m,
+                lay.num_qubits(),
+                inst.m + 1
+            );
             for g in c.gates() {
                 use qsim_lab::gate::Gate::*;
                 out += &match *g {
@@ -62,8 +74,22 @@ fn main() {
                 let mut c = Circuit::new(lay.num_qubits());
                 match mode {
                     0 => qsim_lab::shor_window::lookup(&mut c, 0, addr, &lay.and, &lay.l, &table),
-                    1 => lookup_unary(&mut c, 0, addr, &lay.and, &lay.l, &FanoutPlan::leaves(&table)),
-                    _ => lookup_unary(&mut c, 0, addr, &lay.and, &lay.l, &FanoutPlan::optimal(&table, n)),
+                    1 => lookup_unary(
+                        &mut c,
+                        0,
+                        addr,
+                        &lay.and,
+                        &lay.l,
+                        &FanoutPlan::leaves(&table),
+                    ),
+                    _ => lookup_unary(
+                        &mut c,
+                        0,
+                        addr,
+                        &lay.and,
+                        &lay.l,
+                        &FanoutPlan::optimal(&table, n),
+                    ),
                 }
                 let (g, t) = gate_counts(&c);
                 lk[k].0 += g;
@@ -75,14 +101,38 @@ fn main() {
             start += ww;
             nwin += 1;
         }
-        for (k, name) in ["lookup baseline (LSB-first chain)", "lookup unary iteration", "lookup unary + optimal fanout"].iter().enumerate() {
-            println!("{name:36} per lookup avg over {nwin} windows: gates={:.1} ccx={:.1}", lk[k].0 as f64 / nwin as f64, lk[k].1 as f64 / nwin as f64);
+        for (k, name) in [
+            "lookup baseline (LSB-first chain)",
+            "lookup unary iteration",
+            "lookup unary + optimal fanout",
+        ]
+        .iter()
+        .enumerate()
+        {
+            println!(
+                "{name:36} per lookup avg over {nwin} windows: gates={:.1} ccx={:.1}",
+                lk[k].0 as f64 / nwin as f64,
+                lk[k].1 as f64 / nwin as f64
+            );
         }
         let b = Opts::BASELINE;
         for (name, o) in [
             ("modadd baseline (5 adders)", b),
-            ("modadd comparator", Opts { comparator: true, ..b }),
-            ("modadd comparator+kflip", Opts { comparator: true, kflip: true, ..b }),
+            (
+                "modadd comparator",
+                Opts {
+                    comparator: true,
+                    ..b
+                },
+            ),
+            (
+                "modadd comparator+kflip",
+                Opts {
+                    comparator: true,
+                    kflip: true,
+                    ..b
+                },
+            ),
         ] {
             let mut c = Circuit::new(lay.num_qubits());
             add_mod_reg(&mut c, &lay, n_mod, &o);
@@ -101,8 +151,15 @@ fn main() {
         for ww in 1..=8usize {
             let lay = WindowLayout::new(inst.m, ww);
             let mut row = format!("n={} w={ww} qubits={}", inst.m, lay.num_qubits());
-            let dp = Opts { window_dp: true, ..Opts::ALL };
-            for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL), ("all+dp", dp)] {
+            let dp = Opts {
+                window_dp: true,
+                ..Opts::ALL
+            };
+            for (name, o) in [
+                ("baseline", Opts::BASELINE),
+                ("all", Opts::ALL),
+                ("all+dp", dp),
+            ] {
                 let (mut g, mut t) = (0, 0);
                 for &mult in &inst.mults {
                     let (gg, tt) = gate_counts(&controlled_ua(&lay, mult, n_mod, &o));
@@ -121,16 +178,72 @@ fn main() {
     let variants: Vec<(&str, Opts)> = vec![
         ("baseline", b),
         ("unary", Opts { unary: true, ..b }),
-        ("unary+fanout", Opts { unary: true, fanout: true, ..b }),
-        ("comparator", Opts { comparator: true, ..b }),
+        (
+            "unary+fanout",
+            Opts {
+                unary: true,
+                fanout: true,
+                ..b
+            },
+        ),
+        (
+            "comparator",
+            Opts {
+                comparator: true,
+                ..b
+            },
+        ),
         ("kflip", Opts { kflip: true, ..b }),
-        ("direct_first", Opts { direct_first: true, ..b }),
-        ("unary+keep_chain", Opts { unary: true, keep_chain: true, ..b }),
-        ("peephole only", Opts { peephole: true, ..b }),
-        ("all but peephole", Opts { peephole: false, ..Opts::ALL }),
-        ("all but sat_rules", Opts { sat_rules: false, ..Opts::ALL }),
-        ("all + window_dp", Opts { window_dp: true, ..Opts::ALL }),
-        ("all, global passes", Opts { block_passes: false, ..Opts::ALL }),
+        (
+            "direct_first",
+            Opts {
+                direct_first: true,
+                ..b
+            },
+        ),
+        (
+            "unary+keep_chain",
+            Opts {
+                unary: true,
+                keep_chain: true,
+                ..b
+            },
+        ),
+        (
+            "peephole only",
+            Opts {
+                peephole: true,
+                ..b
+            },
+        ),
+        (
+            "all but peephole",
+            Opts {
+                peephole: false,
+                ..Opts::ALL
+            },
+        ),
+        (
+            "all but sat_rules",
+            Opts {
+                sat_rules: false,
+                ..Opts::ALL
+            },
+        ),
+        (
+            "all + window_dp",
+            Opts {
+                window_dp: true,
+                ..Opts::ALL
+            },
+        ),
+        (
+            "all, global passes",
+            Opts {
+                block_passes: false,
+                ..Opts::ALL
+            },
+        ),
         ("all", Opts::ALL),
     ];
     println!(
