@@ -171,7 +171,28 @@ against K–F's 7, and d = 11 with 7 + 7 layers and distance 10), a `.sched` fil
 * `logical_error_rate(..., max_errors=k)` checks the stopping rule every 65,536 shots, so its
   result is also seed-reproducible.
 
-THROUGHPUT_TABLE
+### Throughput
+
+VPS (AMD EPYC-Rome, 4 vCPU, AVX2), **1-minute load 11.5–12.5 from other jobs**, so absolute
+numbers are pessimistic; the four contenders were interleaved (order alternating), min of 3.
+Circuit: Stim's `surface_code:rotated_memory_z`, rounds = d, all four noise knobs p = 0.1%, the same
+`.stim` text for everyone (`qs.Circuit.from_stim`). Mshot/s, compile excluded:
+
+| d | detectors | shots | Rust bench (`stim_compare bench-fast`, 1 thread) | `transposed=True`, 1 thread | `packed=True`, 1 thread | bool, 1 thread | `transposed`, 4 threads | `packed`, 4 threads | Stim pip `sample(bit_packed=True)` |
+|---|---|---|---|---|---|---|---|---|---|
+| 3 | 24 | 4,000,000 | 673.5 | 526.0 | 76.6 | 47.5 | 646.9 | 164.9 | 9.2 |
+| 7 | 336 | 1,000,000 | 57.9 | 25.3 | 15.5 | 5.0 | 33.3 | 27.8 | 0.71 |
+| 11 | 1320 | 256,000 | 10.9 | 4.6 | 4.8 | 1.2 | 6.5 | 5.8 | 0.19 |
+| 15 | 3360 | 128,000 | 4.5 | 1.9 | 2.2 | 0.54 | 3.0 | 3.0 | 0.06 |
+
+* The sampler behind the binding is the Rust bench's: timed inside the extension with no output
+  conversion (`DetectorSamplerCore._bench`), it gave 948 / 76 / 5.1 Mshot/s at d = 3 / 7 / 15
+  (1 thread, same session, load ~16), at or above the bench's own numbers.
+* What the Python call adds is producing a fresh numpy array: first-touch page faults on the
+  output (42 MB at d = 7, 1M shots, detector-major) and, for the shot-major layouts, a 64×64 bit
+  transposition per block (Stim's `bit_packed` layout). The bool layout writes 8× more bytes.
+* Against Stim's Python sampler on the same machine: 8–36× (1 thread, `packed`, the like-for-like
+  layout). Compile: 0.2 ms (d = 3) to 80–130 ms (d = 15).
 
 ## Limitations
 
