@@ -1,0 +1,13 @@
+N=21 a=2 r=6 n=5 t=10 we=2 wm=2 windows=5 2^n/N=1.524
+c=1 K=3 TV=0.245411 TV*2^c=0.491 | square(0,0): dbar=0.41748 drms=0.44811 bound=0.86559 | square(0,-1): dbar=0.38086 drms=0.40969 thbar=2.93e-3 bound=0.85102 bound*2^c=1.70 | majority: dbar=0.18408 drms=0.28384 thbar=0.00e0 bound=0.46792 | unfaithful=0.14062 (*2^c=0.281) mean|dJx|=0.347 mean|dJb|=0.514 (0.0s)
+   deviant/window*2^c: 0.50 0.16 0.50 0.23 0.48
+   b_out/window*2^c:   0.50 0.25 0.50 0.35 0.50
+c=2 K=4 TV=0.167333 TV*2^c=0.669 | square(0,0): dbar=0.27625 drms=0.28077 bound=0.55702 | square(0,-1): dbar=0.25610 drms=0.27278 thbar=6.71e-4 bound=0.54848 bound*2^c=2.19 | majority: dbar=0.12311 drms=0.16803 thbar=1.22e-4 bound=0.29777 | unfaithful=0.11548 (*2^c=0.462) mean|dJx|=1.114 mean|dJb|=1.166 (0.0s)
+   deviant/window*2^c: 0.62 0.31 0.70 0.43 0.78
+   b_out/window*2^c:   0.62 0.33 0.70 0.48 0.78
+c=3 K=4 TV=0.134075 TV*2^c=1.073 | square(0,0): dbar=0.19852 drms=0.20553 bound=0.40404 | square(1,-1): dbar=0.14182 drms=0.15731 thbar=2.59e-4 bound=0.30846 bound*2^c=2.47 | majority: dbar=0.09975 drms=0.11993 thbar=0.00e0 bound=0.21967 | unfaithful=0.06015 (*2^c=0.481) mean|dJx|=2.361 mean|dJb|=2.534 (0.1s)
+   deviant/window*2^c: 0.84 0.33 0.87 0.48 0.97
+   b_out/window*2^c:   0.84 0.42 0.88 0.63 0.98
+c=4 K=5 TV=0.071174 TV*2^c=1.139 | square(0,0): dbar=0.11018 drms=0.11457 bound=0.22475 | square(1,-1): dbar=0.06736 drms=0.07735 thbar=1.07e-4 bound=0.14851 bound*2^c=2.38 | majority: dbar=0.05287 drms=0.06410 thbar=0.00e0 bound=0.11697 | unfaithful=0.03111 (*2^c=0.498) mean|dJx|=5.017 mean|dJb|=5.148 (0.5s)
+   deviant/window*2^c: 0.95 0.36 0.97 0.52 1.02
+   b_out/window*2^c:   0.95 0.47 0.97 0.69 1.03
