@@ -12,7 +12,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 200,
-"max_shots": 3000000,
+"max_shots": 2000000,
 "tag": "t_d5_p0.003_kf"
 },
 {
@@ -28,7 +28,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 200,
-"max_shots": 3000000,
+"max_shots": 2000000,
 "tag": "t_d5_p0.003_hf"
 },
 {
@@ -44,7 +44,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 200,
-"max_shots": 3000000,
+"max_shots": 2000000,
 "tag": "t_d5_p0.003_kfflag"
 },
 {
@@ -60,7 +60,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 150,
-"max_shots": 6000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.002_kf"
 },
 {
@@ -76,7 +76,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 150,
-"max_shots": 6000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.002_hf"
 },
 {
@@ -92,7 +92,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 150,
-"max_shots": 6000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.002_kfflag"
 },
 {
@@ -108,7 +108,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 100,
-"max_shots": 12000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.001_kf"
 },
 {
@@ -124,7 +124,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 100,
-"max_shots": 12000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.001_hf"
 },
 {
@@ -140,7 +140,7 @@
 "orders": 1,
 "beam": 5,
 "fails": 100,
-"max_shots": 12000000,
+"max_shots": 3000000,
 "tag": "t_d5_p0.001_kfflag"
 }
 ]

@@ -1,0 +1,4 @@
+
+thread 'main' (623011) panicked at examples/dem_distance.rs:56:21:
+called `Result::unwrap()` on an `Err` value: Os { code: 32, kind: BrokenPipe, message: "Broken pipe" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

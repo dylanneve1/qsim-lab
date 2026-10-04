@@ -4,10 +4,14 @@ usage: summary.py <jsonl...> [--ref-map a=b,...]"""
 import json, math, sys, collections
 agg = collections.OrderedDict()
 meta = {}
+seen = set()
 for f in [a for a in sys.argv[1:] if not a.startswith("--")]:
     for l in open(f):
         j = json.loads(l)
         k = j["tag"]
+        if (k, j["seed"]) in seen:  # never count a sample twice
+            continue
+        seen.add((k, j["seed"]))
         a = agg.setdefault(k, [0, 0])
         a[0] += j["fails"]; a[1] += j["shots"]
         meta[k] = j

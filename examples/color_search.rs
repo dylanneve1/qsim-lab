@@ -14,7 +14,9 @@
 //! line per plaquette `t_a t_b t_c t_d t_e t_f [F]` (absent positions:
 //! anything, e.g. 0; `F` = flag qubit); suffix `+bflags` flags all
 //! boundary-touching plaquettes.
-use qsim_lab::qec::color::{circuit_dem, parse_schedule_spec, ColorCode, ColorNoise, ColorSchedule};
+use qsim_lab::qec::color::{
+    circuit_dem, parse_schedule_spec, ColorCode, ColorNoise, ColorSchedule,
+};
 use qsim_lab::stim_io::to_stim;
 use std::io::Write;
 
@@ -171,7 +173,16 @@ fn main() {
                 .iter()
                 .zip(&m.flag_detector)
                 .filter(|(i, _)| i.1 == x_basis)
-                .map(|(i, &fl)| (if fl { format!("f{}", i.0) } else { i.0.to_string() }, i.2))
+                .map(|(i, &fl)| {
+                    (
+                        if fl {
+                            format!("f{}", i.0)
+                        } else {
+                            i.0.to_string()
+                        },
+                        i.2,
+                    )
+                })
                 .collect();
             let ex: Vec<String> = r
                 .example

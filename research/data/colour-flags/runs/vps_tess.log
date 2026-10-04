@@ -1,0 +1,28 @@
+t_d5_p0.003_kf (96, 49152, 1) 115.5 s
+t_d5_p0.003_hf (24, 49152, 1) 129.1 s
+t_d5_p0.003_kfflag (10, 49152, 1) 181.5 s
+t_d5_p0.002_kf (72, 98304, 1) 116.7 s
+t_d5_p0.002_hf (15, 98304, 1) 198.0 s
+t_d5_p0.002_kfflag (10, 98304, 1) 197.2 s
+t_d5_p0.001_kf (11, 147456, 1) 90.4 s
+t_d5_p0.001_hf (3, 147456, 1) 125.5 s
+Traceback (most recent call last):
+  File "/tmp/qsim-wt/colour-flags/research/data/colour-flags/campaign.py", line 61, in <module>
+    r = run(job, seed)
+        ^^^^^^^^^^^^^^
+  File "/tmp/qsim-wt/colour-flags/research/data/colour-flags/campaign.py", line 38, in run
+    r = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['nice', '-n', '15', '/tmp/cf-venv/bin/python', '/tmp/qsim-wt/colour-flags/research/data/colour-flags/ler_tess.py', '5', '5', 'cnot', '0.001', 'kf+bflags', '147456', '113668128138859501', '2', 'z']' died with <Signals.SIGTERM: 15>.
+t_d5_p0.003_kf (182, 98304, 2) 109.4 s
+t_d5_p0.003_hf (56, 98304, 2) 185.7 s
+t_d5_p0.003_kfflag (40, 98304, 2) 179.7 s
+t_d5_p0.002_kf (145, 196608, 2) 114.1 s
+t_d5_p0.002_hf (31, 196608, 2) 181.5 s
+t_d5_p0.002_kfflag (21, 196608, 2) 247.5 s
+t_d5_p0.001_kf (29, 294912, 2) 134.7 s
+t_d5_p0.001_hf (3, 294912, 2) 182.6 s
+t_d5_p0.001_kfflag (0, 147456, 1) 248.6 s
+t_d5_p0.003_kf (280, 147456, 3) 194.5 s

@@ -1,0 +1,3 @@
+d11_D11_hfbnd_free: p cnf 2637 22098 -> s VERIFIED
+d11_D11_hfbnd_kfT7: p cnf 5997 50041 -> s VERIFIED
+d11_D11_hfbnd_kfT8: p cnf 6477 56920 -> s VERIFIED

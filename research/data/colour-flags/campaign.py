@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Interleaved LER campaign: arms are run chunk by chunk, round-robin, each chunk under the Mac
-bench lock (/tmp/qsim-mac-bench.lock; skipped with NOLOCK=1) so peers' timing runs never overlap
-with our load. Each arm stops once it has `fails` failures or `max_shots` shots.
+"""Interleaved LER campaign: arms are run chunk by chunk, round-robin. Each arm stops once it has
+`fails` failures or `max_shots` shots.
+Mac sharing rule: Monte-Carlo campaigns never hold the bench lock; with PAUSE_ON_LOCK=1 the chunk's
+whole process group is SIGSTOPped while anyone holds /tmp/qsim-mac-bench.lock and SIGCONTed after.
+(LOCK=1 restores the old behaviour of holding the lock per chunk; not used any more.)
 
 usage: campaign.py <jobs.json> <out.jsonl>
 jobs.json: list of {"dec": "tess"|"bposd", "d", "R", "noise", "p", "spec", "chunk", "workers",
@@ -27,7 +29,7 @@ if os.path.exists(out):
 def run(job, seed):
     if job["dec"] == "tess":
         env = dict(os.environ, TESS_ORDERS=str(job.get("orders", 16)), TESS_BEAM=str(job.get("beam", 15)), CS=CS,
-                   OWN_LOCK="1")
+                   OWN_LOCK="1" if os.environ.get("LOCK") == "1" else "0")
         cmd = [PY, os.path.join(HERE, "ler_tess.py"), str(job["d"]), str(job["R"]), job["noise"], str(job["p"]),
                job["spec"], str(job["chunk"]), str(seed), str(job["workers"]), job.get("basis", "z")]
     else:
@@ -35,8 +37,24 @@ def run(job, seed):
         cmd = [LER, str(job["d"]), str(job["R"]), job["noise"], str(job["p"]), job["spec"], str(job["chunk"]),
                str(seed), str(job["workers"]), str(job.get("osd", 100))]
     cmd = ["nice", "-n", os.environ.get("NICE", "10")] + cmd
-    r = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
-    return json.loads(r.stdout.strip().splitlines()[-1])
+    if os.environ.get("PAUSE_ON_LOCK") != "1":
+        r = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
+        return json.loads(r.stdout.strip().splitlines()[-1])
+    import signal, tempfile
+    with tempfile.TemporaryFile("w+") as fo:
+        pr = subprocess.Popen(cmd, env=env, stdout=fo, stderr=subprocess.DEVNULL, start_new_session=True)
+        paused = False
+        while pr.poll() is None:
+            held = os.path.isdir(LOCK)
+            if held and not paused:
+                os.killpg(pr.pid, signal.SIGSTOP); paused = True
+            elif not held and paused:
+                os.killpg(pr.pid, signal.SIGCONT); paused = False
+            time.sleep(1)
+        if pr.returncode != 0:
+            raise RuntimeError(f"chunk failed: {cmd}")
+        fo.seek(0)
+        return json.loads(fo.read().strip().splitlines()[-1])
 
 
 k = 0
@@ -49,7 +67,7 @@ while True:
         f, n, c = done.get(job["tag"], (0, 0, 0))
         # distinct per tag and chunk; SEED_OFFSET separates machines sharing a tag
         seed = int.from_bytes(job["tag"].encode()[-6:], "little") * 1000 + c + 1 + int(os.environ.get("SEED_OFFSET", "0"))
-        if os.environ.get("NOLOCK") != "1":
+        if os.environ.get("LOCK") == "1":
             while True:
                 try:
                     os.mkdir(LOCK)
@@ -60,7 +78,7 @@ while True:
         try:
             r = run(job, seed)
         finally:
-            if os.environ.get("NOLOCK") != "1":
+            if os.environ.get("LOCK") == "1":
                 os.rmdir(LOCK)
         r.update(tag=job["tag"], dec=job["dec"], chunk_s=round(time.time() - t, 1), seed=seed)
         with open(out, "a") as fh:
