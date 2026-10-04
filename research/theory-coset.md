@@ -68,10 +68,10 @@ preserve 4^c). For vector families v, w let [v,w] be the matrix (E,E') ↦ ⟨w_
 
     K_c − K_ex = −[m,χ] − [χ,m] + [d,χ] + [χ,d] + [m,m] + [d,d] − [m,d] − [d,m].
 
-* [m,χ](E,E') = ⟨χ_{u(E')}|m_E⟩ = δ_E·[u(E)=u(E')] because m_E ⊆ G_{u(E)} has flat amplitudes:
+* \[m,χ\](E,E') = ⟨χ_{u(E')}|m_E⟩ = δ_E·[u(E)=u(E')] because m_E ⊆ G_{u(E)} has flat amplitudes:
   one rank-one block δ|_C 1ᵀ per class C, so ‖[m,χ]‖₁ ≤ Σ_C |C|^½ ‖δ|_C‖ ≤ 2^t δ_rms
   (Cauchy–Schwarz over classes). Same for [χ,m].
-* [d,χ](E,E') = θ(E, u(E')) with θ(E,u) = |G_u ∩ S_E \ G_{u(E)}|/4^c: columns constant on classes,
+* \[d,χ\](E,E') = θ(E, u(E')) with θ(E,u) = |G_u ∩ S_E \ G_{u(E)}|/4^c: columns constant on classes,
   Σ_u θ(·,u) 1_{C_u}ᵀ, trace norm ≤ Σ_u |C_u|^½ ‖θ(·,u)‖ ≤ 2^{t/2}(Σ_E Σ_u θ(E,u)²)^½ ≤ 2^t θ_rms
   (Σ_u θ(E,u)² ≤ θ_E²). Same for [χ,d].
 * [m,m], [d,d] are PSD Gram matrices: trace norm = trace = 2^t δ̄ each.
