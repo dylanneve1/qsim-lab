@@ -1,0 +1,44 @@
+# cargo run --release --example mbu_counts            (w = 4, record instances)
+# cargo run --release --example mbu_counts 1537596787 457167243 5
+# whole-run sums over the 2n controlled-U rounds; outcome streams as in the engine (seeded by (N, mult));
+# gates = every op incl. X-basis measurements and fix-up Z/CZ; slice_steps = bit-sliced engine steps
+# (an outcome-1 measurement is 2 steps: sign ^= q, q = 0). Mac M1 Pro, commit 4c1d0b5-ish (flag MBU on).
+N=1005973 a=980062 w=4
+  windowed-opt       qubits= 88 gates=   271380 toffoli=   70720 meas=      0 fixup=      0 slice_steps=   271380
+  mbu-lookup         qubits= 88 gates=   224622 toffoli=   55169 meas=  14089 fixup=   5469 slice_steps=   231677  (gates -17.2%, toffoli -22.0%, steps -14.6%)  cnot=143815 x=6080
+  mbu                qubits=107 gates=   294892 toffoli=   31399 meas=  36839 fixup=  16999 slice_steps=   313347  (gates +8.7%, toffoli -55.6%, steps +15.5%)  cnot=195375 x=14280
+N=10161323 a=9899614 w=4
+  windowed-opt       qubits=104 gates=   463922 toffoli=  120672 meas=      0 fixup=      0 slice_steps=   463922
+  mbu-lookup         qubits=104 gates=   388070 toffoli=   97996 meas=  22780 fixup=   8035 slice_steps=   399458  (gates -16.4%, toffoli -18.8%, steps -13.9%)  cnot=249179 x=10080
+  mbu                qubits=127 gates=   515073 toffoli=   53969 meas=  64049 fixup=  28706 slice_steps=   546963  (gates +11.0%, toffoli -55.3%, steps +17.9%)  cnot=344157 x=24192
+N=221643407 a=215934921 w=4
+  windowed-opt       qubits=120 gates=   736962 toffoli=  189728 meas=      0 fixup=      0 slice_steps=   736962
+  mbu-lookup         qubits=120 gates=   608834 toffoli=  155095 meas=  34359 fixup=  11175 slice_steps=   626144  (gates -17.4%, toffoli -18.3%, steps -15.0%)  cnot=395437 x=12768
+  mbu                qubits=147 gates=   832514 toffoli=   85673 meas= 102473 fixup=  45503 slice_steps=   883992  (gates +13.0%, toffoli -54.8%, steps +20.0%)  cnot=559721 x=39144
+N=1537596787 a=457167243 w=4
+  windowed-opt       qubits=132 gates=  1039303 toffoli=  261454 meas=      0 fixup=      0 slice_steps=  1039303
+  mbu-lookup         qubits=132 gates=   872071 toffoli=  218421 meas=  45379 fixup=  13126 slice_steps=   894601  (gates -16.1%, toffoli -16.5%, steps -13.9%)  cnot=571709 x=23436
+  mbu                qubits=162 gates=  1180796 toffoli=  119096 meas= 143400 fixup=  62495 slice_steps=  1252554  (gates +13.6%, toffoli -54.4%, steps +20.5%)  cnot=794797 x=61008
+N=1537596787 a=457167243 w=5
+  windowed-opt       qubits=133 gates=  1182602 toffoli=  264306 meas=      0 fixup=      0 slice_steps=  1182602
+  mbu-lookup         qubits=133 gates=   907122 toffoli=  198758 meas=  51260 fixup=  20780 slice_steps=   932581  (gates -23.3%, toffoli -24.8%, steps -21.1%)  cnot=616236 x=20088
+  mbu                qubits=163 gates=  1171150 toffoli=  114138 meas= 134970 fixup=  62908 slice_steps=  1238701  (gates -1.0%, toffoli -56.8%, steps +4.7%)  cnot=807426 x=51708
+
+# ablation: same, before the flag MBU (MbuOpts { flag: false, .. }), 31-bit, w = 3..6
+N=1537596787 a=457167243 w=4 (flag off)
+  mbu-lookup         qubits=132 gates=   911367 toffoli=  232459 meas=  44971 fixup=  12904 slice_steps=   933692  (gates -12.3%, toffoli -11.1%, steps -10.2%)
+  mbu                qubits=162 gates=  1245710 toffoli=  125695 meas= 149131 fixup=  65149 slice_steps=  1320304  (gates +19.9%, toffoli -51.9%, steps +27.0%)
+N=1537596787 a=457167243 w=3 (flag off)
+  windowed-opt       qubits=131 gates=  1195503 toffoli=  334738
+  mbu-lookup         qubits=131 gates=  1134508 toffoli=  318463 slice_steps=  1159637
+  mbu                qubits=161 gates=  1611974 toffoli=  165952 slice_steps=  1711725
+N=1537596787 a=457167243 w=5 (flag off)
+  mbu-lookup         qubits=133 gates=   943165 toffoli=  211585 slice_steps=   968420
+  mbu                qubits=163 gates=  1230094 toffoli=  120090 slice_steps=  1300233
+N=1537596787 a=457167243 w=6 (flag off)
+  windowed-opt       qubits=134 gates=  1488073 toffoli=  289974
+  mbu-lookup         qubits=134 gates=  1063376 toffoli=  196462 slice_steps=  1094504
+  mbu                qubits=164 gates=  1302193 toffoli=  120200 slice_steps=  1370734
+N=1005973 (flag off): mbu-lookup 233421 / 58415, mbu 311291 / 33118
+N=10161323 (flag off): mbu-lookup 400659 / 102691, mbu 545517 / 57097
+N=221643407 (flag off): mbu-lookup 636375 / 165035, mbu 879057 / 90449

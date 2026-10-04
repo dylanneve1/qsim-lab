@@ -1,0 +1,22 @@
+# cargo run --release --example shor_seed_orders -- 3631204201 2 7 7 17 37 29453
+# 32-bit generic N = 3631204201 = 61643 x 58907 (first balanced 32-bit semiprime of gen_instances.py, random.seed(1)),
+# lambda = 1815541826 = 2 * 7^2 * 17 * 37 * 29453. For `qsim run shor --modulus N --seed S --tries 1` the base a is the
+# first draw of StdRng(S); r its order (uses lambda, i.e. the factorisation); peak support = max(r_odd, r/2) (support law);
+# est. RSS = 33 B per peak element (f32, research/shor.md).
+seed= 1 a=3537681581 r=7009814 nu2=1 peak_support=3504907 est_rss_f32=0.12 GB classical_ok=false
+seed= 2 a=1079650808 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed= 3 a=345724033 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed= 4 a=1935443423 r=24534349 nu2=0 peak_support=24534349 est_rss_f32=0.81 GB classical_ok=false
+seed= 5 a=1242331151 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed= 6 a=1215371515 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed= 7 a=110088530 r=15256654 nu2=1 peak_support=7628327 est_rss_f32=0.25 GB classical_ok=false
+seed= 8 a=1287192617 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed= 9 a=2348266576 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed=10 a=475247085 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed=11 a=1002069679 r=259363118 nu2=1 peak_support=129681559 est_rss_f32=4.28 GB classical_ok=true
+seed=12 a=1752033219 r=907770913 nu2=0 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=false
+seed=13 a=1952806208 r=907770913 nu2=0 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=false
+seed=14 a=2036809795 r=1815541826 nu2=1 peak_support=907770913 est_rss_f32=29.96 GB classical_ok=true
+seed=15 a=2191048582 r=259363118 nu2=1 peak_support=129681559 est_rss_f32=4.28 GB classical_ok=true
+seed=16 a=3108334370 r=259363118 nu2=1 peak_support=129681559 est_rss_f32=4.28 GB classical_ok=true
+seed=17..40: see the run log; r = lambda or lambda/2 for 26 of the 40 seeds (30 GB), lambda/7-type orders (4.3 GB) for seeds 11, 15, 16, 22, 23, 24, 39
