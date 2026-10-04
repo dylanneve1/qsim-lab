@@ -63,7 +63,17 @@ pub enum MbuOp {
     /// X-basis measurement of the qubit with the given outcome, then reset
     /// to `|0⟩` (an `X` if the outcome is 1).
     MeasX(usize, bool),
+    /// A global phase `−1` (from an uncontrolled phase lookup whose
+    /// fix-up has a constant term, [`NO_CTRL`]). Physically irrelevant; the
+    /// engines track it so that their "every branch has sign +1" check
+    /// becomes "every branch has the same sign".
+    GlobalNeg,
 }
+
+/// `ctrl` value of a [`LookupSpec`] / phase table without a control qubit
+/// (the root of the unary iteration is the constant 1; exp/ge-shor's
+/// exponent-windowed lookups, whose address includes the exponent qubits).
+pub const NO_CTRL: usize = usize::MAX;
 
 /// Which measurement-based constructions to use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -175,6 +185,8 @@ pub enum LOp {
     FlagCompute(Rc<FlagSpec>),
     /// Uncompute `t = c` by measurement: X-measure `t`, `fix` if 1.
     FlagUncompute(Rc<FlagSpec>),
+    /// Global phase `−1` (see [`MbuOp::GlobalNeg`]).
+    GlobalNeg,
 }
 
 /// The exact inverse of a logical op sequence.
@@ -192,6 +204,7 @@ pub fn inverse(ops: &[LOp]) -> Vec<LOp> {
             LOp::Unlookup(s) => LOp::Lookup(s.clone()),
             LOp::FlagCompute(f) => LOp::FlagUncompute(f.clone()),
             LOp::FlagUncompute(f) => LOp::FlagCompute(f.clone()),
+            LOp::GlobalNeg => LOp::GlobalNeg,
         })
         .collect()
 }
@@ -223,6 +236,19 @@ fn unary(
         return;
     }
     let bit = addr[plan.w - 1 - d];
+    if p == NO_CTRL {
+        // uncontrolled root: the right child's flag is `bit` itself, the
+        // left child's is `¬bit` (X, recurse, X): no AND at depth 0
+        if right {
+            unary(ops, plan, d + 1, 2 * h + 1, bit, addr, and, mbu, emit);
+        }
+        if left {
+            ops.push(LOp::G(Gate::X(bit)));
+            unary(ops, plan, d + 1, 2 * h, bit, addr, and, mbu, emit);
+            ops.push(LOp::G(Gate::X(bit)));
+        }
+        return;
+    }
     let f = and[d];
     ops.push(LOp::And(p, bit, f));
     if right {
@@ -257,7 +283,11 @@ pub fn lookup_ops(s: &LookupSpec) -> Vec<LOp> {
         &mut |ops, p, m| {
             for (i, &q) in out.iter().enumerate() {
                 if (m >> i) & 1 == 1 {
-                    ops.push(LOp::G(Gate::Cnot(p, q)));
+                    ops.push(LOp::G(if p == NO_CTRL {
+                        Gate::X(q)
+                    } else {
+                        Gate::Cnot(p, q)
+                    }));
                 }
             }
         },
@@ -355,11 +385,17 @@ pub fn phase_table_k(
                 if (m >> s) & 1 == 0 {
                     continue;
                 }
-                ops.push(LOp::G(match s.count_ones() {
-                    0 => Gate::Z(p),
-                    1 => Gate::Cz(p, addr[s.trailing_zeros() as usize]),
-                    _ => Gate::Cz(p, mon[s]),
-                }));
+                let q = match s.count_ones() {
+                    0 => None,
+                    1 => Some(addr[s.trailing_zeros() as usize]),
+                    _ => Some(mon[s]),
+                };
+                ops.push(match (p == NO_CTRL, q) {
+                    (true, None) => LOp::GlobalNeg,
+                    (true, Some(q)) => LOp::G(Gate::Z(q)),
+                    (false, None) => LOp::G(Gate::Z(p)),
+                    (false, Some(q)) => LOp::G(Gate::Cz(p, q)),
+                });
             }
         },
     );
@@ -393,6 +429,7 @@ pub fn resolve(ops: &[LOp], rng: &mut dyn FnMut() -> bool, out: &mut Vec<MbuOp>)
     for op in ops {
         match op {
             LOp::G(g) => out.push(MbuOp::G(*g)),
+            LOp::GlobalNeg => out.push(MbuOp::GlobalNeg),
             LOp::And(a, b, t) => out.push(MbuOp::G(Gate::Ccx(*a, *b, *t))),
             LOp::UnAnd(a, b, t) => {
                 let m = rng();
@@ -806,6 +843,8 @@ impl MbuCounts {
                 MbuOp::G(Gate::Cnot(..)) => c.cnot += 1,
                 MbuOp::G(Gate::X(_)) => c.x += 1,
                 MbuOp::G(Gate::Z(_) | Gate::Cz(..)) => c.fixup += 1,
+                // not an operation: a global phase
+                MbuOp::GlobalNeg => c.total -= 1,
                 MbuOp::G(g) => panic!("unexpected gate {g:?}"),
             }
         }
@@ -851,6 +890,7 @@ pub fn eval_on_key(ops: &[MbuOp], mut k: u128) -> (u128, bool) {
                 sign ^= m && bit(k, q);
                 k &= !(1 << q);
             }
+            MbuOp::GlobalNeg => sign ^= true,
             MbuOp::G(g) => panic!("unexpected gate {g:?}"),
         }
     }
@@ -1094,6 +1134,7 @@ mod tests {
                                 s.apply_gate(&Gate::X(q)).unwrap();
                             }
                         }
+                        MbuOp::GlobalNeg => unreachable!("controlled blocks have no global phase"),
                     }
                 }
                 for (&k, &amp) in &dense {

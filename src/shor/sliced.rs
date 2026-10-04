@@ -117,6 +117,9 @@ pub struct SlicedProgram {
     /// The program addresses the sign word `nq + 1` (Z / CZ fix-ups and
     /// X-basis measurements of measurement-based uncomputation).
     pub signed: bool,
+    /// Accumulated global sign ([`crate::shor_mbu::MbuOp::GlobalNeg`]):
+    /// every branch must end with this sign.
+    pub global_neg: bool,
 }
 
 #[inline(always)]
@@ -179,6 +182,7 @@ impl SlicedProgram {
             ops,
             gates,
             signed: false,
+            global_neg: false,
         })
     }
 
@@ -196,6 +200,8 @@ impl SlicedProgram {
         let sign = one + 1;
         let mut ops = Vec::with_capacity(src.len() + src.len() / 4);
         let mut signed = false;
+        let mut global_neg = false;
+        let mut gates = src.len();
         let q = |i: usize| -> Result<u32, String> {
             if i < nq {
                 Ok(i as u32)
@@ -230,6 +236,11 @@ impl SlicedProgram {
                     }
                     ops.push([t, t, t]);
                 }
+                MbuOp::GlobalNeg => {
+                    signed = true;
+                    global_neg = !global_neg;
+                    gates -= 1;
+                }
                 MbuOp::G(ref g) => {
                     return Err(format!("gate {g:?} is not a signed basis-state map"))
                 }
@@ -238,8 +249,9 @@ impl SlicedProgram {
         Ok(Self {
             nq,
             ops,
-            gates: src.len(),
+            gates,
             signed,
+            global_neg,
         })
     }
 
@@ -392,9 +404,10 @@ fn eval_block_l<const L: usize, S: KeySlot>(
                 "ancillas did not return to 0 (lane word {l})"
             );
             if prog.signed {
+                let want = if prog.global_neg { valid[l] } else { 0 };
                 assert_eq!(
                     w[nq + 1][l] & valid[l],
-                    0,
+                    want,
                     "measurement-based uncomputation left a relative sign (lane word {l})"
                 );
             }

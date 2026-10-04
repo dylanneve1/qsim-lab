@@ -423,6 +423,7 @@ impl Instance {
                 for op in &ops {
                     match *op {
                         crate::shor_mbu::MbuOp::G(g) => s.gate(&g),
+                        crate::shor_mbu::MbuOp::GlobalNeg => {}
                         crate::shor_mbu::MbuOp::MeasX(q, m) => {
                             s.gate(&Gate::H(q));
                             let p1 = s.prob_one(q);
