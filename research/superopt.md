@@ -97,7 +97,8 @@ the comparator: the backward half of the subtraction and the forward half
 of the addition are inverse pairs that cancel. The auditor's estimated
 "comparator saves ~12 %" is real (−11.0 % gates on its own), but it was
 already available from the existing compiler pass. Per controlled-U round,
-the CCX budget goes from 8519 to 4128. Of the 4128, 82 % sit in the 14
+the CCX budget goes from 8519 to 4217 (default; 4128 with global passes).
+Of the 4217, 82 % sit in the 14
 modular adders (8n each), the rest in 30 lookups (28–30 each) and the 31
 controlled swaps.
 
@@ -113,7 +114,7 @@ controlled swaps.
 | direct_first | 1 531 761 | −10.1 % | 474 858 | −10.1 % |
 | unary + keep_chain | 1 527 852 | −10.4 % | 357 306 | −32.4 % |
 | generic peephole only | 1 492 016 | −12.5 % | 464 690 | −12.0 % |
-| all but peephole/SAT | 1 064 487 | −37.5 % | 256 006 | −51.5 % |
+| all but peephole (SAT rules on) | 1 064 487 | −37.5 % | 256 006 | −51.5 % |
 | all but SAT rules | 1 056 597 | −38.0 % | 262 322 | −50.3 % |
 | **all (global passes)** | **1 039 807** | **−39.0 %** | **256 006** | **−51.5 %** |
 | all + window DP | 1 036 327 | −39.2 % | 256 163 | −51.5 % |
@@ -174,7 +175,7 @@ smaller gate count proved UNSAT):
 | controlled lookup w = 2, T = [0,5,3,7] (3 bits), 1 or 2 clean ancillas | 7–8 | **6 gates** (all CCX; uses an output bit as a temporary control and toggles it back) | k ≤ 5 | unary + optimal fan-out: 13 gates / 6 CCX |
 | same lookup, minimum CCX at ≤ 10 gates | 8 | ≤ 4 CCX found; the ≤ 3 CCX query hit the 50-min timeout (open) | — | 6 CCX |
 | linear table T = [0,5,3,6] (T[3] = T[1] ⊕ T[2]) | 7 | 4 gates, ≤ 2 CCX | k ≤ 3 | — |
-| comparator n = 3, no ancilla | 7 | not finished: k ≤ 8 refuted (k = 8 took 456 s), so **optimum ≥ 9** | k ≤ 8 | 19 gates / 6 CCX |
+| comparator n = 3, no ancilla | 7 | not finished: k ≤ 8 refuted (k = 8 took 456 s; k = 9 stopped after 13 min), so **optimum ≥ 9** | k ≤ 8 | 19 gates / 6 CCX |
 | comparator n = 2, minimum CCX (≤ 13 gates, NOP padding) | 6 | not resolved: the first query (≤ 4 CCX) ran > 12 min, killed | | 4 |
 
 What these say. At these tiny widths our general constructions are 1.6–2×
@@ -198,14 +199,18 @@ Results: 220–226 distinct windows per circuit, 32–35 of them improvable,
 37 distinct rules over the four instances. 33 of these do not increase CCX
 and are kept. A second iteration on the rewritten circuits found only 2–3
 more gates per circuit, so this window shape has converged. The applied
-rewrites are:
+rewrites are as follows.
 `MAJ; CNOT(carry, out); UMA → CCX; CNOT; CCX; CNOT`. This is the Cuccaro
 top-bit simplification (7 → 4 gates), at every adder's carry-out. The same
 idea gives the comparator's top (7 → 4–5). Several constant-aware rules
 use `c0 = 0`, `t = 1` or a 0 ancilla to drop a CCX entirely (e.g. `6 → 3`
 gates, 2 → 1 CCX). The rest are 1-gate CNOT/CCX reorderings at block
 junctions. Net effect: −1.6 % gates, −2.4 % CCX on top of everything
-else.
+else. A bigger window shape (≤ 6 wires, ≤ 12 gates) on the already
+rewritten 20-bit circuit found 4 more improvable windows (6→5, 10→8, 9→7,
+8→7 gates; all constant-aware) in the first ~12 min. That search was
+stopped. These rules are not in the table, and their effect would be a
+fraction of a percent.
 
 ## 4. Verification
 
@@ -298,7 +303,7 @@ standard windowed multiplier, which is what the baseline was meant to be.
   iterations.
 * **SAT scaling.** The gate-count search proves n = 2 blocks in seconds.
   The n = 3 comparator reached k = 7 UNSAT in 49 s, and later k took much
-  longer (k = 8 UNSAT took 456 s; k = 9 was still running at write-up). Toffoli-minimisation with NOP padding is weak: the
+  longer (k = 8 UNSAT took 456 s; k = 9 was stopped unresolved after 13 min). Toffoli-minimisation with NOP padding is weak: the
   n = 2 comparator's "≤ 4 CCX" query did not finish in 12 min. A dedicated
   encoding (symmetry breaking for commuting gates, a CCX-count objective
   via assumptions) would be the next step.
