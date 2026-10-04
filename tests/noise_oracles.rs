@@ -15,7 +15,7 @@
 //!   not a function of the rest), where the weights differ from 1.
 
 use qsim_lab::shor::noisy::{Fault, NoiseKind, Pauli, Site};
-use qsim_lab::shor::noisy_gen::{self, GenCircuit, NOp, Resolved, Round, K192};
+use qsim_lab::shor::noisy_gen::{self, GenCircuit, NOp, ResetMode, Resolved, Round, K192};
 use qsim_lab::shor::{Instance, Oracle};
 use qsim_lab::{Gate, SparseState};
 use rand::rngs::StdRng;
@@ -60,6 +60,32 @@ fn ref_round(
                 for (slot, q) in g.qubits().into_iter().enumerate() {
                     if let Some(p) = slot_fault(slot as u8) {
                         s.apply_gate(&pauli_gate(p, q)).unwrap();
+                    }
+                }
+            }
+            NOp::ResetZ(g) => {
+                let grp = &res.rounds[i].groups[g as usize];
+                // joint value of the group: the most probable one (ties: the
+                // smallest), weight P(value), as noisy_gen::argmax_choice
+                let mut mass: std::collections::BTreeMap<u64, f64> = Default::default();
+                for (k, a) in s.iter() {
+                    let v = grp.iter().fold(0u64, |acc, &q| acc | (k & (1u64 << q)));
+                    *mass.entry(v).or_insert(0.0) += a.norm_sqr();
+                }
+                let tot: f64 = mass.values().sum();
+                let mx = mass.values().copied().fold(0.0, f64::max);
+                let (&v, &pv) = mass.iter().find(|(_, &x)| x >= mx - 1e-9 * tot).unwrap();
+                wf *= pv / tot;
+                for &q in grp {
+                    let b = (v >> q) & 1 == 1;
+                    s.collapse(q as usize, b);
+                    if b {
+                        s.apply_gate(&Gate::X(q as usize)).unwrap();
+                    }
+                }
+                for (slot, &q) in grp.iter().enumerate() {
+                    if slot_fault(slot as u8).is_some() {
+                        s.apply_gate(&Gate::X(q as usize)).unwrap();
                     }
                 }
             }
@@ -201,6 +227,7 @@ fn special_patterns(res: &Resolved, rng: &mut StdRng) -> Vec<Vec<Fault>> {
             if let Some(prev) = (0..g).rev().find(|&h| match r.ops[h] {
                 NOp::G(gg) => gg.qubits().contains(&(q as usize)),
                 NOp::MeasX(qq, _) => qq == q,
+                NOp::ResetZ(_) => false,
             }) {
                 if let NOp::G(gg) = r.ops[prev] {
                     let slot = gg.qubits().iter().position(|&x| x == q as usize).unwrap();
@@ -339,4 +366,71 @@ fn random_streams_with_collisions_match_sparse_reference() {
         "too few streams with collisions ({nontrivial})"
     );
     eprintln!("{nontrivial} of 120 patterns had total weight != 1");
+}
+
+#[test]
+fn reset_variants_match_sparse_reference() {
+    // the design variants (Z-basis resets of should-be-clean ancillas after
+    // every window / every round): noiseless they change nothing; with
+    // faults (reset flips included) the engine equals the reference
+    let mut rng = StdRng::seed_from_u64(77);
+    let mut checked = 0;
+    let mut dirty_resets = 0;
+    for (n_mod, a, oracle) in [
+        (15u64, 7u64, Oracle::WindowedOpt(2)),
+        (15, 2, Oracle::WindowedMbuLookup(2)),
+        (15, 7, Oracle::WindowedMbu(2)),
+        (21, 2, Oracle::WindowedOpt(2)),
+    ] {
+        let inst = Instance::new(n_mod, a, oracle);
+        for mode in [ResetMode::Round, ResetMode::Window] {
+            for kind in [NoiseKind::Depolarizing, NoiseKind::BitFlip] {
+                let base = GenCircuit::new(&inst, kind);
+                let gc = GenCircuit::with_resets(&inst, kind, mode);
+                let mut r1 = StdRng::seed_from_u64(5);
+                let mut r2 = StdRng::seed_from_u64(5);
+                let res0 = base.resolve_rng(&mut r1);
+                let res = gc.resolve_rng(&mut r2);
+                let d0 = noisy_gen::trajectory_distribution::<u128>(&base, &res0, &[]);
+                let d1 = noisy_gen::trajectory_distribution::<u128>(&gc, &res, &[]);
+                assert_close(&d0, &d1, "noiseless with resets");
+                let mut pats: Vec<Vec<Fault>> = Vec::new();
+                for k in [1usize, 1, 1, 2, 2, 3] {
+                    pats.push(res.sample_k(k, &mut rng));
+                }
+                // faults on the reset slots themselves
+                for (i, rd) in res.rounds.iter().enumerate().take(3) {
+                    if let Some(g) = rd.ops.iter().position(|o| matches!(o, NOp::ResetZ(_))) {
+                        pats.push(vec![Fault {
+                            round: i as u32,
+                            site: Site::Gate {
+                                gate: g as u32,
+                                slot: 0,
+                            },
+                            pauli: Pauli::X,
+                        }]);
+                    }
+                }
+                for f in &pats {
+                    let e = noisy_gen::trajectory_distribution::<u128>(&gc, &res, f);
+                    let r = ref_distribution(&gc, &res, f);
+                    assert_close(
+                        &e,
+                        &r,
+                        &format!("N={n_mod} {oracle:?} {mode:?} {kind:?} {f:?}"),
+                    );
+                    let tot: f64 = e.iter().sum();
+                    if (tot - 1.0).abs() > 1e-9 {
+                        dirty_resets += 1;
+                    }
+                    checked += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        dirty_resets > 5,
+        "too few patterns with a dirty reset ({dirty_resets})"
+    );
+    eprintln!("{checked} reset-variant patterns agree ({dirty_resets} with a non-trivial reset)");
 }

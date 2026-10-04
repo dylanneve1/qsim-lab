@@ -15,10 +15,12 @@
 //! resolved circuit (MBU streams depend on the recorded outcomes).
 //! Env: `QSIM_NOISE_CONC` (trajectories at a time), `QSIM_NOISE_F32`,
 //! `QSIM_NOISE_RESET` (ideal reset of every ancilla after each round),
-//! `QSIM_NOISE_KMIN`.
+//! `QSIM_NOISE_KMIN`, `QSIM_NOISE_DESIGN` = `round` | `window` (Z-basis resets of
+//! should-be-clean ancillas at every round end / after every window, with
+//! reset-flip locations; `noisy_gen::ResetMode`).
 
 use qsim_lab::shor::noisy::{self, NoiseKind, Site};
-use qsim_lab::shor::noisy_gen::{self, tag, GenCircuit, Key, NOp, K192};
+use qsim_lab::shor::noisy_gen::{self, tag, GenCircuit, Key, NOp, ResetMode, K192};
 use qsim_lab::shor::{Instance, Oracle};
 use qsim_lab::shor_window::WindowLayout;
 use rand::rngs::StdRng;
@@ -58,6 +60,7 @@ fn gate_name(op: &NOp) -> &'static str {
         NOp::G(qsim_lab::Gate::Z(_)) => "z",
         NOp::G(qsim_lab::Gate::Cz(..)) => "cz",
         NOp::MeasX(..) => "measx",
+        NOp::ResetZ(..) => "resetz",
         _ => "?",
     }
 }
@@ -126,6 +129,7 @@ fn main() {
                 e.1 += match op {
                     NOp::G(g) => g.arity() as u64,
                     NOp::MeasX(..) => 2,
+                    NOp::ResetZ(g) => rd.groups[*g as usize].len() as u64,
                 };
             }
         }
@@ -135,7 +139,12 @@ fn main() {
         return;
     }
     let kind = NoiseKind::parse(&args[4]).expect("kind");
-    let gc = GenCircuit::new(&inst, kind);
+    let design = match std::env::var("QSIM_NOISE_DESIGN").as_deref() {
+        Ok("round") => ResetMode::Round,
+        Ok("window") => ResetMode::Window,
+        _ => ResetMode::None,
+    };
+    let gc = GenCircuit::with_resets(&inst, kind, design);
     let m: u64 = args[6].parse().unwrap();
     let seed: u64 = args[7].parse().unwrap();
     let cap: usize = args.get(8).map_or(1 << 26, |s| s.parse().unwrap());
@@ -165,7 +174,7 @@ fn main() {
         let mut o = stdout.lock();
         writeln!(
             o,
-            "# N={n_mod} n={} a={a} r={r} oracle={oracle:?} qubits={} kind={} t={} mode={mode} p={:?} cap={cap} seed={seed} reset_ancillas={reset} wide_keys={wide}",
+            "# N={n_mod} n={} a={a} r={r} oracle={oracle:?} qubits={} kind={} t={} mode={mode} p={:?} cap={cap} seed={seed} reset_ancillas={reset} wide_keys={wide} design={design:?}",
             inst.m,
             gc.nq,
             kind.name(),
@@ -219,6 +228,9 @@ fn main() {
                             let mut name = gate_name(&op).to_string();
                             if let NOp::MeasX(..) = op {
                                 name = if slot == 0 { "measx-ro" } else { "measx-reset" }.into();
+                            }
+                            if let NOp::ResetZ(..) = op {
+                                name = "resetz-flip".into();
                             }
                             let frac =
                                 gate as f64 / res.rounds[f.round as usize].ops.len() as f64;

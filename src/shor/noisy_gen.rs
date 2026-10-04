@@ -146,6 +146,10 @@ pub enum NOp {
     /// X-basis measurement of the qubit with the *recorded* outcome, then
     /// reset to `|0⟩`.
     MeasX(u32, bool),
+    /// Z-basis measure-and-reset of the qubit group `Round::groups[i]`
+    /// (design variants: mid-circuit reset of qubits that should be clean;
+    /// the outcome is discarded). One location per qubit: a reset flip.
+    ResetZ(u32),
 }
 
 /// Block tags: `block | part | INV`.
@@ -160,6 +164,8 @@ pub mod tag {
     pub const SWAP: u8 = 0x30;
     /// Untagged.
     pub const OTHER: u8 = 0x40;
+    /// A [`super::NOp::ResetZ`] (design variants).
+    pub const RESET: u8 = 0x50;
     pub const BLOCK: u8 = 0x70;
 
     /// Lookup: unary-iteration / AND-chain gates (target an AND ancilla,
@@ -193,6 +199,7 @@ pub mod tag {
             UNLOOKUP => "unlookup",
             MODADD => "modadd",
             SWAP => "swap",
+            RESET => "reset",
             _ => "other",
         }
     }
@@ -221,16 +228,12 @@ pub mod tag {
     }
 }
 
-fn op_slots(op: &NOp, kind: NoiseKind) -> u64 {
+fn op_slots(op: &NOp, groups: &[Vec<u32>], kind: NoiseKind) -> u64 {
+    let flips = !matches!(kind, NoiseKind::PhaseFlip);
     match op {
         NOp::G(g) => g.arity() as u64,
-        NOp::MeasX(..) => {
-            if matches!(kind, NoiseKind::PhaseFlip) {
-                0
-            } else {
-                2
-            }
-        }
+        NOp::MeasX(..) => 2 * u64::from(flips),
+        NOp::ResetZ(gi) => groups[*gi as usize].len() as u64 * u64::from(flips),
     }
 }
 
@@ -239,22 +242,33 @@ fn op_slots(op: &NOp, kind: NoiseKind) -> u64 {
 pub struct Round {
     pub ops: Vec<NOp>,
     pub tags: Vec<u8>,
+    /// Qubit groups of the [`NOp::ResetZ`] ops.
+    pub groups: Vec<Vec<u32>>,
     slot_prefix: Vec<u64>,
 }
 
 impl Round {
     pub fn new(ops: Vec<NOp>, tags: Vec<u8>, kind: NoiseKind) -> Self {
+        Self::with_groups(ops, tags, Vec::new(), kind)
+    }
+    pub fn with_groups(
+        ops: Vec<NOp>,
+        tags: Vec<u8>,
+        groups: Vec<Vec<u32>>,
+        kind: NoiseKind,
+    ) -> Self {
         assert_eq!(ops.len(), tags.len());
         let mut slot_prefix = Vec::with_capacity(ops.len() + 1);
         let mut s = 0u64;
         slot_prefix.push(0);
         for op in &ops {
-            s += op_slots(op, kind);
+            s += op_slots(op, &groups, kind);
             slot_prefix.push(s);
         }
         Self {
             ops,
             tags,
+            groups,
             slot_prefix,
         }
     }
@@ -341,7 +355,10 @@ impl Resolved {
         let pauli = match site {
             Site::Prep | Site::Meas => Pauli::X,
             Site::Gate { gate, .. }
-                if matches!(self.rounds[round].ops[gate as usize], NOp::MeasX(..)) =>
+                if matches!(
+                    self.rounds[round].ops[gate as usize],
+                    NOp::MeasX(..) | NOp::ResetZ(..)
+                ) =>
             {
                 Pauli::X
             }
@@ -402,6 +419,7 @@ impl Resolved {
                 let q = match op {
                     NOp::G(g) => g.qubits()[slot as usize],
                     NOp::MeasX(q, _) => q as usize,
+                    NOp::ResetZ(g) => r.groups[g as usize][slot as usize] as usize,
                 };
                 Some((op, q, r.tags[gate as usize]))
             }
@@ -411,13 +429,14 @@ impl Resolved {
 
     /// Compiles round `i` with its faults spliced in. Words: `0..nq` qubits,
     /// `nq` all-ones, `nq + 1` the sign.
-    fn program(&self, nq: usize, i: usize, faults: &[Fault]) -> (Vec<[u32; 3]>, PostFaults) {
+    fn program(&self, nq: usize, i: usize, faults: &[Fault]) -> (Vec<Seg>, PostFaults) {
         let nqu = nq as u32;
         let (one, sign) = (nqu, nqu + 1);
         let rc = &self.rounds[i];
         let mut gf: Vec<(u32, u8, Pauli)> = Vec::new();
         let mut post = PostFaults::default();
         let mut ops = Vec::with_capacity(rc.ops.len() + rc.ops.len() / 4 + 8);
+        let mut segs: Vec<Seg> = Vec::new();
         let push_pauli = |ops: &mut Vec<[u32; 3]>, q: u32, p: Pauli| {
             if matches!(p, Pauli::Z | Pauli::Y) {
                 ops.push([sign, q, one]);
@@ -489,11 +508,27 @@ impl Resolved {
                         ops.push([t, one, one]);
                     }
                 }
+                NOp::ResetZ(g) => {
+                    let grp = rc.groups[g as usize].clone();
+                    let mut flips = Vec::new();
+                    for &(_, slot, _) in fs {
+                        flips.push(grp[slot as usize]);
+                    }
+                    segs.push(Seg {
+                        ops: std::mem::take(&mut ops),
+                        reset: Some((grp, flips)),
+                    });
+                }
             }
         }
         assert_eq!(fi, gf.len(), "gate fault beyond the round's ops");
-        assert!(ops.iter().flatten().all(|&x| x <= sign));
-        (ops, post)
+        segs.push(Seg { ops, reset: None });
+        assert!(segs
+            .iter()
+            .flat_map(|s| &s.ops)
+            .flatten()
+            .all(|&x| x <= sign));
+        (segs, post)
     }
 }
 
@@ -507,6 +542,14 @@ fn sample_pauli<R: Rng + ?Sized>(kind: NoiseKind, rng: &mut R) -> Pauli {
         NoiseKind::BitFlip => Pauli::X,
         NoiseKind::PhaseFlip => Pauli::Z,
     }
+}
+
+/// A straight-line piece of a round's program, optionally followed by a
+/// Z-basis reset of a qubit group (and the reset flips of that reset).
+#[derive(Clone, Debug)]
+struct Seg {
+    ops: Vec<[u32; 3]>,
+    reset: Option<(Vec<u32>, Vec<u32>)>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -530,6 +573,72 @@ enum Source {
     Mbu(MbuOpts, usize),
 }
 
+/// Where the design variants put Z-basis measure-and-resets
+/// ([`NOp::ResetZ`]) of qubits that should be clean.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResetMode {
+    /// No resets (the oracles as built).
+    None,
+    /// At the end of every round: every ancilla (all qubits above the work
+    /// register).
+    Round,
+    /// After every window's unlookup: the window-clean ancillas (lookup
+    /// register, AND ancillas, constant register, carry, flag, top bit of
+    /// the accumulator, Gidney carries); plus the end-of-round reset.
+    Window,
+}
+
+/// Inserts the [`ResetMode`] resets into a tagged round.
+fn insert_resets(
+    ops: Vec<NOp>,
+    tags: Vec<u8>,
+    mode: ResetMode,
+    inst: &Instance,
+    nq: usize,
+) -> (Vec<NOp>, Vec<u8>, Vec<Vec<u32>>) {
+    if mode == ResetMode::None {
+        return (ops, tags, Vec::new());
+    }
+    let m = inst.m;
+    let all: Vec<u32> = (m as u32 + 1..nq as u32).collect();
+    let w = match inst.oracle {
+        Oracle::Windowed(w)
+        | Oracle::WindowedOpt(w)
+        | Oracle::WindowedMbu(w)
+        | Oracle::WindowedMbuLookup(w) => w,
+        o => panic!("resets need a windowed layout, not {o:?}"),
+    };
+    let lay = WindowLayout::new(m, w);
+    let mut win: Vec<u32> = lay
+        .l
+        .iter()
+        .chain(&lay.and)
+        .chain(&lay.k)
+        .chain([&lay.c0, &lay.t, &lay.b[m]])
+        .map(|&q| q as u32)
+        .collect();
+    // Gidney carries (full-MBU layout) sit above the windowed layout
+    win.extend(lay.num_qubits() as u32..nq as u32);
+    win.sort_unstable();
+    let groups = vec![win, all];
+    let mut o = Vec::with_capacity(ops.len() + 64);
+    let mut t = Vec::with_capacity(ops.len() + 64);
+    let n = ops.len();
+    for j in 0..n {
+        o.push(ops[j]);
+        t.push(tags[j]);
+        let is_ul = tags[j] & tag::BLOCK == tag::UNLOOKUP;
+        let next_ul = j + 1 < n && tags[j + 1] & tag::BLOCK == tag::UNLOOKUP;
+        if mode == ResetMode::Window && is_ul && !next_ul && j + 1 < n {
+            o.push(NOp::ResetZ(0));
+            t.push(tag::RESET | tag::GATE);
+        }
+    }
+    o.push(NOp::ResetZ(1));
+    t.push(tag::RESET | tag::GATE);
+    (o, t, groups)
+}
+
 /// A noisy semiclassical Shor circuit for any supported oracle.
 #[derive(Clone, Debug)]
 pub struct GenCircuit {
@@ -538,9 +647,29 @@ pub struct GenCircuit {
     /// Qubits (control = qubit 0).
     pub nq: usize,
     src: Source,
+    pub resets: ResetMode,
 }
 
 impl GenCircuit {
+    /// [`GenCircuit::new`] with the design variant's resets.
+    pub fn with_resets(inst: &Instance, kind: NoiseKind, resets: ResetMode) -> Self {
+        let mut gc = Self::new(inst, kind);
+        gc.resets = resets;
+        if let Source::Fixed(r) = &gc.src {
+            let rounds = r
+                .rounds
+                .iter()
+                .map(|rd| {
+                    let (o, t, g) =
+                        insert_resets(rd.ops.clone(), rd.tags.clone(), resets, inst, gc.nq);
+                    Round::with_groups(o, t, g, kind)
+                })
+                .collect();
+            gc.src = Source::Fixed(Arc::new(Resolved::new(rounds, kind)));
+        }
+        gc
+    }
+
     pub fn new(inst: &Instance, kind: NoiseKind) -> Self {
         let nq = inst.qubits();
         assert!(nq <= 193, "keys hold at most 192 non-control qubits");
@@ -564,6 +693,7 @@ impl GenCircuit {
             kind,
             nq,
             src,
+            resets: ResetMode::None,
         }
     }
 
@@ -576,6 +706,7 @@ impl GenCircuit {
             kind,
             nq,
             src: Source::Fixed(Arc::new(Resolved::new(rounds, kind))),
+            resets: ResetMode::None,
         }
     }
 
@@ -596,7 +727,8 @@ impl GenCircuit {
                     .map(|i| {
                         let mult = inst.mults[inst.t - 1 - i];
                         let (ops, tags) = mbu_round(inst, *w, o, mult, bit);
-                        Round::new(ops, tags, self.kind)
+                        let (ops, tags, g) = insert_resets(ops, tags, self.resets, inst, self.nq);
+                        Round::with_groups(ops, tags, g, self.kind)
                     })
                     .collect();
                 Arc::new(Resolved::new(rounds, self.kind))
@@ -639,6 +771,7 @@ fn modadd_parts(ops: &[NOp], k: &[usize], inv: bool) -> Vec<u8> {
     let touches_k = |op: &NOp| match op {
         NOp::G(g) => g.qubits().iter().any(|q| k.contains(q)),
         NOp::MeasX(q, _) => k.contains(&(*q as usize)),
+        NOp::ResetZ(_) => false,
     };
     let first = ops.iter().position(touches_k);
     let last = ops.iter().rposition(touches_k);
@@ -1037,31 +1170,29 @@ fn eval_half<const L: usize, K: Key, T: Real>(
     nq: usize,
     keys: &[K],
     amps: &[Complex<T>],
-    ctrl: bool,
+    ctrls: &[bool],
     out: &mut [OutBranch<K, T>],
 ) {
     let b = 64 * L;
     let sign = nq + 1;
     keys.par_chunks(b)
         .zip(amps.par_chunks(b))
+        .zip(ctrls.par_chunks(b))
         .zip(out.par_chunks_mut(b))
         .for_each_init(
             || vec![[0u64; L]; nq + 2],
-            |w, ((ks, am), os)| {
+            |w, (((ks, am), cs), os)| {
                 for x in w.iter_mut() {
                     *x = [0; L];
                 }
                 w[nq] = [u64::MAX; L];
                 let mut blk = [0u64; 64];
-                for (l, kc) in ks.chunks(64).enumerate() {
-                    let valid = if kc.len() == 64 {
-                        u64::MAX
-                    } else {
-                        (1u64 << kc.len()) - 1
-                    };
-                    if ctrl {
-                        w[0][l] = valid;
+                for (l, (kc, cc)) in ks.chunks(64).zip(cs.chunks(64)).enumerate() {
+                    let mut cw = 0u64;
+                    for (j, &c) in cc.iter().enumerate() {
+                        cw |= u64::from(c) << j;
                     }
+                    w[0][l] = cw;
                     for half in 0..K::WORDS {
                         let lo = 1 + 64 * half;
                         if lo >= nq {
@@ -1121,14 +1252,75 @@ fn eval_dispatch<K: Key, T: Real>(
     nq: usize,
     keys: &[K],
     amps: &[Complex<T>],
-    ctrl: bool,
+    ctrls: &[bool],
     out: &mut [OutBranch<K, T>],
 ) {
     match keys.len() {
-        0..=64 => eval_half::<1, K, T>(ops, nq, keys, amps, ctrl, out),
-        65..=512 => eval_half::<4, K, T>(ops, nq, keys, amps, ctrl, out),
-        _ => eval_half::<16, K, T>(ops, nq, keys, amps, ctrl, out),
+        0..=64 => eval_half::<1, K, T>(ops, nq, keys, amps, ctrls, out),
+        65..=512 => eval_half::<4, K, T>(ops, nq, keys, amps, ctrls, out),
+        _ => eval_half::<16, K, T>(ops, nq, keys, amps, ctrls, out),
     }
+}
+
+/// `key` with only the bits of `qubits` (key bit = qubit − 1).
+fn group_bits<K: Key>(key: &K, mask: &K) -> K {
+    let mut o = K::default();
+    for i in 0..K::WORDS {
+        o.set_word(i, key.word(i) & mask.word(i));
+    }
+    o
+}
+
+fn group_mask<K: Key>(qubits: &[u32]) -> K {
+    let mut m = K::default();
+    for &q in qubits {
+        let j = q as usize - 1;
+        m.set_word(j / 64, m.word(j / 64) | (1u64 << (j % 64)));
+    }
+    m
+}
+
+/// Z-basis measure-and-reset of the group `mask` on a branch list (both
+/// control values): merges duplicate branches, picks a group value with
+/// `choose(probabilities)` → `(index, weight factor)`, keeps its branches
+/// (norm preserved), clears the group bits. Returns the weight factor.
+fn reset_group<K: Key, T: Real>(
+    v: &mut Vec<OutBranch<K, T>>,
+    mask: &K,
+    choose: &mut dyn FnMut(&[f64]) -> (usize, f64),
+) -> f64 {
+    let z = K::default();
+    if !v.par_iter().any(|e| group_bits(&e.0, mask) != z) {
+        return 1.0;
+    }
+    v.par_sort_unstable_by_key(|e| (e.0, e.2));
+    let mut m: Vec<OutBranch<K, T>> = Vec::with_capacity(v.len());
+    for e in v.drain(..) {
+        match m.last_mut() {
+            Some(l) if l.0 == e.0 && l.2 == e.2 => l.1 = l.1 + e.1,
+            _ => m.push(e),
+        }
+    }
+    let mut mass: std::collections::BTreeMap<K, f64> = Default::default();
+    for e in &m {
+        *mass.entry(group_bits(&e.0, mask)).or_insert(0.0) += c64(e.1).norm_sqr();
+    }
+    let total: f64 = mass.values().sum();
+    let vals: Vec<K> = mass.keys().copied().collect();
+    let probs: Vec<f64> = mass.values().map(|x| x / total).collect();
+    let (idx, wf) = choose(&probs);
+    let pick = vals[idx];
+    let scale = T::from_f64((1.0 / probs[idx]).sqrt());
+    let mut inv = K::default();
+    for i in 0..K::WORDS {
+        inv.set_word(i, !mask.word(i));
+    }
+    *v = m
+        .into_iter()
+        .filter(|e| group_bits(&e.0, mask) == pick)
+        .map(|e| (group_bits(&e.0, &inv), e.1 * scale, e.2))
+        .collect();
+    wf
 }
 
 fn cvt<T: Real>(z: Complex64) -> Complex<T> {
@@ -1221,15 +1413,42 @@ impl<K: Key, T: Real> GenState<K, T> {
         y_low: u128,
         faults: &[Fault],
         cap: usize,
+        choose: &mut dyn FnMut(&[f64]) -> (usize, f64),
     ) -> Result<(f64, bool, f64), Capped> {
         self.support_trace.push(self.keys.len());
-        let (ops, post) = res.program(nq, i, faults);
+        let (segs, post) = res.program(nq, i, faults);
         let s = self.keys.len();
         let mut out: Vec<OutBranch<K, T>> = vec![(K::default(), Complex::zero(), false); 2 * s];
-        {
+        let mut reset_w = 1.0f64;
+        if segs.len() == 1 {
+            let ops = &segs[0].ops;
             let (o0, o1) = out.split_at_mut(s);
-            eval_dispatch(&ops, nq, &self.keys, &self.amps, false, o0);
-            eval_dispatch(&ops, nq, &self.keys, &self.amps, true, o1);
+            eval_dispatch(ops, nq, &self.keys, &self.amps, &vec![false; s], o0);
+            eval_dispatch(ops, nq, &self.keys, &self.amps, &vec![true; s], o1);
+        } else {
+            let mut keys: Vec<K> = self.keys.iter().chain(&self.keys).copied().collect();
+            let mut amps: Vec<Complex<T>> = self.amps.iter().chain(&self.amps).copied().collect();
+            let mut ctrls: Vec<bool> = (0..2 * s).map(|j| j >= s).collect();
+            for (si, seg) in segs.iter().enumerate() {
+                out = vec![(K::default(), Complex::zero(), false); keys.len()];
+                eval_dispatch(&seg.ops, nq, &keys, &amps, &ctrls, &mut out);
+                if let Some((grp, flips)) = &seg.reset {
+                    reset_w *= reset_group(&mut out, &group_mask::<K>(grp), choose);
+                    if !flips.is_empty() {
+                        let fm: K = group_mask(flips);
+                        for e in out.iter_mut() {
+                            for wi in 0..K::WORDS {
+                                e.0.set_word(wi, e.0.word(wi) ^ fm.word(wi));
+                            }
+                        }
+                    }
+                }
+                if si + 1 < segs.len() {
+                    keys = out.iter().map(|e| e.0).collect();
+                    amps = out.iter().map(|e| e.1).collect();
+                    ctrls = out.iter().map(|e| e.2).collect();
+                }
+            }
         }
         self.work_ops += 2 * s as u128 * res.rounds[i].ops.len() as u128;
         let (mut a1, mut a0): (Vec<_>, Vec<_>) = out.into_par_iter().partition(|e| e.2);
@@ -1307,7 +1526,7 @@ impl<K: Key, T: Real> GenState<K, T> {
         self.p1_raw = p1;
         self.p0_raw = p0;
         let pr1 = if wn > 0.0 { p1 / wn } else { 0.0 };
-        Ok((pr1, post.meas, wn))
+        Ok((pr1, post.meas, wn * reset_w))
     }
 
     /// Collapses the control measured after the last round and renormalises.
@@ -1400,7 +1619,18 @@ pub fn run_trajectory<K: Key, T: Real, R: Rng + ?Sized>(
     let mut s = GenState::<K, T>::new();
     let mut y = 0u128;
     for (i, fs) in by_round.iter().enumerate() {
-        match s.round(res, inst, gc.nq, i, y, fs, cap) {
+        let mut choose = |pr: &[f64]| {
+            let mut u = rng.random::<f64>();
+            for (j, &x) in pr.iter().enumerate() {
+                if u < x {
+                    return (j, 1.0);
+                }
+                u -= x;
+            }
+            (pr.len() - 1, 1.0)
+        };
+        let step = s.round(res, inst, gc.nq, i, y, fs, cap, &mut choose);
+        match step {
             Ok((p1, flip, wn)) => {
                 s.log_weight += wn.ln();
                 if wn <= 0.0 {
@@ -1493,7 +1723,16 @@ pub fn trajectory_distribution<K: Key>(
             return;
         }
         let (p1, flip, wn) = s
-            .round(res, &gc.inst, gc.nq, i, y, &by_round[i], usize::MAX)
+            .round(
+                res,
+                &gc.inst,
+                gc.nq,
+                i,
+                y,
+                &by_round[i],
+                usize::MAX,
+                &mut argmax_choice,
+            )
             .unwrap();
         if wn <= 1e-300 {
             return;
@@ -1511,6 +1750,15 @@ pub fn trajectory_distribution<K: Key>(
     }
     walk::<K>(gc, res, &by_round, GenState::new(), 0, 0, 1.0, &mut out);
     out
+}
+
+/// Deterministic reset outcome for exact distributions: the most probable
+/// group value, with its probability as the path weight.
+/// Ties (within 1e-9) go to the smallest group value.
+pub fn argmax_choice(p: &[f64]) -> (usize, f64) {
+    let mx = p.iter().copied().fold(0.0, f64::max);
+    let best = p.iter().position(|&x| x >= mx - 1e-9).unwrap();
+    (best, p[best])
 }
 
 /// The success criterion of research/shor-noise.md ("peak"):
