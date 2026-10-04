@@ -276,14 +276,22 @@ fn and_count(ops: &[LOp]) -> usize {
 /// handled by precomputed monomials (algebraic normal form per high leaf)
 /// and the `w − k` high bits by unary iteration. `scratch` must hold at
 /// least `(w − k) + (2^k − k − 1)` clean qubits; all return clean.
-pub fn phase_table_k(ctrl: usize, addr: &[usize], g: &[bool], scratch: &[usize], k: usize) -> Vec<LOp> {
+pub fn phase_table_k(
+    ctrl: usize,
+    addr: &[usize],
+    g: &[bool],
+    scratch: &[usize],
+    k: usize,
+) -> Vec<LOp> {
     let w = addr.len();
     assert_eq!(g.len(), 1 << w);
     assert!(k <= w && k <= 6);
     let hw = w - k;
     let mut anf = vec![0u64; 1 << hw];
     for (h, a_h) in anf.iter_mut().enumerate() {
-        let mut a: Vec<u8> = (0..1usize << k).map(|l| u8::from(g[(h << k) | l])).collect();
+        let mut a: Vec<u8> = (0..1usize << k)
+            .map(|l| u8::from(g[(h << k) | l]))
+            .collect();
         for i in 0..k {
             for s in 0..1usize << k {
                 if (s >> i) & 1 == 1 {
@@ -375,7 +383,8 @@ pub fn phase_table(ctrl: usize, addr: &[usize], g: &[bool], scratch: &[usize]) -
             best = Some((key.0, key.1, ops));
         }
     }
-    best.expect("not enough scratch qubits for the phase fix-up").2
+    best.expect("not enough scratch qubits for the phase fix-up")
+        .2
 }
 
 /// Resolves logical ops into [`MbuOp`]s, drawing every measurement outcome
@@ -565,7 +574,10 @@ pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64, flag: bool) {
     let (l, b, k, t, cy) = (&w.l, &w.b, &w.k, w.t, &lay.cy);
     let n = w.n;
     let g = |ops: &mut Vec<LOp>, x: Gate| ops.push(LOp::G(x));
-    let set: Vec<usize> = (0..n).filter(|&j| (n_mod >> j) & 1 == 1).map(|j| k[j]).collect();
+    let set: Vec<usize> = (0..n)
+        .filter(|&j| (n_mod >> j) & 1 == 1)
+        .map(|j| k[j])
+        .collect();
     add_g(ops, l, b, cy);
     for &q in &set {
         g(ops, Gate::X(q));
@@ -757,7 +769,13 @@ impl Outcomes {
 }
 
 /// The resolved controlled-`U_a` block for one outcome stream.
-pub fn controlled_ua(lay: &MbuLayout, a: u64, n_mod: u64, o: &MbuOpts, outc: &mut Outcomes) -> Vec<MbuOp> {
+pub fn controlled_ua(
+    lay: &MbuLayout,
+    a: u64,
+    n_mod: u64,
+    o: &MbuOpts,
+    outc: &mut Outcomes,
+) -> Vec<MbuOp> {
     let ops = controlled_ua_ops(lay, a, n_mod, o);
     let mut out = Vec::with_capacity(ops.len() * 2);
     resolve(&ops, &mut || outc.next_bit(), &mut out);
@@ -931,7 +949,11 @@ mod tests {
                 let lk = lookup_ops(&spec);
                 assert_eq!(and_count(&lk), (1 << w) - 1);
                 let mut ops = Vec::new();
-                resolve(&[LOp::Lookup(spec.clone())], &mut || oc.next_bit(), &mut ops);
+                resolve(
+                    &[LOp::Lookup(spec.clone())],
+                    &mut || oc.next_bit(),
+                    &mut ops,
+                );
                 let mut un = Vec::new();
                 resolve(&[LOp::Unlookup(spec)], &mut || oc.next_bit(), &mut un);
                 for ctrl in 0..2u128 {
@@ -939,7 +961,11 @@ mod tests {
                         let k = ctrl | (v << 1);
                         let (o, s) = eval_on_key(&ops, k);
                         assert!(!s);
-                        let y = if ctrl == 1 { u128::from(table[v as usize]) } else { 0 };
+                        let y = if ctrl == 1 {
+                            u128::from(table[v as usize])
+                        } else {
+                            0
+                        };
                         assert_eq!(o, k | (y << (2 * w + 1)));
                         let (o2, s2) = eval_on_key(&un, o);
                         assert!(!s2, "w={w} seed={seed} ctrl={ctrl} v={v}: phase not fixed");
@@ -983,7 +1009,10 @@ mod tests {
         let n = crate::shor::work_bits(n_mod);
         let lay = MbuLayout::new(n, w, o);
         assert!(lay.num_qubits() <= 128);
-        for a in (2..n_mod).filter(|&a| crate::algorithms::gcd(a, n_mod) == 1).take(3) {
+        for a in (2..n_mod)
+            .filter(|&a| crate::algorithms::gcd(a, n_mod) == 1)
+            .take(3)
+        {
             let mut oc = Outcomes::new(a * 1000 + n_mod, mode);
             let ops = controlled_ua(&lay, a, n_mod, o, &mut oc);
             for ctrl in 0..2u128 {
@@ -992,7 +1021,11 @@ mod tests {
                     let (out, s) = eval_on_key(&ops, k);
                     assert!(!s, "N={n_mod} w={w} {o:?} a={a} x={x}: sign");
                     let y = if ctrl == 1 { mulmod(a, x, n_mod) } else { x };
-                    assert_eq!(out, ctrl | (u128::from(y) << 1), "N={n_mod} w={w} {o:?} a={a} x={x}");
+                    assert_eq!(
+                        out,
+                        ctrl | (u128::from(y) << 1),
+                        "N={n_mod} w={w} {o:?} a={a} x={x}"
+                    );
                 }
             }
         }

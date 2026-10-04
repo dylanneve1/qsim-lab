@@ -837,7 +837,10 @@ mod tests {
         // qubits: 0 ctrl, 1..=2 x, 3 t = x0 ∧ x1, X-measured with outcome 1
         let ops = [MbuOp::G(Gate::Ccx(1, 2, 3)), MbuOp::MeasX(3, true)];
         let prog = SlicedProgram::compile_ops(4, &ops).unwrap();
-        let io = SliceIo { ctrl: 0, x: vec![1, 2] };
+        let io = SliceIo {
+            ctrl: 0,
+            x: vec![1, 2],
+        };
         eval_block(&prog, &io, true, &[0, 1, 2, 3]);
     }
 
@@ -851,8 +854,14 @@ mod tests {
             }
             let prog = SlicedProgram::compile_ops(4, &ops).unwrap();
             assert!(prog.signed);
-            let io = SliceIo { ctrl: 0, x: vec![1, 2] };
-            assert_eq!(eval_block(&prog, &io, true, &[0, 1, 2, 3]), vec![0, 1, 2, 3]);
+            let io = SliceIo {
+                ctrl: 0,
+                x: vec![1, 2],
+            };
+            assert_eq!(
+                eval_block(&prog, &io, true, &[0, 1, 2, 3]),
+                vec![0, 1, 2, 3]
+            );
         }
     }
 

@@ -42,7 +42,10 @@ fn mbu_distribution_matches_permutation() {
                         // every X-basis measurement as a real H + projection
                         let d_gbg = dist(&inst, shor::sparse_initial(&inst));
                         let d = max_diff(&d_perm, &d_gbg);
-                        assert!(d < 1e-12, "N={n} {oracle:?} a={a}: gate-by-gate vs perm {d:e}");
+                        assert!(
+                            d < 1e-12,
+                            "N={n} {oracle:?} a={a}: gate-by-gate vs perm {d:e}"
+                        );
                     }
                 }
             }
@@ -87,12 +90,21 @@ fn mbu_beyond_64_qubits_matches_permutation() {
         .find(|&a| a > 1 && gcd(a, n) == 1)
         .unwrap();
     let perm = Instance::new(n, a, Oracle::Permutation);
-    for oracle in [Oracle::WindowedMbu(4), Oracle::WindowedMbuLookup(4), Oracle::WindowedMbu(5)] {
+    for oracle in [
+        Oracle::WindowedMbu(4),
+        Oracle::WindowedMbuLookup(4),
+        Oracle::WindowedMbu(5),
+    ] {
         let inst = Instance::new(n, a, oracle);
         assert!(inst.qubits() > 64);
         for seed in 0..2 {
-            let b = shor::order_finding(&perm, Backend::FusedSparse, &mut StdRng::seed_from_u64(seed));
-            let s = shor::order_finding(&inst, Backend::SlicedF64, &mut StdRng::seed_from_u64(seed));
+            let b = shor::order_finding(
+                &perm,
+                Backend::FusedSparse,
+                &mut StdRng::seed_from_u64(seed),
+            );
+            let s =
+                shor::order_finding(&inst, Backend::SlicedF64, &mut StdRng::seed_from_u64(seed));
             assert_eq!(b.measured, s.measured, "{oracle:?} seed={seed}");
         }
     }
@@ -111,7 +123,8 @@ fn mbu_block_is_outcome_independent() {
                 .map(|x| 1 | (u128::from(x * a % n_mod) << 1))
                 .collect();
             for (seed, mode) in [(0u64, 1u8), (0, 2), (1, 0), (2, 0), (3, 0)] {
-                let ops = shor_mbu::controlled_ua(&lay, a, n_mod, &o, &mut Outcomes::new(seed, mode));
+                let ops =
+                    shor_mbu::controlled_ua(&lay, a, n_mod, &o, &mut Outcomes::new(seed, mode));
                 for x in 0..n_mod {
                     let (k, s) = shor_mbu::eval_on_key(&ops, 1 | (u128::from(x) << 1));
                     assert!(!s);
@@ -135,7 +148,8 @@ fn t2_mbu_two_branch_boundaries_stay_stabilizer() {
         let n = shor::work_bits(n_mod);
         let a = bases(n_mod, 1)[0];
         let lay = MbuLayout::new(n, 4, &MbuOpts::ALL);
-        let ops = shor_mbu::controlled_ua(&lay, a, n_mod, &MbuOpts::ALL, &mut Outcomes::new(n_mod, 0));
+        let ops =
+            shor_mbu::controlled_ua(&lay, a, n_mod, &MbuOpts::ALL, &mut Outcomes::new(n_mod, 0));
         for x in 0..n_mod.min(64) {
             let (mut u, mut v) = (u128::from(x) << 1, 1 | (u128::from(x) << 1));
             let (mut su, mut sv) = (false, false);

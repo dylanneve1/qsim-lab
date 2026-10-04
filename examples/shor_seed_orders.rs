@@ -9,7 +9,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 fn main() {
-    let args: Vec<u64> = std::env::args().skip(1).map(|s| s.parse().unwrap()).collect();
+    let args: Vec<u64> = std::env::args()
+        .skip(1)
+        .map(|s| s.parse().unwrap())
+        .collect();
     let n = args[0];
     let primes = &args[1..];
     let lambda: u64 = primes.iter().product();
