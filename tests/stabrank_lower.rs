@@ -176,6 +176,96 @@ fn chi_three_copies_at_least_three_for_random_magic_states() {
 }
 
 #[test]
+fn l1_ratio_criterion() {
+    // ratios |<0|psi>| / |<1|psi>|
+    let rh = (std::f64::consts::PI / 8.).cos() / (std::f64::consts::PI / 8.).sin(); // 1+sqrt2
+    let pf = psi1("F");
+    let rf = pf[0].abs() / pf[1].abs(); // cot(beta)
+    // chi(H^3) >= 3 and chi(H^4) >= 4 from the optimal decompositions one level down
+    assert!(l1_ratio_obstruction(&all_decs("H", 2, 2).1, rh));
+    let (_, d3) = all_decs("H", 3, 3);
+    assert!(l1_ratio_obstruction(&d3, rh));
+    // chi(F^3) >= 3; the F^3 -> F^4 plateau is NOT obstructed (chi(F^4) = 3) ...
+    assert!(l1_ratio_obstruction(&all_decs("F", 2, 2).1, rf));
+    assert!(!l1_ratio_obstruction(&all_decs("F", 3, 3).1, rf));
+    // ... and all 9 optimal decompositions of F^4 have l1 norm exactly 2, so chi(F^5) >= 4
+    let (_, d4) = all_decs("F", 4, 3);
+    assert!(l1_norms(&d4).iter().all(|&x| (x - 2.0).abs() < 1e-9));
+    assert!(l1_ratio_obstruction(&d4, rf));
+}
+
+/// All decompositions found by `past_plateau`, expanded under the symmetry group (n <= 4).
+fn past_all(kind: &str, n: usize) -> (Table, Vec<Dec>) {
+    let p = psi1(kind);
+    let (_, found) = past_plateau(kind, n, false);
+    let t = Table::new(n);
+    let psi = tensor_power(&p, n);
+    let gens = sym_generators(&t, &p);
+    let ds: Vec<Dec> = found
+        .iter()
+        .map(|f| {
+            let mut ix: Vec<u32> = f.iter().map(|v| t.lookup(v).unwrap()).collect();
+            ix.sort();
+            check_set(&t, &psi, &ix).unwrap()
+        })
+        .collect();
+    let all = expand(&t, &psi, &ds, &gens);
+    (t, all)
+}
+
+#[test]
+fn one_past_plateau_reproduces_direct_search() {
+    // Proposition 7 machinery vs the direct exhaustive search
+    let (_, h3) = past_all("H", 3);
+    assert_eq!(h3.len(), 16);
+    let (_, f3) = past_all("F", 3);
+    assert_eq!(f3.len(), 72);
+}
+
+#[test]
+#[ignore]
+fn h5_needs_five_terms() {
+    // all 4-term decompositions of H^{⊗4}: 449 (the direct exhaustive search, ~1 CPU-hour, gives
+    // the same 449; see research/data/stabrank-lower/h45.out)
+    let (t4, d4) = past_all("H", 4);
+    assert_eq!(d4.len(), 449);
+    // plateau gluing finds no 4-term decomposition of H^{⊗5} ...
+    assert_eq!(glue_sets(&t4, &d4, "H", 5).1, 0);
+    // ... and the l1-ratio certificate: max/min l1 < 1 + sqrt 2
+    let l = l1_norms(&d4);
+    let (mn, mx) = l.iter().fold((f64::MAX, 0f64), |(a, b), &x| (a.min(x), b.max(x)));
+    assert!(mx / mn < 1.0 + 2f64.sqrt());
+    assert!(l1_ratio_obstruction(&d4, 1.0 + 2f64.sqrt()));
+}
+
+#[test]
+#[ignore]
+fn f5_needs_five_terms() {
+    // chi(F^{⊗4}) = 3, so 4-term decompositions of F^{⊗5} are one past the plateau.
+    // (1) all minimal 4-term decompositions of F^{⊗4}: 28215
+    let (t4, d4) = past_all("F", 4);
+    assert_eq!(d4.len(), 28215);
+    // (2) none glue to F^{⊗5} (non-degenerate part); the l1 certificate shows why
+    let p = psi1("F");
+    let rf = p[0].abs() / p[1].abs();
+    assert!(glue(&t4, &d4, &p, 5).is_empty());
+    assert!(l1_ratio_obstruction(&d4, rf));
+    // (3) degenerate part: none, for every bra-orbit representative s (WLOG qubit 5)
+    let (_, dopt) = all_decs("F", 4, 3);
+    assert_eq!(dopt.len(), 9);
+    let t1 = Table::new(1);
+    let o1 = orbits(6, &sym_generators(&t1, &p));
+    let cl = cliffords1();
+    for oid in 0..=*o1.iter().max().unwrap() {
+        let sidx = (0..6).find(|&i| o1[i] == oid).unwrap();
+        let u = cl.iter().find(|m| apply1(m, &t1.states[sidx])[0].abs() > 1.0 - 1e-9).unwrap();
+        let up = apply1(u, &p);
+        let (found, _) = degenerate_search(&t4, &dopt, up[0], up[1], 4, true);
+        assert!(found.is_empty(), "bra #{sidx}");
+    }
+}
+
+#[test]
 #[ignore]
 fn h4_needs_four_terms() {
     // chi(H^{⊗4}) >= 4 (Labib-Russo 2026 certified this independently)

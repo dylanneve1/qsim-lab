@@ -1,0 +1,2 @@
+# n=2 k=2 count=1  format: idx:re,im per term (idx = position in enum_states(n))
+4:0.707106781186547,0.000000000000000 15:0.707106781186547,0.000000000000000

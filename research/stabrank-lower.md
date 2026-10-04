@@ -7,12 +7,16 @@ Raw outputs are in `research/data/stabrank-lower/*.out`.
 **Summary.** I did not prove a super-polynomial lower bound for χ(|T⟩^{⊗n}). That is still a famous
 open problem, and nothing here comes close to it. What this note does contain:
 
-1. **New exact small-n values, computer-verified with a completeness proof.**
-   * χ(|F⟩^{⊗5}) ≥ 4, where F is the face ("Bravyi–Kitaev T-type") magic state. The previous
-     state of knowledge was 3 ≤ χ ≤ 6 (Labib–Russo 2026).
-   * Complete lists of all optimal decompositions: H^{⊗2}: 1, H^{⊗3}: 16, F^{⊗2}: 3, F^{⊗3}: 72,
-     F^{⊗4}: 9 (a single symmetry orbit). H^{⊗4}: see §3.
-   * H^{⊗5}: the 4-term test is in §3.
+1. **New exact small-n lower bounds, computer-verified with a completeness proof.**
+   * **χ(|T⟩^{⊗5}) = χ(|H⟩^{⊗5}) ≥ 5.** Before: 4 ≤ χ ≤ 6. So χ(H^{⊗5}) ∈ {5, 6}.
+   * **χ(|F⟩^{⊗5}) ≥ 5**, where F is the face ("Bravyi–Kitaev T-type") magic state. Before:
+     3 ≤ χ ≤ 6 (Labib–Russo 2026). So χ(F^{⊗5}) ∈ {5, 6} and χ(F^{⊗6}) ∈ {5, 6}. The rank
+     jumps by at least 2, from χ(F^{⊗4}) = 3.
+   * Complete lists of all optimal decompositions: H^{⊗2}: 1, H^{⊗3}: 16 (2 orbits), H^{⊗4}: 449
+     (19 orbits); F^{⊗2}: 3, F^{⊗3}: 72 (4 orbits), F^{⊗4}: 9 (1 orbit). Also the complete list of
+     minimal 4-term decompositions of F^{⊗4}: 28215 (65 orbits).
+   * Each H^{⊗4} result was obtained by two independent algorithms: a direct exhaustive search
+     (~1 CPU-hour) and the one-past-plateau search (26 s). Both give exactly 449.
 2. **A structural theorem (the plateau lemma).** Suppose χ(ψ^{⊗n}) = χ(ψ^{⊗(n−m)}). Then every term
    of every optimal decomposition of ψ^{⊗n} is an *m-uniform* stabilizer state, i.e. a pure
    [[n,0,m+1]] code state. Moreover every product-stabilizer restriction of m qubits maps an optimal
@@ -23,6 +27,14 @@ open problem, and nothing here comes close to it. What this note does contain:
    * A complete "gluing" algorithm builds optimal n-qubit decompositions from (n−1)-qubit ones,
      plus a one-step extension past a plateau. This algorithm is what made the n = 5 computations
      feasible.
+   * **The ℓ1-ratio criterion**: a plateau χ_n = χ_{n−1} forces two optimal decompositions of
+     ψ^{⊗(n−1)} whose coefficient ℓ1-norms are in the ratio r = |⟨0|ψ⟩/⟨1|ψ⟩|. This gives
+     human-checkable certificates:
+     * every optimal decomposition of F^{⊗4} has ℓ1-norm exactly 2, so χ(F^{⊗5}) > 3;
+     * the ℓ1-norms of the 449 optimal decompositions of H^{⊗4} lie in [1.914, 3.208], a ratio
+       below 1 + √2, so χ(H^{⊗5}) > 4;
+     * the same check on H^{⊗3}'s 16 decompositions re-proves χ(H^{⊗4}) ≥ 4 without any n = 4
+       search.
 3. **An exponential lower bound in a restricted model.** Decompositions whose terms are tensor
    products of stabilizer states over a fixed partition into blocks of size ≤ b (the form of every
    block-product construction in the literature) need (1 − p_b)^{−n/b} terms. For b = 1, 2, 3 this
@@ -34,8 +46,8 @@ open problem, and nothing here comes close to it. What this note does contain:
 ## 1. State of the art (October 2026)
 
 Notation: χ(ψ) is the stabilizer rank, the least r with ψ = Σ_{i≤r} c_i φ_i over stabilizer states
-φ_i. χ_δ is the approximate rank (‖ψ − Σ‖ ≤ δ). For qubits there are two Clifford orbits of
-single-qubit magic states:
+φ_i. χ_δ is the approximate rank (‖ψ − Σ‖ ≤ δ). Among single-qubit magic states, two Clifford
+orbits are special (they have non-trivial Clifford stabilizers):
 * the **H-type (edge) orbit** contains |H⟩ = cos(π/8)|0⟩ + sin(π/8)|1⟩ and |T⟩ = (|0⟩ + e^{iπ/4}|1⟩)/√2,
   so χ(T^{⊗n}) = χ(H^{⊗n});
 * the **face orbit** F contains cos β|0⟩ + e^{iπ/4} sin β|1⟩, with cos 2β = 1/√3 and Bloch vector
@@ -59,7 +71,7 @@ the clash with |T⟩.
 |---|---|
 | Bravyi–Smith–Smolin 2016 | χ(H^{⊗n}) = Ω(√n) |
 | **Peleg–Shpilka–Volk** (Quantum 6, 652 (2022); ITCS 2022) | χ(ψ^{⊗n}) = **Ω(n)** for single-qubit magic states (directional derivatives of quadratic forms over affine subspaces); χ_δ = Ω(√n/log n) for small constant δ (Razborov–Smolensky approximation, correlation with MAJORITY) |
-| Labib (Quantum 6, 626 (2022), arXiv:2107.10551) | Ω(n) for qudit magic states, any prime d (higher-order Fourier analysis, non-classical quadratic phases) |
+| Labib (Quantum 2022, arXiv:2107.10551) | Ω(n) for qudit magic states, any prime d (higher-order Fourier analysis, non-classical quadratic phases) |
 | **Lovitz–Steffan** (Quantum 6, 692 (2022), arXiv:2110.07781) | number-theoretic (refined Moulton theorem) and algebraic-geometric methods: simpler proofs of Ω(n) and approximate-rank bounds up to a log factor; explicit product states with *exponential* χ but O(1) χ_δ; first examples with multiplicative χ; generic stabilizer rank |
 | **Mehraban–Tahmasbi** (STOC 2024, arXiv:2305.10277) | χ_δ(T^{⊗n}) = **Ω̃(n²)** for a wide range of δ (Haar-random states have large approximate rank, plus a step-by-step analysis of a teleportation protocol that samples Haar, plus LKS18 Clifford/T trading); also answers Williams' question with super-linear bounds for sums of quadratic exponentials |
 | Kalra–Sinha (Quantum 10, 2179 (2026), arXiv:2503.04101) | via Barnes–Wall lattices: χ_δ(H^{⊗n}) = Ω(n/log n) even at exponentially small fidelity; new magic monotone ("Barnes–Wall norm") |
@@ -168,6 +180,20 @@ hash on Σ|a_i|), every bijection σ, and keeps the combinations in which every 
 state. **If χ_{n−1} = k and gluing returns nothing, then χ_n ≥ k + 1.** By the theorem this is a
 complete search: it misses nothing.
 
+**Corollary 6′ (ℓ1-ratio criterion).** For a decomposition D of ψ^{⊗(n−1)} into normalised states
+with coefficients a, write ℓ1(D) = Σ|a_i|. It is invariant under the symmetry group, because a
+symmetry fixes ψ up to phase. In the situation of Corollary 6, |b_{σ(i)}| = |a_i|·r for every i,
+where r = |⟨s|ψ⟩|/|⟨s^⊥|ψ⟩| for the restriction basis {s, s^⊥}. Hence ℓ1(B) = r·ℓ1(A). **If no two
+optimal decompositions of ψ^{⊗(n−1)} have ℓ1-norms in ratio r, then χ_n > χ_{n−1}.** In
+particular this holds if max ℓ1 / min ℓ1 < r.
+
+The same identity holds for the type-I × type-I gluing of Proposition 7 below, with minimal k-term
+decompositions in place of optimal ones. The derivation uses only that both restrictions are
+non-zero, so each has norm 1/√2.
+
+Values of r: H in the Z or X basis, cot(π/8) = 1 + √2 ≈ 2.414 (in the Y basis r = 1, which gives
+nothing); F in any Pauli basis, cot β ≈ 1.932.
+
 **Proposition 7 (one step past a plateau).** Let k = χ_{n−1} + 1 and restrict the last qubit by a
 stabilizer bra ⟨s|. The restricted k-tuple of a k-term decomposition of ψ^{⊗n} is either
 * (I) independent with all terms non-zero (a *minimal* k-term decomposition of ψ^{⊗(n−1)}), or
@@ -204,6 +230,9 @@ Every component was checked against an independent method wherever both are feas
   F^{⊗3} with 3 terms and several bras (4/16 and 15/72, sets equal).
 * Non-plateau `glue` equals the doubly-non-degenerate decompositions of a direct search (H^{⊗3},
   k = 3: 8/16; k = 4: 10128/42261; F^{⊗3}, k = 3: 48/72).
+* The full one-past-plateau pipeline (`past`) reproduces the direct-search lists exactly: H^{⊗3}
+  (16), F^{⊗3} (72), H^{⊗4} (449; direct search ~1 h vs 26 s) and F^{⊗4} with 4 terms (28215,
+  identical sets).
 
 ### The exhaustive search (for the base cases)
 To find all k-sets {φ_1..φ_k} (independent, with all coefficients non-zero) whose span contains ψ:
@@ -221,9 +250,57 @@ decompositions with < k terms, and are excluded by design.
 
 ## 3. Exact small-n table (this work)
 
-(Filled in below from `research/data/stabrank-lower/*.out`.)
+**Exact values and bounds.** "New" marks bounds proved here.
 
-RESULTS_TABLE
+| m | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| χ(H^{⊗m}) = χ(T^{⊗m}) | 2 | 2 | 3 | 4 | **5 or 6** (≥ 5 new) | **5 or 6** (≥ 5 by monotonicity; ≤ 6 known) |
+| χ(F^{⊗m}) | 2 | 2 | 3 | 3 | **5 or 6** (≥ 5 new) | **5 or 6** (≤ χ(F^{⊗4})χ(F^{⊗2}) = 6) |
+
+**Complete enumerations** (decompositions are unordered sets of stabilizer states up to phase,
+independent, with all coefficients non-zero):
+
+| target | k | # decompositions | # symmetry orbits | ℓ1-norms (×multiplicity) |
+|---|---|---|---|---|
+| H^{⊗2} | 2 | 1 | 1 | √2 |
+| H^{⊗3} | 3 | 16 | 2 | 1.689246×8, 2.230442×8 |
+| H^{⊗4} | 4 | **449** | 19 | 1.914214×16, 2×65, 2.073132×32, 2.207107×128, 2.224745×16, 2.414214×64, 2.573132×32, 2.866025×32, 2.914214×16, 3.073132×32, 3.207107×16 |
+| F^{⊗2} | 2 | 3 | 3 | 1.632993×3 |
+| F^{⊗3} | 3 | 72 | 4 | 1.592450×9, 2.087093×27, 2.581735×27, 3.076378×9 |
+| F^{⊗4} | 3 | **9** | **1** | **2×9** |
+| F^{⊗4} | 4 (minimal) | 28215 | 65 | 2.276142 … 3.775935 (12 values; ratio max/min 1.659) |
+| H^{⊗3}, F^{⊗3} | 4 (minimal) | 42261, 156384 | | |
+| H^{⊗2}, F^{⊗2} | 4 (minimal) | 362380, 347112 (= naive enumeration) | | |
+
+Note the F^{⊗3} → F^{⊗4} plateau. The F^{⊗3} ℓ1 values form an arithmetic progression, and the
+extreme pair is in ratio 3.076378/1.592450 = 1.9319 = cot β, exactly the ratio Corollary 6′
+requires. The 9 decompositions of F^{⊗4} are glued from those pairs.
+
+**How each new bound is proved.**
+* **χ(H^{⊗5}) ≥ 5.** χ(H^{⊗4}) = 4 (no 3-term decomposition, by exhaustive search, agreeing with
+  Labib–Russo). All 449 four-term decompositions of H^{⊗4} were found by two independent complete
+  algorithms (`search H 4 4`, about 1 h on 2 threads; `past H 4`, 26 s). Plateau gluing over them
+  returns nothing (`chain H 4 4 5`, `h45.out`). Independently, ℓ1 max/min = 3.207107/1.914214 =
+  1.675 < 1 + √2 (Corollary 6′).
+* **χ(F^{⊗5}) ≥ 5.**
+  * k = 3: plateau gluing over the 9 optimal decompositions of F^{⊗4} returns nothing (ℓ1 ≡ 2,
+    Corollary 6′).
+  * k = 4 is one step past the plateau χ(F^{⊗4}) = 3 (Proposition 7). The non-degenerate part glues
+    the 28215 minimal 4-term decompositions of F^{⊗4}: nothing (and ℓ1 max/min = 1.659 < cot β =
+    1.932, Corollary 6′). The degenerate part (`deg F 5`, both bra orbits, 2.6×10^8 candidate
+    completions each): nothing.
+  * The list of 28215 was itself obtained twice: `past F 4` (seconds) and the direct exhaustive
+    search `search F 4 4` (1177 s, `searchF44.out`). The two give identical sets.
+  * Hence no 3- or 4-term decomposition exists. (A 4-term decomposition containing a 3-term one is
+    not minimal; the minimal case covers it.)
+
+**Why small n cannot give an asymptotic lower bound.** χ is submultiplicative, so by Fekete
+lim_n (log₂χ_n)/n = inf_n (log₂χ_n)/n. Every exact value is an *upper* bound on the exponent
+(for F: ≤ log₂3/4 = 0.396, from n = 4). A lower bound at fixed n says nothing about the limit.
+What the table shows is that the true growth is visible early: 2, 2, 3, 4, ≥ 5 for H and
+2, 2, 3, 3, ≥ 5 for F. That is consistent with exponents around 0.4, but it is not evidence that
+can be made rigorous.
+
 
 ---------------------------------------------------------------------------------------------------
 
@@ -277,11 +354,11 @@ difficulty. Arguments of this kind are probably folklore; I found no statement o
 * The asymptotic problem is untouched. The exact-rank frontier remains Ω(n) (PSV/Labib/LS), and
   approximate rank Ω̃(n²) (MT).
 * Genuinely new here, as far as I can tell:
-  * the exact bound χ(F^{⊗5}) ≥ 4 (and the H^{⊗5} result in §3);
+  * the exact bounds χ(H^{⊗5}) ≥ 5 and χ(F^{⊗5}) ≥ 5, narrowing both to {5, 6};
   * the complete lists of optimal decompositions for n ≤ 4 (for example, F^{⊗4} has exactly 9,
     forming one orbit);
   * the plateau lemma, with its corollaries (χ(ψ^{⊗3}) ≥ 3 for all magic ψ; plateau length
-    < d_max(n));
+    < d_max(n); the ℓ1-ratio criterion);
   * the gluing and one-past-plateau algorithms, which turn an infeasible n = 5 search (≈ 10^{20}
     subsets) into minutes.
   The block-local bound is elementary.
