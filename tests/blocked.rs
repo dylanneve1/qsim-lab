@@ -48,12 +48,12 @@ fn check<T: Real>(c: &Circuit, cfg: &BlockConfig, seed: u64, tol: f64) {
 /// few or many slots, with and without 1q fusion.
 fn configs() -> Vec<BlockConfig> {
     let mut v = Vec::new();
-    for (kib, slots, fuse, split, sched) in [
-        (1, 2, true, true, true),
-        (1, 4, false, false, true),
-        (2, 0, true, false, false),
-        (4, 3, true, true, false),
-        (256, 6, true, true, true),
+    for (kib, slots, fuse, split, sched, tile) in [
+        (1, 2, true, true, true, 0),
+        (1, 4, false, false, true, 128),
+        (2, 0, true, false, false, 256),
+        (4, 3, true, true, false, 512),
+        (256, 6, true, true, true, 4096),
     ] {
         v.push(BlockConfig {
             block_bytes: kib << 10,
@@ -63,6 +63,7 @@ fn configs() -> Vec<BlockConfig> {
             split_phases: split,
             schedule_diag: sched,
             simd: true,
+            l1_tile_bytes: tile,
         });
     }
     v
