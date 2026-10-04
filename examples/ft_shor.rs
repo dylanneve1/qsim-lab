@@ -10,10 +10,9 @@
 //! ```
 //! Prints one `key=value` line per run.
 
-use qsim_lab::ft::backends::FrameBackend;
 use qsim_lab::ft::core::{Noise, ALL_COMPS, COMP_NAMES, N_COMP};
-use qsim_lab::ft::logical::{Checked, Encoded, MagicMode, Unencoded};
-use qsim_lab::ft::machine::{ideal_logical, FtConfig, Machine};
+use qsim_lab::ft::logical::{inject_errors, Checked, Encoded, MagicMode, Unencoded};
+use qsim_lab::ft::machine::FtConfig;
 use qsim_lab::ft::shor::{ideal_distribution, run_shor15, NLOG15};
 use std::time::Instant;
 

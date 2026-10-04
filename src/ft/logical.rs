@@ -534,7 +534,7 @@ impl Logical for Checked {
 }
 
 /// Logical error of injected |T⟩ states: (pX, pY, pZ, eps_twirled, accept).
-fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
+pub fn inject_errors(level: usize, p: f64, trials: u64, seed: u64, ps: bool) -> (f64, f64, f64, f64, f64) {
     let cfg = FtConfig { ec: true, inject_postselect: ps };
     let mut m = Machine::new(FrameBackend::default(), Noise::new(p, seed), cfg, level);
     let (mut nx, mut ny, mut nz) = (0u64, 0u64, 0u64);
