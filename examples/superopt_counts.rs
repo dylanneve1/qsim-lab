@@ -17,6 +17,29 @@ fn main() {
     let base: u64 = a[2].parse().unwrap();
     let w: usize = a[3].parse().unwrap();
     let peep = a.get(4).is_some_and(|s| s == "peephole");
+    if a.get(4).is_some_and(|s| s == "dump") {
+        // dump round-0 controlled-U (baseline and all) as text gate lists
+        let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
+        let lay = WindowLayout::new(inst.m, w);
+        for (name, o) in [("baseline", Opts::BASELINE), ("all", Opts::ALL)] {
+            let c = controlled_ua(&lay, inst.mults[0], n_mod, &o);
+            let mut out = format!("# N={n_mod} mult={} n={} w={w} qubits={} ancillas_from={}\n",
+                inst.mults[0], inst.m, lay.num_qubits(), inst.m + 1);
+            for g in c.gates() {
+                use qsim_lab::gate::Gate::*;
+                out += &match *g {
+                    X(q) => format!("X {q}\n"),
+                    Cnot(c, t) => format!("CX {c} {t}\n"),
+                    Ccx(a, b, t) => format!("CCX {a} {b} {t}\n"),
+                    _ => unreachable!(),
+                };
+            }
+            let path = format!("{}_{name}.txt", a[5]);
+            std::fs::write(&path, out).unwrap();
+            println!("wrote {path}");
+        }
+        return;
+    }
     if a.get(4).is_some_and(|s| s == "sweep") {
         // window sweep, baseline vs all, totals over the run
         let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
