@@ -79,6 +79,8 @@ pub struct ColorMemory {
     pub observables: Vec<Vec<usize>>,
     /// Per detector: (plaquette, is_x_type, round).
     pub detector_info: Vec<(usize, bool, usize)>,
+    /// Memory basis: false = Z (|0>, Z logical), true = X (|+>, X logical).
+    pub x_basis: bool,
 }
 
 impl ColorCode {
@@ -176,8 +178,22 @@ impl ColorCode {
         out
     }
 
-    /// Builds the memory experiment (Z basis, `rounds >= 1`).
+    /// Builds the Z-basis memory experiment (`rounds >= 1`).
     pub fn memory(&self, s: &ColorSchedule, rounds: usize, noise: ColorNoise) -> ColorMemory {
+        self.memory_basis(s, rounds, noise, false)
+    }
+
+    /// Builds a memory experiment in the Z basis (`x_basis = false`: data
+    /// start in |0>, Z logical) or the X basis (data start in |+> via `RX`,
+    /// final `MX`, X logical on the same `y = 0` row). Detectors of the
+    /// memory's own type start in round 0, the other type from round 1.
+    pub fn memory_basis(
+        &self,
+        s: &ColorSchedule,
+        rounds: usize,
+        noise: ColorNoise,
+        x_basis: bool,
+    ) -> ColorMemory {
         assert!(rounds >= 1);
         assert_eq!(s.len(), self.plaquettes.len());
         let nd = self.data.len();
@@ -207,9 +223,9 @@ impl ColorCode {
                 }
             }
         }
-        let reset_moment = |ops: &mut Vec<Op>, qs: &[usize], x_basis: bool| {
+        let reset_moment = |ops: &mut Vec<Op>, qs: &[(usize, bool)]| {
             let mut busy = vec![false; n];
-            for &q in qs {
+            for &(q, x_basis) in qs {
                 ops.push(Op::Reset(q));
                 if x_basis {
                     ops.push(Op::Gate(Gate::H(q)));
@@ -257,10 +273,13 @@ impl ColorCode {
         let mut num_meas = 0usize;
         let mut z_rec = vec![vec![0usize; np]; rounds];
         let mut x_rec = vec![vec![0usize; np]; rounds];
-        reset_moment(&mut ops, &all, false);
+        let init: Vec<(usize, bool)> = all.iter().map(|&q| (q, x_basis && q < nd)).collect();
+        reset_moment(&mut ops, &init);
+        let anc_z: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, false)).collect();
+        let anc_x: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, true)).collect();
         for r in 0..rounds {
             if r > 0 {
-                reset_moment(&mut ops, &ancs, false);
+                reset_moment(&mut ops, &anc_z);
             }
             for layer in &cx_layers[1..=6] {
                 cx_moment(&mut ops, layer, true);
@@ -271,7 +290,7 @@ impl ColorCode {
                 *rec = num_meas + pi;
             }
             num_meas += np;
-            reset_moment(&mut ops, &ancs, true);
+            reset_moment(&mut ops, &anc_x);
             for layer in &cx_layers[1..=6] {
                 cx_moment(&mut ops, layer, false);
             }
@@ -279,7 +298,7 @@ impl ColorCode {
             // measurement (as in Kishony-Fowler's circuit)
             let mut xm: Vec<(usize, bool)> = ancs.iter().map(|&q| (q, true)).collect();
             if r + 1 == rounds {
-                xm.extend((0..nd).map(|q| (q, false)));
+                xm.extend((0..nd).map(|q| (q, x_basis)));
             }
             measure_moment(&mut ops, &xm);
             for (pi, rec) in x_rec[r].iter_mut().enumerate() {
@@ -290,27 +309,33 @@ impl ColorCode {
         let data_base = num_meas;
         let mut detectors = Vec::new();
         let mut info = Vec::new();
+        // own type (deterministic from round 0) first, then the other type
+        let (own, other) = if x_basis {
+            (&x_rec, &z_rec)
+        } else {
+            (&z_rec, &x_rec)
+        };
         for r in 0..rounds {
             for pi in 0..np {
-                let mut v = vec![z_rec[r][pi]];
+                let mut v = vec![own[r][pi]];
                 if r > 0 {
-                    v.push(z_rec[r - 1][pi]);
+                    v.push(own[r - 1][pi]);
                 }
                 detectors.push(v);
-                info.push((pi, false, r));
+                info.push((pi, x_basis, r));
             }
             if r > 0 {
                 for pi in 0..np {
-                    detectors.push(vec![x_rec[r][pi], x_rec[r - 1][pi]]);
-                    info.push((pi, true, r));
+                    detectors.push(vec![other[r][pi], other[r - 1][pi]]);
+                    info.push((pi, !x_basis, r));
                 }
             }
         }
         for (pi, p) in self.plaquettes.iter().enumerate() {
             let mut v: Vec<usize> = p.data.iter().flatten().map(|&q| data_base + q).collect();
-            v.push(z_rec[rounds - 1][pi]);
+            v.push(own[rounds - 1][pi]);
             detectors.push(v);
-            info.push((pi, false, rounds));
+            info.push((pi, x_basis, rounds));
         }
         let observables = vec![self
             .logical_support()
@@ -326,6 +351,7 @@ impl ColorCode {
             detectors,
             observables,
             detector_info: info,
+            x_basis,
         }
     }
 }
@@ -434,8 +460,9 @@ pub const KF_SCHEDULE: [[u8; 6]; 3] = [
 /// Lee et al.'s uniform "tri-optimal" schedule (same for every colour).
 pub const TRI_OPTIMAL: [u8; 6] = [2, 3, 6, 5, 4, 1];
 
-/// The Z sector of a memory experiment's DEM (Z-type detectors and the
-/// observable; mechanisms merged by Z-sector signature).
+/// The memory-basis sector of a memory experiment's DEM (detectors of the
+/// memory's own type and the observable; mechanisms merged by sector
+/// signature). Named after the default Z-basis memory.
 #[derive(Clone, Debug)]
 pub struct ZSector {
     pub num_detectors: usize,
@@ -460,7 +487,7 @@ impl ColorMemory {
         let mut zmap = vec![u32::MAX; self.detectors.len()];
         let mut plaquette = Vec::new();
         for (i, inf) in self.detector_info.iter().enumerate() {
-            if !inf.1 {
+            if inf.1 == self.x_basis {
                 zmap[i] = plaquette.len() as u32;
                 plaquette.push(inf.0);
             }
