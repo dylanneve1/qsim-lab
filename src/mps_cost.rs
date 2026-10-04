@@ -101,9 +101,17 @@ fn is_branching(g: &Gate) -> bool {
 
 /// Rank over GF(2) of 128-bit vectors (leading-bit pivot table).
 fn rank128(vs: impl Iterator<Item = u128>) -> usize {
+    rank128_upto(vs, usize::MAX)
+}
+
+/// [`rank128`], stopping as soon as the rank reaches `stop`.
+fn rank128_upto(vs: impl Iterator<Item = u128>, stop: usize) -> usize {
     let mut piv = [0u128; 128];
     let mut r = 0;
     for mut v in vs {
+        if r >= stop {
+            break;
+        }
         while v != 0 {
             let b = 127 - v.leading_zeros() as usize;
             if piv[b] == 0 {
@@ -117,12 +125,16 @@ fn rank128(vs: impl Iterator<Item = u128>) -> usize {
     r
 }
 
-/// Rank over GF(2) of bit vectors (padded to a common length).
-fn rank_vecs<'a>(vs: impl Iterator<Item = &'a Vec<u64>>) -> usize {
+/// Rank over GF(2) of bit vectors (padded to a common length), stopping
+/// as soon as it reaches `stop`.
+fn rank_vecs<'a>(vs: impl Iterator<Item = &'a Vec<u64>>, stop: usize) -> usize {
     let vs: Vec<&Vec<u64>> = vs.collect();
     let w = vs.iter().map(|v| v.len()).max().unwrap_or(0);
     let mut basis: Vec<(usize, Vec<u64>)> = Vec::new();
     for v in vs {
+        if basis.len() >= stop {
+            break;
+        }
         let mut v = v.clone();
         v.resize(w, 0);
         for (p, b) in &basis {
@@ -468,22 +480,27 @@ impl BondBounds {
             .count()
     }
 
-    fn coset_bits(&self, a: u64) -> usize {
-        let side = |m: u64| {
-            let r = rank128(
+    /// Coset bound, capped at `lim` (the computation stops there).
+    fn coset_bits(&self, a: u64, lim: usize) -> usize {
+        let side = |m: u64, lim: usize| {
+            let k = m.count_ones() as usize;
+            let r = rank128_upto(
                 self.gens
                     .iter()
                     .chain(self.axbasis.iter())
                     .map(|&(x, z)| pack(x, z, m)),
+                k.saturating_add(lim),
             );
-            r - m.count_ones() as usize
+            (r - k).min(lim)
         };
         let a = a & self.full;
-        side(a).min(side(!a & self.full))
+        let sa = side(a, lim);
+        side(!a & self.full, sa)
     }
 
-    fn affine_bits(&self, a: u64) -> usize {
-        let side = |m: u64| {
+    /// Affine bound, capped at `lim` (the computation stops there).
+    fn affine_bits(&self, a: u64, lim: usize) -> usize {
+        let side = |m: u64, lim: usize| {
             let mut opaque = 0;
             let forms: Vec<&Vec<u64>> = (0..self.n)
                 .filter(|&q| m >> q & 1 == 1)
@@ -496,10 +513,16 @@ impl BondBounds {
                     Wire::Const(_) => None,
                 })
                 .collect();
-            (rank_vecs(forms.into_iter()) + opaque).min(self.nvars)
+            if opaque >= lim {
+                return lim;
+            }
+            (rank_vecs(forms.into_iter(), lim - opaque) + opaque)
+                .min(self.nvars)
+                .min(lim)
         };
         let a = a & self.full;
-        side(a).min(side(!a & self.full))
+        let sa = side(a, lim);
+        side(!a & self.full, sa)
     }
 
     /// log2 bound on the Schmidt rank across `A | rest` (`a`: bit mask of
@@ -510,15 +533,20 @@ impl BondBounds {
             Estimator::Cut => cut,
             Estimator::Cross => self.cross_bits(a),
             Estimator::Stab if self.pauli => self.stab_ent(a) + self.straddle(a),
-            Estimator::Coset if self.pauli => self.coset_bits(a),
-            Estimator::Affine => self.affine_bits(a),
+            Estimator::Coset if self.pauli => self.coset_bits(a, cut),
+            Estimator::Affine => self.affine_bits(a, cut),
             Estimator::Best => {
-                let mut b = cut.min(self.cross_bits(a)).min(self.affine_bits(a));
+                // cheapest first; each later bound only has to beat `b`
+                // and stops computing once it cannot.
+                let mut b = cut.min(self.cross_bits(a));
                 if self.pauli && b > 0 {
                     b = b.min(self.stab_ent(a) + self.straddle(a));
-                    if b > 0 {
-                        b = b.min(self.coset_bits(a));
-                    }
+                }
+                if self.pauli && b > 0 {
+                    b = self.coset_bits(a, b);
+                }
+                if b > 0 {
+                    b = self.affine_bits(a, b);
                 }
                 b
             }

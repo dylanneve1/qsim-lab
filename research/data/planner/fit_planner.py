@@ -271,6 +271,7 @@ def main():
         print(k, [(round(x[0], 1), x[2], x[3], x[4]) for x in v[:5]])
     try:
         plots(rep, pts, feats, W, K, outdir)
+        regret_cdf(data, outdir)
     except ImportError:
         pass
 
@@ -302,6 +303,36 @@ def plots(rep, pts, feats, W, K, outdir):
     axes[0].legend(fontsize=7)
     fig.tight_layout()
     fig.savefig(os.path.join(outdir, "mps_predictors.png"), dpi=130)
+    plt.close(fig)
+
+
+def regret_cdf(data, outdir):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(figsize=(6, 3.8))
+    labels = {"old": "old MPS feature (paper)", "best": "replay, best rigorous bound",
+              "probe16": "replay + χ≤16 probe", "oracle": "oracle (real bond trace)"}
+    cols = {"old": "#8a8986", "best": "#2a78d6", "probe16": "#1baf7a", "oracle": "#e34948"}
+    for k, lab in labels.items():
+        r = []
+        for d in data:
+            w = fit.winner(d)
+            if not w or k not in d.get("pred", {}):
+                continue
+            t = fit.actual_time(d, d["pred"][k]) or fit.PENALTY * d["timeout"]
+            r.append(t / w[1])
+        r = np.sort(r)
+        ax.step(r, np.arange(1, len(r) + 1) / len(r), where="post", label=lab, color=cols[k], lw=1.5)
+    ax.set_xscale("log")
+    ax.set_ylim(0.8, 1.005)
+    ax.set_xlabel("regret = chosen engine time / best engine time (held-out family)")
+    ax.set_ylabel("fraction of instances")
+    ax.grid(alpha=0.25)
+    ax.legend(fontsize=8, loc="lower right")
+    ax.set_title("Leave-one-family-out engine choice, 314 instances", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(os.path.join(outdir, "regret_cdf.png"), dpi=130)
     plt.close(fig)
 
 
