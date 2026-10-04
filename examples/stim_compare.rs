@@ -270,13 +270,14 @@ fn main() {
                 );
             }
             println!(
-                "{line} fast_min={:.6} words={words} shots={} dets={} classes_dense={:?} hits_per_shot={:.2} xors_per_hit={:.2}",
+                "{line} fast_min={:.6} words={words} shots={} dets={} classes_dense={:?} hits_per_shot={:.2} xors_per_hit={:.2} table_bytes={}",
                 best[0][0],
                 shots.div_ceil(64) * 64,
                 f.rows(),
                 f.layout(),
                 f.hit_stats().0,
-                f.hit_stats().1
+                f.hit_stats().1,
+                f.table_bytes()
             );
         }
         "probe-bitsliced" => {
@@ -456,6 +457,25 @@ fn main() {
                 gate_ops,
                 noise_ops
             );
+        }
+        "dem-support-fast" => {
+            // same as dem-support, but read from FastSampler's hit tables
+            let prog = load(&a[2]);
+            let s = compile(
+                &prog.circuit,
+                &prog.noise,
+                &prog.detectors,
+                &prog.observables,
+            );
+            for sig in FastSampler::new(&s).hit_signatures() {
+                println!(
+                    "{}",
+                    sig.iter()
+                        .map(|r| r.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
+            }
         }
         "dem-support" => {
             // every distinct non-empty (detector/observable) signature of a

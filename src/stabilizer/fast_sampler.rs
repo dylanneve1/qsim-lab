@@ -443,6 +443,37 @@ impl FastSampler {
         (self.classes.len(), self.dense.len())
     }
 
+    /// Bytes of hit tables used by the default (blocked, `u16` where
+    /// possible) path.
+    pub fn table_bytes(&self) -> usize {
+        self.classes
+            .iter()
+            .map(|c| {
+                if c.table16.is_empty() {
+                    4 * c.table.len()
+                } else {
+                    2 * c.table16.len()
+                }
+            })
+            .sum()
+    }
+
+    /// Every distinct non-empty row set a single hit of the rare path can
+    /// flip (one per (group, pattern) table entry, sink padding removed),
+    /// sorted. Comparable with the error signatures of Stim's DEM.
+    pub fn hit_signatures(&self) -> Vec<Vec<u32>> {
+        let mut set = std::collections::BTreeSet::new();
+        for c in &self.classes {
+            for e in c.table.chunks(c.stride.max(1)) {
+                let v: Vec<u32> = e.iter().copied().filter(|&r| r < self.rows as u32).collect();
+                if !v.is_empty() {
+                    set.insert(v);
+                }
+            }
+        }
+        set.into_iter().collect()
+    }
+
     /// Drops the padded hit tables so every class takes the column-by-column
     /// path (used when an entry is wider than `MAX_STRIDE`); for tests and
     /// the ablation in `research/fast-sampler.md`.
