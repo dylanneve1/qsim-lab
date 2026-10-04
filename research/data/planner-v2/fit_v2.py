@@ -15,7 +15,7 @@ Models (seconds; log2 fits on runs >= T_FLOOR):
     cstate sampler    c1 (2^d (d+1) + n^2 W) + c2 S (d + n) W
     tableau           c1 n^2 W + c2 S n (1 + W)
     sv/sparse amps    c m
-    hsf amplitudes    2^(a + b R_amp)  (setup + path sum)
+    hsf amplitudes    c1 G n + c2 2^keff G 2^max(nA,nB)  (set-up + path sums)
 
 Decision: argmin over applicable engines of the predicted total; regret =
 measured total of the choice / best measured total; censored = 2 x 10 s.
@@ -170,7 +170,8 @@ def readout_terms(e, f, run=None, real=False):
             cu, su, au = run["canon_u"], run["shot_u"], run["amp_u"]
         else:
             cu, su, au = f["mps_canon_u"], f["mps_shot_u"], f["mps_amp_u"]
-        return dict(canon=[cu], samp=lambda S: [S * su], amp=lambda m: [m * au])
+        # op counts plus a per-site overhead (loop, RNG draw, normalisation)
+        return dict(canon=[cu, n], samp=lambda S: [S * su, S * n], amp=lambda m: [m * au, m * n])
     if e == "cstate":
         d = run.get("d", f["d"]) if (real and run) else f["d"]
         return dict(build=[2.0 ** d * (d + 1) + n * n * W], samp=lambda S: [S * (d + n) * W])
@@ -242,16 +243,23 @@ def fit_all(keys, feat, runs, real=False):
             if run and run.get("ok") and run.get("a1k") is not None:
                 T.append([1000.0]); t.append(run["a1k"])
         M["ro"][e + "_amp"] = fit_linear_terms(T, t, floor=1e-7)
-    # HSF amplitudes: setup + path sum vs R_amp
-    xa, ta = [], []
+    # HSF amplitudes: set-up (KL partition, segments) + path sums, linear in
+    # [G n, 2^keff G 2^max(nA, nB)] (a log-linear fit in R_amp has slope 0.39
+    # and badly under-predicts large path counts)
+    Ta, ta = [], []
     for k in keys:
         f, run = feat[k], runs[k].get("hsf")
         if run and run.get("ok"):
             for rq, m in AMPS.items():
                 if run.get(rq) is not None:
-                    xa.append(hsf_amp_r(f, m)); ta.append(run["evolve"] + run[rq])
-    M["hsf_amp"] = fit_loglin(xa, ta)
+                    Ta.append(hsf_amp_terms(f)); ta.append(run["evolve"] + run[rq])
+    M["hsf_amp"] = fit_linear_terms(Ta, ta, floor=1e-6)
     return M
+
+
+def hsf_amp_terms(f):
+    g = max(f["gates"], 1)
+    return [g * f["n"], 2.0 ** f["hsf_keff"] * g * 2.0 ** max(f["hsf_na"], f["hsf_nb"])]
 
 
 def lin(c, T):
@@ -271,8 +279,7 @@ def predict(M, e, f, rq):
         m = M["E"].get(e)
         return 2 ** (m[0] + m[1] * resource(e, f)) if m else None
     if rq in AMPS and e == "hsf":
-        m = M["hsf_amp"]
-        return 2 ** (m[0] + m[1] * hsf_amp_r(f, AMPS[rq])) if m else None
+        return lin(M["hsf_amp"], hsf_amp_terms(f))
     m = M["state"].get(e)
     if not m:
         return None

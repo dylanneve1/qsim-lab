@@ -936,7 +936,7 @@ pub fn run_engine_obs(
             run.value = st.expectation(&PauliSum::z_product(n, &all));
             run.size = st.active_qubits() as f64;
         }
-        "frame" | "dense" | "auto" => {
+        "frame" | "dense" | "auto" | "auto0" => {
             let max_d = ((mem_bytes / 16).max(1).ilog2() as usize).min(30);
             let strategy = match engine {
                 "frame" => Strategy::Frame,
@@ -944,6 +944,14 @@ pub fn run_engine_obs(
                 _ => Strategy::Auto,
             };
             let opt = AdaptiveOptions {
+                // QSIM_EXPLORE_FRAC: ablation of Auto's exploration budget
+                // `auto0`: Auto without the v2 exploration past a switch
+                // (the round-4 behaviour), for A/B timings
+                explore_frac: if engine == "auto0" {
+                    0.0
+                } else {
+                    AdaptiveOptions::default().explore_frac
+                },
                 strategy,
                 max_dense_qubits: max_d,
                 frame: FrameOptions {

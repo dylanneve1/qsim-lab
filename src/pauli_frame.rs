@@ -550,6 +550,10 @@ impl<const W: usize> Frame<W> {
 // ---------------------------------------------------------------------------
 // The sharded term store.
 
+/// Live terms below which a rotation's shard phases run on the calling
+/// thread (see `Store::par`).
+const PAR_MIN_TERMS: usize = 2048;
+
 struct Store<const W: usize> {
     shards: Vec<Map<W>>,
     bits: u32,
@@ -592,11 +596,20 @@ impl<const W: usize> Store<W> {
         *self.shards[s].entry(k).or_insert(0.0) += c;
     }
 
+    /// Run the shard phases on the thread pool only when there is enough
+    /// work: with a handful of live terms the two pool hand-offs per
+    /// rotation cost more than the rotation (and their latency grows with
+    /// machine load). The shards are independent, so the result is the
+    /// same either way.
+    fn par(&self) -> bool {
+        self.parallel && self.len() >= PAR_MIN_TERMS
+    }
+
     fn for_each_shard<F>(&mut self, f: F)
     where
         F: Fn(usize, &mut Map<W>, &mut Vec<Vec<(Key<W>, f64)>>) + Sync + Send,
     {
-        if self.parallel {
+        if self.par() {
             self.shards
                 .par_iter_mut()
                 .zip(self.bufs.par_iter_mut())
@@ -612,6 +625,10 @@ impl<const W: usize> Store<W> {
     /// Merges `bufs[src][dst]` into shard `dst`, then removes terms with
     /// `|c| <= drop` that were touched (or every term if `sweep`).
     fn gather(&mut self, drop: f64, sweep: bool) {
+        // decided before the merge (the buffers hold the new terms)
+        let par = self.parallel
+            && self.len() + self.bufs.iter().flatten().map(Vec::len).sum::<usize>()
+                >= PAR_MIN_TERMS;
         let bufs = &self.bufs;
         let body = |d: usize, sh: &mut Map<W>| {
             for src in bufs.iter() {
@@ -636,7 +653,7 @@ impl<const W: usize> Store<W> {
                 sh.retain(|_, c| c.abs() > drop);
             }
         };
-        if self.parallel {
+        if par {
             self.shards
                 .par_iter_mut()
                 .enumerate()

@@ -150,18 +150,19 @@ impl EngineModel {
 /// evolution; research/planner-v2.md §2 defines the units.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ReadoutModel {
-    /// State vector sampling: per amplitude of the `2^n` pass, and per shot
-    /// (exponential spacings, merged walk, shuffle).
+    /// State vector (and HSF full output) sampling: per amplitude of the
+    /// `2^n` pass, and per shot (exponential spacings, merged walk, shuffle).
     pub sv_amp: f64,
     pub sv_shot: f64,
     /// Sparse sampling: per stored amplitude (bound `2^sup`), per shot.
     pub sparse_amp: f64,
     pub sparse_shot: f64,
-    /// MPS: canonicalisation per `Σ 2 χ_l χ_r min(2χ_l, χ_r)`, perfect
-    /// sampling per shot per `Σ 2 χ_l χ_r`, one amplitude per `Σ χ_l χ_r`.
-    pub mps_canon: f64,
-    pub mps_shot: f64,
-    pub mps_amp: f64,
+    /// MPS canonical form: per `Σ 2 χ_l χ_r min(2χ_r, χ_l)` and per site.
+    pub mps_canon: [f64; 2],
+    /// MPS perfect sampling, per shot: per `Σ 2 χ_l χ_r` and per site.
+    pub mps_shot: [f64; 2],
+    /// One MPS amplitude: per `Σ χ_l χ_r` and per site.
+    pub mps_amp: [f64; 2],
     /// Compressed-state sampler: build per `2^d (d + 1) + n^2 ⌈n/64⌉`,
     /// per shot per `(d + n) ⌈n/64⌉`.
     pub cs_build: f64,
@@ -173,9 +174,9 @@ pub struct ReadoutModel {
     /// One amplitude look-up (state vector; sparse).
     pub lookup: f64,
     pub sparse_lookup: f64,
-    /// HSF amplitudes (no `2^n` output): `log2 secs = a + b R_amp`,
-    /// `R_amp = log2(2^k G 2^max(n_A,n_B) + 2^k m)`.
-    pub hsf_amp: EngineModel,
+    /// HSF amplitudes (no `2^n` output): set-up per `G n` and path sums per
+    /// `2^keff G 2^max(n_A, n_B)`.
+    pub hsf_amp: [f64; 2],
 }
 
 /// Per-engine cost models plus the units of the MPS work estimate.
@@ -198,81 +199,64 @@ pub struct CostModel {
 }
 
 impl ReadoutModel {
-    /// Fitted on the Mac (M1 Pro, one thread), research/planner-v2.md §2.
+    /// Fitted on the Mac (M1 Pro, one thread; research/planner-v2.md §2,
+    /// `fit_v2.py`, all 350 instances).
     pub fn mac_m1() -> Self {
         ReadoutModel {
-            sv_amp: 1.2e-9,
-            sv_shot: 4.0e-9,
-            sparse_amp: 8.0e-9,
-            sparse_shot: 6.0e-9,
-            mps_canon: 3.0e-9,
-            mps_shot: 2.0e-9,
-            mps_amp: 3.0e-9,
-            cs_build: 2.0e-9,
-            cs_shot: 4.0e-9,
-            tab_build: 2.0e-9,
-            tab_shot: 5.0e-9,
-            lookup: 5.0e-8,
-            sparse_lookup: 5.0e-8,
-            hsf_amp: EngineModel {
-                a: -19.6338,
-                b: 0.5932,
-            },
+            sv_amp: 1.4455e-9,
+            sv_shot: 3.5906e-8,
+            sparse_amp: 4.6809e-9,
+            sparse_shot: 3.1852e-8,
+            mps_canon: [3.1776e-11, 1.1146e-6],
+            mps_shot: [1.1203e-10, 5.1838e-8],
+            mps_amp: [1.6409e-10, 3.2896e-8],
+            cs_build: 5.1520e-9,
+            cs_shot: 7.2439e-9,
+            tab_build: 1.4713e-7,
+            tab_shot: 6.5697e-9,
+            lookup: 1.1694e-8,
+            sparse_lookup: 1.0637e-8,
+            hsf_amp: [1.5968e-6, 1.0771e-11],
         }
     }
 }
 
 impl CostModel {
-    /// Fitted on the Mac (M1 Pro, one thread) simulability dataset with the
-    /// replayed MPS work (research/planner.md §3, `fit_planner.py`).
+    /// Planner v2 (research/planner-v2.md §2): every model refitted on the
+    /// v2 Mac session (M1 Pro, one thread, 350 instances): expectation
+    /// models on whole runs, `state` models on the evolution alone.
     pub fn mac_m1() -> Self {
+        let m = |a: f64, b: f64| EngineModel { a, b };
         CostModel {
-            sv: EngineModel {
-                a: -29.0959,
-                b: 0.9325,
-            },
-            sparse: EngineModel {
-                a: -23.1253,
-                b: 0.8422,
-            },
-            mps: EngineModel {
-                a: -18.7136,
-                b: 0.4755,
-            },
-            hsf: EngineModel {
-                a: -19.6338,
-                b: 0.5932,
-            },
-            cstate: EngineModel {
-                a: -28.3955,
-                b: 0.9788,
-            },
+            sv: m(-29.1444, 0.91994),
+            sparse: m(-21.7869, 0.76945),
+            mps: m(-18.9644, 0.48306),
+            hsf: m(-20.1377, 0.60326),
+            cstate: m(-28.5166, 0.98593),
             mps_svd_weight: 8.0,
             mps_call_overhead: 1000.0,
             readout: ReadoutModel::mac_m1(),
-            // placeholder: the expectation models (refitted in v2, §2)
             state: [
-                EngineModel {
-                    a: -29.0959,
-                    b: 0.9325,
-                },
-                EngineModel {
-                    a: -23.1253,
-                    b: 0.8422,
-                },
-                EngineModel {
-                    a: -18.7136,
-                    b: 0.4755,
-                },
-                EngineModel {
-                    a: -19.6338,
-                    b: 0.5932,
-                },
-                EngineModel {
-                    a: -28.3955,
-                    b: 0.9788,
-                },
+                m(-29.2010, 0.92070),
+                m(-21.7932, 0.76926),
+                m(-18.9003, 0.47820),
+                m(-20.1377, 0.60326),
+                m(-28.5187, 0.98508),
             ],
+        }
+    }
+
+    /// Planner v1's constants (research/planner.md §3: the round-4 sweep,
+    /// MPS refitted on the replayed work), for [`PlannerConfig::v1`].
+    pub fn mac_m1_v1() -> Self {
+        let m = |a: f64, b: f64| EngineModel { a, b };
+        CostModel {
+            sv: m(-29.0959, 0.9325),
+            sparse: m(-23.1253, 0.8422),
+            mps: m(-18.7136, 0.4755),
+            hsf: m(-19.6338, 0.5932),
+            cstate: m(-28.3955, 0.9788),
+            ..CostModel::mac_m1()
         }
     }
 
@@ -294,32 +278,28 @@ impl Default for CostModel {
     }
 }
 
-/// Predicted seconds of computing each planning tier (fitted on the Mac,
-/// research/planner-v2.md §3): `per_gate · G + per_gate_qubit · G · n`.
+/// Predicted seconds of each planning tier (fitted on the Mac,
+/// research/planner-v2.md §3; RMSE 0.12-0.37 decades).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FeatureCost {
-    /// Tier 1a (support bound): per gate. Tier 1b (frame profile, and the
-    /// certificate): per gate plus per gate·qubit.
-    pub tier1_per_gate: f64,
-    pub tier1_per_gate_qubit: f64,
-    /// MPS replay: per adjacent two-qubit application (every one updates
-    /// the bounds and evaluates a bipartition).
-    pub mps_per_step: f64,
-    pub mps_per_step_qubit: f64,
-    /// KL partition: per gate·qubit.
-    pub hsf_per_gate_qubit: f64,
-    pub fixed: f64,
+    /// Tier 1a, affine support bound: fixed + per gate.
+    pub support: [f64; 2],
+    /// Tier 1b, rotation-frame profile (and the certificate): fixed + per
+    /// gate + per rotation·qubit.
+    pub frame: [f64; 3],
+    /// MPS replay: fixed + per adjacent step·qubit.
+    pub mps: [f64; 2],
+    /// HSF Kernighan–Lin partition: fixed + per gate·qubit².
+    pub hsf: [f64; 2],
 }
 
 impl Default for FeatureCost {
     fn default() -> Self {
         FeatureCost {
-            tier1_per_gate: 1.0e-6,
-            tier1_per_gate_qubit: 5.0e-8,
-            mps_per_step: 1.0e-6,
-            mps_per_step_qubit: 1.0e-7,
-            hsf_per_gate_qubit: 2.0e-7,
-            fixed: 5.0e-6,
+            support: [8.96e-6, 7.39e-8],
+            frame: [1.254e-5, 2.153e-7, 1.461e-8],
+            mps: [7.26e-5, 4.33e-8],
+            hsf: [3.67e-3, 7.34e-9],
         }
     }
 }
@@ -400,6 +380,7 @@ impl PlannerConfig {
         PlannerConfig {
             tiered: false,
             cache: false,
+            model: CostModel::mac_m1_v1(),
             ..Default::default()
         }
     }
@@ -418,7 +399,7 @@ impl PlannerConfig {
             self.model.sv.a,
             self.model.mps.a,
             self.model.readout.sv_amp,
-            self.model.readout.mps_shot,
+            self.model.readout.mps_shot[0],
         ] {
             h.u64(x.to_bits());
         }
@@ -668,15 +649,11 @@ fn shot_units(s: f64) -> f64 {
     s
 }
 
-/// HSF amplitude work: `log2(2^k G 2^max(n_A, n_B) + 2^k m)`.
-pub fn hsf_amp_r(f: &Features, m: f64) -> f64 {
-    let k = f.hsf_keff as f64;
+/// HSF amplitude units: `(G, 2^keff G 2^max(n_A, n_B))`.
+pub fn hsf_amp_units(f: &Features) -> (f64, f64) {
     let g = f.gates.max(1) as f64;
     let big = f.hsf_na.max(f.hsf_nb) as f64;
-    let x = k + g.log2() + big;
-    let y = k + m.max(1.0).log2();
-    let mx = x.max(y);
-    mx + ((x - mx).exp2() + (y - mx).exp2()).log2()
+    (g, (f.hsf_keff as f64 + big).exp2() * g)
 }
 
 /// Predicted seconds of `e` for `req` (evolution + read-out).
@@ -686,7 +663,8 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
     let s = req.shots();
     let am = req.amps();
     if e == Engine::Hsf && matches!(req, PlanRequest::Amplitudes(_)) {
-        return ro.hsf_amp.secs(hsf_amp_r(&f.base, am));
+        let (g, paths) = hsf_amp_units(&f.base);
+        return ro.hsf_amp[0] * g * n as f64 + ro.hsf_amp[1] * paths;
     }
     if e == Engine::Tableau {
         let nn = n as f64;
@@ -722,11 +700,14 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
         }
         (Engine::Mps, PlanRequest::Samples(_)) => {
             let (c, sh, _) = mps_readout_units(&f.mps_bonds);
-            ro.mps_canon * c + ro.mps_shot * s * sh
+            let nn = n as f64;
+            ro.mps_canon[0] * c
+                + ro.mps_canon[1] * nn
+                + s * (ro.mps_shot[0] * sh + ro.mps_shot[1] * nn)
         }
         (Engine::Mps, PlanRequest::Amplitudes(_)) => {
             let (_, _, a) = mps_readout_units(&f.mps_bonds);
-            ro.mps_amp * am * a
+            am * (ro.mps_amp[0] * a + ro.mps_amp[1] * n as f64)
         }
         (Engine::Compressed, PlanRequest::Samples(_)) => {
             let d = f.base.d as f64;
@@ -1148,8 +1129,8 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
     // (rotation-frame d-profile, compressed state): each only if the engine
     // it informs could beat the best prediction by more than `voi` x its
     // cost (its lower bound from tier 0).
-    let c1a = fc.fixed + fc.tier1_per_gate * g;
-    let c1b = fc.fixed + fc.tier1_per_gate * g + fc.tier1_per_gate_qubit * g * nn;
+    let c1a = fc.support[0] + fc.support[1] * g;
+    let c1b = fc.frame[0] + fc.frame[1] * g + fc.frame[2] * q.rotations as f64 * nn;
     let gain = |e: Engine, r: &[(Engine, f64)], f: &PlanFeatures| -> f64 {
         // applicability with the engine's most favourable size (d = 0)
         let mut fo = PlanFeatures {
@@ -1201,7 +1182,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
     let mut considered: Vec<Engine> = cheap.to_vec();
     // Tier 2: MPS replay, if MPS could beat the best prediction by more
     // than `voi` x the replay's cost.
-    let c2 = fc.fixed + (fc.mps_per_step + fc.mps_per_step_qubit * nn) * q.mps_steps as f64;
+    let c2 = fc.mps[0] + fc.mps[1] * q.mps_steps as f64 * nn;
     let mps_lb = lower_bound_secs(Engine::Mps, &q, req, &cfg.model);
     let indexed = !matches!(req, PlanRequest::Expectation(_));
     if (!indexed || n <= 128) && best(&ranked) - mps_lb > cfg.voi * c2 {
@@ -1216,7 +1197,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         ranked = rank(&f, req, cfg, &considered);
     }
     // Tier 3: HSF partition, same rule.
-    let c3 = fc.fixed + fc.hsf_per_gate_qubit * g * nn;
+    let c3 = fc.hsf[0] + fc.hsf[1] * g * nn * nn;
     let hsf_lb = lower_bound_secs(Engine::Hsf, &q, req, &cfg.model);
     let mut probe_f = f.clone();
     probe_f.base.hsf_na = n / 2;
