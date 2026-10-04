@@ -260,7 +260,7 @@ the Clifford part, and `R_j = exp(−iθ_j Q_j/2)` are the non-Clifford rotation
 axes `Q_j`. Let `W = span{x(Q_1), …, x(Q_m)} ⊆ GF(2)^n` (the same space whose dimension is the
 active dimension `d`). For a Pauli `P`, if `x(C†PC) ∉ W`, then `<0^n|U†PU|0^n> = 0` exactly.
 
-**Proof.** research/pauli.md §2, Lemma (x-span pruning), applied at stage `m`. Conjugating
+**Proof.** research/performance/pauli.md §2, Lemma (x-span pruning), applied at stage `m`. Conjugating
 `C†PC` back through the rotations only produces strings `±C†PC·Q_{i_1}⋯Q_{i_r}`, whose x-parts lie
 in the coset `x(C†PC) + W`. That coset misses 0, so every string has `<0|·|0> = 0`.
 
@@ -349,7 +349,7 @@ open question 1.
   vs frame 4 ms). The live growth-rate meter hands over to the dense register too early on
   permutation-heavy circuits, whose Heisenberg term count stays tiny.
 - HSF with full 2^n output beats the single-threaded blocked state vector 4–26× on n = 20–26 NN
-  brickwork up to D = 16 (16 instances). research/hsf.md assumed this advantage had disappeared against the blocked
+  brickwork up to D = 16 (16 instances). research/performance/hsf.md assumed this advantage had disappeared against the blocked
   executor. Single-threaded it hasn't. Its GEMM accumulation is the efficient part.
 - The sparse engine's timeouts on Clifford+T are *non-monotone* in t (each T is followed by an H in
   this family, which can either branch or re-merge the support). Dominance skipping is therefore
@@ -382,7 +382,7 @@ open question 1.
 2. Cheap rigorous bound: bond ≤ min(crossing count, cut size, support), with the support counted
    time-resolved and Toffolis treated as permutations. A pruning-aware HSF path estimate
    (heuristic).
-3. The O(gates·n) vanishing certificate for Pauli expectations (the lemma is research/pauli.md's;
+3. The O(gates·n) vanishing certificate for Pauli expectations (the lemma is research/performance/pauli.md's;
    using it as a planner-time certificate is the new use).
 4. The cstate-vs-SV law `d < n − log2(m/G) + c`: Clifford absorption buys `log2(G/m)` qubits.
 

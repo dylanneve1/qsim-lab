@@ -9,7 +9,7 @@ Checks: `tests/theory_coset.rs` (8 tests, all green: `cargo test --release --tes
 
 **Summary.**
 
-| question (brief / research/ge-shor.md §3) | answer |
+| question (brief / research/shor/ge-shor.md §3) | answer |
 |---|---|
 | (a) why TV ≈ (1.5–7.5)·2^−c, and why the "deviant weight" is ≈ (0.5–1.5)·2^−c per window and barely grows | TV is **linear** in the fraction δ of coset branches that are *misplaced relative to a common reference*, TV ≤ δ_rms + θ_rms + δ̄ + √(δ̄θ̄) ≤ 4δ_rms (Thm A), and measured TV is 0.41–0.62 of that bound in every exhaustive case. δ is the spread of a **zero-mean random walk of the coset index** (step variance ∝ number of lookup-additions per window), so δ·2^c grows like √windows, not like the number of additions. ge-shor's "deviant weight" mostly counts accumulators that are *temporarily* out of range; those are re-absorbed exactly in the next window (Lemma D). |
 | (b) why N = 15, 51, 85 give TV = 0 exactly | It is the **order**: if r = ord(a) is a power of two, every work state depends only on E mod r (all paths to a residue apply the *same* multiplier sequence), the output lives on the exact support {k·2^t/r}, and TV = 0 **iff** the r class supports are disjoint (Thm B). Not N mod 2^k, not the base 2, not M ≡ power of the base. Disjointness is generic but **not** automatic: it fails for 8 of 350 (w_e = 2) and 3 of 350 (w_e = 1) power-of-two (N, a) pairs with N ≤ 129, c ≤ 3 (e.g. N = 53, a = 30, w_e = 1, c = 1: TV = 1/32 exactly). Every one of 980 non-power-of-two (N, a, w_e) configurations tested has TV > 0. |
@@ -68,10 +68,10 @@ preserve 4^c). For vector families v, w let [v,w] be the matrix (E,E') ↦ ⟨w_
 
     K_c − K_ex = −[m,χ] − [χ,m] + [d,χ] + [χ,d] + [m,m] + [d,d] − [m,d] − [d,m].
 
-* \[m,χ\](E,E') = ⟨χ_{u(E')}|m_E⟩ = δ_E·[u(E)=u(E')] because m_E ⊆ G_{u(E)} has flat amplitudes:
+* \[m,χ\](../E,E') = ⟨χ_{u(E')}|m_E⟩ = δ_E·[u(E)=u(E')] because m_E ⊆ G_{u(E)} has flat amplitudes:
   one rank-one block δ|_C 1ᵀ per class C, so ‖[m,χ]‖₁ ≤ Σ_C |C|^½ ‖δ|_C‖ ≤ 2^t δ_rms
   (Cauchy–Schwarz over classes). Same for [χ,m].
-* \[d,χ\](E,E') = θ(E, u(E')) with θ(E,u) = |G_u ∩ S_E \ G_{u(E)}|/4^c: columns constant on classes,
+* \[d,χ\](../E,E') = θ(E, u(E')) with θ(E,u) = |G_u ∩ S_E \ G_{u(E)}|/4^c: columns constant on classes,
   Σ_u θ(·,u) 1_{C_u}ᵀ, trace norm ≤ Σ_u |C_u|^½ ‖θ(·,u)‖ ≤ 2^{t/2}(Σ_E Σ_u θ(E,u)²)^½ ≤ 2^t θ_rms
   (Σ_u θ(E,u)² ≤ θ_E²). Same for [χ,d].
 * [m,m], [d,d] are PSD Gram matrices: trace norm = trace = 2^t δ̄ each.

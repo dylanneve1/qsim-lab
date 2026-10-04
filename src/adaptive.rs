@@ -5,7 +5,7 @@
 //! Clifford and `R_j = exp(-i θ_j Q_j / 2)` (see [`crate::pauli_frame`]).
 //! A CNOT network `V` with linear map `L` (`V|y> = |Ly>`) is chosen so that
 //! `W_j = span{x(Q_1..Q_j)}` becomes the span of the first `d_j` unit
-//! vectors for every `j` at once (the pruning proof in `research/pauli.md`).
+//! vectors for every `j` at once (the pruning proof in `research/performance/pauli.md`).
 //! In that frame every rotation acts on the first `d_j` qubits only, the
 //! qubits `>= d_j` are still `|0>` when `R_j` acts (their Z bits act as
 //! `+1`), and therefore, exactly,
@@ -550,7 +550,7 @@ pub fn active_dimension_profile(circuit: &Circuit) -> Result<Vec<usize>, SimErro
 }
 
 /// Whether `<0|U† Z_S U|0> = 0` follows from the x-span lemma alone
-/// (research/pauli.md §2): the Clifford image `C† Z_S C` has an x part
+/// (research/performance/pauli.md §2): the Clifford image `C† Z_S C` has an x part
 /// outside the span of every rotation axis' x part, so every Pauli path
 /// ends with `x ≠ 0`. O(gates · n) — the first step of the frame engine.
 pub fn z_product_vanishes(circuit: &Circuit, qubits: &[usize]) -> Result<bool, SimError> {
@@ -1197,7 +1197,7 @@ pub struct AdaptiveOptions {
     /// meter never sees evidence on circuits whose Heisenberg terms stay
     /// tiny (adders: 4 live terms), keeps the 0.5-per-rotation prior, and
     /// [`Strategy::Auto`] hands over to a 25-qubit register at the start:
-    /// 350× slower than the frame (research/planner.md §4). With it, Auto
+    /// 350× slower than the frame (research/simulability/planner.md §4). With it, Auto
     /// also keeps sweeping (no hand-over) until 8 rotations have been
     /// observed, as long as a rotation costs less in the frame than in the
     /// dense register.

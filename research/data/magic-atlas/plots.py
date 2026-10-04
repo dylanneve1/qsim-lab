@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tables and plots for research/magic-atlas.md.
+"""Tables and plots for research/simulability/magic-atlas.md.
 
   python3 plots.py DATADIR [MAC_DIR]
 DATADIR has atlas.csv, recycle.csv, magic.csv, profiles/, magic/; MAC_DIR has

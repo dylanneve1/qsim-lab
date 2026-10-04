@@ -231,7 +231,7 @@ impl Mps {
     /// `mps_cost::replay_traced(c, BondSource::Bound(Estimator::Best))`,
     /// only numerical noise is discarded: rounding otherwise leaves
     /// spurious singular values above the relative cutoff on long
-    /// Clifford-heavy circuits (research/planner.md §2.4), which inflates
+    /// Clifford-heavy circuits (research/simulability/planner.md §2.4), which inflates
     /// the bond and the work.
     pub fn set_step_caps(&mut self, caps: Vec<u32>) {
         self.step_caps = Some(caps);

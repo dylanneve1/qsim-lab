@@ -5,7 +5,7 @@ Branch `exp/fast-sampler`. Code: `src/stabilizer/fast_sampler.rs`, `examples/sti
 plus a unit test in the module. Data and scripts: `research/data/fast-sampler/`.
 
 **Question.** On *Stim's own* `surface_code:rotated_memory_z` circuit, the SymPhase detector sampler
-was at parity with natively built AVX2 Stim (0.89–1.01×, `research/qec-r4.md` §1.5). 72–82% of our time
+was at parity with natively built AVX2 Stim (0.89–1.01×, `research/qec/qec-r4.md` §1.5). 72–82% of our time
 went into drawing noise variables at about 45 ns per fault. Can we get a clear single-thread lead,
 with the same output distribution?
 
@@ -314,7 +314,7 @@ memory latency (not investigated).
 - VPS numbers were taken at 1-min load 0.8–3.0 on a shared 4-vCPU machine. The pip Stim runs in the
   same process as the interleaving harness, while native Stim and ours are separate processes.
 
-## 5. Prior art and scope (added by the independent audit, `research/fast-sampler-audit.md`)
+## 5. Prior art and scope (added by the independent audit, `research/qec/fast-sampler-audit.md`)
 
 - **Not a new algorithm class.** Sampling detection events by drawing sparse faults and XOR-ing
   their precomputed detector sets in O(npd + 1) is described in the Stim paper (Gidney 2021,

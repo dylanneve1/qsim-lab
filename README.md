@@ -8,7 +8,7 @@ circuit, and a set of theorems with executable checks.
 Everything here is **exact**: no truncation or approximation unless a result
 says so explicitly. Every engine is differential-tested against an independent
 reference state vector, and every headline result went through an independent
-audit before merge (see [research/audit.md](research/audit.md)).
+audit before merge (see [research/process/audit.md](research/process/audit.md)).
 
 - **Results summary:** [RESULTS.md](RESULTS.md)
 - **Architecture:** [research/ARCHITECTURE.md](research/ARCHITECTURE.md)
@@ -19,14 +19,14 @@ audit before merge (see [research/audit.md](research/audit.md)).
 
 | result | number | notebook |
 |---|---|---|
-| Gate-level Shor, generic semiprime | 31-bit N = 1 537 596 787 factored by exact simulation of the full X/CNOT/Toffoli circuit (132 qubits); 77 s on an M1 Pro with Ekerå–Håstad | [shor.md](research/shor.md), [ge-shor.md](research/ge-shor.md) |
-| Shor circuit size at 31 bits | 1.70 M → 1.04 M gates (superoptimised oracle); Toffolis 528 k → 46–61 k with measurement-based uncompute and Gidney–Ekerå techniques (within ~4 % of GE19's own construction at this size) | [superopt.md](research/superopt.md), [mbu-shor.md](research/mbu-shor.md), [ge-shor.md](research/ge-shor.md) |
-| Shor under noise | one random depolarizing fault is fatal with probability 0.716 ± 0.004; success halves at 5.5 × 10⁻⁷ per location at 24 bits | [shor-noise.md](research/shor-noise.md) |
-| Detector sampling vs Stim 1.16 | 9–12× faster than natively built AVX2 Stim on x86 (≥ 10⁵ shots), identical output distribution; Stim still wins small jobs | [fast-sampler.md](research/fast-sampler.md), [fast-sampler-audit.md](research/fast-sampler-audit.md) |
-| Colour-code syndrome schedules | certified d = 9 schedule with circuit distance 8 (Kishony–Fowler: 7); flagged boundary circuits reach full distance d at d = 5, 7, 9 | [colour-global.md](research/colour-global.md), [colour-flags.md](research/colour-flags.md) |
-| Simulability transition | exact simulation cost in monitored Clifford+T circuits has a transition at p_c = 0.1598 — the Clifford measurement-induced transition seen through a dephasing field h = η/n; explains ν_eff ≈ 2.45 = ν·y_h | [magic-transition.md](research/magic-transition.md), [transition-theory.md](research/transition-theory.md) |
-| Engine planner | picks the fastest exact engine for expectations, samples and amplitudes: held-out regret 1.07–1.11, end-to-end 1.13 | [planner-v2.md](research/planner-v2.md) |
-| Apple-silicon GPU | Metal state-vector backend (f32): 1.7–2.2× QFT, 2.4–3.2× brickwork over the best CPU path on an M1 Pro | [metal.md](research/metal.md) |
+| Gate-level Shor, generic semiprime | 31-bit N = 1 537 596 787 factored by exact simulation of the full X/CNOT/Toffoli circuit (132 qubits); 77 s on an M1 Pro with Ekerå–Håstad | [shor.md](research/shor/shor.md), [ge-shor.md](research/shor/ge-shor.md) |
+| Shor circuit size at 31 bits | 1.70 M → 1.04 M gates (superoptimised oracle); Toffolis 528 k → 46–61 k with measurement-based uncompute and Gidney–Ekerå techniques (within ~4 % of GE19's own construction at this size) | [superopt.md](research/shor/superopt.md), [mbu-shor.md](research/shor/mbu-shor.md), [ge-shor.md](research/shor/ge-shor.md) |
+| Shor under noise | one random depolarizing fault is fatal with probability 0.716 ± 0.004; success halves at 5.5 × 10⁻⁷ per location at 24 bits | [shor-noise.md](research/shor/shor-noise.md) |
+| Detector sampling vs Stim 1.16 | 9–12× faster than natively built AVX2 Stim on x86 (≥ 10⁵ shots), identical output distribution; Stim still wins small jobs | [fast-sampler.md](research/qec/fast-sampler.md), [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) |
+| Colour-code syndrome schedules | certified d = 9 schedule with circuit distance 8 (Kishony–Fowler: 7); flagged boundary circuits reach full distance d at d = 5, 7, 9 | [colour-global.md](research/qec/colour-global.md), [colour-flags.md](research/qec/colour-flags.md) |
+| Simulability transition | exact simulation cost in monitored Clifford+T circuits has a transition at p_c = 0.1598 — the Clifford measurement-induced transition seen through a dephasing field h = η/n; explains ν_eff ≈ 2.45 = ν·y_h | [magic-transition.md](research/simulability/magic-transition.md), [transition-theory.md](research/theory/transition-theory.md) |
+| Engine planner | picks the fastest exact engine for expectations, samples and amplitudes: held-out regret 1.07–1.11, end-to-end 1.13 | [planner-v2.md](research/simulability/planner-v2.md) |
+| Apple-silicon GPU | Metal state-vector backend (f32): 1.7–2.2× QFT, 2.4–3.2× brickwork over the best CPU path on an M1 Pro | [metal.md](research/performance/metal.md) |
 
 Context and caveats for every row are in the linked notebooks. In particular,
 the Shor results are exact simulation of a compilable circuit whose cost grows
@@ -38,11 +38,11 @@ on a GPU supercomputer) is larger.
 
 | topic | statement (short) | notebook |
 |---|---|---|
-| Shor support law | exact branch count per semiclassical round, explicit cancellation criterion, P(deficient) ≤ 4/r_odd | [theory-shor.md](research/theory-shor.md) |
-| Borrowed magic | nullity of a branch state = affine dimension of its support minus a symmetry term; two-branch states stay stabilizer iff equal weight and phase ∈ {±1, ±i} | [theory-shor.md](research/theory-shor.md) |
-| Shor noise windows | faults in the last ν₂(r) rounds are free (sharp); early phase faults bounded; exact Z-fault formula | [theory-shor.md](research/theory-shor.md) |
-| Colour-code corner and boundary lemmas | any bare single-auxiliary corner or boundary plaquette forces circuit distance ≤ d − 1, for every odd d | [theory-colour.md](research/theory-colour.md) |
-| Coset arithmetic | output total-variation error is linear in the misplaced fraction (not √); 31-bit padding c = 12 suffices for ≤ 1 % | [theory-coset.md](research/theory-coset.md) |
+| Shor support law | exact branch count per semiclassical round, explicit cancellation criterion, P(deficient) ≤ 4/r_odd | [theory-shor.md](research/theory/theory-shor.md) |
+| Borrowed magic | nullity of a branch state = affine dimension of its support minus a symmetry term; two-branch states stay stabilizer iff equal weight and phase ∈ {±1, ±i} | [theory-shor.md](research/theory/theory-shor.md) |
+| Shor noise windows | faults in the last ν₂(r) rounds are free (sharp); early phase faults bounded; exact Z-fault formula | [theory-shor.md](research/theory/theory-shor.md) |
+| Colour-code corner and boundary lemmas | any bare single-auxiliary corner or boundary plaquette forces circuit distance ≤ d − 1, for every odd d | [theory-colour.md](research/theory/theory-colour.md) |
+| Coset arithmetic | output total-variation error is linear in the misplaced fraction (not √); 31-bit padding c = 12 suffices for ≤ 1 % | [theory-coset.md](research/theory/theory-coset.md) |
 
 Each theorem has a test in `tests/` that fails if the statement is false.
 
@@ -138,21 +138,21 @@ Wheels for Linux x86_64/aarch64 and macOS arm64 are built by
 
 ## Research index
 
-- **Shor:** [shor.md](research/shor.md) · [shor-r4-audit.md](research/shor-r4-audit.md) · [superopt.md](research/superopt.md) · [mbu-shor.md](research/mbu-shor.md) · [ge-shor.md](research/ge-shor.md) · [shor-noise.md](research/shor-noise.md) · [theory-shor.md](research/theory-shor.md) · [theory-coset.md](research/theory-coset.md)
-- **QEC:** [qec.md](research/qec.md) · [qec-r4.md](research/qec-r4.md) · [schedules.md](research/schedules.md) · [colour-global.md](research/colour-global.md) · [colour-flags.md](research/colour-flags.md) · [theory-colour.md](research/theory-colour.md) · [fast-sampler.md](research/fast-sampler.md) · [fast-sampler-audit.md](research/fast-sampler-audit.md) · [stab.md](research/stab.md)
-- **Simulability, magic and physics:** [simulability.md](research/simulability.md) · [planner.md](research/planner.md) · [planner-v2.md](research/planner-v2.md) · [magic-atlas.md](research/magic-atlas.md) · [magic-transition.md](research/magic-transition.md) · [transition-theory.md](research/transition-theory.md) · [adaptive.md](research/adaptive.md) · [pauli.md](research/pauli.md)
-- **Performance:** [sv.md](research/sv.md) · [mac-m1.md](research/mac-m1.md) · [metal.md](research/metal.md) · [ooc.md](research/ooc.md) · [hsf.md](research/hsf.md) · [mps.md](research/mps.md) · [sv-monomial.md](research/sv-monomial.md)
-- **Compiler:** [compiler.md](research/compiler.md) · [dag.md](research/dag.md) · [pipeline.md](research/pipeline.md) · [repeat.md](research/repeat.md) · [phasepoly.md](research/phasepoly.md)
-- **Process:** [audit.md](research/audit.md) · [literature.md](research/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md)
+- **Shor:** [shor.md](research/shor/shor.md) · [shor-r4-audit.md](research/shor/shor-r4-audit.md) · [superopt.md](research/shor/superopt.md) · [mbu-shor.md](research/shor/mbu-shor.md) · [ge-shor.md](research/shor/ge-shor.md) · [shor-noise.md](research/shor/shor-noise.md) · [theory-shor.md](research/theory/theory-shor.md) · [theory-coset.md](research/theory/theory-coset.md)
+- **QEC:** [qec.md](research/qec/qec.md) · [qec-r4.md](research/qec/qec-r4.md) · [schedules.md](research/qec/schedules.md) · [colour-global.md](research/qec/colour-global.md) · [colour-flags.md](research/qec/colour-flags.md) · [theory-colour.md](research/theory/theory-colour.md) · [fast-sampler.md](research/qec/fast-sampler.md) · [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) · [stab.md](research/performance/stab.md)
+- **Simulability, magic and physics:** [simulability.md](research/simulability/simulability.md) · [planner.md](research/simulability/planner.md) · [planner-v2.md](research/simulability/planner-v2.md) · [magic-atlas.md](research/simulability/magic-atlas.md) · [magic-transition.md](research/simulability/magic-transition.md) · [transition-theory.md](research/theory/transition-theory.md) · [adaptive.md](research/simulability/adaptive.md) · [pauli.md](research/performance/pauli.md)
+- **Performance:** [sv.md](research/performance/sv.md) · [mac-m1.md](research/performance/mac-m1.md) · [metal.md](research/performance/metal.md) · [ooc.md](research/performance/ooc.md) · [hsf.md](research/performance/hsf.md) · [mps.md](research/performance/mps.md) · [sv-monomial.md](research/performance/sv-monomial.md)
+- **Compiler:** [compiler.md](research/compiler/compiler.md) · [dag.md](research/compiler/dag.md) · [pipeline.md](research/performance/pipeline.md) · [repeat.md](research/compiler/repeat.md) · [phasepoly.md](research/compiler/phasepoly.md)
+- **Process:** [audit.md](research/process/audit.md) · [literature.md](research/process/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md)
 
 ## Corrections we have published
 
 We keep wrong claims visible rather than quietly editing them away:
 
-- "SymPhase is 4–6.5× faster than Stim" was wrong: Stim had been timed through its slow numpy path. On identical circuits it was parity; the later FastSampler is genuinely faster ([audit.md](research/audit.md) §13, [fast-sampler-audit.md](research/fast-sampler-audit.md)).
-- A reported T-count of 340 omitted 250 equivalent phase gates; the true count was 590 ([audit.md](research/audit.md) §15).
-- The "13× gap" to Gidney–Ekerå 2019 was mostly an artefact of comparing against their 2048-bit asymptotic formula ([ge-shor.md](research/ge-shor.md)).
-- Several smaller corrections are logged in [audit.md](research/audit.md) §16.
+- "SymPhase is 4–6.5× faster than Stim" was wrong: Stim had been timed through its slow numpy path. On identical circuits it was parity; the later FastSampler is genuinely faster ([audit.md](research/process/audit.md) §13, [fast-sampler-audit.md](research/qec/fast-sampler-audit.md)).
+- A reported T-count of 340 omitted 250 equivalent phase gates; the true count was 590 ([audit.md](research/process/audit.md) §15).
+- The "13× gap" to Gidney–Ekerå 2019 was mostly an artefact of comparing against their 2048-bit asymptotic formula ([ge-shor.md](research/shor/ge-shor.md)).
+- Several smaller corrections are logged in [audit.md](research/process/audit.md) §16.
 
 ## Licence
 

@@ -216,7 +216,7 @@ oracle has its fewest steps at w = 5 (1.30 M vs 1.32 M at w = 4).
 Measurements cost about one X-measurement per Toffoli saved, as expected:
 every temporary AND is uncomputed by one.
 
-## 4. Theory consistency (T1, T2 of `research/theory-shor.md`)
+## 4. Theory consistency (T1, T2 of `research/theory/theory-shor.md`)
 
 * **T1 (support law).** MBU changes the circuit but not the map. After
   every block the stored support and amplitudes are identical to the
@@ -248,7 +248,7 @@ every temporary AND is uncomputed by one.
 `qsim run shor --semiclassical --sliced --window 4 --oracle {windowed-opt |
 windowed-mbu-lookup | windowed-mbu} --modulus N --seed S --tries 1`; the
 31-bit run adds `--f32 --seed 2`, the 24- and 28-bit runs use `--seed 1`.
-These are the record bases of research/shor.md. Logs:
+These are the record bases of research/shor/shor.md. Logs:
 `research/data/mbu-shor/bench_24_28.log`, `bench_31.log`. "Eval" is the
 gate-evaluation time (control-1 + control-0 halves) from `QSIM_SLICE_PROFILE`.
 
@@ -293,7 +293,7 @@ semiprime from `random.seed(1)`, not selected. λ(N) = 1 815 541 826 =
 
 **RAM first.** By the support law the peak support is
 `max(r_odd, r/2)`. For r = λ that is 9.08·10⁸, ≈ 30 GB: impossible on the
-16 GB Mac, as research/shor.md already predicted. The base is the first
+16 GB Mac, as research/shor/shor.md already predicted. The base is the first
 draw of `StdRng(seed)` (`--tries 1`). `examples/shor_seed_orders.rs` lists
 the base, its order and the predicted peak for seeds 1–40
 (`research/data/mbu-shor/seed_orders_32bit.txt`):
@@ -311,7 +311,7 @@ the cost law says governs everything. The quantum simulation itself is
 exact and blind: every gate of the 136-qubit circuit on every branch.
 This is the same status as choosing a seed whose run fits; it is not a
 factoring of an unknown N, and the simulation is no classical speed-up
-(research/shor.md §"What is exponential in what").
+(research/shor/shor.md §"What is exponential in what").
 
 **Run.** Mac, `--oracle windowed-mbu-lookup`, f32. It ran as a background
 (non-timing) job, because a ~3 min run exceeds the 150 s lock chunk:
@@ -336,7 +336,7 @@ wall time is not a benchmark. Scaling the 8-thread 31-bit run by the cost
 law (Σ B_i · G ratio ≈ 2.1×) suggests ≈ 3 min with 8 threads.
 
 **Memory constant, corrected.** RSS was 6.28 GB, not the 4.3 GB that
-"33 B per peak element" predicts. The 33 B rule (research/shor.md) was
+"33 B per peak element" predicts. The 33 B rule (research/shor/shor.md) was
 fitted at 31 bits, where ν₂(r) = 2: there the full peak support r/2 is only
 reached by the last *materialised* collapse, from a support of r/4. With
 ν₂(r) = 1 the support sits at r_odd for 36 rounds, and every collapse runs

@@ -4,7 +4,7 @@ Branch `exp/metal`. The code sits behind the `metal` cargo feature and only comp
 
 ## Verdict
 
-**Positive result. The kill criterion is not met.** On the M1 Pro (14-core GPU, 16 GB unified memory), the fused Metal backend beats our best CPU path (NEON FMA + 1 MiB cache-blocked executor, 8 threads, f32). Measured against **quiet** CPU baselines for identical circuits (`research/mac-m1.md`, same `qft(n)` and `random_brickwork(n, 20, seed 42)`):
+**Positive result. The kill criterion is not met.** On the M1 Pro (14-core GPU, 16 GB unified memory), the fused Metal backend beats our best CPU path (NEON FMA + 1 MiB cache-blocked executor, 8 threads, f32). Measured against **quiet** CPU baselines for identical circuits (`research/performance/mac-m1.md`, same `qft(n)` and `random_brickwork(n, 20, seed 42)`):
 
 - **QFT: 1.7-1.85x at 26-28 qubits.**
 - **Random brickwork, depth 20: 2.4-2.6x at 26-28 qubits.**
@@ -40,7 +40,7 @@ How the table was measured:
 - **Roof column.** "% of roof" is `passes × 16 B × 2^n / BW / time`, the fraction of the time the DRAM traffic alone would take at the measured streaming bandwidth. CPU passes come from `plan_stages` with the CPU's f32 parameters (2^17-amplitude block, 6 slots).
 - **Lock gaps.** Chunks were 4-60 s, but the gaps between my own locked chunks were 30 s. The 60 s gap rule arrived during the run and I only read it afterwards.
 
-![roofline](data/metal/roofline.png)
+![roofline](../data/metal/roofline.png)
 
 The roofline above plots amplitude updates per second against amplitude updates per DRAM byte. The memory roofs are the measured streaming bandwidths: 178 GB/s for the GPU (in-place `scale4` kernel, n = 26-29) and 162 GB/s for the CPU (rayon in-place loop, n = 29). The GPU compute roof is the measured rate of register-local single-qubit gates, 137 G amplitude updates per second. The CPU points use the same-run (loaded) times; with the quiet references they move up by at most 10% and the picture doesn't change. The plot shows the main finding: **the CPU path is compute-bound** at 10-17% of its memory roof, while **the GPU runs at 51-61% of its memory roof** but makes 2.0-2.5x more passes. The two machines stream at similar speeds (178 vs 125-162 GB/s), so the GPU's advantage is arithmetic throughput, not bandwidth.
 

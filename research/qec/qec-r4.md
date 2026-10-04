@@ -29,7 +29,7 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
 
 ### 1.1 What was wrong with the earlier comparison
 
-`RESULTS.md` and `research/audit.md` §13 say SymPhase beats Stim by **4.0–6.5×** on rotated surface-code memory. Two problems:
+`RESULTS.md` and `research/process/audit.md` §13 say SymPhase beats Stim by **4.0–6.5×** on rotated surface-code memory. Two problems:
 
 1. **The .stim file was a hand-written reconstruction.** `examples/stim_export.rs` re-implements the circuit line by line instead of serialising the `Circuit` object that is actually sampled. It happened to match, but nothing enforced that.
 2. **Stim was timed through its slowest output path.** Stim was timed with `sampler.sample(shots, bit_packed=True)`, which builds a shot-major numpy array and transposes it. qsim-lab was timed writing 64-shot words into a scratch buffer that was immediately discarded. Stim's own streaming path, `sample_write(..., format="ptb64")`, emits exactly qsim-lab's layout (64-shot words per detector). On the VPS it is **2–4× faster** than `sample()`. Most of the claimed lead came from comparing different output paths.
@@ -173,7 +173,7 @@ Our compile step is also slower than Stim's: 35–45 ms against about 1 ms at d 
 I looked at three candidates:
 
 - **Bivariate-bicycle codes such as [[72,12,6]].** Crowded. There is IBM's depth-7 schedule, the morphing circuits (arXiv:2407.16336), reinforcement-learning schedule synthesis (AlphaSyndrome, arXiv:2609.12020) and PropHunt (MaxSAT-guided circuit edits). Our decoder story is also weakest there.
-- **Rotated surface code.** Settled. Our own `research/schedules.md` (exhaustive over 576 orders), and recent "off-the-hook" and "no more hooks" papers (arXiv:2602.09099, 2603.01628).
+- **Rotated surface code.** Settled. Our own `research/qec/schedules.md` (exhaustive over 576 orders), and recent "off-the-hook" and "no more hooks" papers (arXiv:2602.09099, 2603.01628).
 - **4.8.8 / 6.6.6 colour code.** Mostly settled at the uniform-schedule level:
   - Beverland et al. and Lee et al. ("tri-optimal") optimised *spatially uniform* single-auxiliary circuits. These are distance-halving.
   - Gidney–Jones (superdense, middle-out).

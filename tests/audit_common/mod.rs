@@ -2,7 +2,7 @@
 //! Shared pieces of the audit differential fuzz harness: an independent
 //! naive reference state vector and edge-biased circuit generators.
 //! Used by `tests/differential_fuzz.rs` and by the per-branch adapters in
-//! `audit-adapters/`.
+//! `tools/audit-adapters/`.
 #![allow(dead_code)]
 
 use num_complex::Complex64 as C;

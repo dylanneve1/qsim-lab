@@ -1,7 +1,7 @@
 # Audit: FastSampler (`exp/fast-sampler`, head 744df86)
 
 Auditor branch `exp/fast-sampler-audit`. Scripts and raw data: `research/data/fast-sampler-audit/`.
-Claim audited (`research/fast-sampler.md`): a Poisson-"hit" FastSampler is 8.3–18× faster than
+Claim audited (`research/qec/fast-sampler.md`): a Poisson-"hit" FastSampler is 8.3–18× faster than
 natively built AVX2 Stim 1.16 on Stim's own `rotated_memory_z` circuit (single thread, same `.stim`,
 ptb64 output, d = 3–15, p = 0.1/0.3%), with an unchanged output distribution.
 
@@ -284,7 +284,7 @@ The individual ideas are known; the measured constant-factor result is the new p
 
 - 050580c: `SymPhaseSampler::relative_to_reference()`; `stim_compare::compile` uses it instead of
   panicking (§2.1).
-- `research/fast-sampler.md`: prior-art paragraph, crash note, scope of supported instructions.
+- `research/qec/fast-sampler.md`: prior-art paragraph, crash note, scope of supported instructions.
 - `research/data/fast-sampler-audit/`:
   - `exact_check.py` (exact ground truth, hit model, χ² of the binary);
   - `equivalence_other.py` (T0–T4 on other Stim circuits);

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Second-decoder LER check: Chromobius (Gidney, colour-code mobius decoder) on the exported
 circuit, with detectors annotated DETECTOR(x, y, t, colour+3*is_Z) as Chromobius requires.
-Sampling and DEM by Stim (equivalent to our sampler, research/qec-r4.md Part 1).
+Sampling and DEM by Stim (equivalent to our sampler, research/qec/qec-r4.md Part 1).
 usage: chromobius_ler.py <color_search> <d> <rounds> <p> <schedule|kf> <shots> <seed> [x]"""
 import sys, os, json, math, subprocess, tempfile, time
 import numpy as np, stim, chromobius

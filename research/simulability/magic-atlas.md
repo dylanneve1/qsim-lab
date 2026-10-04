@@ -32,7 +32,7 @@ simulation is hard.)*
 ## 1. What is measured
 
 A unitary circuit on |0ⁿ⟩ is lowered to Clifford + Z rotations (Toffoli → 7 T, `CPhase`/`Rx`/`Ry`/`U`
-→ Clifford + `Rz`) and written in the rotation frame `U_k = C_k R_{m_k}⋯R_1` (research/pauli.md).
+→ Clifford + `Rz`) and written in the rotation frame `U_k = C_k R_{m_k}⋯R_1` (research/performance/pauli.md).
 `magic_atlas::profile` computes, in one pass, O(gates·n/64) plus O(n²·w) for the GF(2) basis
 (0.01–2.5 s per circuit at n ≤ 1024):
 
@@ -108,7 +108,7 @@ entanglement bound `min(n/2, E_stab + d)` therefore only says something where d 
 
 ## 3. When is the quantumness used? (`when_profiles.png`)
 
-![when](data/magic-atlas/when_profiles.png)
+![when](../data/magic-atlas/when_profiles.png)
 
 `d_k/n` (blue) and the largest factor so far (orange) against the fraction of the circuit:
 
@@ -126,7 +126,7 @@ entanglement bound `min(n/2, E_stab + d)` therefore only says something where d 
 
 ## 4. Ground truth: is d the "quantumness"? (`nullity_vs_d.png`, `magic.csv`)
 
-![nullity](data/magic-atlas/nullity_vs_d.png)
+![nullity](../data/magic-atlas/nullity_vs_d.png)
 
 80 instances at n ≤ 12, nullity ν and SRE M2 after (up to 150 checkpoints of) every original gate,
 compared with d_k, f_k and the recycled Σlive_k:
@@ -201,7 +201,7 @@ load 2.9–9):
 
 Where d (or f, f_rec) is well below n the frame engines beat the state vector by 10²–10⁴ at n = 24,
 and the predicted time tracks the measured one (predicted/measured 0.5–1.6× across all 15 families). Where d = n they lose by 1–30× (the
-boundary law of research/simulability.md §5b: Clifford absorption buys only log2(G/m) qubits). The
+boundary law of research/simulability/simulability.md §5b: Clifford absorption buys only log2(G/m) qubits). The
 recycled engine costs nothing extra when it cannot recycle (≤ 1.3× of plain factored).
 
 ## 6. Surprises
@@ -278,7 +278,7 @@ beforehand (d, f) or tracks a magic monotone (recycling).
   arXiv:2410.09001) and Clifford-augmented MPS (CAMPS, arXiv:2412.17209) — related to our f < d and
   to recycling, but heuristic/variational and on MPS.
 - Toffoli networks on classical data are classically trivial (reversible simulation; sparse simulators,
-  e.g. research/shor.md); Grover states have stabilizer rank 2.
+  e.g. research/shor/shor.md); Grover states have stabilizer rank 2.
 
 **New here, as far as I found.**
 1. An atlas of exact, O(gates·n) structural magic invariants (d, f, E_stab bound, support) for ~20
@@ -336,6 +336,6 @@ Families (spec strings): `qft:n,cut,in={basis,plus,graph,zero,neel}`, `cuccaro|g
 `heis:n,steps,dt,in`, `qaoa:n,p,graph={ring,reg3}`, `hea:n,layers`, `qpe:t,s,kind={stab,trotter}`,
 `walk:m,steps`, `hhl:t,m`, `rct:n,L,t`.
 
-![summary](data/magic-atlas/atlas_summary.png)
-![engines](data/magic-atlas/engines.png)
-![cost](data/magic-atlas/cost_law.png)
+![summary](../data/magic-atlas/atlas_summary.png)
+![engines](../data/magic-atlas/engines.png)
+![cost](../data/magic-atlas/cost_law.png)

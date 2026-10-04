@@ -1,5 +1,5 @@
 //! Gidney–Ekerå 2019 (arXiv:1905.09749) techniques in the exact gate-level
-//! Shor simulation (exp/ge-shor, `research/ge-shor.md`).
+//! Shor simulation (exp/ge-shor, `research/shor/ge-shor.md`).
 //!
 //! Three changes to *what* the circuit computes, each simulated gate by
 //! gate on every branch:

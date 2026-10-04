@@ -1,6 +1,6 @@
 # Why ν_eff ≈ 2.5: the simulability transition is the Clifford MIPT seen through a relevant noise field
 
-Branch `exp/transition-theory` (from main d44563c). Follow-up to `research/magic-transition.md` (§4.2, §5 "ν_eff ≈ 2.5 unexplained").
+Branch `exp/transition-theory` (from main d44563c). Follow-up to `research/simulability/magic-transition.md` (§4.2, §5 "ν_eff ≈ 2.5 unexplained").
 Code: `examples/transition_theory.rs` — a d-only driver (`steady`, `survival`, `decay`) on the public API of
 `src/monitored/`; **no engine change** (pattern `poisson` reuses `circuit::layer` and the same seed mixing,
 and reproduces `magic-transition/raw.csv` bit for bit, e.g. n = 128, p = 0.16, η = 1, seed 100000: d̄ = 18.375 in both).
@@ -135,7 +135,7 @@ both exist). Families: S (η = ½, 1, 2, 4; n = 64–1024, 12–200 samples, 10 
 D (decay); plus the d-only rows of `magic-transition/raw.csv` (constant p_T, η = 1, 2 at n = 16, 32 and p ∉ grid).
 
 ### 3.1 d̄/n is a function of h = η/n only
-![h](data/transition-theory/h_scaling.png)
+![h](../data/transition-theory/h_scaling.png)
 
 Left: ρ vs h for all sources (η = 1/32 … 4, constant p_T = 0.01, 0.05, 0.2): one curve per p. Cells with the same h
 and different (n, η) agree: 576 pairs of cells with equal h and n·η ≥ 16 (η from 1/32 to 4, constant p_T, n = 16–2048) have χ²/pair = 1.12, median relative difference 0.7 %, max 6.8 % (`same_h_pairs.csv`); e.g. p = 0.16, h = 1/128: ρ = 0.1597 (n = 128, η = 1), 0.1597 (n = 256, η = 2), 0.1590 (n = 64, η = ½). Deviations appear only when n·η ≲ 4 (n ≲ ξ_h), e.g. n = 16 at p_T = 0.01
@@ -202,7 +202,7 @@ n = 1024, d̄ for η = ½, 1, 2, 4: p = 0.22: 5.40, 10.30, 19.82, 36.74; p = 0.2
 (p = 0.25, η = 2: 12.0, 12.8 at n = 512, 1024).
 
 ### 3.7 Line defect: ordinary FSS with ν = 1.26
-![fixed](data/transition-theory/fixed_site.png)
+![fixed](../data/transition-theory/fixed_site.png)
 
 n = 64–1024, 10 p values, η = 1 on qubit 0. At p ≤ 0.155 d grows ∝ n (the code fills through the single
 noisy site), at p ≥ 0.17 it saturates (d = 4–10), and at p = 0.16 it grows logarithmically (9.4 → 16.9 from
@@ -212,7 +212,7 @@ n = 64 to 1024). Collapse d − A ln n = G((p − p_c) n^{1/ν}) on p ∈ [0.14,
 d/n-ansatz used for random injection does not describe this data (χ²/dof 5.2). Same Clifford critical point, ordinary ν.
 
 ### 3.8 Per-η finite-size scaling in n (the original ansatz)
-![pereta](data/transition-theory/per_eta.png)
+![pereta](../data/transition-theory/per_eta.png)
 
 | η | n range | h window | p_c | ν_eff | (β/ν)_eff | ν_eff·(β/ν)_eff | χ²/dof |
 |---|---|---|---|---|---|---|---|

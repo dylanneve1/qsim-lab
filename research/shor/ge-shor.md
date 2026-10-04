@@ -17,7 +17,7 @@ from other agents was 4–15 during the timings (given per block in §5).
 
 ## TL;DR
 
-* **The "≈ 13× gap to Gidney–Ekerå" of research/mbu-shor.md was mostly an
+* **The "≈ 13× gap to Gidney–Ekerå" of research/shor/mbu-shor.md was mostly an
   artefact of evaluating an asymptotic formula at n = 31.** GE19's headline
   `0.3 n³ + 0.0005 n³ lg n` (9.0 k Toffolis at n = 31) is their cost model
   at RSA sizes. Their own construction, costed the same way at n = 31
@@ -116,7 +116,7 @@ the bits of the same window measured before it, and `H`.
 ### 1.2 Why the distribution is unchanged, and the support law per window
 
 **Proposition W.** Let `ψ = ψ_{i0}(y)` be the state of the work register
-after `i0` measured bits (Lemma 1 of research/theory-shor.md). After the
+after `i0` measured bits (Lemma 1 of research/theory/theory-shor.md). After the
 window block the state is `2^{−w/2} Σ_{e<2^w} |e⟩ V^e ψ`, `V = U^{2^{t−i0−w}}`.
 After the top `j` exponent qubits are measured with outcomes `y_{i0}, …,
 y_{i0+j−1}`, the state is
@@ -164,7 +164,7 @@ sets, three outcome streams: `g^e x mod N`, ancillas clean, uniform sign.
 `windowed_run_reproduces_semiclassical_bits`: with the same RNG stream the
 windowed engine measures the same integer as the permutation oracle
 (up to 20 bits, `w_e = 1, 2, 3`); at 24, 28 and 31 bits it reproduced the
-integers of research/mbu-shor.md.
+integers of research/shor/mbu-shor.md.
 
 ### 1.3 The windowed engine (`GeState`)
 
@@ -411,7 +411,7 @@ EH does not change the qubit count.
 (exp/mbu-shor's oracle, built from this branch) vs `ge_shor run N S w_e
 w_m {lookups|all} {shor|eh|eh-odd} {f64|f32}` (same base: first draw of
 `StdRng(S)`; same RNG stream for the measurements). f64 at 24 and 28 bits
-(seed 1), f32 at 31 bits (seed 2), as in research/mbu-shor.md. "L" is the
+(seed 1), f32 at 31 bits (seed 2), as in research/shor/mbu-shor.md. "L" is the
 slice width (`QSIM_SLICE_LANES`, 64·L branches per batch; 16 is the
 default, 32 is 10 % faster for the windowed blocks). Interleaved, min of
 3 unless noted; 1-min load average in brackets.
@@ -436,7 +436,7 @@ default, 32 is 10 % faster for the windowed blocks). Interleaved, min of
 | | GE Shor 2:4 all | 81 438 | 32 | 183.07 (1 run, load 12–15) | | 4.19 GB |
 | | GE EH 2:3 lookups, odd-order base | 128 412 | 32 | 76.90 (1 run, load 5–7) | **76.9** | 4.79 GB |
 
-Every run measured the same integer as research/mbu-shor.md
+Every run measured the same integer as research/shor/mbu-shor.md
 (150 071 647 041 326; 19 301 499 017 721 646; 2 059 039 373 337 077 151)
 and found the true order and a factor; every EH run recovered `p` and `q`
 from its single `(j, k)` (24-bit: j = 11 279 703, k = 1 838; 28-bit
@@ -476,7 +476,7 @@ reconstruction is faithful where it can be checked. At small n the
 optimal windows are small (`c_e = c_m = 3` at n = 31) and the lookups
 (`2^6`) are not negligible against `2n`, so the same model gives **44 350
 at n = 31**, 4.9× the headline formula's 9 011. The "≈ 13×" of
-research/mbu-shor.md §6 compared our 31-bit circuit with the formula,
+research/shor/mbu-shor.md §6 compared our 31-bit circuit with the formula,
 not with the construction.
 
 | n | GE19 headline | GE19 model (best c_e, c_m) | ours, measured (all three, c = 8) | ours, model with c = 2 lg n + 4 |

@@ -141,7 +141,7 @@ FSS: weighted polynomial master curve (degree 4), minimise χ²/dof over `(p_c, 
 
 ### 4.1 Entanglement reference (p_T = 0)
 
-![ee](data/magic-transition/collapse_ee.png)
+![ee](../data/magic-transition/collapse_ee.png)
 
 I₃ of four quarters of the ring: volume law (I₃ → −∞ ∝ n) below, area law (I₃ → 0) above. Collapse over
 n = 32–256: **p_c^EE = 0.1601 ± 0.0010, ν = 1.32 ± 0.07** (χ²/dof 1.4), in agreement with the literature
@@ -150,9 +150,9 @@ up (0.147 → 0.159 → 0.166 ± 0.003), the usual small-size correction.
 
 ### 4.2 Dilute magic (η = 1 T per layer): a simulability transition at p_c^EE
 
-![dilute](data/magic-transition/collapse_dilute.png)
+![dilute](../data/magic-transition/collapse_dilute.png)
 
-![kappa](data/magic-transition/local_exponent.png)
+![kappa](../data/magic-transition/local_exponent.png)
 
 * Below p_c the register is extensive or nearly so: d̄ ∝ n^κ with κ = 0.82–0.91 at p = 0.05–0.10 and
   **κ increasing with n** (0.77 → 0.82 at p = 0.10 from the 128/256 to the 256/512 pair). d̄/n itself still
@@ -180,7 +180,7 @@ second universality class, but we cannot prove it at n ≤ 1024.
 
 ### 4.3 Fux et al.'s η = 2 setup and the claimed magic transition at p ≈ 0.22
 
-![fux](data/magic-transition/eta2_vs_fux.png)
+![fux](../data/magic-transition/eta2_vs_fux.png)
 
 Fux–Tirrito–Dalmonte–Fazio (arXiv:2312.02039) find for the same ingredients with q = 2/N (TEBD, N ≤ 184,
 F-test between sub-extensive and area-law fits of M_2) an entanglement transition at 0.16 and a **magic**
@@ -212,9 +212,9 @@ the n-dependence is the same as at depth 4n (E7). So:
 
 ### 4.4 Constant T density: no transition, cost exponential everywhere
 
-![const](data/magic-transition/constant_pt.png)
+![const](../data/magic-transition/constant_pt.png)
 
-![phase](data/magic-transition/phase_diagram.png)
+![phase](../data/magic-transition/phase_diagram.png)
 
 For p_T = 0.01, 0.05, 0.2 the steady-state d/n is the same for n = 32…512 within statistical error (≤ 2 %) at every
 p_m from 0.02 to 0.5 (e.g. p_T = 0.01: 0.590, 0.364, 0.179, 0.104, 0.035, 0.009 at p_m = 0.05, 0.1, 0.16,
@@ -242,7 +242,7 @@ So d is a tight magic proxy in this model, not just a cost. (These averages are 
 stayed ≤ 24 qubits; 440 of 1570 exact runs near p_c hit that cap and are excluded, which biases E4
 means low near p_c.)
 
-![magic](data/magic-transition/magic_exact.png)
+![magic](../data/magic-transition/magic_exact.png)
 
 ## 5. Caveats
 

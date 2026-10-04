@@ -49,7 +49,7 @@ by 1e−9 rad (`from_polar(1.0, th + 1e-9)`) is caught immediately by
 `sv_f64_matches_reference` (Δ = 4.0e−10 at n = 2). On main @ 86e5d67 all 11
 tests pass in 8 s (release).
 
-Per-branch adapters live in `audit-adapters/` (copied into `tests/` /
+Per-branch adapters live in `tools/audit-adapters/` (copied into `tests/` /
 `examples/` of a worktree of the branch under audit, together with
 `tests/audit_common/`).
 
@@ -114,7 +114,7 @@ Bonferroni bound for every detector and both logical rates.
 
 No PR yet; audited pre-emptively.
 
-**Accuracy.** `audit-adapters/sv_blocked.rs`: blocked executor vs the
+**Accuracy.** `tools/audit-adapters/sv_blocked.rs`: blocked executor vs the
 independent reference, n ∈ {1..11, 13} with 5 configs per circuit (default +
 4 random adversarial: `block_bytes` ∈ {8 B … 256 KiB}, `slots` 0–8, fusion
 on/off, `small_n` 0–3 forcing the multi-chunk path at tiny n), plus 16/18
@@ -129,7 +129,7 @@ Reset/ClassicControlled/noise variants, so the exhaustive
 `match op { Op::Gate, Op::Measure }` in `apply_circuit_blocked` will not
 compile after merging main. Told the sv agent.
 
-**Speed** (`audit-adapters/bench_sv_blocked.rs`: base and blocked runs
+**Speed** (`tools/audit-adapters/bench_sv_blocked.rs`: base and blocked runs
 *interleaved* in one process, 5 reps each, min reported; default
 `BlockConfig`; portable release build; through `bench.sh`; raw:
 `research/data/audit/sv_973f40b_bench.txt`):
@@ -149,7 +149,7 @@ against yet (EXPERIMENTS-sv.md has only the profile).
 
 ## 4. PR #1 (improvements-and-optimizations @ ca89cdc) — gates, optimize, QASM
 
-Adapter `audit-adapters/pr1_gates_qasm.rs`; reference matrices for the new
+Adapter `tools/audit-adapters/pr1_gates_qasm.rs`; reference matrices for the new
 gates written from textbook/Qiskit definitions in the adapter.
 `QSIM_FUZZ_ITERS=5`. Verdict posted on the PR: **BUG** (QASM I/O only).
 
@@ -186,7 +186,7 @@ repetition, surface) plus `differential_fuzz` and the blocked adapter at
 **BUG at HEAD ea41235** (regression introduced by eb03e29 "real-rotation/
 phase split of fused 1q gates"). `apply_circuit_blocked` with
 `BlockConfig::default()` returns wrong amplitudes; greedy delta-debugging
-(`audit-adapters/sv_blocked_repro_ea41235.rs`) shrinks the fuzz failure
+(`tools/audit-adapters/sv_blocked_repro_ea41235.rs`) shrinks the fuzz failure
 (seed 2698035465) to 10 gates on 5 qubits:
 
 ```
@@ -204,7 +204,7 @@ had already exited, so the repro was handed to the parent.)
 
 ## 6. exp/qec @ 100c2dc — circuit-derived detector error model (WIP)
 
-Adapter `audit-adapters/qec_dem_exp_qec.rs` (same statistics as §2, using
+Adapter `tools/audit-adapters/qec_dem_exp_qec.rs` (same statistics as §2, using
 `SurfaceCode::with_noise` and `ErrorMechanism::probability`; channel mix via
 `QSIM_DEM_NOISE`). d=3, rounds=3, p=0.005, 20 000 shots/side unless noted.
 
@@ -250,7 +250,7 @@ at 10 exhaustive `match op` sites in `src/compile/{analysis,peephole,plan}.rs`
 (new `Op` variants). Needs a real port (non-gate ops as barriers / fallback),
 not a one-liner. Audited on its own base.
 
-**Accuracy** — `audit-adapters/compiler_plans.rs`, `QSIM_FUZZ_ITERS=5`, all pass:
+**Accuracy** — `tools/audit-adapters/compiler_plans.rs`, `QSIM_FUZZ_ITERS=5`, all pass:
 
 | target | check | worst |
 |---|---|---|
@@ -268,7 +268,7 @@ PauliPath 6 (+11 in the dedicated test) component plans; 514 plans used a
 classical monomial suffix. The branch's own suite also passes (41 lib tests
 + all integration tests).
 
-**Speed** — `audit-adapters/bench_compiler.rs`: "always-SV"
+**Speed** — `tools/audit-adapters/bench_compiler.rs`: "always-SV"
 (`PlanOptions::none()` + 1000 f32 shots) and compiled (compile + 1000 shots)
 **interleaved**, 5 pairs, min; through bench.sh; raw
 `research/data/audit/compiler_49facf8_bench.txt`.
@@ -299,7 +299,7 @@ by default"); shared `CARGO_TARGET_DIR`. `QSIM_FUZZ_ITERS=3`.
 | creg with repeated measurement | **fixed** (creg ≥ #measurements) |
 | `sv_blocked` adapter | pass with `split_phases=false`; with `split_phases=true` the known ea41235 bug still reproduces (Δ=0.18, seed 2698035465) — the flag is now off by default and documented as broken, so not a PR regression |
 
-New, minor (malformed input, `audit-adapters/pr1_qasm_malformed.rs`): the
+New, minor (malformed input, `tools/audit-adapters/pr1_qasm_malformed.rs`): the
 parser silently accepts invalid programs instead of erroring —
 `rz() q[0]`, `cx q[0]`, `u3(1) q[0]`, `h q[0],q[1]` parse to **no op**
 (gate dropped); `rx(1,2) q[0]` ignores the extra param; with `qreg q[2];
@@ -334,7 +334,7 @@ Verdict: **REPRODUCED / correct — safe to merge** (merge onto current main so
 
 ## 10. PR #2 exp/pauli @ 74db386 — rotation-frame engine with exact pruning
 
-**Accuracy** — `audit-adapters/pauli_frame_audit.rs` (new). Adversarial
+**Accuracy** — `tools/audit-adapters/pauli_frame_audit.rs` (new). Adversarial
 family built for *non-zero* values: circuit = L · W† · M · W with W a random
 Clifford (dense rotation axes), M a sparse non-Clifford core on 1–3 qubits
 (T/Tdg, Rz/Rx/Ry/Phase at π/4, π, 1e-9, generic; Rz(θ)Rz(−θ) pairs;
@@ -405,7 +405,7 @@ n = 2), so the test covers the PR1×PR3 semantic conflict.
 
 ## 12. PR #4 exp/qec @ dbc3e86 — circuit-derived DEM, exact sampler, hook-safe order
 
-**DEM vs full tableau** — `audit-adapters/qec_dem_exp_qec.rs` updated to the
+**DEM vs full tableau** — `tools/audit-adapters/qec_dem_exp_qec.rs` updated to the
 new API (`SurfaceCode::new(d,d).dem_sampler(&noise)`; the code object is
 deliberately built without the noise so the sampler must use the caller's).
 Per-detector two-proportion z, Bonferroni 4.9σ, seed 7. Raw:
@@ -426,7 +426,7 @@ agrees), and `dem_sampler` / `run_experiment(…, DetectorErrorModel)` with
 `NoiseModel::none()` give 0 defects / 0 logical errors in 2,000 shots.
 
 **Hook claim, checked without the branch's fault list** —
-`audit-adapters/qec_hook_audit.rs`. Faults are injected as explicit gates
+`tools/audit-adapters/qec_hook_audit.rs`. Faults are injected as explicit gates
 into `build_circuit()`, run noiselessly on the tableau, and decoded with
 `sc.decoder`:
 - Every single fault (15 two-qubit Paulis after each CNOT, X/Y/Z after each
@@ -481,7 +481,7 @@ Harness `research/data/audit/audit_stim_symphase.py` timed Stim 1.16 (`compile_d
 
 Verdict: **REPRODUCED AND CONFIRMED.** On an exact apples-to-apples basis with identical circuits and bit-packed output, SymPhase outperforms Stim by **4.0×–6.5×**.
 
-**Correction (4 Oct 2026, exp/qec-r4; see `research/qec-r4.md` Part 1).** The verdict above does not stand. Two problems with the method:
+**Correction (4 Oct 2026, exp/qec-r4; see `research/qec/qec-r4.md` Part 1).** The verdict above does not stand. Two problems with the method:
 
 1. **The circuit was reconstructed, not serialised.** `stim_export.rs` re-writes the circuit by hand rather than serialising the sampled `Circuit`.
 2. **The two sides were timed on different output paths.** The harness timed Stim's `sample(bit_packed=True)`, which builds and transposes a shot-major numpy array and is 2–4× slower than Stim's own streaming `sample_write(format="ptb64")`. It timed qsim-lab writing into a discarded scratch buffer.
@@ -502,7 +502,7 @@ Results:
 Spot-check audit of out-of-core disk-backed state vector (`OocStateVector`) against the in-RAM cache-blocked executor (`apply_circuit_blocked`).
 
 **Audit Scope & Setup:**
-- Adapter `audit-adapters/ooc_audit.rs` run against `wt/ooc` (commit 415b93d).
+- Adapter `tools/audit-adapters/ooc_audit.rs` run against `wt/ooc` (commit 415b93d).
 - Tests 16, 17, 18, 19, and 20 qubits with a forced small chunk size of 64 chunks per file (`chunk_bits = n - 6`, i.e. 1,024 amplitudes per chunk at n=16 up to 16,384 at n=20).
 - Circuit families:
   1. **QFT (16, 17, 18, 20 qubits)**: dense all-to-all controlled rotations testing global-to-local qubit swaps and streaming chunk passes.
@@ -569,7 +569,7 @@ harness was run against deliberately broken copies of the code under test.
   **1594 → 590** non-Clifford. The "1594 → 340" figure is the `t_pfp` column,
   which counts only `T`/`T†`; the output also holds 250 `Phase(odd·π/4)`
   gates (182 T + 158 T† + 250 Phase), so the T-count is 590 (PyZX basic:
-  586). Noted in research/phasepoly.md.
+  586). Noted in research/compiler/phasepoly.md.
 - End-to-end (Mac M1 Pro, under the swarm bench lock, machine load 7–10 from
   other agents' builds; interleaved off/on, min of 3, compile + fold
   included): Cuccaro adders on the adaptive engine 1.12–1.16× (claimed

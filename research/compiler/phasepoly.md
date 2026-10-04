@@ -1,7 +1,7 @@
 # Phase folding: graph-based T-count reduction beyond local peephole
 
 Owner request: "turn the circuits into graphs and optimize." The circuit DAG
-(`src/dag.rs`, `research/dag.md`) cuts about half the T gates of random
+(`src/dag.rs`, `research/compiler/dag.md`) cuts about half the T gates of random
 Clifford+T circuits with commutation-aware peephole. This note adds the next
 step: **phase folding** over the parity of each wire (Amy, Maslov & Mosca
 2014), and compares against PyZX (the ZX-calculus reference).

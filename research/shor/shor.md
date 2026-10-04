@@ -232,7 +232,7 @@ cargo test --release --test shor_scale
 
 The agent hit its time limit, so the parent recorded these results from its
 bench run. Raw output: `research/data/shor/ripple_benchmarks.txt`; script:
-`bench_ripple.sh`.
+`research/data/shor/bench_ripple.sh`.
 
 `src/shor_ripple.rs` builds the controlled modular multiplier only from X,
 CNOT and Toffoli gates: a Cuccaro ripple-carry adder, then a modular adder,
@@ -382,7 +382,7 @@ gates; 48-bit 248 376 613 912 741 in 24.8 s / 200 qubits; **52-bit
 
 ### Follow-up: superoptimised oracle (exp/superopt)
 
-`--oracle windowed-opt` (`src/shor_superopt.rs`, `research/superopt.md`) is
+`--oracle windowed-opt` (`src/shor_superopt.rs`, `research/shor/superopt.md`) is
 the same layout and arithmetic with cheaper, proved-correct blocks:
 unary-iteration lookups (the round-4 lookup recomputed its whole AND chain
 for every address), optimal fan-out, a comparator-based modular adder, and
@@ -393,7 +393,7 @@ with the same measured integer.
 ### Follow-up: measurement-based uncomputation (exp/mbu-shor)
 
 `--oracle windowed-mbu-lookup` / `windowed-mbu` (`src/shor_mbu.rs`,
-`research/mbu-shor.md`). The sliced engine gains a per-branch sign word, so
+`research/shor/mbu-shor.md`). The sliced engine gains a per-branch sign word, so
 X-basis measurements of deterministic ancillas with Z/CZ fix-ups run
 exactly; the engine asserts that every branch has sign +1 after each
 block. Temporary-AND lookups, a measurement-based unlookup and a measured
@@ -409,7 +409,7 @@ chosen by seed so that its order fits in RAM; that choice used λ(N). See
 
 ### Follow-up: Gidney–Ekerå techniques (exp/ge-shor)
 
-`src/shor_ge.rs`, `examples/ge_shor.rs`, `research/ge-shor.md`. Exponent
+`src/shor_ge.rs`, `examples/ge_shor.rs`, `research/shor/ge-shor.md`. Exponent
 windowing (one multiplication per `w_e` exponent bits, lookups addressed
 by exponent and multiplicand bits, the window's exponent qubits measured
 semiclassically one by one), the Ekerå–Håstad short exponent (48 instead

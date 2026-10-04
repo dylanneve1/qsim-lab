@@ -12,7 +12,7 @@ runs:
    Cliffords are absorbed, leaving Pauli rotations `exp(-iθQ/2)`.
 3. The rotations act on an **active register** of dimension
    `d_k = dim span{x(Q_1..Q_k)} ≤ k`. This is the compression argument in
-   research/pauli.md. The frame's symplectic map gives an *exact* change of
+   research/performance/pauli.md. The frame's symplectic map gives an *exact* change of
    basis onto `d_k` qubits, and the remaining rotations are applied to a
    **dense state vector over only those qubits** (2^{d_k} amplitudes instead of
    2^n).

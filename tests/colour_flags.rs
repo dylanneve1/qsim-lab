@@ -1,5 +1,5 @@
-//! Flag-qubit colour-code circuits (research/colour-flags.md): the hook-free
-//! boundary construction of research/colour-global.md §6 built as real
+//! Flag-qubit colour-code circuits (research/qec/colour-flags.md): the hook-free
+//! boundary construction of research/qec/colour-global.md §6 built as real
 //! circuits (one flag qubit per boundary-touching plaquette, both halves).
 use qsim_lab::qec::color::{circuit_dem, ColorCode, ColorNoise, ColorSchedule, KF_SCHEDULE};
 

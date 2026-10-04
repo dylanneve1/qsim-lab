@@ -1,5 +1,5 @@
 //! Gidney–Ekerå techniques in the exact gate-level Shor simulation
-//! (exp/ge-shor, research/ge-shor.md).
+//! (exp/ge-shor, research/shor/ge-shor.md).
 //!
 //! ```text
 //! ge_shor run    <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd] [f32|f64]
@@ -91,7 +91,7 @@ fn main() {
             if var == "eh-odd" {
                 // EH accepts any base: g = h^(2^n) has odd order (no
                 // factorisation used), which keeps the simulated support
-                // at r_odd (see research/ge-shor.md)
+                // at r_odd (see research/shor/ge-shor.md)
                 a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
             }
             let t0 = Instant::now();

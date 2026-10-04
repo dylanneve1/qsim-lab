@@ -2,7 +2,7 @@
 
 Independent audit (qsim-shor-r4-audit, 3 Oct 2026). Verdict: **FIX-THEN-MERGE**
 — the record and the simulation are sound; four quantitative sentences in
-`research/shor.md` were wrong and are corrected on this branch.
+`research/shor/shor.md` were wrong and are corrected on this branch.
 
 ## 1. Is it really the circuit?
 
@@ -72,7 +72,7 @@ Code read (`src/shor/sliced.rs`, `src/shor_window.rs`, `src/shor.rs`):
 | 221 643 407 | 28 | 16.1 s / 2.82 GB (f32 15.2 s / 2.02 GB) | 16.04 s / 2.82 GB (f32 14.99 s / 2.02 GB), same measured integer, factor 15 601 |
 | 1 537 596 787 | 31 | 134.4 s / 4.28 GB (f32) | **134.09 s / 4.28 GB**, same a = 457 167 243, same measured 2 059 039 373 337 077 151, r = 256 252 500, factor 52 501 |
 
-Load 1.4–5.9 (1-min) during the runs. Exact command from `research/shor.md`.
+Load 1.4–5.9 (1-min) during the runs. Exact command from `research/shor/shor.md`.
 The 24-bit row was stale (measured before the final collapse was skipped,
 at load 35) and is updated.
 
@@ -84,7 +84,7 @@ r = 4224 = 2^7·33): `|S_i| = B_i` in **508 / 508 rounds**, never above; the
 work counter equals `Σ 2·|S_i|·G_i` exactly in all 15; peak support equals
 `max(r_odd, r/2)` in all 15.
 
-## Corrections made to research/shor.md
+## Corrections made to research/shor/shor.md
 
 1. Closed form: `Σ_i B_i ≈ r_odd·(2n − log₂ r) + 2r` → **`+ r`**. Derivation: the
    last ν rounds contribute `r_odd(1 + 2 + … + 2^(ν−1)) ≈ r`, not 2r. Against the
