@@ -55,13 +55,28 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
         let s = (0..k).map(|i| svd.S().column_vector()[i].re).collect();
         (svd.U().to_owned(), s, svd.V().to_owned())
     };
+    // On the M1 build faer occasionally returns Ok with NaN factors
+    // (`ct:n=32,L=32,t=8,nn=1`, the dataset's one MPS crash: the NaNs
+    // surfaced one SVD later as a convergence failure); treat that as a
+    // failure too.
+    let finite = |x: &(Mat<C>, Vec<f64>, Mat<C>)| {
+        x.1.iter().all(|v| v.is_finite())
+            && (0..x.0.nrows()).all(|r| (0..x.0.ncols()).all(|c| x.0[(r, c)].re.is_finite()))
+            && (0..x.2.nrows()).all(|r| (0..x.2.ncols()).all(|c| x.2[(r, c)].re.is_finite()))
+    };
     if let Ok(svd) = m.thin_svd() {
-        return unpack(&svd);
+        let out = unpack(&svd);
+        if finite(&out) {
+            return out;
+        }
     }
     let adj = m.adjoint().to_owned();
     if let Ok(svd) = adj.thin_svd() {
         let (u, s, v) = unpack(&svd);
-        return (v, s, u);
+        let out = (v, s, u);
+        if finite(&out) {
+            return out;
+        }
     }
     // QR-preconditioned SVD (m = Q R, R = U' S V† => U = Q U'), exact up to
     // rounding; converges on the M1 build where the plain SVD did not
@@ -76,7 +91,10 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
     if let Ok(svd) = r.thin_svd() {
         let (u, s, v) = unpack(&svd);
         let u = &q * &u;
-        return if tall { (u, s, v) } else { (v, s, u) };
+        let out = if tall { (u, s, v) } else { (v, s, u) };
+        if finite(&out) {
+            return out;
+        }
     }
     for salt in 1..=3u64 {
         let phase = |r: usize| {
@@ -90,7 +108,10 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
         if let Ok(svd) = dm.thin_svd() {
             let (u, s, v) = unpack(&svd);
             let u = Mat::from_fn(u.nrows(), u.ncols(), |r, c| phase(r).conj() * u[(r, c)]);
-            return (u, s, v);
+            let out = (u, s, v);
+            if finite(&out) {
+                return out;
+            }
         }
     }
     let bad = (0..m.nrows())
