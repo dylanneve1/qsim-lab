@@ -12,7 +12,7 @@ root; a directory pair moves everything under it):
   `[id]: target`) in every tracked *.md file is re-resolved against the
   file's OLD location and re-expressed relative to its NEW location, so links
   *from* moved files and links *to* moved files both stay correct;
-* repo-root path mentions (e.g. `research/foo.md` in prose, code comments,
+* repo-root path mentions (e.g. `research/<name>.md` in prose, code comments,
   scripts) in tracked *.md, *.rs, *.py, *.sh, *.toml, *.yml files are
   replaced, except in files given with --exclude (e.g. files that open
   branches are editing, to avoid merge conflicts).

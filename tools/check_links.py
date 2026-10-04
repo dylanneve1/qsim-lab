@@ -6,7 +6,8 @@
 Run from the repo root. Checks, over tracked files:
 
 * links: every relative Markdown link `[text](target)` / `[id]: target` in a
-  *.md file must point at an existing file or directory (errors);
+  *.md file must point at a tracked file or directory (errors) -- untracked
+  files (e.g. unpacked data) do not count, since they 404 on GitHub;
 * --anchors: `file.md#heading` and `#heading` fragments must match a heading
   slug (GitHub rules) in the target (errors);
 * --mentions: repo-root path mentions such as `research/shor/shor.md` or
@@ -63,10 +64,20 @@ def anchors(path):
     return _anchor_cache[path]
 
 
+TRACKED = set()
+
+
+def tracked(p):
+    """A tracked file, or a directory containing one (untracked/ignored files don't count)."""
+    return p in TRACKED
+
+
 def exists(p):
-    if os.path.exists(p) or os.path.exists(p + ".xz") or os.path.exists(p + ".gz"):
+    if tracked(p):
         return True
-    if p.startswith("examples/") and os.path.exists(p + ".rs"):
+    if tracked(p + ".xz") or tracked(p + ".gz"):
+        return True
+    if p.startswith("examples/") and tracked(p + ".rs"):
         return True  # `examples/<name>` refers to the example binary
     # a prefix written as a pattern stem, e.g. `research/data/ge-shor/bench_`
     d, base = os.path.split(p)
@@ -80,6 +91,12 @@ def main(argv):
     errors, warnings, nlinks = [], [], 0
     files = git_files()
     for f in files:
+        TRACKED.add(f)
+        d = os.path.dirname(f)
+        while d and d not in TRACKED:
+            TRACKED.add(d)
+            d = os.path.dirname(d)
+    for f in files:
         if f.endswith(".md"):
             txt = FENCE.sub("", open(f, encoding="utf-8").read())
             # inline code spans can hold literal "](" — drop them for link parsing
@@ -90,7 +107,7 @@ def main(argv):
                 nlinks += 1
                 path, _, frag = t.partition("#")
                 target = os.path.normpath(os.path.join(os.path.dirname(f), path)) if path else f
-                if path and not os.path.exists(target):
+                if path and not tracked(target):
                     errors.append(f"{f}: broken link -> {t}")
                 elif do_anchors and frag and target.endswith(".md") and frag not in anchors(target):
                     errors.append(f"{f}: missing anchor -> {t}")

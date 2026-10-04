@@ -138,6 +138,8 @@ Wheels for Linux x86_64/aarch64 and macOS arm64 are built by
 
 ## Research index
 
+All notebooks with one-line summaries: [research/README.md](research/README.md). House rules for code, tests and notebooks: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 - **Shor:** [shor.md](research/shor/shor.md) · [shor-r4-audit.md](research/shor/shor-r4-audit.md) · [superopt.md](research/shor/superopt.md) · [mbu-shor.md](research/shor/mbu-shor.md) · [ge-shor.md](research/shor/ge-shor.md) · [shor-noise.md](research/shor/shor-noise.md) · [theory-shor.md](research/theory/theory-shor.md) · [theory-coset.md](research/theory/theory-coset.md)
 - **QEC:** [qec.md](research/qec/qec.md) · [qec-r4.md](research/qec/qec-r4.md) · [schedules.md](research/qec/schedules.md) · [colour-global.md](research/qec/colour-global.md) · [colour-flags.md](research/qec/colour-flags.md) · [theory-colour.md](research/theory/theory-colour.md) · [fast-sampler.md](research/qec/fast-sampler.md) · [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) · [stab.md](research/performance/stab.md)
 - **Simulability, magic and physics:** [simulability.md](research/simulability/simulability.md) · [planner.md](research/simulability/planner.md) · [planner-v2.md](research/simulability/planner-v2.md) · [magic-atlas.md](research/simulability/magic-atlas.md) · [magic-transition.md](research/simulability/magic-transition.md) · [transition-theory.md](research/theory/transition-theory.md) · [adaptive.md](research/simulability/adaptive.md) · [pauli.md](research/performance/pauli.md)
