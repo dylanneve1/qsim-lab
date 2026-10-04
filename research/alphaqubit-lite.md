@@ -113,9 +113,30 @@ AlphaQubit result as its ratio to TN: 0.958 (d = 3) and 0.943 (d = 5).
 
 _(Tesseract, BP+OSD and AlphaQubit-lite rows: §5 update)_
 
-### 5.2 Willow 2024
+### 5.2 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
 
-_(filled in)_
+Test fold: odd-index shots (25,000 per configuration). Per-round LER ε = ½(1 − (1 − 2E)^{1/r}) per
+configuration, averaged over patches and bases; "mean 10–30" averages r ∈ {10, 13, 30}, which is
+exactly the "rounds 2–30" window of arXiv:2609.04557 Table VII (the archive has no other counts
+there; r = 1 is excluded). "fit" is the paper-style log-fidelity fit over r ∈ {10, 13, 30, 50}.
+
+| decoder (prior) | d = 3 mean 10–30 | d = 3 fit | d = 5 mean 10–30 | d = 5 fit | source |
+|---|---|---|---|---|---|
+| PyMatching 2.4 (SI1000 prior) | 0.994 % | 1.005 % | 0.622 % | 0.638 % | this work |
+| MWPM, arXiv:2609.04557 Table VII | 0.995 % | – | 0.622 % | – | paper |
+| PyMatching 2.4 correlated (SI1000) | 0.868 % | 0.864 % | 0.428 % | 0.427 % | this work |
+| correlated matching (SI1000), shipped | 0.819 % | 0.815 % | 0.420 % | 0.420 % | Zenodo |
+| correlated matching (RL prior), shipped | 0.739 % | 0.745 % | 0.387 % | 0.388 % | Zenodo |
+| Harmony, 101-ensemble (SI1000), shipped | 0.759 % | 0.757 % | 0.370 % | 0.370 % | Zenodo |
+| Harmony (RL prior), shipped | 0.714 % | 0.714 % | 0.349 % | 0.352 % | Zenodo |
+| Tesseract (SI1000), arXiv:2609.04557 | 0.738 % | – | 0.352 % | – | paper |
+| BeliefMatching (SI1000), arXiv:2609.04557 | 0.815 % | – | 0.421 % | – | paper |
+| BP+OSD (SI1000), arXiv:2609.04557 | 0.936 % | – | 0.659 % | – | paper |
+
+Our uncorrelated-matching numbers reproduce arXiv:2609.04557 to the third digit (0.994 vs 0.995 %,
+0.622 vs 0.622 %), so the two pipelines agree. The Willow paper's own neural decoder (an AlphaQubit
+descendant, ref. [27] there) is not in the archive; it reports ε₇ = 0.143 % and Λ = 2.14 on this
+device.
 
 ## 6. Reproducing
 
