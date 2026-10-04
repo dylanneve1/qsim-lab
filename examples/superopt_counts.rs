@@ -41,6 +41,60 @@ fn main() {
         }
         return;
     }
+    if a.get(4).is_some_and(|s| s == "blocks") {
+        // per-block counts for this n: lookups over all windows of the
+        // round-0 multiplier, and one modular addition
+        use qsim_lab::circuit::Circuit;
+        use qsim_lab::shor_superopt::{add_mod_reg, lookup_unary, FanoutPlan};
+        let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
+        let lay = WindowLayout::new(inst.m, w);
+        let n = inst.m;
+        let mut bse = inst.mults[0] % n_mod;
+        let (mut lk, mut start) = ([(0usize, 0usize); 3], 0);
+        let mut nwin = 0;
+        while start < n {
+            let ww = w.min(n - start);
+            let table: Vec<u64> = (0..1u64 << ww)
+                .map(|v| (u128::from(v) * u128::from(bse) % u128::from(n_mod)) as u64)
+                .collect();
+            let addr = &lay.x[start..start + ww];
+            for (k, mode) in [0, 1, 2].iter().enumerate() {
+                let mut c = Circuit::new(lay.num_qubits());
+                match mode {
+                    0 => qsim_lab::shor_window::lookup(&mut c, 0, addr, &lay.and, &lay.l, &table),
+                    1 => lookup_unary(&mut c, 0, addr, &lay.and, &lay.l, &FanoutPlan::leaves(&table)),
+                    _ => lookup_unary(&mut c, 0, addr, &lay.and, &lay.l, &FanoutPlan::optimal(&table, n)),
+                }
+                let (g, t) = gate_counts(&c);
+                lk[k].0 += g;
+                lk[k].1 += t;
+            }
+            for _ in 0..ww {
+                bse = (u128::from(bse) * 2 % u128::from(n_mod)) as u64;
+            }
+            start += ww;
+            nwin += 1;
+        }
+        for (k, name) in ["lookup baseline (LSB-first chain)", "lookup unary iteration", "lookup unary + optimal fanout"].iter().enumerate() {
+            println!("{name:36} per lookup avg over {nwin} windows: gates={:.1} ccx={:.1}", lk[k].0 as f64 / nwin as f64, lk[k].1 as f64 / nwin as f64);
+        }
+        let b = Opts::BASELINE;
+        for (name, o) in [
+            ("modadd baseline (5 adders)", b),
+            ("modadd comparator", Opts { comparator: true, ..b }),
+            ("modadd comparator+kflip", Opts { comparator: true, kflip: true, ..b }),
+        ] {
+            let mut c = Circuit::new(lay.num_qubits());
+            add_mod_reg(&mut c, &lay, n_mod, &o);
+            let (g, t) = gate_counts(&c);
+            let p = qsim_lab::shor_superopt::reversible_peephole(&c);
+            let (gp, tp) = gate_counts(&p);
+            let sp = qsim_lab::shor_superopt::sat_peephole(&p, lay.k[0]);
+            let (gs, ts) = gate_counts(&qsim_lab::shor_superopt::reversible_peephole(&sp));
+            println!("{name:36} gates={g} ccx={t}  | +peephole {gp}/{tp}  | +sat rules {gs}/{ts}");
+        }
+        return;
+    }
     if a.get(4).is_some_and(|s| s == "sweep") {
         // window sweep, baseline vs all, totals over the run
         let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
