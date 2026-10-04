@@ -56,7 +56,7 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
           args: --release --out dist
-          sccache: "true"
+          sccache: ${{ matrix.platform != 'linux-aarch64' }}
       - name: Check wheel tags (abi3)
         shell: bash
         run: |
