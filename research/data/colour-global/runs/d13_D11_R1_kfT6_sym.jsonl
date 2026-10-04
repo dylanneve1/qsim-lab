@@ -83,3 +83,6 @@
 {"kind": "iter", "iter": 82, "weight": 9, "count": 274, "new_cuts": 696, "cuts": 35733, "tsat": 0.003819704055786133, "tdist": 19.824378490447998}
 {"kind": "iter", "iter": 83, "weight": 8, "count": 2, "new_cuts": 6, "cuts": 35739, "tsat": 0.0017542839050292969, "tdist": 2.472836494445801}
 {"kind": "iter", "iter": 84, "weight": 9, "count": 342, "new_cuts": 846, "cuts": 36585, "tsat": 0.001302957534790039, "tdist": 17.27577233314514}
+{"kind": "iter", "iter": 85, "weight": 9, "count": 57, "new_cuts": 141, "cuts": 36726, "tsat": 0.0024178028106689453, "tdist": 22.734711170196533}
+{"kind": "iter", "iter": 86, "weight": 9, "count": 48, "new_cuts": 132, "cuts": 36858, "tsat": 0.0017151832580566406, "tdist": 22.334636926651}
+{"kind": "iter", "iter": 87, "weight": 9, "count": 43, "new_cuts": 90, "cuts": 36948, "tsat": 0.0024261474609375, "tdist": 22.7382550239563}

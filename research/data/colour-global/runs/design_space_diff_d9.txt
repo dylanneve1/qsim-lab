@@ -1,0 +1,8 @@
+kf: 91 qubits, 540 detectors, 1 observable, 108 CX layers, noiseless deterministic
+new: 91 qubits, 540 detectors, 1 observable, 108 CX layers, noiseless deterministic
+1865 lines compared; 108 CX layers in 18 half-rounds (layers per half: {6: 18}); CNOT multiset identical per half-round; X half = Z-half schedule
+INSIDE K-F DESIGN SPACE: same circuit except CNOT order
+kf: 91 qubits, 540 detectors, 1 observable, 108 CX layers, noiseless deterministic
+new: 91 qubits, 540 detectors, 1 observable, 108 CX layers, noiseless deterministic
+2108 lines compared; 108 CX layers in 18 half-rounds (layers per half: {6: 18}); CNOT multiset identical per half-round; X half = Z-half schedule
+INSIDE K-F DESIGN SPACE: same circuit except CNOT order

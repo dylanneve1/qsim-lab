@@ -5,7 +5,7 @@
 //!     plaquettes: index x y color weight data-per-position(-1 absent)
 //! color_search dem <d> <rounds> <cnot|uniform> <p> <schedule> [out]
 //!     circuit-derived DEM: "p<TAB>obsmask<TAB>det det ..." per distinct signature
-//! color_search export <d> <rounds> <cnot|uniform> <p> <schedule> <out.stim>
+//! color_search export <d> <rounds> <cnot|uniform> <p> <schedule> <out.stim> [x]
 //! color_search collisions <d> <schedule>
 //! ```
 //! `<schedule>`: `kf`, `tri`, or a file with one line per plaquette
@@ -76,7 +76,9 @@ fn main() {
             let rounds: usize = a[3].parse().unwrap();
             let p: f64 = a[5].parse().unwrap();
             let s = schedule(&cc, &a[6]);
-            let m = cc.memory(&s, rounds, noise(&a[4], p));
+            // optional 9th argument "x": X-basis memory
+            let x_basis = a.get(8).is_some_and(|b| b == "x");
+            let m = cc.memory_basis(&s, rounds, noise(&a[4], p), x_basis);
             if a[1] == "export" {
                 let t = to_stim(&m.circuit, &m.noise, &m.detectors, &m.observables).unwrap();
                 std::fs::write(&a[7], t).unwrap();
