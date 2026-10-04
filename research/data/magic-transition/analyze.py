@@ -138,6 +138,8 @@ def cell_data(fam, ns, pwin, ycol, transform):
 
 
 def boot_fit(fam, ns, pwin, transform, beta, x0, nboot=60):
+    import os
+    nboot = int(os.environ.get('NBOOT', nboot))
     data = cell_data(fam, ns, pwin, None, lambda n, rs: transform(n, rs, None))
     best = fit(data, beta, x0)
     bs = []
@@ -145,7 +147,7 @@ def boot_fit(fam, ns, pwin, transform, beta, x0, nboot=60):
         dat = cell_data(fam, ns, pwin, None, lambda n, rs: transform(n, rs, rng))
         r = fit(dat, beta, best.x)
         bs.append(r.x)
-    bs = np.array(bs)
+    bs = np.array(bs) if bs else np.full((1, len(best.x)), np.nan)
     return best, bs.std(axis=0), data
 
 
