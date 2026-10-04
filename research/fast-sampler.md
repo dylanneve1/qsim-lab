@@ -313,3 +313,25 @@ memory latency (not investigated).
 - Single-threaded throughout. Both samplers parallelise trivially over shots.
 - VPS numbers were taken at 1-min load 0.8–3.0 on a shared 4-vCPU machine. The pip Stim runs in the
   same process as the interleaving harness, while native Stim and ours are separate processes.
+
+## 5. Prior art and scope (added by the independent audit, `research/fast-sampler-audit.md`)
+
+- **Not a new algorithm class.** Sampling detection events by drawing sparse faults and XOR-ing
+  their precomputed detector sets in O(npd + 1) is described in the Stim paper (Gidney 2021,
+  arXiv:2103.02202, §5.6). Gidney left it unimplemented because he expected the constant factors to
+  lose at p ≈ 0.1%. The hit model's per-Pauli flip probability `½(1 − (1 − (m+1)p/m)^{2/(m+1)})` is
+  exactly Stim's DEM decomposition of DEPOLARIZE1/2 into independent mechanisms (`error_decomp.cc`).
+  What is new is the constant-factor engineering:
+  - one pooled Poisson stream per (kind, p), with location and Pauli taken from one draw;
+  - blocked forward-walking generation;
+  - the padded branch-free hit table.
+
+  Together these make the sparse method win by about 9–27× per shot.
+- **Scope.** The Stim front-end accepts: H, S, S_DAG, Paulis, CX, CZ, SWAP, R/RX, M/MX/MR/MRX
+  with one global flip probability, X/Y/Z_ERROR, DEPOLARIZE1/2, DETECTOR, OBSERVABLE_INCLUDE,
+  REPEAT. Everything else is rejected with an error and is never approximated: PAULI_CHANNEL_*,
+  E/ELSE_CORRELATED_ERROR, HERALDED_*, MPP, Y-basis operations, feedback and other gates. Stim's
+  colour code works after `stim.Circuit.decomposed()`.
+- **Fixed by the audit.** Circuits with a detector or observable of noiseless parity 1 (e.g. the
+  decomposed colour code at d ≥ 5) used to panic in `stim_compare`. Outputs are now reported
+  relative to the noiseless reference, as Stim does (`SymPhaseSampler::relative_to_reference`).

@@ -1,0 +1,10 @@
+{"chi2": 28.207835063893384, "dof": 31, "pval": 0.610416775581697, "impossible_outcomes": 0, "name": "near_max_dense", "seed": 11, "shots": 16777216}
+{"chi2": 26.26058654989608, "dof": 31, "pval": 0.7087463135534675, "impossible_outcomes": 0, "name": "near_max_dense", "seed": 12, "shots": 16777216}
+{"chi2": 20.615027189066367, "dof": 31, "pval": 0.9216955045533997, "impossible_outcomes": 0, "name": "near_max_dense", "seed": 13, "shots": 16777216}
+{"chi2": 16.3339523996483, "dof": 31, "pval": 0.9857723462307997, "impossible_outcomes": 0, "name": "near_max_dense", "seed": 14, "shots": 16777216}
+{"chi2": 25.64702991996733, "dof": 31, "pval": 0.7380585534996298, "impossible_outcomes": 0, "name": "near_max_dense", "seed": 15, "shots": 16777216}
+{"chi2": 146.42797586691057, "dof": 127, "pval": 0.11444659410172241, "impossible_outcomes": 0, "name": "mixed_rare", "seed": 11, "shots": 16777216}
+{"chi2": 134.51597446389638, "dof": 127, "pval": 0.307045155517709, "impossible_outcomes": 0, "name": "mixed_rare", "seed": 12, "shots": 16777216}
+{"chi2": 140.14763547444772, "dof": 127, "pval": 0.20056926737011893, "impossible_outcomes": 0, "name": "mixed_rare", "seed": 13, "shots": 16777216}
+{"chi2": 105.89983160029342, "dof": 127, "pval": 0.9135356683971283, "impossible_outcomes": 0, "name": "mixed_rare", "seed": 14, "shots": 16777216}
+{"chi2": 124.9688271760674, "dof": 127, "pval": 0.5343585703254478, "impossible_outcomes": 0, "name": "mixed_rare", "seed": 15, "shots": 16777216}
