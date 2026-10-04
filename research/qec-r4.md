@@ -17,7 +17,7 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
   - M1: 3.0–5.6×, but Stim has no NEON backend there.
   - The old claim came from timing Stim's numpy output path.
 - **Part 2: in Kishony–Fowler's single-auxiliary colour-code design space, per-plaquette boundary schedules found by exact search keep their circuit distance but halve the minimum-weight logicals.**
-  - The minimum-weight logical count drops 388 → 197 (d = 5), 12,901 → 7,509 (d = 7) and 492 → 255 (d = 9), all over d rounds.
+  - The minimum-weight logical count drops 388 → 197 (d = 5), 12,901 → 6,627 (d = 7) and 492 → 255 (d = 9), all over d rounds.
   - Logical error per round falls by **22–31% at p = 0.2–0.3% under noisy-CNOT noise**: d = 5, 0.69–0.70× with BP+OSD (CI ±4%) and 0.69× [0.56, 0.84] / 0.78× [0.64, 0.96] with Tesseract; d = 7, 0.74–0.76× [0.66, 0.84].
   - X-memory improves too, although only Z-memory was optimised.
   - No change tried raised the circuit distance above K–F's d − ⌊(d+3)/6⌋, which we reproduce exactly up to d = 9 over 9 rounds (and at d = 11 over 1 round).
@@ -252,8 +252,8 @@ So depth and qubit count are identical to K–F's. "Free" plaquettes are those t
 |---|---|---|---|---|---|---|
 | 5 | 5 | (4, 388) | **(4, 197)** | local optimum: no single (9) or pair (15) re-schedule improves | 20 | `schedules/d5_lns_r5.sched`, `lns_d5_r5.jsonl` |
 | 5 | 1 | (4, 55) | (4, 36) | local optimum (9 singles, 10 pairs) | 7 | `lns_d5_r1.jsonl` |
-| 7 | 1 | (6, 883) | **(6, 505)** at the snapshot used below; the run continued | all 18 singles exhausted; pairs in progress | 12 at the snapshot | `schedules/d7_lns_r1_snapshot.sched`, `lns_d7_r1.jsonl` |
-| 7 | 7 (check) | (6, 12,901) | **(6, 7,509)** for the same snapshot | exact, certified | | `d7_snapshot_r7_distance.txt` |
+| 7 | 1 | (6, 883) | (6, 505) at the snapshot used for the LER runs; **(6, 434)** when stopped | singles exhausted; still improving through pair moves when stopped | 34 | `schedules/d7_lns_r1_snapshot.sched`, `schedules/d7_lns_r1_final.sched`, `lns_d7_r1.jsonl` |
+| 7 | 7 (check) | Z: (6, 12,901); X: (6, 13,120) | snapshot Z: (6, 7,509); **final Z: (6, 6,627), final X: (6, 6,856)** | exact, certified | | `d7_snapshot_r7_distance.txt` |
 | 9 | 1 | (7, 36) | **(7, 18)** after singles, then (7, 15) after a pair move | singles exhausted at 18; 4 of about 60 pairs done when stopped (about 17 min per pair on the Mac) | 4 | `schedules/d9_lns_r1_singles.sched` (N_min 18), `schedules/d9_lns_r1_15.sched` (N_min 15), `lns_d9_r1_part1/2.jsonl` |
 | 9 | 9 (check) | (7, 492) | **(7, 255)** for the count-18 schedule | exact, certified (408 s) | | `d9_lns_r9_distance.txt` |
 
@@ -307,17 +307,17 @@ X-memory exact distances for the d = 5 schedule: K–F (4, 399) → LNS (4, 201)
 2. **Exact minimum-weight-logical counts N_min**, which K–F do not report: 388 (d = 5), 12,901 (d = 7) and 492 (d = 9) over d rounds. The d = 9 minimum-weight logicals are corner-anchored strings from the observable boundary to the opposite corner.
 3. **Per-plaquette (non-uniform) boundary scheduling inside K–F's exact design space** (same qubits, same 6+6 CNOT layers, collision-free):
    - it **does not raise d_circ** under any single- or pair-plaquette change we tried (d = 5–9);
-   - it **roughly halves N_min**: 388 → 197 (d = 5), 12,901 → 7,509 (d = 7), 492 → 255 (d = 9), all over d rounds;
+   - it **roughly halves N_min**: 388 → 197 (d = 5), 12,901 → 6,627 (d = 7), 492 → 255 (d = 9), all over d rounds;
    - it lowers the logical error per round under noisy-CNOT noise by 22–31% at p = 0.2–0.3% (d = 5 and 7; two decoders agree at d = 5) and by 24% at p = 0.1% (d = 5);
    - it lowers it by 12% under uniform depolarizing noise at p = 0.1%;
-   - the gain carries over to X-memory (N_min 399 → 201; LER 0.72× at p = 0.3%) although only Z-memory was optimised.
+   - the gain carries over to X-memory (N_min 399 → 201 at d = 5 and 13,120 → 6,856 at d = 7; LER 0.72× at d = 5, p = 0.3%) although only Z-memory was optimised.
 
    K–F flagged "the alternatives" as future work; this measures them. A free improvement for the single-auxiliary colour code: no extra qubits or depth.
 
 **Caveats.**
 - The search is local (single and pair moves). "No distance gain" is not a proof over the whole space.
 - N_min counts merged-DEM mechanism sets, not weighted by fault multiplicity.
-- Only Z-memory is optimised. X-memory was checked only at d = 5, where it also improves. Individualised boundary plaquettes break the 3-fold rotation symmetry, so check each basis before use.
+- Only Z-memory is optimised. X-memory was checked at d = 5 (distance and LER) and d = 7 (distance), where it also improves. Individualised boundary plaquettes break the 3-fold rotation symmetry, so check each basis before use.
 - Our BP+OSD is 2.5–3× weaker than Tesseract in absolute terms. The schedule ratios agree between the two decoders where both were run (d = 5, p = 0.2% and 0.3%).
 - The d = 7 and d = 9 schedules are snapshots of searches that were still improving when stopped (d = 9 reached N_min = 15 over 1 round after a pair move).
 - SI1000 noise was not run.
