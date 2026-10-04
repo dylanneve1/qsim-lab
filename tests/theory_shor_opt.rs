@@ -3,5 +3,6 @@
 //! windowed oracle `Oracle::WindowedOpt(4)` (exp/superopt): the file is
 //! included as a module and its `theory_oracle()` switches on the module
 //! path. Run: `cargo test --release --test theory_shor_opt`.
+#[allow(clippy::map_identity, clippy::needless_range_loop)]
 #[path = "theory_shor.rs"]
 mod theory_shor;
