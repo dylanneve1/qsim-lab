@@ -76,6 +76,11 @@ pub struct MbuOpts {
     /// Gidney temporary-AND adders and comparator in the modular adder
     /// (`4n` Toffolis instead of `8n`; `n − 1` extra carry qubits).
     pub adders: bool,
+    /// Uncompute the modular adder's flag `t = [b_new < L]` by X-basis
+    /// measurement; the fix-up (outcome 1, probability 1/2) is a *phase*
+    /// comparator `(−1)^{[b < L]}` (Gidney 2025's trick for the flag). The
+    /// comparator then runs on half of the shots only.
+    pub flag: bool,
 }
 
 impl MbuOpts {
@@ -84,18 +89,21 @@ impl MbuOpts {
         lookup_and: true,
         unlookup: true,
         adders: true,
+        flag: true,
     };
     /// Lookups and unlookups only: same qubits as the windowed oracle.
     pub const LOOKUPS: MbuOpts = MbuOpts {
         lookup_and: true,
         unlookup: true,
         adders: false,
+        flag: true,
     };
     /// Nothing measured: the `windowed-opt` oracle (as logical ops).
     pub const NONE: MbuOpts = MbuOpts {
         lookup_and: false,
         unlookup: false,
         adders: false,
+        flag: false,
     };
 }
 
@@ -139,6 +147,16 @@ pub struct LookupSpec {
     pub meas_unlookup: bool,
 }
 
+/// A flag qubit `t` that some reversible `compute` sequence XORs a value
+/// `c` into (from clean), and a `fix` sequence applying the phase
+/// `(−1)^c` (used only when the X-basis measurement of `t` gives 1).
+#[derive(Clone, Debug)]
+pub struct FlagSpec {
+    pub t: usize,
+    pub compute: Vec<LOp>,
+    pub fix: Vec<LOp>,
+}
+
 /// A logical operation (before measurement outcomes are sampled).
 #[derive(Clone, Debug)]
 pub enum LOp {
@@ -153,6 +171,10 @@ pub enum LOp {
     /// `out ^= ctrl·T[addr]` with `out = ctrl·T[addr]` before (so after it
     /// `out` is clean): measurement-based if `meas_unlookup`.
     Unlookup(Rc<LookupSpec>),
+    /// `t ^= c` on a clean `t` (runs `compute`).
+    FlagCompute(Rc<FlagSpec>),
+    /// Uncompute `t = c` by measurement: X-measure `t`, `fix` if 1.
+    FlagUncompute(Rc<FlagSpec>),
 }
 
 /// The exact inverse of a logical op sequence.
@@ -168,6 +190,8 @@ pub fn inverse(ops: &[LOp]) -> Vec<LOp> {
             LOp::UnAnd(a, b, t) => LOp::And(*a, *b, *t),
             LOp::Lookup(s) => LOp::Unlookup(s.clone()),
             LOp::Unlookup(s) => LOp::Lookup(s.clone()),
+            LOp::FlagCompute(f) => LOp::FlagUncompute(f.clone()),
+            LOp::FlagUncompute(f) => LOp::FlagCompute(f.clone()),
         })
         .collect()
 }
@@ -369,6 +393,14 @@ pub fn resolve(ops: &[LOp], rng: &mut dyn FnMut() -> bool, out: &mut Vec<MbuOp>)
                 }
             }
             LOp::Lookup(s) => resolve(&lookup_ops(s), rng, out),
+            LOp::FlagCompute(f) => resolve(&f.compute, rng, out),
+            LOp::FlagUncompute(f) => {
+                let m = rng();
+                out.push(MbuOp::MeasX(f.t, m));
+                if m {
+                    resolve(&f.fix, rng, out);
+                }
+            }
             LOp::Unlookup(s) => {
                 if !s.meas_unlookup {
                     resolve(&lookup_ops(s), rng, out);
@@ -482,10 +514,53 @@ pub fn cmp_lt_g(ops: &mut Vec<LOp>, a: &[usize], b: &[usize], cy: &[usize], t: u
     }
 }
 
+/// The phase `(−1)^{[b < a]}`: the carry chain of `a + ¬b` with temporary
+/// ANDs, the top carry kicked back as `CZ(a', b') · Z(c)` (since
+/// `MAJ(a, b, c) = (a ⊕ c)(b ⊕ c) ⊕ c`), the chain uncomputed by
+/// measurement. `n − 1` Toffolis.
+pub fn phase_lt_g(ops: &mut Vec<LOp>, a: &[usize], b: &[usize], cy: &[usize]) {
+    let n = a.len();
+    assert_eq!(b.len(), n);
+    let g = |ops: &mut Vec<LOp>, x: Gate| ops.push(LOp::G(x));
+    for &q in b {
+        g(ops, Gate::X(q));
+    }
+    if n == 1 {
+        g(ops, Gate::Cz(a[0], b[0]));
+    } else {
+        ops.push(LOp::And(a[0], b[0], cy[0]));
+        for i in 1..n - 1 {
+            let c = cy[i - 1];
+            g(ops, Gate::Cnot(c, a[i]));
+            g(ops, Gate::Cnot(c, b[i]));
+            ops.push(LOp::And(a[i], b[i], cy[i]));
+            g(ops, Gate::Cnot(c, cy[i]));
+        }
+        let (i, c) = (n - 1, cy[n - 2]);
+        g(ops, Gate::Cnot(c, a[i]));
+        g(ops, Gate::Cnot(c, b[i]));
+        g(ops, Gate::Cz(a[i], b[i]));
+        g(ops, Gate::Z(c));
+        g(ops, Gate::Cnot(c, b[i]));
+        g(ops, Gate::Cnot(c, a[i]));
+        for i in (1..n - 1).rev() {
+            let c = cy[i - 1];
+            g(ops, Gate::Cnot(c, cy[i]));
+            ops.push(LOp::UnAnd(a[i], b[i], cy[i]));
+            g(ops, Gate::Cnot(c, b[i]));
+            g(ops, Gate::Cnot(c, a[i]));
+        }
+        ops.push(LOp::UnAnd(a[0], b[0], cy[0]));
+    }
+    for &q in b {
+        g(ops, Gate::X(q));
+    }
+}
+
 /// `b → (b + L) mod N` for `b, L < N` with Gidney adders (`4n` Toffolis):
 /// the structure of [`crate::shor_superopt::add_mod_reg`] (comparator flag
 /// uncompute, `K = t·N` flip).
-pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64) {
+pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64, flag: bool) {
     let w = &lay.win;
     let (l, b, k, t, cy) = (&w.l, &w.b, &w.k, w.t, &lay.cy);
     let n = w.n;
@@ -506,15 +581,78 @@ pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64) {
     for &q in &set {
         g(ops, Gate::Cnot(t, q));
     }
-    cmp_lt_g(ops, l, &b[..n], cy, t);
-    g(ops, Gate::X(t));
+    if flag {
+        // t = [b_new < L] after the X; uncomputed by measurement
+        g(ops, Gate::X(t));
+        let mut compute = Vec::new();
+        cmp_lt_g(&mut compute, l, &b[..n], cy, t);
+        let mut fix = Vec::new();
+        phase_lt_g(&mut fix, l, &b[..n], cy);
+        ops.push(LOp::FlagUncompute(Rc::new(FlagSpec { t, compute, fix })));
+    } else {
+        cmp_lt_g(ops, l, &b[..n], cy, t);
+        g(ops, Gate::X(t));
+    }
+}
+
+/// The Cuccaro modular adder of [`crate::shor_superopt::add_mod_reg`] (all
+/// options) with its flag uncomputed by measurement: the reversible part
+/// (up to `X(t)`, `t = [b_new < L]`) gets the peephole and SAT-rule passes;
+/// the comparator only runs as the `compute` of the flag (inverse
+/// multiplier) and, as a phase comparator (`Z` on the borrow instead of the
+/// `CNOT` into `t`), as the fix-up.
+pub fn add_mod_cuccaro_flag(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64) {
+    use crate::shor_ripple::{cuccaro_add, cuccaro_sub, load_constant};
+    use crate::shor_superopt::{compare_lt, reversible_peephole, sat_peephole_init};
+    let w = &lay.win;
+    let (l, b, k, c0, t) = (&w.l, &w.b, &w.k, w.c0, w.t);
+    let n = w.n;
+    let bn = b[n];
+    let nq = w.num_qubits();
+    let mut c = Circuit::new(nq);
+    cuccaro_add(&mut c, l, b, c0);
+    load_constant(&mut c, k, n_mod, &[]);
+    cuccaro_sub(&mut c, k, b, c0);
+    c.cnot(bn, t);
+    c.x(t);
+    load_constant(&mut c, k, n_mod, &[t]);
+    c.x(t);
+    cuccaro_add(&mut c, k, b, c0);
+    load_constant(&mut c, k, n_mod, &[t]);
+    c.x(t);
+    let mut init = vec![None; nq];
+    for &q in k.iter().chain([&c0, &t, &bn]) {
+        init[q] = Some(false);
+    }
+    let c = reversible_peephole(&sat_peephole_init(&reversible_peephole(&c), &init));
+    ops.extend(c.gates().map(|g| LOp::G(*g)));
+    let mut cc = Circuit::new(nq);
+    compare_lt(&mut cc, l, &b[..n], c0, t);
+    let mut init = vec![None; nq];
+    init[c0] = Some(false);
+    init[t] = Some(false);
+    let cc = reversible_peephole(&sat_peephole_init(&reversible_peephole(&cc), &init));
+    let compute: Vec<LOp> = cc.gates().map(|g| LOp::G(*g)).collect();
+    // phase comparator: compare_lt with Z(borrow) for CNOT(borrow, t)
+    let mut pc = Circuit::new(nq);
+    compare_lt(&mut pc, l, &b[..n], c0, t);
+    let fix: Vec<LOp> = pc
+        .gates()
+        .map(|g| match *g {
+            Gate::Cnot(a, tt) if tt == t => LOp::G(Gate::Z(a)),
+            g => LOp::G(g),
+        })
+        .collect();
+    ops.push(LOp::FlagUncompute(Rc::new(FlagSpec { t, compute, fix })));
 }
 
 /// The modular-adder block as logical ops.
 pub fn modadd_ops(lay: &MbuLayout, n_mod: u64, o: &MbuOpts) -> Vec<LOp> {
     let mut ops = Vec::new();
     if o.adders {
-        add_mod_g(&mut ops, lay, n_mod);
+        add_mod_g(&mut ops, lay, n_mod, o.flag);
+    } else if o.flag {
+        add_mod_cuccaro_flag(&mut ops, lay, n_mod);
     } else {
         let c: Circuit = modadd_block(&lay.win, n_mod, &Opts::ALL);
         ops.extend(c.gates().map(|g| LOp::G(*g)));
@@ -735,6 +873,11 @@ mod tests {
                 resolve(&sub, &mut || oc.next_bit(), &mut rs);
                 let mut rc = Vec::new();
                 resolve(&cmp, &mut || oc.next_bit(), &mut rc);
+                let mut ph = Vec::new();
+                phase_lt_g(&mut ph, &a, &b[..n], &cy);
+                assert_eq!(and_count(&ph), n - 1);
+                let mut rp = Vec::new();
+                resolve(&ph, &mut || oc.next_bit(), &mut rp);
                 for av in 0u128..1 << n {
                     for bv in 0u128..1 << (n + 1) {
                         let k = av | (bv << n);
@@ -753,6 +896,9 @@ mod tests {
                             assert!(!s);
                             let want = tv ^ u128::from(bv < av);
                             assert_eq!(o, k | (want << t), "n={n} a={av} b={bv}");
+                            let (o, s) = eval_on_key(&rp, k | (tv << t));
+                            assert_eq!(o, k | (tv << t));
+                            assert_eq!(s, bv < av, "phase n={n} a={av} b={bv}");
                         }
                     }
                 }
@@ -856,7 +1002,14 @@ mod tests {
     fn controlled_ua_exhaustive_small() {
         for n_mod in [15u64, 21, 35, 55, 63, 77] {
             for w in 1..=4 {
-                for o in [MbuOpts::ALL, MbuOpts::LOOKUPS, MbuOpts::NONE] {
+                let nf = |o: MbuOpts| MbuOpts { flag: false, ..o };
+                for o in [
+                    MbuOpts::ALL,
+                    MbuOpts::LOOKUPS,
+                    MbuOpts::NONE,
+                    nf(MbuOpts::ALL),
+                    nf(MbuOpts::LOOKUPS),
+                ] {
                     for mode in 0..3 {
                         check_block(n_mod, w, &o, mode);
                     }
