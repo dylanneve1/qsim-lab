@@ -93,7 +93,16 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
             return (u, s, v);
         }
     }
-    panic!("SVD did not converge (after adjoint and phase-scrambled retries)");
+    let bad = (0..m.nrows())
+        .flat_map(|r| (0..m.ncols()).map(move |c| (r, c)))
+        .filter(|&(r, c)| !(m[(r, c)].re.is_finite() && m[(r, c)].im.is_finite()))
+        .count();
+    panic!(
+        "SVD did not converge (after adjoint, QR-preconditioned and phase-scrambled retries) \
+         on a {}x{} matrix with {bad} non-finite entries",
+        m.nrows(),
+        m.ncols()
+    );
 }
 
 /// Operation counts of an [`Mps`] run (see [`Mps::stats`]), in the units of
