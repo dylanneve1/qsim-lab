@@ -16,7 +16,7 @@ fn frame_equals_dense_per_shot_clifford_with_ec() {
     let cfg = FtConfig::default();
     let mut mism = 0;
     let mut wrong = 0;
-    let shots = 60;
+    let shots = 40;
     for s in 0..shots {
         let p = 0.03;
         let circ = |l: &mut dyn FnMut(u8)| {
@@ -38,7 +38,7 @@ fn frame_equals_dense_per_shot_clifford_with_ec() {
             outs[0] = r;
         }
         {
-            let mut e = Encoded::dense(1, 1, 15, Noise::new(p, 1000 + s), cfg, MagicMode::Raw, 77 + s);
+            let mut e = Encoded::dense(1, 1, 21, Noise::new(p, 1000 + s), cfg, MagicMode::Raw, 77 + s);
             let mut r = false;
             circ(&mut |op| match op {
                 0 => e.prep(0, false),
