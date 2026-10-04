@@ -1,0 +1,209 @@
+== 24bit  17:12:23Z  load: 10.93 11.13 13.50
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.033s  eval c=1 0.102s  eval c=0 0.086s  sort 0.070s  p1 0.017s  collapse 0.060s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=388238  toffoli_gates=97996  mbu_measurements=22780  gate_branch_ops=7.579e10
+time 0.410 s  peak RSS NaN MiB
+        0.76 real         0.79 user         0.18 sys
+           103104512  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=130  windows=24  toffoli=40183  gates=387329  meas=45799  fixups=24612  steps=410241  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.242e11
+time 0.368 s  (build 0.029, eval 0.159, sort 0.058, measure 0.121)
+            93929472  maximum resident set size
+-- ge:2:3:lookups:shor rep 1
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=106  windows=24  toffoli=72996  gates=316429  meas=21612  fixups=9849  steps=327212  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.004e11
+time 0.355 s  (build 0.031, eval 0.136, sort 0.055, measure 0.131)
+            94175232  maximum resident set size
+-- ge:3:3:lookups:shor rep 1
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=108  windows=16  toffoli=57212  gates=309185  meas=23132  fixups=13287  steps=320813  peak_support=317340  peak_branches=2538720  gate_branch_ops=1.656e11
+time 0.491 s  (build 0.030, eval 0.221, sort 0.094, measure 0.144)
+            93126656  maximum resident set size
+-- ge:2:3:lookups:eh rep 1
+EH  N=10161323  g=9899614  m=12  exponent bits=36  j=1472302  k=1383  factors=Some((2753, 3691))
+qubits=106  windows=18  toffoli=54479  gates=236627  meas=16217  fixups=7357  steps=244780  peak_support=2538720  peak_branches=10154880  gate_branch_ops=8.465e11
+time 1.814 s  (build 0.023, eval 0.983, sort 0.387, measure 0.418)
+           435142656  maximum resident set size
+-- old:windowed-mbu-lookup rep 2
+[sliced profile] build 0.033s  eval c=1 0.073s  eval c=0 0.053s  sort 0.050s  p1 0.013s  collapse 0.037s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=388238  toffoli_gates=97996  mbu_measurements=22780  gate_branch_ops=7.579e10
+time 0.297 s  peak RSS NaN MiB
+        0.30 real         0.81 user         0.24 sys
+           103170048  maximum resident set size
+-- ge:2:4:all:shor rep 2
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=130  windows=24  toffoli=40183  gates=387329  meas=45799  fixups=24612  steps=410241  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.242e11
+time 0.418 s  (build 0.030, eval 0.187, sort 0.069, measure 0.131)
+            93061120  maximum resident set size
+-- ge:2:3:lookups:shor rep 2
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=106  windows=24  toffoli=72996  gates=316429  meas=21612  fixups=9849  steps=327212  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.004e11
+time 0.349 s  (build 0.032, eval 0.135, sort 0.056, measure 0.125)
+            94273536  maximum resident set size
+-- ge:3:3:lookups:shor rep 2
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=108  windows=16  toffoli=57212  gates=309185  meas=23132  fixups=13287  steps=320813  peak_support=317340  peak_branches=2538720  gate_branch_ops=1.656e11
+time 0.462 s  (build 0.030, eval 0.210, sort 0.081, measure 0.140)
+            93159424  maximum resident set size
+-- ge:2:3:lookups:eh rep 2
+EH  N=10161323  g=9899614  m=12  exponent bits=36  j=1472302  k=1383  factors=Some((2753, 3691))
+qubits=106  windows=18  toffoli=54479  gates=236627  meas=16217  fixups=7357  steps=244780  peak_support=2538720  peak_branches=10154880  gate_branch_ops=8.465e11
+time 1.851 s  (build 0.024, eval 0.979, sort 0.374, measure 0.471)
+           434421760  maximum resident set size
+-- old:windowed-mbu-lookup rep 3
+[sliced profile] build 0.033s  eval c=1 0.079s  eval c=0 0.056s  sort 0.050s  p1 0.013s  collapse 0.043s  peak support 1269360
+a=9899614  qubits=104  measured=150071647041326  order=Some(2538720)  factor=Some(2753)  peak_amplitudes=1269360  peak_amp_bytes=60929280  total_gates=388238  toffoli_gates=97996  mbu_measurements=22780  gate_branch_ops=7.579e10
+time 0.315 s  peak RSS NaN MiB
+        0.31 real         0.81 user         0.23 sys
+           103202816  maximum resident set size
+-- ge:2:4:all:shor rep 3
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=130  windows=24  toffoli=40183  gates=387329  meas=45799  fixups=24612  steps=410241  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.242e11
+time 0.415 s  (build 0.030, eval 0.177, sort 0.069, measure 0.138)
+            92291072  maximum resident set size
+-- ge:2:3:lookups:shor rep 3
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=106  windows=24  toffoli=72996  gates=316429  meas=21612  fixups=9849  steps=327212  peak_support=634680  peak_branches=2538720  gate_branch_ops=1.004e11
+time 0.346 s  (build 0.031, eval 0.137, sort 0.057, measure 0.119)
+            94158848  maximum resident set size
+-- ge:3:3:lookups:shor rep 3
+Shor  N=10161323  a=9899614  measured=150071647041326  order=Some(2538720)  factor=Some(2753)
+qubits=108  windows=16  toffoli=57212  gates=309185  meas=23132  fixups=13287  steps=320813  peak_support=317340  peak_branches=2538720  gate_branch_ops=1.656e11
+time 0.503 s  (build 0.029, eval 0.236, sort 0.088, measure 0.148)
+            93274112  maximum resident set size
+-- ge:2:3:lookups:eh rep 3
+EH  N=10161323  g=9899614  m=12  exponent bits=36  j=1472302  k=1383  factors=Some((2753, 3691))
+qubits=106  windows=18  toffoli=54479  gates=236627  meas=16217  fixups=7357  steps=244780  peak_support=2538720  peak_branches=10154880  gate_branch_ops=8.465e11
+time 1.807 s  (build 0.023, eval 0.965, sort 0.402, measure 0.414)
+           431931392  maximum resident set size
+== released 17:12:34Z
+== 28bit  17:13:36Z  load: 10.49 11.08 13.30
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.050s  eval c=1 4.155s  eval c=0 3.555s  sort 2.691s  p1 0.404s  collapse 1.545s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 12.493 s  peak RSS NaN MiB
+       12.49 real        58.53 user         6.00 sys
+          2819129344  maximum resident set size
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 19.979 s  (build 0.045, eval 10.549, sort 3.272, measure 6.087)
+          2739699712  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 21.919 s  (build 0.044, eval 12.286, sort 3.230, measure 6.329)
+          2736128000  maximum resident set size
+== released 17:14:31Z
+== 28bit  17:17:26Z  load: 10.50 11.22 12.90
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.047s  eval c=1 4.082s  eval c=0 3.502s  sort 2.692s  p1 0.388s  collapse 1.493s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 12.288 s  peak RSS NaN MiB
+       12.29 real        58.53 user         5.78 sys
+          2825797632  maximum resident set size
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 21.515 s  (build 0.045, eval 10.542, sort 3.318, measure 7.585)
+          2740174848  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 23.681 s  (build 0.043, eval 12.512, sort 3.271, measure 7.828)
+          2744057856  maximum resident set size
+== released 17:18:24Z
+== 28bit  17:19:52Z  load: 11.77 12.11 13.04
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 22.318 s  (build 0.048, eval 10.595, sort 3.306, measure 8.344)
+          2740060160  maximum resident set size
+== released 17:20:15Z
+== 28bit  17:25:04Z  load: 11.34 10.75 12.07
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.048s  eval c=1 4.146s  eval c=0 3.582s  sort 2.729s  p1 0.393s  collapse 1.534s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 12.518 s  peak RSS NaN MiB
+       12.52 real        58.45 user         5.82 sys
+          2825043968  maximum resident set size
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 21.975 s  (build 0.047, eval 9.475, sort 5.920, measure 6.509)
+          2789359616  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 23.986 s  (build 0.046, eval 11.411, sort 5.924, measure 6.579)
+          2786426880  maximum resident set size
+== released 17:26:03Z
+== 28bit  17:33:16Z  load: 8.26 9.88 11.28
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 18.419 s  (build 0.050, eval 9.908, sort 6.132, probs 1.072, new state 1.226)
+          2790146048  maximum resident set size
+== released 17:33:35Z
+== 28bit  17:36:34Z  load: 9.38 9.75 10.96
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.045s  eval c=1 4.062s  eval c=0 3.499s  sort 2.655s  p1 0.364s  collapse 1.472s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 12.182 s  peak RSS NaN MiB
+       12.18 real        58.76 user         5.90 sys
+          2829205504  maximum resident set size
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 17.327 s  (build 0.046, eval 9.534, sort 5.714, probs 1.208, new state 0.799)
+          2668380160  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 19.071 s  (build 0.044, eval 11.461, sort 5.566, probs 1.207, new state 0.770)
+          2666856448  maximum resident set size
+== released 17:37:23Z
+== 28bit  17:44:53Z  load: 11.38 11.32 11.48
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 18.501 s  (build 0.046, eval 10.609, sort 4.775, probs 1.277, new state 1.767)
+          2789818368  maximum resident set size
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.046s  eval c=1 4.197s  eval c=0 3.624s  sort 2.736s  p1 0.412s  collapse 1.457s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 12.556 s  peak RSS NaN MiB
+       12.56 real        58.41 user         5.66 sys
+          2824192000  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 19.788 s  (build 0.043, eval 12.299, sort 4.629, probs 1.351, new state 1.442)
+          2786246656  maximum resident set size
+== released 17:45:44Z
+== 28bit  17:49:11Z  load: 10.71 11.43 11.58
+-- ge:2:3:lookups:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=122  windows=28  toffoli=122865  gates=513693  meas=32453  fixups=13209  steps=529929  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.000e13
+time 16.156 s  (build 0.048, eval 9.519, sort 4.556, probs 1.202, new state 0.808)
+          2734653440  maximum resident set size
+-- old:windowed-mbu-lookup rep 1
+[sliced profile] build 0.046s  eval c=1 3.918s  eval c=0 3.346s  sort 2.526s  p1 0.355s  collapse 1.417s  peak support 55403400
+a=215934921  qubits=120  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)  peak_amplitudes=55403400  peak_amp_bytes=2659363200  total_gates=609026  toffoli_gates=155095  mbu_measurements=34359  gate_branch_ops=6.824e12
+time 11.694 s  peak RSS NaN MiB
+       11.69 real        58.53 user         6.14 sys
+          2818916352  maximum resident set size
+-- ge:2:4:all:shor rep 1
+Shor  N=221643407  a=215934921  measured=19301499017721646  order=Some(110806800)  factor=Some(15601)
+qubits=150  windows=28  toffoli=61003  gates=611100  meas=70187  fixups=36600  steps=646162  peak_support=27701700  peak_branches=110806800  gate_branch_ops=1.196e13
+time 17.944 s  (build 0.044, eval 11.293, sort 4.563, probs 1.229, new state 0.792)
+          2739175424  maximum resident set size
+== released 17:49:57Z
+== 31bit  17:37:47Z  load: 11.33 10.50 11.16
+-- ge:2:3:lookups:shor rep 1
+Shor  N=1537596787  a=457167243  measured=2059039373337077151  order=Some(256252500)  factor=Some(52501)
+qubits=134  windows=31  toffoli=164443  gates=708798  meas=41838  fixups=16416  steps=729835  peak_support=64063125  peak_branches=256252500  gate_branch_ops=1.074e14
+time 157.169 s  (build 0.061, eval 100.773, sort 41.571, probs 9.280, new state 5.448)
+          4107304960  maximum resident set size
+== released 17:40:24Z

@@ -59,6 +59,7 @@ pub mod qasm;
 pub mod qec;
 pub mod shor;
 pub mod shor_arith;
+pub mod shor_ge;
 pub mod shor_mbu;
 pub mod shor_ripple;
 pub mod shor_superopt;

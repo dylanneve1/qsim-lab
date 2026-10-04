@@ -1,0 +1,5 @@
+N=60491 runs=400 we=2 wm=3: EH P(factor | 1 run)=0.8875±0.0310  EH odd-order base 0.9150±0.0273   Shor P(order)=0.9775±0.0145 P(factor | 1 run)=0.8975±0.0297   (20.5 s)
+N=1005973 runs=300 we=2 wm=3: EH P(factor | 1 run)=0.9000±0.0339  EH odd-order base 0.8833±0.0363   Shor P(order)=1.0000±0.0000 P(factor | 1 run)=0.9100±0.0324   (49.8 s)
+N=10161323 runs=60 we=2 wm=3: EH P(factor | 1 run)=0.9000±0.0759  EH odd-order base 0.9667±0.0454   Shor P(order)=1.0000±0.0000 P(factor | 1 run)=0.9667±0.0454   (386.7 s)
+N=60491 runs=400 we=2 wm=3: EH P(factor | 1 run)=0.8800±0.0318   Shor P(order)=0.9925±0.0085 P(factor | 1 run)=0.9450±0.0223   (15.8 s)
+N=1005973 runs=200 we=2 wm=3: EH P(factor | 1 run)=0.9300±0.0354   Shor P(order)=0.9900±0.0138 P(factor | 1 run)=0.9300±0.0354   (25.3 s)
