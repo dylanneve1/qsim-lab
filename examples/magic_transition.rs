@@ -21,7 +21,10 @@ use std::time::Instant;
 
 fn kv(args: &[String]) -> HashMap<String, String> {
     args.iter()
-        .filter_map(|a| a.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
+        .filter_map(|a| {
+            a.split_once('=')
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+        })
         .collect()
 }
 
@@ -88,7 +91,10 @@ fn scan(m: &HashMap<String, String>) {
                 &p,
                 mode,
                 maxd,
-                seed.wrapping_mul(0x1000_0001) ^ (p_m * 1e6) as u64 ^ ((p_t * 1e9) as u64) << 20 ^ (n as u64) << 50,
+                seed.wrapping_mul(0x1000_0001)
+                    ^ (p_m * 1e6) as u64
+                    ^ ((p_t * 1e9) as u64) << 20
+                    ^ (n as u64) << 50,
                 seed,
                 &group,
                 |t, sim| {

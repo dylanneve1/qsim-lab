@@ -19,8 +19,14 @@ fn renyi2_sv(sv: &StateVectorF64, region: &[bool]) -> f64 {
     let (na, nb) = (1usize << qa.len(), 1usize << qb.len());
     let mut m = vec![Complex64::new(0.0, 0.0); na * nb];
     for (i, &v) in amps.iter().enumerate() {
-        let a = qa.iter().enumerate().fold(0, |s, (k, &q)| s | (i >> q & 1) << k);
-        let b = qb.iter().enumerate().fold(0, |s, (k, &q)| s | (i >> q & 1) << k);
+        let a = qa
+            .iter()
+            .enumerate()
+            .fold(0, |s, (k, &q)| s | (i >> q & 1) << k);
+        let b = qb
+            .iter()
+            .enumerate()
+            .fold(0, |s, (k, &q)| s | (i >> q & 1) << k);
         m[a * nb + b] = v;
     }
     let mut tr = 0.0;
@@ -90,7 +96,10 @@ fn check_one(n: usize, depth: usize, p_m: f64, p_t: f64, seed: u64, group: &[Cli
         if t % 3 == 2 || t + 1 == depth {
             let ours = sim.to_statevector(&cliffords);
             let f = ours.fidelity(&sv);
-            assert!((f - 1.0).abs() < 1e-9, "n={n} seed={seed} t={t}: fidelity {f}");
+            assert!(
+                (f - 1.0).abs() < 1e-9,
+                "n={n} seed={seed} t={t}: fidelity {f}"
+            );
             // cut entropies
             let half: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
             let ce = cut_entropy(&sim, &half, 40);

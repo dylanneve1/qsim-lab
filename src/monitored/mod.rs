@@ -371,9 +371,10 @@ impl Tableau {
             mul(self.n + j, &mut ax, &mut az);
         }
         debug_assert!(ax.iter().all(|&v| v == 0));
-        debug_assert!(
-            az.iter().enumerate().all(|(i, &v)| v == if i == a >> 6 { 1 << (a & 63) } else { 0 })
-        );
+        debug_assert!(az
+            .iter()
+            .enumerate()
+            .all(|(i, &v)| v == if i == a >> 6 { 1 << (a & 63) } else { 0 }));
         let xz = xs.iter().filter(|j| zs.contains(j)).count() as u32;
         let k = (ar + xz) & 3;
         debug_assert!(k % 2 == 0, "non-Hermitian image");
@@ -428,7 +429,11 @@ pub(crate) fn dense_h(a: &mut [C64], q: usize) {
 }
 pub(crate) fn dense_s(a: &mut [C64], q: usize, dag: bool) {
     let m = 1usize << q;
-    let ph = if dag { C64::new(0.0, -1.0) } else { C64::new(0.0, 1.0) };
+    let ph = if dag {
+        C64::new(0.0, -1.0)
+    } else {
+        C64::new(0.0, 1.0)
+    };
     for (y, v) in a.iter_mut().enumerate() {
         if y & m != 0 {
             *v *= ph;
@@ -745,7 +750,11 @@ impl Monitored {
                 rec = MeasRecord {
                     qubit: a,
                     outcome: forced.unwrap_or(out),
-                    prob: if forced.is_some_and(|f| f != out) { 0.0 } else { 1.0 },
+                    prob: if forced.is_some_and(|f| f != out) {
+                        0.0
+                    } else {
+                        1.0
+                    },
                     kind: 2,
                 };
             } else {
@@ -785,17 +794,17 @@ impl Monitored {
 
     /// Virtual gate `g` on active positions: `φ ← g φ`, `C ← C g†`.
     fn vgate(&mut self, g: VGate) {
+        // C ← C g† on the virtual coordinates behind the register positions.
         let vc = |p: usize| self.active[p];
-        let (gv, gdag) = match g {
-            VGate::H(p) => (VGate::H(vc(p)), VGate::H(vc(p))),
-            VGate::S(p) => (VGate::S(vc(p)), VGate::Sdg(vc(p))),
-            VGate::Sdg(p) => (VGate::Sdg(vc(p)), VGate::S(vc(p))),
-            VGate::X(p) => (VGate::X(vc(p)), VGate::X(vc(p))),
-            VGate::Z(p) => (VGate::Z(vc(p)), VGate::Z(vc(p))),
-            VGate::Cnot(c, t) => (VGate::Cnot(vc(c), vc(t)), VGate::Cnot(vc(c), vc(t))),
-            VGate::Cz(a, b) => (VGate::Cz(vc(a), vc(b)), VGate::Cz(vc(a), vc(b))),
+        let gdag = match g {
+            VGate::H(p) => VGate::H(vc(p)),
+            VGate::S(p) => VGate::Sdg(vc(p)),
+            VGate::Sdg(p) => VGate::S(vc(p)),
+            VGate::X(p) => VGate::X(vc(p)),
+            VGate::Z(p) => VGate::Z(vc(p)),
+            VGate::Cnot(c, t) => VGate::Cnot(vc(c), vc(t)),
+            VGate::Cz(a, b) => VGate::Cz(vc(a), vc(b)),
         };
-        let _ = gv;
         self.rmul(gdag);
         if let Some(amp) = &mut self.amp {
             match g {

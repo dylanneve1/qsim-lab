@@ -1,0 +1,40 @@
+scan tag=E7 n=1024 depth=4096 window=1024 pm=0.18 ptn=2 samples=4 seed0=300000 header=0 ent=none
+scan tag=E7 n=1024 depth=4096 window=1024 pm=0.22 ptn=2 samples=4 seed0=300000 header=0 ent=none
+scan tag=E7 n=1024 depth=4096 window=1024 pm=0.25 ptn=2 samples=4 seed0=300000 header=0 ent=none
+scan tag=E1 n=1024 pm=0.14 ptn=1 samples=4 seed0=400000 header=0 ent=half
+scan tag=E1 n=1024 pm=0.14 ptn=1 samples=4 seed0=400004 header=0 ent=half
+scan tag=E1 n=1024 pm=0.15 ptn=1 samples=4 seed0=400000 header=0 ent=half
+scan tag=E1 n=1024 pm=0.15 ptn=1 samples=4 seed0=400004 header=0 ent=half
+scan tag=E1 n=1024 pm=0.16 ptn=1 samples=4 seed0=400000 header=0 ent=half
+scan tag=E1 n=1024 pm=0.16 ptn=1 samples=4 seed0=400004 header=0 ent=half
+scan tag=E1 n=1024 pm=0.17 ptn=1 samples=4 seed0=400000 header=0 ent=half
+scan tag=E1 n=1024 pm=0.17 ptn=1 samples=4 seed0=400004 header=0 ent=half
+scan tag=E1 n=1024 pm=0.18 ptn=1 samples=4 seed0=400000 header=0 ent=half
+scan tag=E1 n=1024 pm=0.18 ptn=1 samples=4 seed0=400004 header=0 ent=half
+scan tag=E6 n=256 depth=16384 window=256 pm=0.16 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=16384 window=256 pm=0.18 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=16384 window=256 pm=0.2 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=16384 window=256 pm=0.22 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=16384 window=256 pm=0.25 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=16384 window=256 pm=0.3 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E7 n=512 depth=4096 window=1024 pm=0.18 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=512 depth=4096 window=1024 pm=0.22 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=512 depth=4096 window=1024 pm=0.25 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.16 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.18 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.2 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.22 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.25 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=4096 window=256 pm=0.3 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E7 n=256 depth=4096 window=1024 pm=0.18 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=256 depth=4096 window=1024 pm=0.22 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=256 depth=4096 window=1024 pm=0.25 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.16 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.18 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.2 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.22 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.25 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E6 n=256 depth=1024 window=256 pm=0.3 ptn=2 samples=8 seed0=200000 header=0 ent=none
+scan tag=E7 n=128 depth=4096 window=1024 pm=0.18 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=128 depth=4096 window=1024 pm=0.22 ptn=2 samples=8 seed0=300000 header=0 ent=none
+scan tag=E7 n=128 depth=4096 window=1024 pm=0.25 ptn=2 samples=8 seed0=300000 header=0 ent=none
