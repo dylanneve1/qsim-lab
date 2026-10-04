@@ -1,0 +1,30 @@
+# 13:38:21 args=[qft 26 3 0 gpu:tg=11,thr=256 gpu:regs=1,tg=12,slots=4,thr=256 gpu:regs=1,tg=11,slots=4,thr=128 gpu:regs=1,tg=10,slots=4,thr=64 gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=12,slots=3,thr=512 gpu:regs=1,tg=11,slots=3,thr=256] thr=8 load=[4.86 10.25 15.62] top=[ 90.3 magic_transition; 87.3 magic_transition; 86.8 .color_search;] contam=no free=7.6GB
+
+thread 'main' (9351950) panicked at examples/metal_bench.rs:44:52:
+called `Result::unwrap()` on an `Err` value: ParseIntError { kind: InvalidDigit }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+# 13:38:22 args=[brick 24 3 20 gpu gpu:regs=1,tg=12,slots=4,thr=256 gpu:regs=1,tg=11,slots=4,thr=128 gpu:regs=1,tg=10,slots=4,thr=64 gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=12,slots=3,thr=512 gpu:regs=1,tg=11,slots=3,thr=256] thr=8 load=[4.86 10.25 15.62] top=[ 96.1 dem_distance; 95.6 .color_search; 95.1 dem_distance;] contam=no free=7.6GB
+
+thread 'main' (9352009) panicked at examples/metal_bench.rs:44:52:
+called `Result::unwrap()` on an `Err` value: ParseIntError { kind: InvalidDigit }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+# 13:38:30 args=[qft 26 3 0 gpu:tg=11,thr=256 gpu:regs=1,tg=12,slots=4,thr=256 gpu:regs=1,tg=11,slots=4,thr=128 gpu:regs=1,tg=10,slots=4,thr=64 gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=12,slots=3,thr=512 gpu:regs=1,tg=11,slots=3,thr=256] thr=8 load=[6.73 10.47 15.64] top=[ 86.6 magic_transition; 84.6 magic_transition; 83.2 magic_transition;] contam=no free=7.6GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 26 | gpu:tg=11,thr=256 | 0.2396 | 0.0003 | 7 | 31.4 | 0.0e0 | 1.000000 | 0.0265 | 0.3351 0.2396 0.2396 |
+| qft | 26 | gpu:regs=1,tg=12,slots=4,thr=256 | 0.2007 | 0.0003 | 9 | 48.2 | 0.0e0 | 1.000000 | 0.0265 | 0.2545 0.2012 0.2007 |
+| qft | 26 | gpu:regs=1,tg=11,slots=4,thr=128 | 0.1780 | 0.0004 | 10 | 60.3 | 0.0e0 | 1.000000 | 0.0265 | 0.2331 0.1788 0.1780 |
+| qft | 26 | gpu:regs=1,tg=10,slots=4,thr=64 | 0.1726 | 0.0004 | 10 | 62.2 | 0.0e0 | 1.000000 | 0.0265 | 0.2308 0.1726 0.1733 |
+| qft | 26 | gpu:regs=1,tg=9,slots=4,thr=32 | 0.1801 | 0.0004 | 11 | 65.6 | 0.0e0 | 1.000000 | 0.0265 | 0.2378 0.1801 0.1806 |
+| qft | 26 | gpu:regs=1,tg=12,slots=3,thr=512 | 0.1731 | 0.0004 | 13 | 80.6 | 0.0e0 | 1.000000 | 0.0265 | 0.2712 0.1731 0.1744 |
+| qft | 26 | gpu:regs=1,tg=11,slots=3,thr=256 | 0.1678 | 0.0005 | 14 | 89.6 | 0.0e0 | 1.000000 | 0.0265 | 0.1689 0.1704 0.1678 |
+# 13:38:35 args=[brick 24 3 20 gpu gpu:regs=1,tg=12,slots=4,thr=256 gpu:regs=1,tg=11,slots=4,thr=128 gpu:regs=1,tg=10,slots=4,thr=64 gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=12,slots=3,thr=512 gpu:regs=1,tg=11,slots=3,thr=256] thr=8 load=[6.27 10.32 15.55] top=[ 92.6 Logic Pro; 20.0 mds_stores; 19.0 mediaanalysisd;] contam=no free=7.6GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 24 | gpu | 0.4241 | 0.0004 | 59 | 37.3 | 0.0e0 | 1.000000 | 0.0069 | 0.4285 0.4241 0.4252 |
+| brick | 24 | gpu:regs=1,tg=12,slots=4,thr=256 | 0.2990 | 0.0004 | 78 | 70.0 | 9.8e-10 | 1.000000 | 0.0069 | 0.2990 0.3000 0.3002 |
+| brick | 24 | gpu:regs=1,tg=11,slots=4,thr=128 | 0.2331 | 0.0004 | 83 | 95.6 | 8.8e-10 | 1.000000 | 0.0069 | 0.2347 0.2331 0.2336 |
+| brick | 24 | gpu:regs=1,tg=10,slots=4,thr=64 | 0.2237 | 0.0004 | 88 | 105.6 | 1.0e-9 | 1.000000 | 0.0069 | 0.2239 0.2237 0.2241 |
+| brick | 24 | gpu:regs=1,tg=9,slots=4,thr=32 | 0.2150 | 0.0004 | 93 | 116.1 | 9.6e-10 | 1.000000 | 0.0069 | 0.2160 0.2150 0.2151 |
+| brick | 24 | gpu:regs=1,tg=12,slots=3,thr=512 | 0.2656 | 0.0004 | 97 | 98.0 | 9.9e-10 | 1.000000 | 0.0069 | 0.2659 0.2656 0.2660 |
+| brick | 24 | gpu:regs=1,tg=11,slots=3,thr=256 | 0.2539 | 0.0004 | 104 | 110.0 | 9.8e-10 | 1.000000 | 0.0069 | 0.2540 0.2546 0.2539 |

@@ -1,0 +1,22 @@
+# 13:41:01 args=[bw 26 10] thr=8 load=[8.02 9.25 14.28] top=[104.7 mediaanalysisd; 96.3 rustc; 93.6 Logic Pro;] contam=YES free=6.7GB
+bw n=26 passes=10 bytes/pass=1.074e9: GPU 176.1 GB/s (0.0610 s)  CPU(8 thr) 111.7 GB/s (0.0962 s)
+# 13:41:01 args=[qft 26 3 0 cpu gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=10,slots=5,thr=64 gpu:regs=1,tg=11,slots=6,thr=128 gpu:regs=1,tg=12,slots=7,thr=256 gpu:regs=1,tg=10,slots=6,thr=64 gpu:regs=1,tg=9,slots=6,thr=32] thr=8 load=[8.02 9.25 14.28] top=[ 95.5 rustc; 91.6 Logic Pro; 74.3 mediaanalysisd;] contam=YES free=6.6GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 26 | cpu | 0.2715 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0238 | 0.3298 0.2715 0.2912 |
+| qft | 26 | gpu:regs=1,tg=9,slots=4,thr=32 | 0.1798 | 0.0004 | 11 | 65.7 | 0.0e0 | 1.000000 | 0.0238 | 0.1857 0.1798 0.1842 |
+| qft | 26 | gpu:regs=1,tg=10,slots=5,thr=64 | 0.1685 | 0.0004 | 9 | 57.4 | 0.0e0 | 1.000000 | 0.0238 | 0.1697 0.1685 0.1719 |
+| qft | 26 | gpu:regs=1,tg=11,slots=6,thr=128 | 0.1796 | 0.0004 | 7 | 41.8 | 0.0e0 | 1.000000 | 0.0238 | 0.1796 0.1801 0.1816 |
+| qft | 26 | gpu:regs=1,tg=12,slots=7,thr=256 | 0.2514 | 0.0004 | 7 | 29.9 | 0.0e0 | 1.000000 | 0.0238 | 0.2532 0.2527 0.2514 |
+| qft | 26 | gpu:regs=1,tg=10,slots=6,thr=64 | 0.1846 | 0.0003 | 8 | 46.5 | 0.0e0 | 1.000000 | 0.0238 | 0.1846 0.1874 0.1851 |
+| qft | 26 | gpu:regs=1,tg=9,slots=6,thr=32 | 0.1897 | 0.0004 | 8 | 45.3 | 0.0e0 | 1.000000 | 0.0238 | 0.1927 0.1902 0.1897 |
+# 13:41:06 args=[brick 24 3 20 cpu gpu:regs=1,tg=9,slots=4,thr=32 gpu:regs=1,tg=10,slots=5,thr=64 gpu:regs=1,tg=11,slots=6,thr=128 gpu:regs=1,tg=12,slots=7,thr=256 gpu:regs=1,tg=10,slots=6,thr=64 gpu:regs=1,tg=9,slots=6,thr=32] thr=8 load=[7.54 9.13 14.21] top=[ 91.8 rustc; 91.6 Logic Pro; 52.9 mediaanalysisd;] contam=YES free=6.4GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 24 | cpu | 0.7980 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0068 | 0.8840 0.7980 0.9066 |
+| brick | 24 | gpu:regs=1,tg=9,slots=4,thr=32 | 0.2125 | 0.0004 | 93 | 117.5 | 8.9e-10 | 1.000000 | 0.0068 | 0.2173 0.2125 0.2215 |
+| brick | 24 | gpu:regs=1,tg=10,slots=5,thr=64 | 0.2400 | 0.0004 | 75 | 83.9 | 9.2e-10 | 1.000000 | 0.0068 | 0.2412 0.2400 0.2419 |
+| brick | 24 | gpu:regs=1,tg=11,slots=6,thr=128 | 0.2788 | 0.0004 | 62 | 59.7 | 9.3e-10 | 1.000000 | 0.0068 | 0.2789 0.2788 0.2792 |
+| brick | 24 | gpu:regs=1,tg=12,slots=7,thr=256 | 0.3993 | 0.0004 | 53 | 35.6 | 9.6e-10 | 1.000000 | 0.0068 | 0.4008 0.3993 0.3999 |
+| brick | 24 | gpu:regs=1,tg=10,slots=6,thr=64 | 0.2623 | 0.0005 | 66 | 67.5 | 9.4e-10 | 1.000000 | 0.0068 | 0.2649 0.2623 0.2657 |
+| brick | 24 | gpu:regs=1,tg=9,slots=6,thr=32 | 0.2252 | 0.0004 | 69 | 82.2 | 1.0e-9 | 1.000000 | 0.0068 | 0.2261 0.2252 0.2255 |

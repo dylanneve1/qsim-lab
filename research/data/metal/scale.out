@@ -1,0 +1,67 @@
+# 13:56:39 args=[bw 26 10] thr=8 load=[46.02 31.65 22.06] top=[ 84.3 Logic Pro; 83.8 Python; 73.7 rustc;] contam=YES free=6.3GB
+bw n=26 passes=10 bytes/pass=1.074e9: GPU 170.4 GB/s (0.0630 s)  CPU(8 thr) 67.3 GB/s (0.1594 s)
+# 13:57:10 args=[qft 20,22,24,26 3 0 cpu gpu gpu:regs=0,tg=12,slots=6,thr=512,batch=3 naive] thr=8 load=[50.99 34.29 23.40] top=[ 92.3 Logic Pro; 68.2 Python; 64.2 Python;] contam=YES free=6.0GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 20 | cpu | 0.0137 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0110 | 0.0240 0.0252 0.0137 |
+| qft | 20 | gpu | 0.0030 | 0.0002 | 8 | 45.0 | 0.0e0 | 1.000000 | 0.0110 | 0.0054 0.0030 0.0038 |
+| qft | 20 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.0056 | 0.0006 | 5 | 14.9 | 0.0e0 | 1.000000 | 0.0110 | 0.1576 0.0074 0.0056 |
+| qft | 20 | naive | 0.0083 | 0.0000 | 220 | 446.2 | 0.0e0 | 1.000000 | 0.0110 | 0.0097 0.0083 0.0091 |
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 22 | cpu | 0.0497 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0017 | 0.0497 0.0552 0.0881 |
+| qft | 22 | gpu | 0.0095 | 0.0003 | 9 | 63.6 | 0.0e0 | 1.000000 | 0.0017 | 0.0192 0.0095 0.0137 |
+| qft | 22 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.0132 | 0.0003 | 6 | 30.5 | 0.0e0 | 1.000000 | 0.0017 | 0.0218 0.0132 0.0159 |
+| qft | 22 | naive | 0.0255 | 0.0000 | 264 | 695.8 | 0.0e0 | 1.000000 | 0.0017 | 0.0263 0.0255 0.0264 |
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 24 | cpu | 0.1452 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0127 | 0.1594 0.1998 0.1452 |
+| qft | 24 | gpu | 0.0355 | 0.0007 | 10 | 75.6 | 0.0e0 | 1.000000 | 0.0127 | 0.0355 0.0384 0.0419 |
+| qft | 24 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.0595 | 0.0008 | 6 | 27.1 | 0.0e0 | 1.000000 | 0.0127 | 0.0595 0.0693 0.0681 |
+| qft | 24 | naive | 0.1904 | 0.0000 | 312 | 439.8 | 0.0e0 | 1.000000 | 0.0127 | 0.1929 0.1977 0.1904 |
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 26 | cpu | 0.3381 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0278 | 0.4218 0.4519 0.3381 |
+| qft | 26 | gpu | 0.1296 | 0.0009 | 11 | 91.2 | 0.0e0 | 1.000000 | 0.0278 | 0.1337 0.1296 0.1323 |
+| qft | 26 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.2514 | 0.0008 | 7 | 29.9 | 0.0e0 | 1.000000 | 0.0278 | 0.2519 0.2514 0.2567 |
+| qft | 26 | naive | 0.8763 | 0.0000 | 364 | 446.0 | 0.0e0 | 1.000000 | 0.0278 | 0.8763 0.8842 0.8822 |
+# 13:57:48 args=[brick 20,22,24 3 20 cpu gpu gpu:regs=0,tg=12,slots=6,thr=512,batch=3 naive] thr=8 load=[42.89 34.07 23.75] top=[120.9 rustc; 96.6 Logic Pro; 64.2 Python;] contam=YES free=6.3GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 20 | cpu | 0.3329 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0020 | 0.4418 0.4395 0.3329 |
+| brick | 20 | gpu | 0.0239 | 0.0008 | 73 | 51.2 | 3.2e-9 | 1.000000 | 0.0020 | 0.0253 0.0250 0.0239 |
+| brick | 20 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.0208 | 0.0004 | 46 | 37.1 | 3.3e-9 | 1.000000 | 0.0020 | 0.0211 0.0208 0.0314 |
+| brick | 20 | naive | 0.0473 | 0.0000 | 1390 | 492.8 | 5.4e-9 | 1.000001 | 0.0020 | 0.0483 0.0473 0.0481 |
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 22 | cpu | 0.1766 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0016 | 0.4111 0.1869 0.1766 |
+| brick | 22 | gpu | 0.0518 | 0.0004 | 83 | 107.6 | 2.0e-9 | 1.000000 | 0.0016 | 0.0605 0.0518 0.0617 |
+| brick | 22 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.0950 | 0.0004 | 52 | 36.7 | 1.9e-9 | 1.000000 | 0.0016 | 0.0950 0.0950 0.1027 |
+| brick | 22 | naive | 0.3248 | 0.0000 | 1530 | 316.1 | 3.4e-9 | 1.000002 | 0.0016 | 0.3248 0.3382 0.3326 |
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 24 | cpu | 0.7453 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0057 | 0.7453 0.8722 0.8256 |
+| brick | 24 | gpu | 0.2283 | 0.0004 | 93 | 109.3 | 9.3e-10 | 1.000000 | 0.0057 | 0.2368 0.2283 0.2417 |
+| brick | 24 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 0.4235 | 0.0004 | 59 | 37.4 | 9.9e-10 | 1.000000 | 0.0057 | 0.4235 0.4253 0.4346 |
+| brick | 24 | naive | 1.7144 | 0.0000 | 1670 | 261.5 | 1.5e-9 | 1.000001 | 0.0057 | 1.7166 1.7144 1.7235 |
+# 14:00:37 args=[qft 28 3 0 cpu gpu gpu:regs=0,tg=12,slots=6,thr=512,batch=3] thr=8 load=[10.08 23.28 21.17] top=[ 93.1 Logic Pro; 82.8 bin2; 82.7 bin2;] contam=no free=6.8GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 28 | cpu | 0.9309 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0878 | 1.8428 0.9924 0.9309 |
+| qft | 28 | gpu | 0.5421 | 0.0004 | 12 | 95.1 | 0.0e0 | 1.000000 | 0.0878 | 0.5440 0.5478 0.5421 |
+| qft | 28 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 1.1016 | 0.0004 | 8 | 31.2 | 0.0e0 | 1.000000 | 0.0878 | 1.1016 1.1023 1.1037 |
+# 14:01:17 args=[brick 26 3 20 cpu gpu gpu:regs=0,tg=12,slots=6,thr=512,batch=3] thr=8 load=[12.93 22.38 20.93] top=[ 92.7 Logic Pro; 84.5 bin2; 81.9 bin2;] contam=no free=6.7GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 26 | cpu | 2.8995 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0319 | 3.8514 2.9152 2.8995 |
+| brick | 26 | gpu | 1.0144 | 0.0004 | 103 | 109.0 | 5.6e-10 | 1.000000 | 0.0319 | 1.0190 1.0144 1.0163 |
+| brick | 26 | gpu:regs=0,tg=12,slots=6,thr=512,batch=3 | 1.8734 | 0.0005 | 66 | 37.8 | 4.7e-10 | 1.000000 | 0.0319 | 1.8752 1.8734 1.8755 |
+# 14:02:05 args=[brick 28 3 20 cpu gpu] thr=8 load=[19.32 22.30 20.96] top=[ 92.6 Logic Pro; 72.0 Python; 71.6 Python;] contam=no free=6.6GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 28 | cpu | 11.7506 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.1001 | 12.5933 11.7557 11.7506 |
+| brick | 28 | gpu | 4.4914 | 0.0006 | 113 | 108.1 | 3.0e-10 | 1.000000 | 0.1001 | 4.5050 4.4943 4.4914 |
+FREE before 29: 6.7GB
+# 14:04:36 args=[bw 29 4] thr=8 load=[13.93 19.03 19.85] top=[ 87.8 Python; 81.8 Logic Pro; 80.8 Python;] contam=no free=7.1GB
+bw n=29 passes=4 bytes/pass=8.590e9: GPU 178.1 GB/s (0.1930 s)  CPU(8 thr) 162.1 GB/s (0.2120 s)
+# 14:05:09 args=[qft 29 3 0 cpu gpu] thr=8 load=[18.79 19.70 20.06] top=[ 89.3 Python; 80.9 Logic Pro; 80.7 Python;] contam=no free=7.4GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 29 | cpu | 1.8484 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.2284 | 2.4905 1.8484 1.8586 |
+| qft | 29 | gpu | 1.1256 | 0.0004 | 12 | 91.6 | 0.0e0 | 1.000000 | 0.2284 | 1.1390 1.1323 1.1256 |
+DONE

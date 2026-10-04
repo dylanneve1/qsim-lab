@@ -1,0 +1,28 @@
+# 13:52:39 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[51.93 25.89 17.96] top=[135.5 rustc; 85.8 Python; 79.5 Logic Pro;] contam=YES free=6.9GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 33.46 | 6.91 | 32 | 155 |
+total full 0.0335 s, load/store 0.0069 s, scale-kernel floor 0.0068 s
+# 13:52:40 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[134.8 rustc; 80.9 Python; 78.7 Logic Pro;] contam=YES free=7.0GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 30.49 | 7.09 | 35 | 151 |
+total full 0.0305 s, load/store 0.0071 s, scale-kernel floor 0.0067 s
+# 13:52:41 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[106.2 rustc; 79.5 Python; 79.4 Logic Pro;] contam=YES free=7.0GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 12.90 | 6.99 | 83 | 154 |
+total full 0.0129 s, load/store 0.0070 s, scale-kernel floor 0.0069 s
+# 13:52:41 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[115.6 rustc; 82.8 Python; 79.0 Logic Pro;] contam=YES free=7.0GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 12.93 | 7.06 | 83 | 152 |
+total full 0.0129 s, load/store 0.0071 s, scale-kernel floor 0.0072 s
+# 13:52:42 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[220.8 rustc; 84.4 Python; 81.7 Logic Pro;] contam=YES free=6.9GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 13.26 | 6.85 | 81 | 157 |
+total full 0.0133 s, load/store 0.0069 s, scale-kernel floor 0.0064 s
+# 13:52:42 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[329.9 rustc; 88.1 Logic Pro; 41.9 com.apple.WebKit.WebContent;] contam=YES free=6.8GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 19.35 | 6.52 | 56 | 165 |
+total full 0.0193 s, load/store 0.0065 s, scale-kernel floor 0.0065 s
+# 13:52:43 args=[prof cp 26 5 gpu:regs=1,tg=10,slots=5,thr=64] thr=? load=[53.37 26.63 18.26] top=[377.7 rustc; 92.5 Logic Pro; 74.8 Telegram;] contam=YES free=6.8GB
+| stage | U1 | swaps | diag runs | groups | high | full ms | load/store ms | full GB/s | l/s GB/s |
+| 0 | 5 | 0 | 5 | 9 | 5 | 6.93 | 6.59 | 155 | 163 |
+total full 0.0069 s, load/store 0.0066 s, scale-kernel floor 0.0063 s

@@ -26,6 +26,18 @@ num-traits = "0.2"
 rand = "0.9"
 rayon = "1"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = { version = "0.32", optional = true }
+
+[features]
+# Apple-GPU (Metal) f32 state-vector backend, `qsim_lab::metal_sv`. Only has
+# an effect on macOS; other targets build exactly as without it.
+metal = ["dep:metal"]
+
+[[example]]
+name = "metal_bench"
+required-features = ["metal"]
+
 [dev-dependencies]
 proptest = "1"
 

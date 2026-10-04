@@ -1,0 +1,18 @@
+# 13:34:49 args=[qft 26 3 0 cpu gpu:tg=11,thr=256 gpu:regs=1,tg=12,slots=5,thr=128 gpu:regs=1,tg=11,slots=5,thr=64 gpu:regs=1,tg=10,slots=5,thr=32 gpu:regs=1,tg=12,slots=4,thr=256] thr=8 load=[4.24 14.50 18.24] top=[ 93.6 Logic Pro; 84.8 Python; 84.5 Python;] contam=no free=7.9GB
+device Apple M1 Pro | cpu threads 8 | workload qft depth 0
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| qft | 26 | cpu | 0.2332 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0230 | 0.3605 0.2332 0.2421 |
+| qft | 26 | gpu:tg=11,thr=256 | 0.2409 | 0.0004 | 7 | 31.2 | 0.0e0 | 1.000000 | 0.0230 | 0.3029 0.2409 0.2437 |
+| qft | 26 | gpu:regs=1,tg=12,slots=5,thr=128 | 0.5673 | 0.0004 | 8 | 15.1 | 0.0e0 | 1.000000 | 0.0230 | 0.6493 0.5673 0.5748 |
+| qft | 26 | gpu:regs=1,tg=11,slots=5,thr=64 | 0.5747 | 0.0004 | 9 | 16.8 | 0.0e0 | 1.000000 | 0.0230 | 0.6346 0.5784 0.5747 |
+| qft | 26 | gpu:regs=1,tg=10,slots=5,thr=32 | 0.5763 | 0.0004 | 9 | 16.8 | 0.0e0 | 1.000000 | 0.0230 | 0.6396 0.5763 0.5814 |
+| qft | 26 | gpu:regs=1,tg=12,slots=4,thr=256 | 0.2121 | 0.0004 | 9 | 45.6 | 0.0e0 | 1.000000 | 0.0230 | 0.2759 0.2130 0.2121 |
+# 13:34:58 args=[brick 24 3 20 cpu gpu gpu:regs=1,tg=12,slots=5,thr=128 gpu:regs=1,tg=11,slots=5,thr=64 gpu:regs=1,tg=10,slots=5,thr=32 gpu:regs=1,tg=12,slots=4,thr=256] thr=8 load=[4.30 14.17 18.08] top=[ 91.4 Logic Pro; 46.6 mediaanalysisd; 39.3 com.apple.WebKit.WebContent;] contam=no free=7.9GB
+device Apple M1 Pro | cpu threads 8 | workload brick depth 20
+| wl | n | mode | min run s | plan s | passes | eff GB/s | max dSample vs first | norm | setup s | all run s |
+| brick | 24 | cpu | 0.7356 | 0.0000 | - | - | 0.0e0 | 1.000000 | 0.0071 | 0.7356 0.7414 0.7435 |
+| brick | 24 | gpu | 0.4239 | 0.0005 | 59 | 37.4 | 9.9e-10 | 1.000000 | 0.0071 | 0.5141 0.4239 0.4305 |
+| brick | 24 | gpu:regs=1,tg=12,slots=5,thr=128 | 0.9012 | 0.0005 | 67 | 20.0 | 8.8e-10 | 1.000000 | 0.0071 | 0.9012 0.9017 0.9079 |
+| brick | 24 | gpu:regs=1,tg=11,slots=5,thr=64 | 0.8676 | 0.0004 | 71 | 22.0 | 1.1e-9 | 1.000000 | 0.0071 | 0.8687 0.8726 0.8676 |
+| brick | 24 | gpu:regs=1,tg=10,slots=5,thr=32 | 0.8308 | 0.0004 | 75 | 24.2 | 8.9e-10 | 1.000000 | 0.0071 | 0.8308 0.8312 0.8322 |
+| brick | 24 | gpu:regs=1,tg=12,slots=4,thr=256 | 0.2993 | 0.0005 | 78 | 70.0 | 9.2e-10 | 1.000000 | 0.0071 | 0.2993 0.3003 0.3004 |
