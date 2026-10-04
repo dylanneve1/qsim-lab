@@ -61,11 +61,13 @@ def main():
     rep = {}
     raw = load([p for p in glob.glob(os.path.join(fp.RAW, "*.csv"))
                 if "mid2" not in p and "confirm" not in p])
-    plan = load(glob.glob(os.path.join(HERE, "mac", "plan_*.csv")))
+    tag = os.environ.get("PLAN_TAG", "plan2")  # plan = unstaged planner, plan2 = staged
+    plan = load(sorted(glob.glob(os.path.join(HERE, "mac", tag + "_*.csv"))))
     # --- 1. dataset, end to end -------------------------------------------
+    plan_v0 = load(sorted(glob.glob(os.path.join(HERE, "mac", "plan_*.csv"))))
     for eng in ["planx", "planp", "plan", "mpsb"]:
         rows, choice_rows, worst = [], [], []
-        for k, d in plan.items():
+        for k, d in (plan_v0 if eng == "mpsb" else plan).items():
             r = d["runs"].get(eng)
             b = best(raw[k])
             if not r or not b:
@@ -104,7 +106,8 @@ def main():
     rep["plan_secs"] = dict(median=float(np.median(ps)), p90=float(np.percentile(ps, 90)),
                             max=float(np.max(ps)))
     # --- 2. held-out families --------------------------------------------
-    new = load(glob.glob(os.path.join(HERE, "mac", "new_*.csv")))
+    new = load(sorted(glob.glob(os.path.join(HERE, "mac", "new_*.csv")))
+               + sorted(glob.glob(os.path.join(HERE, "mac", os.environ.get("NEW_TAG", "new2") + "_*.csv"))))
     fams = {}
     for k, d in new.items():
         b = best(d)

@@ -1,0 +1,38 @@
+points 179 units {'svd_weight': 8, 'call_overhead': 1000} replay ok 291 / 291 violations 101
+feature                                slope  rmse  lofo(ct/brick/arith/qaoa)  pooled  maxerr
+mps_l (old: crossing+support, Σχ³)     0.27  0.84  0.81/1.29/0.89/0.93       0.93  2.40
+mps_l0 (old: crossing only)            0.18  1.00  1.14/1.39/1.62/1.10       1.33  2.79
+oracle G·χmax_final³                   0.39  0.55  0.69/0.61/1.53/0.61       1.01  2.40
+oracle trace work (svd only)           0.69  0.24  0.25/0.25/0.54/0.23       0.36  1.00
+oracle trace work (units)              0.83  0.07  0.07/0.06/0.10/0.08       0.08  0.37
+replay[cut]                            0.22  0.93  1.21/1.09/0.65/1.23       1.05  2.52
+replay[cross]                          0.31  0.82  0.73/1.30/0.90/1.01       0.93  2.24
+replay[stab]                           0.34  0.81  0.78/0.78/1.26/1.05       1.00  2.83
+replay[coset]                          0.33  0.83  0.89/0.79/1.00/1.05       0.94  2.27
+replay[affine]                         0.23  0.87  1.47/0.99/0.27/1.11       1.09  3.02
+replay[best]                           0.48  0.59  0.63/0.72/0.71/0.71       0.69  1.88
+probe χ≤8 + best                       0.55  0.47  0.65/0.60/0.43/0.39       0.53  2.60
+probe χ≤8 extrapolated                 0.72  0.55  1.00/0.70/0.36/0.71       0.75  3.87
+probe χ≤16 + best                      0.62  0.38  0.53/0.45/0.31/0.28       0.41  1.89
+probe χ≤16 extrapolated                0.92  0.35  0.44/0.47/0.15/0.41       0.37  1.71
+probe χ≤32 + best                      0.66  0.32  0.54/0.35/0.16/0.25       0.38  2.40
+probe χ≤32 extrapolated                0.92  0.25  0.30/0.29/0.08/0.30       0.25  1.31
+max-bond quality {"cut": {"n": 291, "mean_excess_bits": 3.5406202955480865, "exact": 34, "max_excess_bits": 12.0}, "cross": {"n": 291, "mean_excess_bits": 2.2382147972662993, "exact": 106, "max_excess_bits": 12.0}, "stab": {"n": 291, "mean_excess_bits": 2.035465656372829, "exact": 88, "max_excess_bits": 12.0}, "coset": {"n": 291, "mean_excess_bits": 2.066393491424375, "exact": 90, "max_excess_bits": 11.0}, "affine": {"n": 291, "mean_excess_bits": 2.8739536288814196, "exact": 46, "max_excess_bits": 12.0}, "best": {"n": 291, "mean_excess_bits": 0.8224072371288427, "exact": 177, "max_excess_bits": 6.955605880641546}, "probe8": {"n": 291, "mean_excess_bits": 0.2518747307712729, "exact": 221, "max_excess_bits": 6.955605880641546, "min_excess_bits": -3.0}, "probe16": {"n": 291, "mean_excess_bits": 0.19089069236524933, "exact": 233, "max_excess_bits": 4.955605880641546, "min_excess_bits": -2.2995602818589083}, "probe32": {"n": 291, "mean_excess_bits": 0.12430651292069766, "exact": 249, "max_excess_bits": 4.955605880641546, "min_excess_bits": -2.0}}
+old mps_l      top1 0.850 geo 1.247 w2 0.914 eps 1.217 max 161.9 maxeps 160.6 mpsRMSE {'ct': 0.8051758496075934, 'brick': 1.2883243412988459, 'arith': 0.8945793339715034, 'qaoa': 0.9288467207902522}
+               + speculation: geo 1.115 max 9.2 w2 0.924
+replay[best]   top1 0.882 geo 1.092 w2 0.952 eps 1.072 max 12.9 maxeps 12.7 mpsRMSE {'ct': 0.632995092335346, 'brick': 0.7162180913941741, 'arith': 0.7149269475430364, 'qaoa': 0.7135138719639512}
+               + speculation: geo 1.083 max 9.2 w2 0.952
+replay[cross]  top1 0.847 geo 1.290 w2 0.911 eps 1.263 max 283.4 maxeps 279.4 mpsRMSE {'ct': 0.7280061273301018, 'brick': 1.2950663730009997, 'arith': 0.9043367529804562, 'qaoa': 1.0051413187981635}
+               + speculation: geo 1.115 max 9.2 w2 0.924
+probe16        top1 0.930 geo 1.038 w2 0.978 eps 1.028 max 4.3 maxeps 3.6 mpsRMSE {'ct': 0.5282633380941847, 'brick': 0.44729421821723353, 'arith': 0.3059020996743867, 'qaoa': 0.2796024278434952}
+               + speculation: geo 1.046 max 9.2 w2 0.975
+probe16x       top1 0.949 geo 1.041 w2 0.978 eps 1.039 max 14.7 maxeps 14.7 mpsRMSE {'ct': 0.43567343417101767, 'brick': 0.46531785201841586, 'arith': 0.1524771385645424, 'qaoa': 0.4129827002066116}
+               + speculation: geo 1.029 max 8.5 w2 0.987
+probe8x        top1 0.892 geo 1.108 w2 0.952 eps 1.096 max 59.3 maxeps 59.1 mpsRMSE {'ct': 0.9969799621953431, 'brick': 0.6999878791375274, 'arith': 0.36143150871624646, 'qaoa': 0.7063662081448289}
+               + speculation: geo 1.064 max 8.5 w2 0.968
+oracle         top1 0.955 geo 1.025 w2 0.990 eps 1.022 max 8.5 maxeps 8.5 mpsRMSE {'ct': 0.06814363228984387, 'brick': 0.06475984895679736, 'arith': 0.09609207103982252, 'qaoa': 0.08127658009806547}
+               + speculation: geo 1.025 max 8.5 w2 0.990
+old [(161.9, 'qaoa:n=20,p=3,deg=3,nn=0', 'mps', 'cstate'), (130.8, 'qaoa:n=20,p=3,deg=3,nn=1', 'mps', 'cstate'), (86.7, 'qaoa:n=24,p=3,deg=2,nn=0', 'mps', 'cstate'), (59.3, 'brick:n=24,D=3,nn=0', 'mps', 'hsf'), (33.5, 'qaoa:n=24,p=2,deg=3,nn=0', 'mps', 'cstate')]
+best [(12.9, 'brick:n=20,D=16,nn=1', 'mps', 'hsf'), (10.9, 'qaoa:n=24,p=1,deg=3,nn=0', 'mps', 'cstate'), (7.9, 'brick:n=16,D=12,nn=1', 'mps', 'hsf'), (4.6, 'qaoa:n=20,p=1,deg=2,nn=0', 'mps', 'cstate'), (4.6, 'ct:n=24,L=16,t=48,nn=1', 'cstate', 'mps')]
+probe16 [(4.3, 'brick:n=16,D=12,nn=1', 'sv', 'hsf'), (3.5, 'qaoa:n=24,p=1,deg=2,nn=0', 'mps', 'cstate'), (2.7, 'brick:n=12,D=1,nn=1', 'sv', 'mps'), (2.4, 'qaoa:n=20,p=3,deg=2,nn=1', 'mps', 'hsf'), (2.4, 'brick:n=16,D=16,nn=1', 'sv', 'hsf')]
+oracle [(8.5, 'brick:n=26,D=16,nn=1', 'hsf', 'mps'), (4.3, 'brick:n=16,D=12,nn=1', 'sv', 'hsf'), (2.4, 'brick:n=16,D=16,nn=1', 'sv', 'hsf'), (2.0, 'brick:n=20,D=12,nn=1', 'mps', 'hsf'), (1.7, 'arith:bits=8,h=6,reps=4', 'sparse', 'hsf')]
