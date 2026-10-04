@@ -162,3 +162,7 @@ This is what merging exp/neon-fma-r4 gives on Apple silicon: **1.29-1.31x on bri
 ## Files
 - Mac raw data, logs, and harness: `research/data/mac-m1/`. `*.raw` lines are `threads binary | workload | n | prec | config | seconds | ...`. Summarise with `scripts/parse.py` (A/B) and `scripts/sweep.py` (sweep); the drivers are `scripts/cell.sh` and `phase1-5.sh`.
 - Earlier Mac sweeps by the round-3 agent (`research/data/l1/e*`, 6 threads, with Logic Pro not running) agree: tiling gave 1.03-1.06x at a fixed block, and the best config was b1024 + t32/t64.
+
+## 7. Status on main (4 Oct 2026, integration pass)
+
+The tiling code was merged to main behind its flag so the code and this negative result live together: `BlockConfig::l1_tile_bytes` stays **0 (off) by default** on both architectures. Rebased onto main 3a37671 (only conflict: this file, where main's version was already the superset), reviewed again (ops are reordered only across pairs that commute under the `schedule_diag` rule; `tile_local` requires every bit a diagonal block reads, and every target, to lie inside the tile), and gated with fmt, clippy `--all-targets -D warnings`, the full `cargo test --release` on x86_64 (53 test binaries, 541 passed, 0 failed) and the doc build. `tests/l1_tiling.rs` (incl. `tiled_matches_audit_reference` against `audit_common::RefSv`) and the tiling configs in `tests/blocked.rs` keep it tested. The original branches are archived (`research/ARCHIVE.md`).
