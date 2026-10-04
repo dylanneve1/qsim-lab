@@ -63,6 +63,21 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
         let (u, s, v) = unpack(&svd);
         return (v, s, u);
     }
+    // QR-preconditioned SVD (m = Q R, R = U' S V† => U = Q U'), exact up to
+    // rounding; converges on the M1 build where the plain SVD did not
+    // (`ct:n=32,L=32,t=8,nn=1`, the dataset's one MPS crash).
+    let (tall, mm) = if m.nrows() >= m.ncols() {
+        (true, m.to_owned())
+    } else {
+        (false, m.adjoint().to_owned())
+    };
+    let qr = mm.qr();
+    let (q, r) = (qr.compute_thin_Q(), qr.thin_R().to_owned());
+    if let Ok(svd) = r.thin_svd() {
+        let (u, s, v) = unpack(&svd);
+        let u = &q * &u;
+        return if tall { (u, s, v) } else { (v, s, u) };
+    }
     for salt in 1..=3u64 {
         let phase = |r: usize| {
             let x = ((r as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15 ^ salt)) >> 11;
