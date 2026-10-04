@@ -483,7 +483,35 @@ enum Lg {
     Ccx(u8, u8, u8),
 }
 
-type RuleKey = (usize, Vec<Lg>, Vec<Option<bool>>);
+/// Packed window key: gates (12 bits each, type code 1..3 + three 3-bit
+/// wire indices) and (wire count, constant pattern 2 bits per wire).
+type RuleKey = (u128, u16);
+
+fn lg_code(g: &Lg) -> u128 {
+    let (t, a, b, c) = match *g {
+        Lg::X(q) => (1u128, q, 0, 0),
+        Lg::Cx(x, y) => (2, x, y, 0),
+        Lg::Ccx(x, y, z) => (3, x, y, z),
+    };
+    t | (u128::from(a) << 2) | (u128::from(b) << 5) | (u128::from(c) << 8)
+}
+
+fn rule_key(gates: &[Lg], consts: &[Option<bool>]) -> RuleKey {
+    let mut k = 0u128;
+    for (i, g) in gates.iter().enumerate() {
+        k |= lg_code(g) << (12 * i);
+    }
+    let mut m = consts.len() as u16;
+    for (i, c) in consts.iter().enumerate() {
+        let v: u16 = match c {
+            None => 0,
+            Some(false) => 1,
+            Some(true) => 2,
+        };
+        m |= v << (3 + 2 * i);
+    }
+    (k, m)
+}
 
 /// Window shape of the SAT peephole (must match `tools/superopt/peep.py`).
 pub const SAT_Q: usize = 5;
@@ -550,7 +578,8 @@ fn sat_rules() -> &'static std::collections::HashMap<RuleKey, Vec<Lg>> {
                     assert_eq!(sim_lgs(&pat, v), sim_lgs(&rep, v), "invalid rule {line}");
                 }
             }
-            m.insert((nw, pat, consts), rep);
+            assert!(pat.len() <= SAT_LMAX && nw <= SAT_Q);
+            m.insert(rule_key(&pat, &consts), rep);
         }
         m
     })
@@ -604,30 +633,44 @@ pub fn sat_peephole(c: &Circuit, anc_from: usize) -> Circuit {
         let mut changed = false;
         let mut i = 0;
         while i < gates.len() {
-            let mut wires: Vec<usize> = Vec::new();
+            let mut wires = [0usize; SAT_Q];
+            let mut nw = 0usize;
+            let mut local = [Lg::X(0); SAT_LMAX];
             let mut j = i;
-            while j < gates.len() && j - i < SAT_LMAX {
+            'grow: while j < gates.len() && j - i < SAT_LMAX {
                 let (qs, k) = gate_qs(&gates[j]);
-                let new: Vec<usize> = qs[..k].iter().copied().filter(|q| !wires.contains(q)).collect();
-                if wires.len() + new.len() > SAT_Q {
-                    break;
+                let mut idx = [0u8; 3];
+                let mut add = [0usize; 3];
+                let mut nadd = 0;
+                for (s, &q) in qs[..k].iter().enumerate() {
+                    if let Some(p) = wires[..nw].iter().position(|&w| w == q) {
+                        idx[s] = p as u8;
+                    } else if let Some(p) = add[..nadd].iter().position(|&w| w == q) {
+                        idx[s] = (nw + p) as u8;
+                    } else {
+                        if nw + nadd + 1 > SAT_Q {
+                            break 'grow;
+                        }
+                        add[nadd] = q;
+                        idx[s] = (nw + nadd) as u8;
+                        nadd += 1;
+                    }
                 }
-                wires.extend(new);
+                wires[nw..nw + nadd].copy_from_slice(&add[..nadd]);
+                nw += nadd;
+                local[j - i] = match k {
+                    1 => Lg::X(idx[0]),
+                    2 => Lg::Cx(idx[0], idx[1]),
+                    _ => Lg::Ccx(idx[0], idx[1], idx[2]),
+                };
                 j += 1;
             }
             if j - i >= 2 {
-                let idx = |q: usize| wires.iter().position(|&w| w == q).unwrap() as u8;
-                let local: Vec<Lg> = gates[i..j]
-                    .iter()
-                    .map(|g| match *g {
-                        Gate::X(q) => Lg::X(idx(q)),
-                        Gate::Cnot(c, t) => Lg::Cx(idx(c), idx(t)),
-                        Gate::Ccx(a, b, t) => Lg::Ccx(idx(a), idx(b), idx(t)),
-                        _ => unreachable!(),
-                    })
-                    .collect();
-                let consts: Vec<Option<bool>> = wires.iter().map(|&q| val[q]).collect();
-                if let Some(rep) = rules.get(&(wires.len(), local, consts)) {
+                let mut consts = [None; SAT_Q];
+                for (k, &q) in wires[..nw].iter().enumerate() {
+                    consts[k] = val[q];
+                }
+                if let Some(rep) = rules.get(&rule_key(&local[..j - i], &consts[..nw])) {
                     for g in rep {
                         let g = match *g {
                             Lg::X(q) => Gate::X(wires[q as usize]),

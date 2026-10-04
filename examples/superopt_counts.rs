@@ -138,12 +138,15 @@ fn main() {
         lay.num_qubits(),
         inst.t
     );
-    let mut base_g = 0usize;
+    let (mut base_g, mut base_t) = (0usize, 0usize);
     for (name, o) in &variants {
         let (mut g, mut t, mut gp, mut tp, mut g0, mut t0) = (0, 0, 0, 0, 0, 0);
         let (mut x, mut cx) = (0usize, 0usize);
+        let mut build = 0.0f64;
         for (k, &mult) in inst.mults.iter().enumerate() {
+            let t_b = std::time::Instant::now();
             let c = controlled_ua(&lay, mult, n_mod, o);
+            build += t_b.elapsed().as_secs_f64();
             let (gg, tt) = gate_counts(&c);
             if k == 0 {
                 (g0, t0) = (gg, tt);
@@ -166,10 +169,13 @@ fn main() {
         }
         if *name == "baseline" {
             base_g = g;
+            base_t = t;
         }
         print!(
-            "{name:18} total={g:9} ccx={t:8} cnot={cx:8} x={x:7} round0={g0}/{t0} ({:+.1}% gates)",
-            100.0 * (g as f64 / base_g as f64 - 1.0)
+            "{name:18} total={g:9} ccx={t:8} cnot={cx:8} x={x:7} round0={g0}/{t0} ({:+.1}% gates, {:+.1}% ccx) build={:.0}ms",
+            100.0 * (g as f64 / base_g as f64 - 1.0),
+            100.0 * (t as f64 / base_t as f64 - 1.0),
+            1e3 * build
         );
         if peep {
             print!("  | after peephole: {gp} / {tp} ccx");
