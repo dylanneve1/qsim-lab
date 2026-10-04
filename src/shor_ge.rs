@@ -1615,31 +1615,27 @@ pub struct CosetPath {
     /// exact circuit cannot produce `y`).
     pub ln_q: f64,
     pub ln_p: f64,
-    /// `1 − |⟨ideal|actual⟩|²` after every window, where *ideal* is the
-    /// coset embedding `Σ_x ψ_x Σ_{j,j'} |x + jN⟩|j'N⟩ / 2^c` of the exact
-    /// circuit's state after the same outcomes.
+    /// Deviant weight after every window: the probability on coset branches
+    /// `|x_r⟩|b_r⟩` that are *not* congruent to the exact circuit's state
+    /// after the same outcomes, i.e. `b_r ≢ 0 (mod N)` or `x_r mod N` outside
+    /// the exact support (a wrapped `(n + c)`-bit addition). A shift of the
+    /// coset index without a wrap is not a deviation.
     pub infidelity: Vec<f64>,
     /// Peak coset support.
     pub peak: usize,
 }
 
-/// Overlap of the coset state with the coset embedding of the exact state.
-fn coset_overlap(n_mod: u64, nr: usize, c: usize, exact: &Arr<f64>, cos: &Arr<f64>) -> f64 {
-    let amp = 1.0 / (1u64 << c) as f64;
+/// Weight of the coset branches not congruent to the exact state.
+fn coset_bad_weight(n_mod: u64, nr: usize, exact: &Arr<f64>, cos: &Arr<f64>) -> f64 {
     let mask = (1u64 << nr) - 1;
-    let lim = 1u64 << c;
-    let mut acc = Complex64::zero();
+    let mut bad = 0.0;
     for &(k, a) in cos {
         let (xr, br) = (k & mask, k >> nr);
-        if br % n_mod != 0 || br / n_mod >= lim || xr / n_mod >= lim {
-            continue;
-        }
-        let x = xr % n_mod;
-        if let Ok(i) = exact.binary_search_by_key(&x, |e| e.0) {
-            acc += exact[i].1.conj() * a * amp;
+        if br % n_mod != 0 || exact.binary_search_by_key(&(xr % n_mod), |e| e.0).is_err() {
+            bad += a.norm_sqr();
         }
     }
-    acc.norm_sqr()
+    bad
 }
 
 /// Samples one path of the coset circuit (`o.coset = c > 0`) and runs the
@@ -1707,7 +1703,7 @@ pub fn coset_path(
         if let Some(wa) = wae {
             se.finish(wa);
             out.infidelity
-                .push(1.0 - coset_overlap(n_mod, lay_c.nr, o.coset, &se.psi, &sc.psi));
+                .push(coset_bad_weight(n_mod, lay_c.nr, &se.psi, &sc.psi));
         } else {
             out.infidelity.push(f64::NAN);
         }

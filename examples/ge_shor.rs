@@ -2,8 +2,8 @@
 //! (exp/ge-shor, research/ge-shor.md).
 //!
 //! ```text
-//! ge_shor run    <N> <seed> <we> <wm> <lookups|all|none> [shor|eh] [f32|f64]
-//! ge_shor counts <N> <seed> <we> <wm> <lookups|all|none> [shor|eh] [coset c]
+//! ge_shor run    <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd] [f32|f64]
+//! ge_shor counts <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd] [coset c]
 //! ge_shor coset  <N> <a> <we> <wm> <cmax>          exact distributions (t ≤ 26)
 //! ge_shor cosetmc <N> <a> <we> <wm> <c> <paths> <seed>
 //! ge_shor ehmc   <N> <runs> <seed> <we> <wm>       Monte-Carlo EH vs Shor success
@@ -84,9 +84,16 @@ fn main() {
                 mbu: mbu(&v[6]),
                 coset: 0,
             };
-            let eh = v.get(7).map(String::as_str) == Some("eh");
+            let var = v.get(7).map(String::as_str).unwrap_or("shor");
+            let eh = var.starts_with("eh");
             let f32 = v.get(8).map(String::as_str) != Some("f64");
-            let (a, mut rng) = base(n_mod, seed);
+            let (mut a, mut rng) = base(n_mod, seed);
+            if var == "eh-odd" {
+                // EH accepts any base: g = h^(2^n) has odd order (no
+                // factorisation used), which keeps the simulated support
+                // at r_odd (see research/ge-shor.md)
+                a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
+            }
             let t0 = Instant::now();
             let mut draw = || rng.random::<f64>();
             if eh {
@@ -132,8 +139,12 @@ fn main() {
                 mbu: mbu(&v[6]),
                 coset,
             };
-            let eh = v.get(7).map(String::as_str) == Some("eh");
-            let (a, _) = base(n_mod, seed);
+            let var = v.get(7).map(String::as_str).unwrap_or("shor");
+            let eh = var.starts_with("eh");
+            let (mut a, _) = base(n_mod, seed);
+            if var == "eh-odd" {
+                a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
+            }
             let regs = if eh {
                 shor_ge::eh_regs(n_mod, a)
             } else {
@@ -144,7 +155,7 @@ fn main() {
             println!(
                 "N={n_mod} n={} {} we={} wm={} mbu={} coset={} exp_bits={bits} qubits={nq} toffoli={} gates={} cnot={} meas={} fixups={} steps={}",
                 shor::work_bits(n_mod),
-                if eh { "eh" } else { "shor" },
+                var,
                 o.we,
                 o.wm,
                 v[6],
@@ -241,7 +252,7 @@ fn main() {
                 / fin.iter().filter(|f| f[nw - 1].is_finite()).count().max(1) as f64;
             let mean_first: f64 = fin.iter().map(|f| f[0]).sum::<f64>() / k;
             println!(
-                "N={n_mod} a={a} {o:?} paths={paths}: P_strict(coset)={:.4} P_strict(exact, IS)={:.4} TV={:.4} infidelity after window 1={mean_first:.3e} after last={mean_last:.3e} peak={peak} ({:.1} s)",
+                "N={n_mod} a={a} {o:?} paths={paths}: P_strict(coset)={:.4} P_strict(exact, IS)={:.4} TV={:.4} deviant weight after window 1={mean_first:.3e} after last={mean_last:.3e} peak={peak} ({:.1} s)",
                 sq / k,
                 sp / k,
                 tv / k,
@@ -252,7 +263,7 @@ fn main() {
                 let xs: Vec<f64> = fin.iter().map(|f| f[i]).filter(|x| x.is_finite()).collect();
                 prof += &format!(" {:.3e}", xs.iter().sum::<f64>() / xs.len().max(1) as f64);
             }
-            println!("mean infidelity per window:{prof}");
+            println!("mean deviant weight per window:{prof}");
         }
         Some("ehmc") => {
             let n_mod: u64 = arg(&v, 2);
@@ -266,6 +277,7 @@ fn main() {
             };
             let mut rng = StdRng::seed_from_u64(seed);
             let (mut eh_ok, mut shor_ord, mut shor_fac, mut done) = (0, 0, 0, 0);
+            let mut eh_odd_ok = 0;
             let t0 = Instant::now();
             while done < runs {
                 let g = rng.random_range(2..n_mod - 1);
@@ -275,6 +287,11 @@ fn main() {
                 done += 1;
                 let (_, f) = shor_ge::eh_run::<f64>(n_mod, g, &o, &mut || rng.random::<f64>());
                 eh_ok += usize::from(f.is_some());
+                let go = shor_ge::pow2k(g, shor::work_bits(n_mod), n_mod);
+                if go != 1 {
+                    let (_, f) = shor_ge::eh_run::<f64>(n_mod, go, &o, &mut || rng.random::<f64>());
+                    eh_odd_ok += usize::from(f.is_some());
+                }
                 let (_, ord, fac) =
                     shor_ge::shor_run::<f64>(n_mod, g, &o, &mut || rng.random::<f64>());
                 // "order found" = the true order (verified a^r = 1, minimal)
@@ -287,11 +304,13 @@ fn main() {
                 1.96 * (p * (1.0 - p) / k).sqrt()
             };
             println!(
-                "N={n_mod} runs={runs} we={} wm={}: EH P(factor | 1 run)={:.4}±{:.4}   Shor P(order)={:.4}±{:.4} P(factor | 1 run)={:.4}±{:.4}   ({:.1} s)",
+                "N={n_mod} runs={runs} we={} wm={}: EH P(factor | 1 run)={:.4}±{:.4}  EH odd-order base {:.4}±{:.4}   Shor P(order)={:.4}±{:.4} P(factor | 1 run)={:.4}±{:.4}   ({:.1} s)",
                 o.we,
                 o.wm,
                 eh_ok as f64 / k,
                 ci(eh_ok),
+                eh_odd_ok as f64 / k,
+                ci(eh_odd_ok),
                 shor_ord as f64 / k,
                 ci(shor_ord),
                 shor_fac as f64 / k,
