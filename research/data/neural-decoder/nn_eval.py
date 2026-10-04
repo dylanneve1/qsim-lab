@@ -20,9 +20,9 @@ t0 = time.time()
 cnt = dets.sum(1)
 order = np.argsort(cnt, kind="stable")
 pred = np.empty(len(cnt), bool)
-for i in range(0, len(order), 8192):
+for i in range(0, len(order), 1024):
     wait_lock()
-    idx = order[i:i + 8192]
+    idx = order[i:i + 1024]
     T = max(8, -(-int(cnt[idx].max()) // 8) * 8)
     tok, _ = tokens(dets[idx], T, nd)
     pred[idx] = np.array(m(mx.array(tok))) > 0

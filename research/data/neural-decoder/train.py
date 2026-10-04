@@ -18,7 +18,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("prefix"); ap.add_argument("out")
 ap.add_argument("--train-stim", default=None)
 ap.add_argument("--steps", type=int, default=20000)
-ap.add_argument("--batch", type=int, default=2048)
+ap.add_argument("--batch", type=int, default=1024)
 ap.add_argument("--H", type=int, default=128); ap.add_argument("--L", type=int, default=4)
 ap.add_argument("--heads", type=int, default=4)
 ap.add_argument("--readout", default="cls")
@@ -31,6 +31,8 @@ ap.add_argument("--resume", default=None)
 ap.add_argument("--eval-every", type=int, default=2000)
 a = ap.parse_args()
 os.makedirs(a.out, exist_ok=True)
+if mem_available_gb() < 4.0:
+    raise SystemExit(f"refusing to start: free+inactive {mem_available_gb():.1f} GB < 4 GB")
 meta = load_meta(a.prefix)
 nd = meta.shape[0]
 stims = (a.train_stim or a.prefix + ".stim").split(",")
@@ -66,7 +68,7 @@ def batch_tokens(dets, tmax):
     return tok[:, :T], cnt
 
 
-def predict(m, dets, bs=4096):
+def predict(m, dets, bs=1024):
     """logits for every shot; shots sorted by weight so T stays small; no shot dropped"""
     cnt = dets.sum(1, dtype=np.int64)
     order = np.argsort(cnt, kind="stable")
@@ -88,6 +90,8 @@ t0 = time.time(); paused = 0.0; seen = 0; dropped = 0; run = []
 blocks_per = a.batch // 1024
 for it in range(1, a.steps + 1):
     paused += wait_lock([s.p for s in streams])
+    if it % 50 == 0:
+        paused += wait_memory(3.0, [s.p for s in streams])
     s = streams[it % len(streams)]
     dets, obs = s.read(blocks_per)
     tok, cnt = batch_tokens(dets, a.tmax)

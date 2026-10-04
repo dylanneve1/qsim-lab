@@ -97,3 +97,28 @@ def wait_lock(procs=()):
     for p in procs:
         p.send_signal(signal.SIGCONT)
     return time.time() - t0
+
+
+def mem_available_gb():
+    """macOS free + inactive + speculative pages (vm_stat), in GB; large number elsewhere"""
+    try:
+        out = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
+    except FileNotFoundError:
+        return 1e9
+    ps = int(out.split("page size of ")[1].split()[0])
+    get = lambda k: int(out.split(k + ":")[1].split()[0].rstrip("."))
+    return (get("Pages free") + get("Pages inactive") + get("Pages speculative")) * ps / 2**30
+
+
+def wait_memory(min_gb=4.0, procs=()):
+    """pause (SIGSTOP children) until free+inactive >= min_gb"""
+    if mem_available_gb() >= min_gb:
+        return 0
+    t0 = time.time()
+    for p in procs:
+        p.send_signal(signal.SIGSTOP)
+    while mem_available_gb() < min_gb:
+        time.sleep(10)
+    for p in procs:
+        p.send_signal(signal.SIGCONT)
+    return time.time() - t0

@@ -5,10 +5,14 @@ learned per-detector embedding + MLP of its (x, y, t, type, colour) features. A 
 prepended. Self-attention gets an additive bias per head and layer from an MLP of the pairwise
 relative geometry (dx, dy, dt, |.|, both types), i.e. a learned, translation-aware 'matching
 weight'. Readout: CLS -> logit of the observable flip."""
-import math
+import math, os
 import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
+
+# Dylan's laptop: hard caps on MLX memory (default 1.5 GB) and its buffer cache (256 MB)
+mx.set_memory_limit(int(float(os.environ.get("ND_MEM_GB", "1.5")) * 2**30))
+mx.set_cache_limit(256 * 2**20)
 
 
 def det_features(meta):
@@ -20,14 +24,17 @@ def det_features(meta):
     return f.astype(np.float32)
 
 
-def pair_geom(meta):
-    """raw geometry used for relative features (x, y, t, is_x), scaled to unit lattice steps"""
-    g = meta[:, 1:5].astype(np.float32)
-    sx = np.unique(np.diff(np.unique(g[:, 0])))
-    sy = np.unique(np.diff(np.unique(g[:, 1])))
-    g[:, 0] /= max(1.0, sx.min() if len(sx) else 1.0)
-    g[:, 1] /= max(1.0, sy.min() if len(sy) else 1.0)
+def grid_geom(meta):
+    """integer lattice coordinates (x, y, t, is_x): x and y divided by their smallest step"""
+    g = meta[:, 1:5].astype(np.int64)
+    for k in (0, 1):
+        u = np.unique(g[:, k])
+        st = np.diff(u).min() if len(u) > 1 else 1
+        g[:, k] = (g[:, k] - u.min()) // max(1, st)
     return g
+
+
+R_XY, R_T = 10, 10  # relative-offset window of the attention-bias table (clipped beyond)
 
 
 class Block(nn.Module):
@@ -60,12 +67,16 @@ class Decoder(nn.Module):
         nd = meta.shape[0]
         self.nd, self.L, self.heads = nd, L, heads
         self.feat = mx.array(np.concatenate([det_features(meta), np.zeros((2, 7), np.float32)]))  # pad, cls
-        g = pair_geom(meta)
-        self.geom = mx.array(np.concatenate([g, np.zeros((2, 4), np.float32)]))
+        g = grid_geom(meta)
+        self.geom = mx.array(np.concatenate([g, np.zeros((2, 4), np.int64)]).astype(np.int32))
+        nx, nt = 2 * R_XY + 1, 2 * R_T + 1
+        self.nrel = nx * nx * nt * 4
         self.emb = nn.Embedding(nd + 2, H)
         self.fmlp = nn.Sequential(nn.Linear(7, H), nn.GELU(), nn.Linear(H, H))
-        self.pb = nn.Sequential(nn.Linear(9, 64), nn.GELU(), nn.Linear(64, 64), nn.GELU(), nn.Linear(64, heads * L))
-        self.cls_bias = mx.zeros((heads * L,))
+        # per layer: learned bias per head for every (dx, dy, dt, type_i, type_j) offset, + 1 CLS slot
+        self.rel = [nn.Embedding(self.nrel + 1, heads) for _ in range(L)]
+        for r in self.rel:
+            r.weight = mx.zeros_like(r.weight)
         self.blocks = [Block(H, heads) for _ in range(L)]
         self.lnf = nn.LayerNorm(H)
         self.head = nn.Sequential(nn.Linear(H, H), nn.GELU(), nn.Linear(H, 1))
@@ -77,19 +88,18 @@ class Decoder(nn.Module):
         tok = mx.concatenate([cls, tok], axis=1)
         T1 = T + 1
         x = self.emb(tok) + self.fmlp(self.feat[tok])
-        g = self.geom[tok]  # (B,T1,4)
-        dg = g[:, :, None, :3] - g[:, None, :, :3]
-        ti = mx.broadcast_to(g[:, :, None, 3:4], dg.shape[:3] + (1,))
-        tj = mx.broadcast_to(g[:, None, :, 3:4], dg.shape[:3] + (1,))
-        rel = mx.concatenate([dg / 4, mx.abs(dg) / 4, ti, tj, mx.ones_like(ti)], axis=-1)  # (B,T1,T1,9)
-        pb = self.pb(rel)  # (B,T1,T1,heads*L)
-        is_cls = (mx.arange(T1) == 0)
-        cls_pair = (is_cls[:, None] | is_cls[None, :])[None, :, :, None]
-        pb = mx.where(cls_pair, self.cls_bias, pb)
+        g = self.geom[tok]  # (B,T1,4) int
+        nx, nt = 2 * R_XY + 1, 2 * R_T + 1
+        d = g[:, :, None, :3] - g[:, None, :, :3]
+        dx = mx.clip(d[..., 0], -R_XY, R_XY) + R_XY
+        dy = mx.clip(d[..., 1], -R_XY, R_XY) + R_XY
+        dt = mx.clip(d[..., 2], -R_T, R_T) + R_T
+        idx = (((dx * nx + dy) * nt + dt) * 2 + g[:, :, None, 3]) * 2 + g[:, None, :, 3]
+        is_cls = mx.arange(T1) == 0
+        idx = mx.where((is_cls[:, None] | is_cls[None, :])[None], self.nrel, idx)  # (B,T1,T1)
         keymask = mx.where(tok == self.nd, -1e9, 0.0)[:, None, None, :]  # (B,1,1,T1)
-        pb = pb.transpose(0, 3, 1, 2)  # (B, heads*L, T1, T1)
         for l, blk in enumerate(self.blocks):
-            bias = pb[:, l * self.heads:(l + 1) * self.heads] + keymask
+            bias = self.rel[l](idx).transpose(0, 3, 1, 2) + keymask
             x = blk(x, bias)
         if self.readout == "cls":
             return self.head(self.lnf(x[:, 0]))[:, 0]
