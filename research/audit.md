@@ -721,7 +721,7 @@ circuit as QASM); regression tests `tests/audit_r4b.rs`. VPS work ran under `nic
 - **Nullity, independently.** My own ν (numpy, all 4ⁿ Pauli expectations via my own Walsh–Hadamard,
   `nullity.py`) on states from the repo's reference state vector after every gate, for qaoa n=8, rct
   n=6, qft-basis n=8, heis n=8, qpe-stab t=4, hhl t=4 m=2, draper bits=3 plusab: **identical to
-  `magic/*.csv` at all 525 checkpoints**. Shor oracle (n=13, x=1): ν = 0 at **all 340** gate
+  `magic/*.csv` at all 495 checkpoints**. Shor oracle (n=13, x=1): ν = 0 at **all 340** gate
   boundaries (the branch's csv only samples 115).
 - **Framing.** "d equals ν, so d is a tight magic measure" for 33/33 generic instances: 17 of the 33
   are at d = n (QFT-graph, HEA, Ising, Grover, QPE-Trotter), where ν = n is what any state without a
