@@ -112,7 +112,9 @@ parse and compile.
 - **Compile is our weak spot:** about 55 ms at d = 15 against 3.5 ms for Stim's whole small run. At
   128k shots the end-to-end lead is therefore 2.5–3.7×; for ≥ 10⁶ shots it approaches the sampling
   ratio.
-- Mac (M1 Pro): MAC_LINE
+- Mac (M1 Pro, under the bench lock, load 2.9–6.7): 27–40× against pip Stim (d = 15: 6.5 / 3.2
+  Mshot/s against 0.24 / 0.11). Stim has no NEON backend, so this overstates the algorithmic gain;
+  the x86 ratio against AVX2 Stim is the fair one.
 
 ## 3. Colour-code syndrome schedules (`research/qec-r4.md` Part 2)
 

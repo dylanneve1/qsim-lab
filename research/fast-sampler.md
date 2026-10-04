@@ -258,7 +258,42 @@ records the load. Only pip Stim is used: **Stim has no NEON backend, so on arm64
 native build use 64-bit words** (see `qec-r4.md` §1.5, where a native `-mcpu=native` build measured
 the same as pip). The Mac ratios therefore overstate what the algorithm buys on its own.
 
-MAC_TABLE
+`timing_mac_m1.jsonl`. The load is the 1-minute load at the end of each cell: 2.9–6.7, because other agents'
+jobs were running. The bench lock guarantees no other *timing* run overlapped, but not an idle
+machine. Mshot/s:
+
+| d | p | Stim pip write | Stim DEM sampler pip | qsim-lab FastSampler | ours / pip Stim | ours / best Stim | end-to-end ratio | load |
+|---|---|---|---|---|---|---|---|---|
+| 3 | 0.1% | 26.05 | 20.05 | 1035.20 | **39.7×** | 39.7× | – | 6.7 |
+| 7 | 0.1% | 2.28 | 0.95 | 62.27 | **27.3×** | 27.3× | – | 5.7 |
+| 11 | 0.1% | 0.61 | 0.23 | 16.46 | **26.9×** | 26.9× | – | 3.2 |
+| 15 | 0.1% | 0.24 | 0.09 | 6.52 | **27.0×** | 27.0× | – | 3.0 |
+| 3 | 0.3% | 13.97 | 12.77 | 485.55 | **34.7×** | 34.7× | – | 2.9 |
+| 7 | 0.3% | 1.13 | 0.69 | 32.09 | **28.4×** | 28.4× | – | 4.1 |
+| 11 | 0.3% | 0.29 | 0.16 | 8.13 | **28.0×** | 28.0× | – | 3.7 |
+| 15 | 0.3% | 0.11 | 0.06 | 3.18 | **27.7×** | 27.7× | – | 5.3 |
+
+- Against pip Stim: **27–40×**. Stim's DEM sampler is again slower than its circuit sampler.
+- This is 2–3× the x86 ratio, consistent with Stim using 64-bit words here instead of 256-bit
+  AVX2. It is not a fair measure of the algorithm.
+- Our own Mac throughput is 1.1–1.5× the VPS's.
+
+Mac ablation (same runs):
+
+| d | p | old dense, StdRng | old sparse, StdRng | old sparse, Xoshiro | hits, columns, Xoshiro | + hit table | + blocked | + u16 table | + wyrand | total |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 0.1% | 55.52 | 63.92 | 84.35 | 303.49 | 841.22 | 993.79 | 1023.80 | 1035.20 | 18.6× |
+| 7 | 0.1% | 4.47 | 6.82 | 8.79 | 24.13 | 58.47 | 64.49 | 63.23 | 62.27 | 13.9× |
+| 11 | 0.1% | 1.32 | 1.96 | 2.59 | 6.02 | 13.25 | 15.69 | 15.96 | 16.46 | 12.5× |
+| 15 | 0.1% | 0.54 | 0.82 | 1.09 | 2.37 | 4.75 | 6.04 | 6.35 | 6.52 | 12.0× |
+| 3 | 0.3% | 33.46 | 31.39 | 41.81 | 111.81 | 393.20 | 480.02 | 477.95 | 485.55 | 14.5× |
+| 7 | 0.3% | 2.83 | 3.06 | 4.27 | 9.27 | 27.37 | 31.41 | 32.20 | 32.09 | 11.3× |
+| 11 | 0.3% | 0.77 | 0.82 | 1.14 | 2.32 | 6.47 | 8.06 | 8.08 | 8.13 | 10.6× |
+| 15 | 0.3% | 0.31 | 0.33 | 0.47 | 0.91 | 2.24 | 3.22 | 3.14 | 3.18 | 10.3× |
+
+The order of the contributions is the same as on x86. On the M1 the hit table gains more (2.0–3.5×)
+and the blocked generation less (1.1–1.4×), plausibly because of the M1's larger caches and lower
+memory latency (not investigated).
 
 ## 4. Limits and caveats
 
