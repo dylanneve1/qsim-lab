@@ -1,0 +1,1 @@
+{"d":9,"rounds":9,"involved":[0,4,8,12,15,18,21,23,25,28],"schedule":"d9_global_D8.sched","noise":"cnot","distance":8,"count":1,"count_capped":true,"certified":true,"mechanisms":2266,"z_detectors":300,"nodes":1656050899,"seconds":274.639,"example":"[0@0 4@0 L] [0@0 4@0 8@0] [8@0 12@0 15@0] [12@0 15@0 18@0] [18@0 21@0 23@0] [21@0 23@0 25@1] [25@1 28@1] [28@1]"}

@@ -1,0 +1,1 @@
+RESULT UNSAT after 25 iterations, 636 cuts, 0.3s

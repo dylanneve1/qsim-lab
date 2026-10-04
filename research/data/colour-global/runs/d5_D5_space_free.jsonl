@@ -1,0 +1,11 @@
+{"kind": "start", "d": 5, "D": 5, "R": 1, "mode": "free", "T": 6, "space": true, "vars": 300, "clauses": 954, "signatures": 97, "always": 19}
+{"kind": "iter", "iter": 1, "weight": 3, "count": 6, "new_cuts": 6, "cuts": 6, "tsat": 0.00015401840209960938, "tdist": 0.007395267486572266}
+{"kind": "iter", "iter": 2, "weight": 3, "count": 2, "new_cuts": 2, "cuts": 8, "tsat": 0.0011370182037353516, "tdist": 0.0006859302520751953}
+{"kind": "iter", "iter": 3, "weight": 3, "count": 2, "new_cuts": 2, "cuts": 10, "tsat": 0.0001323223114013672, "tdist": 0.0005502700805664062}
+{"kind": "iter", "iter": 4, "weight": 4, "count": 40, "new_cuts": 23, "cuts": 33, "tsat": 6.771087646484375e-05, "tdist": 0.0009391307830810547}
+{"kind": "iter", "iter": 5, "weight": 3, "count": 2, "new_cuts": 2, "cuts": 35, "tsat": 0.0002536773681640625, "tdist": 0.0005362033843994141}
+{"kind": "iter", "iter": 6, "weight": 3, "count": 4, "new_cuts": 4, "cuts": 39, "tsat": 6.67572021484375e-05, "tdist": 0.0004813671112060547}
+{"kind": "iter", "iter": 7, "weight": 4, "count": 27, "new_cuts": 16, "cuts": 55, "tsat": 5.626678466796875e-05, "tdist": 0.0007715225219726562}
+{"kind": "iter", "iter": 8, "weight": 3, "count": 1, "new_cuts": 1, "cuts": 56, "tsat": 0.0001842975616455078, "tdist": 0.0006783008575439453}
+{"kind": "iter", "iter": 9, "weight": 4, "count": 47, "new_cuts": 30, "cuts": 86, "tsat": 5.745887756347656e-05, "tdist": 0.0007991790771484375}
+{"kind": "result", "result": "UNSAT", "iterations": 10, "cuts": 86, "seconds": 0.03129220008850098}

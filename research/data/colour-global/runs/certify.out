@@ -1,0 +1,13 @@
+d5_D5_space_free | 5 5 1 free --space | RESULT UNSAT after 10 iterations, 86 cuts, 0.0s | p cnf 300 1040 | 
+d7_D7_space_free | 7 7 1 free --space | RESULT UNSAT after 42 iterations, 967 cuts, 0.2s | p cnf 738 3403 | 
+d9_D9_space_free | 9 9 1 free --space | RESULT UNSAT after 95 iterations, 9171 cuts, 7.8s | p cnf 1368 13761 | 
+d9_D8_kf_fixint | 9 8 1 kf --warm --fix-interior | RESULT UNSAT after 42 iterations, 2488 cuts, 3.0s | p cnf 3504 21631 | 
+d5_D5_hf8 | 5 5 1 free --space --hookfree 8 | RESULT UNSAT after 37 iterations, 36 cuts, 0.0s | p cnf 309 991 | 
+d7_D7_hf14 | 7 7 1 free --space --hookfree 14 | RESULT UNSAT after 60 iterations, 659 cuts, 0.4s | p cnf 812 3197 | 
+d9_D9_hf20 | 9 9 1 free --space --hookfree 20 | RESULT UNSAT after 248 iterations, 3072 cuts, 10.1s | p cnf 1598 8052 | 
+d7_D7_hf3corners | 7 7 1 free --space --hookfree 3 --hookfree-set corners | RESULT UNSAT after 25 iterations, 636 cuts, 0.1s | p cnf 741 3072 | 
+d5_D5_split_all | 5 5 1 free --space --split 9 | RESULT UNSAT after 12 iterations, 33 cuts, 0.0s | p cnf 576 1923 | 
+d7_D7_split_all | 7 7 1 free --space --split 18 | RESULT UNSAT after 68 iterations, 484 cuts, 0.2s | p cnf 1557 5728 | 
+d9_D9_split_all | 9 9 1 free --space --split 30 | RESULT UNSAT after 192 iterations, 4535 cuts, 8.3s | p cnf 3000 14741 | 
+d9_D9_hfbnd_kfT6 | 9 9 1 kf --warm --hookfree 21 --hookfree-set boundary | RESULT UNSAT after 91 iterations, 951 cuts, 5.7s | p cnf 3525 19995 | 
+d9_D9_hfbnd_sepT6 | 9 9 1 sep --warm --hookfree 21 --hookfree-set boundary | RESULT UNSAT after 88 iterations, 918 cuts, 7.9s | p cnf 5397 26394 | 

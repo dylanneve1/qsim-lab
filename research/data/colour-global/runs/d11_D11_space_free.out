@@ -1,0 +1,26 @@
+d=11 D=11 R=1 mode=free T=6 space=True: 2190 vars, 7416 clauses, 781 signatures (91 always)
+iter 1: weight 6 count 82, +82 cuts (total 82), sat 0.00s dist 0.02s, elapsed 0s
+iter 2: weight 6 count 34, +34 cuts (total 116), sat 0.00s dist 0.02s, elapsed 0s
+iter 3: weight 6 count 13, +13 cuts (total 129), sat 0.00s dist 0.03s, elapsed 0s
+iter 4: weight 7 count 362, +285 cuts (total 414), sat 0.00s dist 0.10s, elapsed 0s
+iter 10: weight 7 count 21, +18 cuts (total 1389), sat 0.00s dist 0.28s, elapsed 2s
+iter 20: weight 7 count 4, +4 cuts (total 2769), sat 0.00s dist 0.32s, elapsed 9s
+iter 30: weight 7 count 3, +2 cuts (total 3605), sat 0.00s dist 0.33s, elapsed 21s
+iter 40: weight 7 count 49, +46 cuts (total 4707), sat 0.00s dist 0.32s, elapsed 33s
+iter 50: weight 8 count 183, +158 cuts (total 5402), sat 0.00s dist 1.78s, elapsed 41s
+iter 60: weight 8 count 64, +48 cuts (total 6565), sat 0.00s dist 3.29s, elapsed 289s
+iter 70: weight 7 count 7, +7 cuts (total 7266), sat 0.00s dist 0.44s, elapsed 300s
+iter 80: weight 9 count 6783, +1005 cuts (total 9712), sat 0.00s dist 30.21s, elapsed 360s
+iter 90: weight 8 count 38, +18 cuts (total 11138), sat 0.00s dist 4.14s, elapsed 406s
+iter 100: weight 7 count 2, +2 cuts (total 12986), sat 0.00s dist 0.61s, elapsed 441s
+iter 110: weight 8 count 340, +266 cuts (total 14375), sat 0.00s dist 5.28s, elapsed 460s
+iter 120: weight 7 count 10, +6 cuts (total 14523), sat 0.00s dist 0.40s, elapsed 466s
+iter 130: weight 8 count 481, +358 cuts (total 15691), sat 0.00s dist 2.68s, elapsed 480s
+iter 140: weight 7 count 22, +17 cuts (total 16667), sat 0.00s dist 0.30s, elapsed 493s
+iter 150: weight 7 count 2, +2 cuts (total 17130), sat 0.00s dist 0.33s, elapsed 497s
+iter 160: weight 7 count 4, +4 cuts (total 18784), sat 0.00s dist 0.34s, elapsed 511s
+iter 170: weight 8 count 258, +201 cuts (total 19743), sat 0.00s dist 2.22s, elapsed 523s
+
+thread 'main' (170803) panicked at examples/dem_distance.rs:54:48:
+called `Result::unwrap()` on an `Err` value: Os { code: 32, kind: BrokenPipe, message: "Broken pipe" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

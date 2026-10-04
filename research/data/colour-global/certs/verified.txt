@@ -1,0 +1,13 @@
+d5_D5_hf8: p cnf 309 991 -> s VERIFIED
+d5_D5_space_free: p cnf 300 1040 -> s VERIFIED
+d5_D5_split_all: p cnf 576 1923 -> s VERIFIED
+d7_D7_hf14: p cnf 812 3197 -> s VERIFIED
+d7_D7_hf3corners: p cnf 741 3072 -> s VERIFIED
+d7_D7_space_free: p cnf 738 3403 -> s VERIFIED
+d7_D7_split_all: p cnf 1557 5728 -> s VERIFIED
+d9_D8_kf_fixint: p cnf 3504 21631 -> s VERIFIED
+d9_D9_hf20: p cnf 1598 8052 -> s VERIFIED
+d9_D9_hfbnd_kfT6: p cnf 3525 19995 -> s VERIFIED
+d9_D9_hfbnd_sepT6: p cnf 5397 26394 -> s VERIFIED
+d9_D9_space_free: p cnf 1368 13761 -> s VERIFIED
+d9_D9_split_all: p cnf 3000 14741 -> s VERIFIED

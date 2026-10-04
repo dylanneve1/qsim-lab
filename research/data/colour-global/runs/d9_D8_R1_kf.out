@@ -1,0 +1,26 @@
+d=9 D=8 R=1 mode=kf T=6 space=False: 3504 vars, 19044 clauses, 836 signatures (152 always)
+iter 1: weight 5 count 15, +15 cuts (total 15), sat 0.00s dist 0.01s, elapsed 0s
+iter 2: weight 5 count 6, +6 cuts (total 21), sat 0.01s dist 0.02s, elapsed 0s
+iter 3: weight 6 count 128, +109 cuts (total 130), sat 0.00s dist 0.13s, elapsed 0s
+iter 4: weight 6 count 123, +116 cuts (total 246), sat 0.00s dist 0.17s, elapsed 0s
+iter 10: weight 5 count 4, +4 cuts (total 562), sat 0.00s dist 0.02s, elapsed 1s
+iter 20: weight 6 count 48, +43 cuts (total 784), sat 0.00s dist 0.20s, elapsed 2s
+iter 30: weight 5 count 2, +2 cuts (total 1003), sat 0.00s dist 0.02s, elapsed 3s
+iter 40: weight 6 count 67, +56 cuts (total 1261), sat 0.00s dist 0.16s, elapsed 5s
+iter 50: weight 6 count 28, +24 cuts (total 1564), sat 0.00s dist 0.14s, elapsed 6s
+iter 60: weight 5 count 3, +3 cuts (total 1784), sat 0.00s dist 0.02s, elapsed 7s
+iter 70: weight 6 count 27, +22 cuts (total 2762), sat 0.00s dist 0.17s, elapsed 10s
+iter 80: weight 6 count 43, +37 cuts (total 3861), sat 0.00s dist 0.27s, elapsed 13s
+iter 90: weight 6 count 7, +7 cuts (total 4136), sat 0.00s dist 0.27s, elapsed 15s
+iter 100: weight 6 count 12, +10 cuts (total 4831), sat 0.00s dist 0.18s, elapsed 19s
+iter 110: weight 6 count 35, +34 cuts (total 6551), sat 0.00s dist 0.47s, elapsed 25s
+iter 120: weight 6 count 6, +5 cuts (total 7137), sat 0.00s dist 0.38s, elapsed 31s
+iter 130: weight 6 count 1, +1 cuts (total 8402), sat 0.00s dist 0.20s, elapsed 37s
+iter 140: weight 6 count 9, +8 cuts (total 8891), sat 0.00s dist 0.33s, elapsed 42s
+iter 150: weight 6 count 14, +10 cuts (total 10767), sat 0.00s dist 0.32s, elapsed 51s
+iter 160: weight 6 count 2, +2 cuts (total 12000), sat 0.00s dist 0.17s, elapsed 58s
+iter 170: weight 6 count 6, +6 cuts (total 13738), sat 0.00s dist 0.16s, elapsed 67s
+iter 180: weight 6 count 1, +1 cuts (total 15044), sat 0.01s dist 0.19s, elapsed 75s
+iter 190: weight 7 count 72, +54 cuts (total 16601), sat 0.01s dist 1.64s, elapsed 89s
+FOUND {"ox": [[10, 9, 1, 2], [12, 3, 4, 11], [6, 13, 5, 14], [16, 8, 7, 15], [9, 17, 0, 1], [3, 18, 10, 2, 19, 11], [20, 5, 4, 12, 21, 13], [22, 23, 6, 14, 15, 7], [17, 9, 25, 24, 10, 18], [11, 19, 12, 26, 20, 27], [13, 21, 14, 29, 22, 28], [23, 15, 16, 30], [18, 26, 19, 25, 31, 32], [33, 20, 28, 27, 34, 21], [35, 29, 22, 30, 23, 36], [24, 31, 37, 25], [27, 39, 26, 32, 33, 38], [29, 35, 34, 28, 41, 40], [43, 38, 31, 42, 32, 37], [39, 34, 44, 45, 40, 33], [41, 36, 35, 46], [48, 47, 43, 44, 38, 39], [40, 49, 46, 41, 45, 50], [42, 47, 51, 43], [44, 52, 48, 53, 49, 45], [47, 48, 51, 54, 52, 55], [53, 50, 49, 56], [52, 58, 53, 56, 55, 57], [57, 55, 59, 54], [57, 58, 60, 59]], "mz": [[4], [0, 4], [5, 0], [5, 1], [6, 1], [6, 2], [2, 7], [3, 7], [3], [8, 4, 0], [0, 5, 8], [9, 1, 5], [1, 9, 6], [10, 2, 6], [10, 7, 2], [11, 7, 3], [3, 11], [8, 4], [12, 5, 8], [9, 12, 5], [6, 13, 9], [10, 6, 13], [7, 14, 10], [11, 7, 14], [15, 8], [8, 12, 15], [12, 16, 9], [16, 13, 9], [13, 17, 10], [17, 14, 10], [14, 11], [18, 15, 12], [16, 18, 12], [13, 16, 19], [19, 17, 13], [14, 17, 20], [20, 14], [15, 18], [18, 21, 16], [19, 16, 21], [22, 19, 17], [20, 22, 17], [23, 18], [18, 21, 23], [24, 19, 21], [19, 22, 24], [22, 20], [25, 21, 23], [21, 25, 24], [22, 26, 24], [26, 22], [25, 23], [27, 24, 25], [26, 27, 24], [25, 28], [28, 27, 25], [27, 26], [28, 29, 27], [27, 29], [28, 29], [29]], "schedule": [[4, 2, 6, 0, 0, 5], [5, 2, 4, 0, 0, 3], [3, 6, 2, 0, 0, 5], [6, 1, 2, 0, 0, 3], [0, 4, 3, 6, 5, 0], [2, 5, 6, 1, 4, 3], [1, 5, 6, 2, 3, 4], [1, 2, 5, 6, 3, 4], [4, 3, 6, 5, 2, 1], [4, 6, 5, 3, 1, 2], [6, 4, 5, 3, 1, 2], [5, 0, 0, 4, 3, 1], [5, 6, 2, 3, 1, 4], [1, 5, 3, 6, 2, 4], [1, 6, 4, 5, 3, 2], [0, 5, 4, 6, 2, 0], [6, 2, 5, 1, 3, 4], [6, 5, 2, 1, 4, 3], [4, 1, 2, 5, 3, 6], [3, 4, 5, 2, 6, 1], [4, 0, 0, 2, 3, 1], [2, 1, 4, 6, 5, 3], [2, 6, 3, 4, 1, 5], [0, 5, 4, 6, 2, 0], [2, 4, 5, 6, 1, 3], [4, 6, 5, 2, 1, 3], [5, 0, 0, 3, 4, 2], [6, 2, 4, 3, 1, 5], [0, 3, 1, 2, 5, 0], [4, 0, 0, 3, 2, 6]], "schedule_z": null}
+RESULT FOUND after 195 iterations, 16876 cuts, 95.5s
