@@ -5,9 +5,9 @@
 //!
 //! * gates: transversal (H, S = transversal S†, CNOT), then Steane EC on
 //!   every output block;
-//! * preparation of |0⟩_L / |+⟩_L: non-FT encoder + one verification qubit
-//!   measuring a weight-3 logical operator (Goto 2016), repeat until it
-//!   passes; data preparations are followed by EC;
+//! * preparation of |0⟩_L / |+⟩_L: non-FT encoder, verified against a second
+//!   encoded checker block (Steane's method; reject on any detected error),
+//!   repeat until it passes; data preparations are followed by EC;
 //! * Steane EC: couple a verified |+⟩_L (X errors) and then a verified |0⟩_L
 //!   (Z errors) transversally, measure them transversally, decode each with
 //!   the Hamming lookup (hierarchically: the 7 bits are level-(k−1) decoded
@@ -187,41 +187,54 @@ impl<B: Phys> Machine<B> {
             }
         }
     }
-    /// Verified |0⟩_L (`plus = false`) or |+⟩_L (`plus = true`), no trailing EC.
+    /// Non-fault-tolerant encoder: |0⟩_L (`plus = false`) or |+⟩_L.
+    fn encode_raw(&mut self, k: usize, q: usize, plus: bool) {
+        for j in 0..7 {
+            let pivot = STEANE_PIVOTS.contains(&j);
+            if pivot != plus {
+                self.prep_plus(k - 1, sub(k, q, j));
+            } else {
+                self.prep0(k - 1, sub(k, q, j));
+            }
+        }
+        for &(p, t) in STEANE_ENC.iter() {
+            if plus {
+                self.cnot(k - 1, sub(k, q, t), sub(k, q, p));
+            } else {
+                self.cnot(k - 1, sub(k, q, p), sub(k, q, t));
+            }
+        }
+    }
+
+    /// Verified |0⟩_L (`plus = false`) or |+⟩_L (`plus = true`), no trailing
+    /// EC. Steane's verification: encode a second "checker" block, couple it
+    /// transversally so that the main block's X errors (|0⟩) / Z errors (|+⟩)
+    /// are copied onto it, measure it transversally and accept only if the
+    /// outcome is an ideal codeword (trivial syndrome, even parity). A single
+    /// fault therefore leaves either a rejected block or an error that is
+    /// Z-only (|0⟩) / X-only (|+⟩) up to one single-qubit Pauli — in
+    /// particular no correlated X_a Z_b pair that a later transversal S would
+    /// turn into a weight-2 error (the failure mode of single-qubit
+    /// Goto-style verification, caught by `cnot_exrec_is_fault_tolerant`).
     pub fn prep_raw(&mut self, k: usize, q: usize, plus: bool) {
         debug_assert!(k >= 1);
         loop {
+            self.encode_raw(k, q, plus);
+            let c = self.alloc(k);
+            self.encode_raw(k, c, plus);
+            let mut f = 0u8;
             for j in 0..7 {
-                let pivot = STEANE_PIVOTS.contains(&j);
-                if pivot != plus {
-                    self.prep_plus(k - 1, sub(k, q, j));
+                let bit = if plus {
+                    self.cnot(k - 1, sub(k, c, j), sub(k, q, j));
+                    self.meas_x(k - 1, sub(k, c, j))
                 } else {
-                    self.prep0(k - 1, sub(k, q, j));
-                }
+                    self.cnot(k - 1, sub(k, q, j), sub(k, c, j));
+                    self.meas_z(k - 1, sub(k, c, j))
+                };
+                f |= (bit as u8) << j;
             }
-            for &(p, t) in STEANE_ENC.iter() {
-                if plus {
-                    self.cnot(k - 1, sub(k, q, t), sub(k, q, p));
-                } else {
-                    self.cnot(k - 1, sub(k, q, p), sub(k, q, t));
-                }
-            }
-            let v = self.alloc(k - 1);
-            let bad = if plus {
-                self.prep_plus(k - 1, v);
-                for &r in STEANE_VERIFY.iter() {
-                    self.cnot(k - 1, v, sub(k, q, r));
-                }
-                self.meas_x(k - 1, v)
-            } else {
-                self.prep0(k - 1, v);
-                for &r in STEANE_VERIFY.iter() {
-                    self.cnot(k - 1, sub(k, q, r), v);
-                }
-                self.meas_z(k - 1, v)
-            };
-            self.release(k - 1, v);
-            if !bad {
+            self.release(k, c);
+            if f == 0 || (steane_syndrome(f) == 0 && f.count_ones() % 2 == 0) {
                 return;
             }
             self.stats.prep_rejects += 1;
@@ -484,7 +497,6 @@ mod tests {
                 tried += 1;
                 if !body(&mut m) {
                     failed += 1;
-                    eprintln!("single fault fails: loc {l} code {code}");
                 }
             }
         }
@@ -528,14 +540,11 @@ mod tests {
             m.noise.suspended = false;
             m.ec(1, a);
             m.ec(1, b);
-            let l0 = m.noise.loc;
             m.cnot(1, a, b);
-            let l1 = m.noise.loc;
             m.h(1, a);
-            let l2 = m.noise.loc;
             m.s(1, b);
-            let l3 = m.noise.loc;
-            eprintln!("boundaries {l0} {l1} {l2} {l3}");
+            m.cnot(1, b, a);
+            m.sdg(1, a);
             m.noise.suspended = true;
             m.ec(1, a);
             m.ec(1, b);
@@ -571,6 +580,7 @@ mod tests {
             m.prep0(2, b);
             m.noise.suspended = false;
             m.cnot(2, a, b);
+            m.s(2, b);
             m.noise.suspended = true;
             m.ec(2, a);
             m.ec(2, b);

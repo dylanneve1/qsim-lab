@@ -182,10 +182,10 @@ impl Noise {
 pub const STEANE_CHECKS: [u8; 3] = [0b1010101, 0b1100110, 0b1111000];
 
 /// |0⟩_L encoder: pivots 0, 1, 3 start in |+⟩, the rest in |0⟩, then these
-/// nine CNOTs (pivot → target). The order is one found by exhaustive search
-/// (Goto 2016 style) such that every single fault that leaves a logical-class
-/// X error is caught by measuring Z on [`STEANE_VERIFY`]; the test
-/// `ft::machine::tests::prep_is_fault_tolerant` re-checks it on the full gadget.
+/// nine CNOTs (pivot → target). (This order also admits Goto's one-qubit
+/// verification on [`STEANE_VERIFY`], but that leaves correlated X_a Z_b
+/// errors that break transversal S; the machine uses Steane's checker-block
+/// verification instead.)
 pub const STEANE_PIVOTS: [usize; 3] = [0, 1, 3];
 pub const STEANE_ENC: [(usize, usize); 9] = [
     (0, 2),
@@ -198,7 +198,7 @@ pub const STEANE_ENC: [(usize, usize); 9] = [
     (3, 6),
     (3, 5),
 ];
-/// Weight-3 logical representative measured by the verification qubit.
+/// Weight-3 logical representative (Goto-style verification; unused).
 pub const STEANE_VERIFY: [usize; 3] = [2, 4, 5];
 /// Weight-3 X_L representative avoiding the pivots: the injected qubit (2) is
 /// copied to 4 and 5 before the pivot CNOTs.
