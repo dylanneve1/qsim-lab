@@ -7,7 +7,7 @@ session (mac/req.jsonl, `fit_v2.truth`). Variants: v1 (Planner v1 as
 shipped, expectations only), v2nc (Planner v2, cache off: every instance is
 new), rule (the old hand rules for samples and amplitudes).
 
-    eval_v2.py OUTDIR req.jsonl feat.jsonl e2e.jsonl...
+    eval_v2.py OUTDIR feat.jsonl req.jsonl hsfamp.jsonl e2e.jsonl...
 """
 import json, os, sys
 from collections import defaultdict
@@ -35,9 +35,9 @@ def stats(rows):
 
 
 def main():
-    outdir, req_path, feat_path, *e2e = sys.argv[1:]
+    outdir, feat_path, req_path, hsfamp_path, *e2e = sys.argv[1:]
     os.makedirs(outdir, exist_ok=True)
-    feat, runs = fv.load(req_path, feat_path)
+    feat, runs = fv.load([req_path, hsfamp_path], feat_path)
     rows = defaultdict(list)
     for p in e2e:
         for l in open(p):

@@ -1,0 +1,50 @@
+
+== request e
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          348  0.500   8.467  0.566    4.854 437636.8  arith:bits=12,h=0,reps=4 -> cstate 20s (best sparse 4.57e-05s)
+v1_reused     348  0.859   1.132  0.943    1.076     23.2  arith:bits=6,h=0,reps=1 -> sv 0.0003508s (best sparse 1.51e-05s)
+v2_insample   348  0.874   1.090  0.951    1.071     15.3  brick:n=20,D=16,nn=1 -> mps 1.216s (best hsf 0.07959s)
+v2_lofo       348  0.868   1.099  0.945    1.077     15.3  brick:n=20,D=16,nn=1 -> mps 1.216s (best hsf 0.07959s)
+   v2_lofo by family: ct 0.95/1.04/4.9  brick 0.80/1.15/15.3  arith 0.83/1.10/2.5  qaoa 0.77/1.20/10.2  hea 0.88/1.16/7.4  qft 0.67/1.21/2.9
+
+== request s1
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          348  0.437  10.639  0.546    5.872 441501.1  arith:bits=12,h=0,reps=4 -> cstate 20s (best sparse 4.53e-05s)
+v1_reused     348  0.796   1.227  0.917    1.137     35.3  ct:n=32,L=2,t=32,nn=1 -> cstate 0.00888s (best mps 0.0002516s)
+v2_insample   348  0.859   1.075  0.968    1.050     26.4  ct:n=32,L=32,t=32,nn=1 -> sparse 20s (best mps 0.7566s)
+v2_lofo       348  0.851   1.077  0.968    1.049     27.9  ct:n=24,L=16,t=48,nn=1 -> cstate 0.06667s (best mps 0.002393s)
+   v2_lofo by family: ct 0.94/1.05/27.9  brick 0.78/1.11/3.2  arith 0.83/1.10/2.5  qaoa 0.62/1.14/2.4  hea 0.88/1.04/2.0  qft 0.92/1.10/3.3
+
+== request s1k
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          348  0.405   7.240  0.566    4.943 295421.0  arith:bits=12,h=0,reps=4 -> cstate 20s (best sparse 6.77e-05s)
+v1_reused     348  0.759   1.191  0.917    1.137     21.2  brick:n=20,D=16,nn=1 -> mps 1.732s (best hsf 0.08173s)
+v2_insample   348  0.842   1.100  0.960    1.076     25.6  ct:n=24,L=16,t=64,nn=1 -> hsf 1.194s (best mps 0.04666s)
+v2_lofo       348  0.839   1.104  0.957    1.079     25.6  ct:n=24,L=16,t=64,nn=1 -> hsf 1.194s (best mps 0.04666s)
+   v2_lofo by family: ct 0.86/1.12/25.6  brick 0.88/1.11/6.4  arith 0.83/1.07/1.9  qaoa 0.73/1.14/2.8  hea 0.88/1.06/2.2  qft 0.83/1.05/1.7
+
+== request s100k
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          345  0.400   2.924  0.577    2.774   7602.3  arith:bits=12,h=0,reps=4 -> cstate 20s (best sparse 0.002631s)
+v1_reused     345  0.591   1.869  0.759    1.822    363.1  brick:n=16,D=12,nn=1 -> mps 2.596s (best hsf 0.007149s)
+v2_insample   345  0.710   1.311  0.867    1.296     24.0  brick:n=26,D=8,nn=1 -> hsf 20s (best mps 0.8345s)
+v2_lofo       345  0.690   1.331  0.858    1.314     24.0  brick:n=26,D=8,nn=1 -> hsf 20s (best mps 0.8345s)
+   v2_lofo by family: ct 0.58/1.61/18.8  brick 0.75/1.26/24.0  arith 0.90/1.02/1.5  qaoa 0.69/1.11/2.2  hea 0.88/1.04/1.5  qft 0.50/1.92/14.6
+
+== request a1
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          345  0.145 116.499  0.206   48.667 158730.2  ct:n=32,L=1,t=16,nn=1 -> sv 20s (best mps 0.000126s)
+v1_reused     345  0.768   1.755  0.852    1.615  90415.9  ct:n=32,L=2,t=0,nn=1 -> sparse 20s (best mps 0.0002212s)
+v2_insample   345  0.829   1.344  0.901    1.321   3201.6  ct:n=32,L=16,t=64,nn=1 -> hsf 20s (best mps 0.006247s)
+v2_lofo       345  0.823   1.335  0.899    1.306   3201.6  ct:n=32,L=16,t=64,nn=1 -> hsf 20s (best mps 0.006247s)
+   v2_lofo by family: ct 0.83/1.54/3201.6  brick 0.86/1.27/277.4  arith 0.82/1.11/3.4  qaoa 0.79/1.25/12.9  hea 0.92/1.03/2.0  qft 0.58/1.48/9.9
+
+== request a1k
+rule            n   top1     geo   <=2x  geo_eps    worst  worst case
+rule          345  0.159  75.264  0.212   40.206  70452.2  arith:bits=12,h=0,reps=4 -> sv 3.311s (best sparse 4.7e-05s)
+v1_reused     345  0.736   1.750  0.846    1.637  32159.5  ct:n=32,L=2,t=0,nn=1 -> sparse 20s (best mps 0.0006219s)
+v2_insample   345  0.823   1.460  0.881    1.440   2040.4  ct:n=32,L=16,t=48,nn=1 -> hsf 20s (best mps 0.009802s)
+v2_lofo       345  0.817   1.442  0.884    1.415   2040.4  ct:n=32,L=16,t=48,nn=1 -> hsf 20s (best mps 0.009802s)
+   v2_lofo by family: ct 0.79/1.88/2040.4  brick 0.88/1.23/171.5  arith 0.83/1.09/3.2  qaoa 0.83/1.23/12.9  hea 0.92/1.03/1.7  qft 0.58/1.46/9.3
+
+models (all data): {"E": {"sv": [-29.144378313170822, 0.9199360665807141], "sparse": [-21.786912435807917, 0.7694469004945065], "mps": [-18.96443128413298, 0.48305555774161796], "hsf": [-20.13766512859436, 0.6032642115507209], "cstate": [-28.5166332189451, 0.985926933897459]}, "state": {"sv": [-29.201045188321647, 0.9206975541992566], "sparse": [-21.79322943019461, 0.7692646011115981], "mps": [-18.900313096289263, 0.4782043579905501], "hsf": [-20.137684378654402, 0.6032648448434274], "cstate": [-28.51866545950388, 0.9850772250820596]}, "ro": {"sv_samp": [1.4455039382580958e-09, 3.5905968681922496e-08], "sparse_samp": [4.680865753979994e-09, 3.1851593318889984e-08], "mps_samp": [7.898559337531832e-10], "mps_prep": [1.3036279799884113e-09], "mps_amp": [8.351732884044863e-10], "hsf_samp": [1.3350094366743327e-09, 3.5582230547607245e-08], "cstate_samp": [7.243875185202241e-09], "cstate_prep": [5.151997888510388e-09], "tableau_samp": [1.4712944951175368e-07, 6.569686041794921e-09], "sv_amp": [1.1693582026785335e-08], "sparse_amp": [1.063725785410027e-08]}, "hsf_amp": [-13.425589258924084, 0.2627276217817011]}

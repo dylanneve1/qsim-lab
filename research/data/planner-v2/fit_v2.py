@@ -20,7 +20,7 @@ Models (seconds; log2 fits on runs >= T_FLOOR):
 Decision: argmin over applicable engines of the predicted total; regret =
 measured total of the choice / best measured total; censored = 2 x 10 s.
 
-    fit_v2.py OUTDIR req.jsonl feat.jsonl
+    fit_v2.py OUTDIR feat.jsonl req.jsonl [hsfamp.jsonl ...]
 """
 import json, math, os, sys
 from collections import defaultdict
@@ -48,9 +48,22 @@ def load(req_path, feat_path):
         r = json.loads(l)
         feat[(r["spec"], str(r["seed"]))] = r
     runs = defaultdict(dict)
-    for l in open(req_path):
-        r = json.loads(l)
-        runs[(r["spec"], str(r["seed"]))][r["job"]] = r
+    paths = [req_path] if isinstance(req_path, str) else req_path
+    hsfamp = {}
+    for p in paths:
+        for l in open(p):
+            r = json.loads(l)
+            k = (r["spec"], str(r["seed"]))
+            if r["job"] == "hsfamp":
+                hsfamp[k] = r
+            else:
+                runs[k][r["job"]] = r
+    # HSF amplitudes of instances whose HSF full output was skipped (prior
+    # sweep censored / slow) were timed separately (`req hsfamp`)
+    for k, r in hsfamp.items():
+        h = runs[k].get("hsf")
+        if h is None or h.get("skipped"):
+            runs[k]["hsf"] = dict(r, job="hsf", amp_only=True)
     return feat, runs
 
 
@@ -337,7 +350,7 @@ def evaluate(feat, runs, keys, choose):
 
 
 def main():
-    outdir, req_path, feat_path = sys.argv[1:4]
+    outdir, feat_path, *req_path = sys.argv[1:]
     os.makedirs(outdir, exist_ok=True)
     feat, runs = load(req_path, feat_path)
     keys = sorted(k for k in feat if k in runs)

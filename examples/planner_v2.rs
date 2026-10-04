@@ -61,7 +61,50 @@ fn j(x: Option<f64>) -> String {
     x.map_or("null".into(), |v| format!("{v:.7}"))
 }
 
+/// HSF amplitudes only (set-up, then the path sums for 1 and 1000 basis
+/// states); the full-output time of the expectation sweep says nothing about
+/// them, so they are timed separately (process timeout = censoring).
+fn cmd_hsfamp(c: &Circuit, mem: u128, seed: u64) -> String {
+    let n = c.num_qubits;
+    let cfg = PlannerConfig {
+        mem_bytes: mem,
+        ..PlannerConfig::default()
+    };
+    let t0 = Instant::now();
+    let mut p = match planner::prepare(Engine::Hsf, c, &cfg, None) {
+        Ok(Some(p)) => p,
+        Ok(None) => return "{\"ok\":false,\"error\":\"aborted\"}".into(),
+        Err(err) => {
+            return format!(
+                "{{\"ok\":false,\"error\":\"{}\"}}",
+                format!("{err:?}").replace('"', "'")
+            )
+        }
+    };
+    let evolve = t0.elapsed().as_secs_f64();
+    let mut ta = [None, None];
+    for (i, m) in [1usize, 1000].into_iter().enumerate() {
+        let xs = xs_for(n, m, seed);
+        let t = Instant::now();
+        if p.amplitudes(&xs).is_ok() {
+            ta[i] = Some(t.elapsed().as_secs_f64());
+        }
+    }
+    let paths = match &p {
+        Prepared::Hsf(h, _) => h.num_paths() as f64,
+        _ => 0.0,
+    };
+    format!(
+        "{{\"ok\":true,\"hsf_paths\":{paths},\"evolve\":{evolve:.7},\"a1\":{},\"a1k\":{}}}",
+        j(ta[0]),
+        j(ta[1])
+    )
+}
+
 fn cmd_req(engine: &str, c: &Circuit, mem: u128, seed: u64) -> String {
+    if engine == "hsfamp" {
+        return cmd_hsfamp(c, mem, seed);
+    }
     let n = c.num_qubits;
     let e = Engine::from_name(engine).expect("engine");
     let cfg = PlannerConfig {

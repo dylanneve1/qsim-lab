@@ -41,6 +41,9 @@ def main():
     ap.add_argument("--budget", type=float, default=150)
     ap.add_argument("--skip-over", type=float, default=4.0)
     ap.add_argument("--timeout", type=float, default=40)
+    ap.add_argument("--engines", default=None, help="comma list (default: all state engines); hsfamp = HSF amplitudes only")
+    ap.add_argument("--only-skipped", default=None,
+                    help="with --engines hsfamp: only instances whose ENGINE row in this file was skipped")
     ap.add_argument("--plan", default=None,
                     help="VARIANT:REQ,... : run `plan VARIANT REQ` instead (end to end)")
     a = ap.parse_args()
@@ -61,10 +64,17 @@ def main():
             for vr in a.plan.split(","):
                 jobs.append((spec, seed, vr))
             continue
-        for e in ENGINES:
+        for e in (a.engines.split(",") if a.engines else ENGINES):
             if e == "tableau" and not (spec.startswith("ct:") and ",t=0," in spec):
                 continue
             jobs.append((spec, seed, e))
+    if a.only_skipped:
+        sk = set()
+        for l in open(a.only_skipped):
+            r = json.loads(l)
+            if r["job"] == "hsf" and r.get("skipped"):
+                sk.add((r["spec"], r["seed"]))
+        jobs = [j for j in jobs if (j[0], j[1]) in sk]
     jobs = [j for j in jobs if (j[0], j[1], j[2]) not in done]
     if a.plan:
         # instances in random order, an instance's variants back to back
@@ -83,7 +93,7 @@ def main():
         row = dict(spec=spec, seed=seed, job=e)
         if not a.plan:
             pr = prior.get((spec, seed, e))
-            if pr is not None and (pr[0] != "ok" or pr[1] > a.skip_over):
+            if e != "hsfamp" and pr is not None and (pr[0] != "ok" or pr[1] > a.skip_over):
                 row.update(ok=False, skipped=True, prior_status=pr[0], prior_secs=pr[1])
                 return row
             cmd = ["nice", "-n", "10", a.bin, "req", e, spec, seed]
