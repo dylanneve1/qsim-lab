@@ -17,7 +17,11 @@ BATCHES = [('jobs.txt', 'parts')]
 
 
 def parts(kind, partsdir=None):
-    """Concatenate finished job outputs of one kind (steady/survival/decay)."""
+    """Concatenate finished job outputs of one kind (steady/survival/decay).
+    Uses the consolidated <kind>.csv (committed) when the raw parts/ directory is absent."""
+    cons = os.path.join(HERE, f'{kind}.csv')
+    if not os.path.isdir(os.path.join(HERE, 'parts')) and os.path.exists(cons):
+        return pd.read_csv(cons)
     cols = dict(steady=STEADY_COLS, survival=SURV_COLS, decay=DECAY_COLS)[kind]
     frames = []
     for jf, pd_ in BATCHES:
@@ -62,3 +66,19 @@ def cells(df, by=('pattern', 'init', 'n', 'eta', 'p_m')):
                                  d=('d_avg', 'mean'), d_err=('d_avg', 'sem'),
                                  dprev=('d_prev', 'mean'), h=('h', 'first')).reset_index()
     return g
+
+
+def consolidate():
+    """parts/<id>.csv -> steady.csv, survival.csv, decay.csv (with the job id)."""
+    for kind in ('steady', 'survival', 'decay'):
+        cols = dict(steady=STEADY_COLS, survival=SURV_COLS, decay=DECAY_COLS)[kind]
+        frames = []
+        for i, j in enumerate(jobs(), start=1):
+            f = os.path.join(HERE, 'parts', f'{i}.csv')
+            if j[0] == kind and os.path.exists(f) and os.path.getsize(f) > 0:
+                frames.append(pd.read_csv(f, header=None, names=cols).assign(job=i))
+        pd.concat(frames, ignore_index=True).to_csv(os.path.join(HERE, f'{kind}.csv'), index=False)
+
+
+if __name__ == '__main__':
+    consolidate()

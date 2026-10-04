@@ -3,6 +3,7 @@
 # (ids = line numbers = part file names), skipping finished parts; then batch 2.
 D=~/qsim-tt-data
 B=$D/tt; mkdir -p $D/parts
+rm -f $D/done   # a stale flag from an earlier run would stop the SIGSTOP watcher (happened once, see caveats)
 export RAYON_NUM_THREADS=1
 ( while true; do
     if [ -d /tmp/qsim-mac-bench.lock ]; then pkill -STOP -f "qsim-tt-data/tt "; else pkill -CONT -f "qsim-tt-data/tt "; fi

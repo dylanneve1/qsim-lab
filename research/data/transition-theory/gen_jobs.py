@@ -41,5 +41,12 @@ for p in [0.10, 0.13, 0.14]:
 for eta in [1, 4]:
     for p in [0.15, 0.16, 0.17]:
         steady("S", 2048, p, eta, 6)
+# batch 2 (appended later): more survival statistics at p = 0.16
+for k in range(4):
+    jobs.append(f"survival n=512 pm=0.16 burn=128 tmax=256 gap=16 samples=150 seed0={100000+1000*k} header=0")
+for k in range(2):
+    jobs.append(f"survival n=2048 pm=0.16 burn=256 tmax=1024 gap=32 samples=8 seed0={200000+1000*k} header=0")
+for k in range(4):
+    jobs.append(f"survival n=1024 pm=0.16 burn=256 tmax=512 gap=32 samples=10 seed0={300000+1000*k} header=0")
 open("jobs.txt", "w").write("\n".join(jobs) + "\n")
 print(len(jobs))

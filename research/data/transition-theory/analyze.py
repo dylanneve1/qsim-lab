@@ -242,7 +242,7 @@ if len(Dd):
             mat[i] = vals
         for j, t in enumerate(ts):
             rows.append(dict(n=n, p=pm, t=t, S=mat[:, j].mean(), err=mat[:, j].std(ddof=1) / math.sqrt(len(seeds))))
-    dec = pd.DataFrame(rows); dec.to_csv(os.path.join(HERE, 'decay.csv'), index=False)
+    dec = pd.DataFrame(rows); dec.to_csv(os.path.join(HERE, 'decay_mean.csv'), index=False)
     for (n, pm), g in dec.groupby(['n', 'p']):
         q = g[(g.t >= 8) & (g.t <= n / 4)]
         sl, ic = np.polyfit(np.log(q.t), np.log(q.S), 1)
@@ -365,8 +365,8 @@ if 'figs' not in SKIP:
             ax[0].plot(g.t, g.P, 'o-' if n > 256 else 'x--', ms=3, label=f'n={n}, p={pm}')
         tt = np.logspace(0.5, 2.7, 10); ax[0].plot(tt, 0.8 * tt ** (-XB_LIT), 'k--', lw=1, label=f't^(−{XB_LIT:.3f}) (β/ν)')
         ax[0].set_xscale('log'); ax[0].set_yscale('log'); ax[0].set_xlabel('t (layers after one dephasing)'); ax[0].set_ylabel('P(entropy survives)'); ax[0].legend(fontsize=7)
-    if os.path.exists(os.path.join(HERE, 'decay.csv')):
-        dc = pd.read_csv(os.path.join(HERE, 'decay.csv'))
+    if os.path.exists(os.path.join(HERE, 'decay_mean.csv')):
+        dc = pd.read_csv(os.path.join(HERE, 'decay_mean.csv'))
         for (n, pm), g in dc.groupby(['n', 'p']):
             ax[1].plot(g.t / n, g.S * g.t / n, '-', label=f'n={n}, p={pm}')
         ax[1].set_xscale('log'); ax[1].set_xlabel('t / n'); ax[1].set_ylabel('S(t) · t / n'); ax[1].legend(fontsize=7)

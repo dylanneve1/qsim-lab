@@ -64,12 +64,21 @@ fn main() {
 
 /// Same seed mixing as examples/magic_transition.rs.
 fn circ_seed(seed: u64, p_m: f64, p_t: f64, n: usize) -> u64 {
-    seed.wrapping_mul(0x1000_0001) ^ (p_m * 1e6) as u64 ^ ((p_t * 1e9) as u64) << 20 ^ (n as u64) << 50
+    seed.wrapping_mul(0x1000_0001)
+        ^ (p_m * 1e6) as u64
+        ^ ((p_t * 1e9) as u64) << 20
+        ^ (n as u64) << 50
 }
 
 /// Clifford brickwork layer `t` followed by `Z` measurements w.p. `p_m`
 /// (no T): the ops of `circuit::layer` with `p_t = 0`, in the same order.
-fn clifford_layer<R: Rng + ?Sized>(n: usize, t: usize, p_m: f64, ng: usize, rng: &mut R) -> (Vec<MOp>, Vec<MOp>) {
+fn clifford_layer<R: Rng + ?Sized>(
+    n: usize,
+    t: usize,
+    p_m: f64,
+    ng: usize,
+    rng: &mut R,
+) -> (Vec<MOp>, Vec<MOp>) {
     let mut g = Vec::with_capacity(n / 2 + 1);
     let off = t % 2;
     let mut i = off;
@@ -111,7 +120,9 @@ fn steady(m: &HashMap<String, String>) {
     let group = Cliff2::group();
     let ng = group.len();
     if get::<u32>(m, "header", 1) == 1 {
-        println!("tag,n,depth,window,p_m,eta,pattern,init,seed,d_avg,d_prev,d_final,t_gates,t_act,secs");
+        println!(
+            "tag,n,depth,window,p_m,eta,pattern,init,seed,d_avg,d_prev,d_final,t_gates,t_act,secs"
+        );
     }
     for &eta in &etas {
         for &p_m in &pms {
@@ -119,14 +130,21 @@ fn steady(m: &HashMap<String, String>) {
                 let seed = seed0 + s;
                 let p_t = eta / n as f64;
                 let t0 = Instant::now();
-                let cs = circ_seed(seed, p_m, p_t, n) ^ if pattern == "poisson" { 0 } else { 0x5bd1_e995 };
+                let cs = circ_seed(seed, p_m, p_t, n)
+                    ^ if pattern == "poisson" { 0 } else { 0x5bd1_e995 };
                 let mut crng = StdRng::seed_from_u64(cs);
                 let mut brng = StdRng::seed_from_u64(seed ^ 0x9e37_79b9_7f4a_7c15);
                 let mut sim = Monitored::new(n, Mode::DimensionOnly, 0);
                 if init == "mixed" {
                     make_mixed(&mut sim);
                 }
-                let par = Params { n, depth, p_m, p_t, periodic: true };
+                let par = Params {
+                    n,
+                    depth,
+                    p_m,
+                    p_t,
+                    periodic: true,
+                };
                 let k_fixed = eta.ceil().max(1.0) as usize;
                 let fixed_sites: Vec<usize> = (0..k_fixed).map(|j| j * n / k_fixed).collect();
                 let (mut dsum, mut psum) = (0u64, 0u64);
