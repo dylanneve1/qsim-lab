@@ -269,8 +269,20 @@ fn rule_engine(c: &Circuit, req: &PlanRequest) -> Engine {
 fn cmd_plan(variant: &str, req_name: &str, c: &Circuit, mem: u128, seed: u64) -> String {
     let n = c.num_qubits;
     let req = request(req_name, n);
+    // `force-ENGINE`: the oracle, i.e. the engine measured best for this
+    // request in the read-out session, run with no planning and no
+    // speculation (same execution path), interleaved with the planner runs
+    // so both see the same machine load.
+    let forced = variant
+        .strip_prefix("force-")
+        .map(|e| Engine::from_name(e).expect("engine"));
     let mut cfg = match variant {
         "v1" | "rule" => PlannerConfig::v1(),
+        _ if forced.is_some() => PlannerConfig {
+            speculate: 0.0,
+            cache: false,
+            ..PlannerConfig::default()
+        },
         "v2" => PlannerConfig::default(),
         "v2nc" => PlannerConfig {
             cache: false,
@@ -283,25 +295,26 @@ fn cmd_plan(variant: &str, req_name: &str, c: &Circuit, mem: u128, seed: u64) ->
     cfg.use_certificate = false;
     let mut rng = StdRng::seed_from_u64(seed);
     let t0 = Instant::now();
-    let (plan, rule) = if variant == "rule" && !matches!(req, PlanRequest::Expectation(_)) {
-        let e = rule_engine(c, &req);
-        let mut p = planner::plan(
-            c,
-            &PlanRequest::Expectation(vec![]),
-            &PlannerConfig {
-                tiered: true,
-                voi: f64::INFINITY,
-                cache: false,
-                ..cfg
-            },
-        )
-        .expect("plan");
-        p.engine = e;
-        p.ranked = vec![(e, 0.0)];
-        (p, true)
-    } else {
-        (planner::plan(c, &req, &cfg).expect("plan"), false)
-    };
+    let (plan, rule) =
+        if forced.is_some() || (variant == "rule" && !matches!(req, PlanRequest::Expectation(_))) {
+            let e = forced.unwrap_or_else(|| rule_engine(c, &req));
+            let mut p = planner::plan(
+                c,
+                &PlanRequest::Expectation(vec![]),
+                &PlannerConfig {
+                    tiered: true,
+                    voi: f64::INFINITY,
+                    cache: false,
+                    ..cfg
+                },
+            )
+            .expect("plan");
+            p.engine = e;
+            p.ranked = vec![(e, 0.0)];
+            (p, true)
+        } else {
+            (planner::plan(c, &req, &cfg).expect("plan"), false)
+        };
     let plan_secs = t0.elapsed().as_secs_f64();
     let res: Result<(Engine, Vec<Engine>), String> = match &req {
         PlanRequest::Expectation(obs) => planner::execute_expectation(&plan, c, obs, &cfg)

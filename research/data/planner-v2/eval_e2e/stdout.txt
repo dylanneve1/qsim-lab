@@ -1,0 +1,40 @@
+a1k    rule  n=347 geo=89.265 <=2x=0.16 geo_eps=46.393 worst=60710.6 worst_eps=13859.75 choice_eps=40.971 top1=0.15 plan med/p90/max=0.021/0.044/0.1 ms aborts=0
+         >=1ms  n=196 geo=53.348 geo_eps=44.186 worst=19579.1
+         >=10ms n= 66 geo=19.184 geo_eps=18.697 worst=1655.2
+         >=0.1s n= 29 geo=5.989 geo_eps=5.981 worst=206.9
+         worst: ct:n=32,L=1,t=16,nn=1 rule -> sv 20s best mps 0.0004431s
+a1k    v2nc  n=347 geo=1.750 <=2x=0.67 geo_eps=1.458 worst=42.5 worst_eps=30.42 choice_eps=1.152 top1=0.80 plan med/p90/max=0.256/8.798/32.3 ms aborts=3
+         >=1ms  n=196 geo=1.914 geo_eps=1.787 worst=42.5
+         >=10ms n= 66 geo=1.841 geo_eps=1.819 worst=24.8
+         >=0.1s n= 29 geo=1.653 geo_eps=1.652 worst=24.8
+         worst: brick:n=16,D=12,nn=1 v2nc -> sv 0.1035s best hsf 0.002435s
+e      v1    n=348 geo=3.128 <=2x=0.28 geo_eps=1.553 worst=70.7 worst_eps=30.24 choice_eps=1.076 top1=0.86 plan med/p90/max=0.469/7.119/21.1 ms aborts=12
+         >=1ms  n=103 geo=2.260 geo_eps=2.079 worst=35.7
+         >=10ms n= 48 geo=1.939 geo_eps=1.914 worst=13.0
+         >=0.1s n= 20 geo=1.697 geo_eps=1.695 worst=13.0
+         worst: qaoa:n=16,p=2,deg=3,nn=1 v1 -> cstate 0.1926s best cstate 0.005402s
+e      v2nc  n=348 geo=1.964 <=2x=0.65 geo_eps=1.350 worst=26.1 worst_eps=20.20 choice_eps=1.071 top1=0.88 plan med/p90/max=0.172/2.621/18.4 ms aborts=11
+         >=1ms  n=103 geo=2.085 geo_eps=1.934 worst=25.7
+         >=10ms n= 48 geo=1.854 geo_eps=1.834 worst=13.2
+         >=0.1s n= 20 geo=1.782 geo_eps=1.780 worst=13.2
+         worst: brick:n=16,D=12,nn=1 v2nc -> sv 0.08943s best hsf 0.003477s
+s100k  rule  n=345 geo=3.630 <=2x=0.48 geo_eps=3.414 worst=2569.2 worst_eps=1861.86 choice_eps=2.774 top1=0.40 plan med/p90/max=0.174/0.465/2.1 ms aborts=0
+         >=1ms  n=345 geo=3.630 geo_eps=3.414 worst=2569.2
+         >=10ms n=220 geo=2.670 geo_eps=2.637 worst=210.8
+         >=0.1s n= 64 geo=5.082 geo_eps=5.067 worst=126.1
+         worst: arith:bits=12,h=0,reps=4 rule -> cstate 6.759s best sparse 0.002631s
+s100k  v2nc  n=345 geo=1.409 <=2x=0.85 geo_eps=1.381 worst=37.9 worst_eps=37.82 choice_eps=1.088 top1=0.80 plan med/p90/max=0.120/6.988/19.8 ms aborts=3
+         >=1ms  n=345 geo=1.409 geo_eps=1.381 worst=37.9
+         >=10ms n=220 geo=1.407 geo_eps=1.396 worst=37.9
+         >=0.1s n= 64 geo=1.419 geo_eps=1.418 worst=37.9
+         worst: brick:n=26,D=6,nn=1 v2nc -> sv 11.88s best mps 0.3131s
+s1k    rule  n=348 geo=11.150 <=2x=0.39 geo_eps=6.718 worst=99582.6 worst_eps=6675.90 choice_eps=4.943 top1=0.41 plan med/p90/max=0.165/0.508/1.4 ms aborts=0
+         >=1ms  n=165 geo=18.447 geo_eps=15.209 worst=10020.0
+         >=10ms n= 59 geo=7.250 geo_eps=7.113 worst=1476.5
+         >=0.1s n= 28 geo=3.770 geo_eps=3.762 worst=124.5
+         worst: ct:n=32,L=4,t=64,nn=1 rule -> sv 20s best mps 0.001996s
+s1k    v2nc  n=348 geo=1.637 <=2x=0.79 geo_eps=1.360 worst=54.5 worst_eps=31.08 choice_eps=1.058 top1=0.83 plan med/p90/max=0.198/4.652/20.6 ms aborts=12
+         >=1ms  n=165 geo=1.786 geo_eps=1.659 worst=54.5
+         >=10ms n= 59 geo=1.611 geo_eps=1.600 worst=11.2
+         >=0.1s n= 28 geo=1.638 geo_eps=1.636 worst=11.2
+         worst: ct:n=32,L=1,t=24,nn=1 v2nc -> cstate 0.06994s best mps 0.001283s

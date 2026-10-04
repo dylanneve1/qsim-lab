@@ -41,6 +41,7 @@ def main():
     ap.add_argument("--budget", type=float, default=150)
     ap.add_argument("--skip-over", type=float, default=4.0)
     ap.add_argument("--timeout", type=float, default=40)
+    ap.add_argument("--jobs", default=None, help="file of 'SPEC SEED VARIANT:REQ' lines (end to end)")
     ap.add_argument("--engines", default=None, help="comma list (default: all state engines); hsfamp = HSF amplitudes only")
     ap.add_argument("--only-skipped", default=None,
                     help="with --engines hsfamp: only instances whose ENGINE row in this file was skipped")
@@ -48,6 +49,9 @@ def main():
                     help="VARIANT:REQ,... : run `plan VARIANT REQ` instead (end to end)")
     a = ap.parse_args()
     inst = [l.split() for l in open(a.instances) if l.strip()]
+    if a.jobs:
+        # explicit jobs, one "SPEC SEED VARIANT:REQ" per line, in file order
+        a.plan = a.plan or "file"
     prior = load_prior(a.prior)
     done = set()
     if os.path.exists(a.out):
@@ -58,7 +62,7 @@ def main():
             except Exception:
                 pass
     jobs = []
-    for spec, seed in inst:
+    for spec, seed in ([] if a.jobs else inst):
         if a.plan:
             # comma-separated VARIANT:REQ pairs, run back to back per instance
             for vr in a.plan.split(","):
@@ -75,8 +79,10 @@ def main():
             if r["job"] == "hsf" and r.get("skipped"):
                 sk.add((r["spec"], r["seed"]))
         jobs = [j for j in jobs if (j[0], j[1]) in sk]
+    if a.jobs:
+        jobs = [tuple(l.split()) for l in open(a.jobs) if l.strip()]
     jobs = [j for j in jobs if (j[0], j[1], j[2]) not in done]
-    if a.plan:
+    if a.plan and not a.jobs:
         # instances in random order, an instance's variants back to back
         order = {k: i for i, k in enumerate(random.Random(7).sample(sorted({(j[0], j[1]) for j in jobs}), len({(j[0], j[1]) for j in jobs})))}
         jobs.sort(key=lambda j: order[(j[0], j[1])])
