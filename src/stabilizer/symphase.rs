@@ -516,6 +516,34 @@ impl SymPhaseSampler {
         self.num_vars = m as usize;
     }
 
+    /// Reorders the variable groups so that all groups with the same
+    /// distribution are adjacent: the geometric-skip draw then runs one
+    /// stream per distinct distribution ("pooled" gaps) instead of one per
+    /// run of equal neighbours. Same distribution, different draw order (not
+    /// bit-identical). For the ablation in `research/fast-sampler.md`.
+    #[doc(hidden)]
+    pub fn pool_equal_dists(&mut self) {
+        let key = |d: &VarDist| match *d {
+            VarDist::Coin => (0, 0.0),
+            VarDist::Flip(p) => (1, p),
+            VarDist::Depol1(p) => (2, p),
+            VarDist::Depol2(p) => (3, p),
+        };
+        self.groups
+            .sort_by(|a, b| key(&a.dist).partial_cmp(&key(&b.dist)).unwrap());
+    }
+
+    /// Number of maximal runs of consecutive equal-distribution groups (the
+    /// number of geometric-skip streams `sample_vars` starts per 64 shots).
+    #[doc(hidden)]
+    pub fn num_runs(&self) -> usize {
+        self.groups
+            .iter()
+            .enumerate()
+            .filter(|(i, g)| *i == 0 || self.groups[i - 1].dist != g.dist)
+            .count()
+    }
+
     /// Number of measurements per shot.
     pub fn num_measurements(&self) -> usize {
         self.reference.len()

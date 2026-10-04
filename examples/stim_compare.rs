@@ -279,6 +279,75 @@ fn main() {
                 f.hit_stats().1
             );
         }
+        "probe-bitsliced" => {
+            // Lower bound for a bit-sliced Bernoulli sampler: time to draw one
+            // exact Bernoulli(p) word (64 shots) per noise group, by lazy
+            // bit-plane comparison of random words against the binary
+            // expansion of p (no Pauli choice, no evaluation, no output).
+            let prog = load(&a[2]);
+            let shots: usize = a[3].parse().unwrap();
+            let s = compile(
+                &prog.circuit,
+                &prog.noise,
+                &prog.detectors,
+                &prog.observables,
+            );
+            let ps: Vec<f64> = s
+                .groups()
+                .iter()
+                .filter_map(|g| match g.dist {
+                    qsim_lab::stabilizer::symphase::VarDist::Flip(p)
+                    | qsim_lab::stabilizer::symphase::VarDist::Depol1(p)
+                    | qsim_lab::stabilizer::symphase::VarDist::Depol2(p) => Some(p),
+                    _ => None,
+                })
+                .collect();
+            let mut rng = WyRand(1);
+            let mut best = f64::INFINITY;
+            let mut words_drawn = 0u64;
+            for _ in 0..3 {
+                let t = Instant::now();
+                let mut acc = 0u64;
+                words_drawn = 0;
+                for _ in 0..shots.div_ceil(64) {
+                    for &p in &ps {
+                        // bits of p, MSB first: p = sum b_i 2^-i
+                        let mut frac = p;
+                        let mut undecided = !0u64;
+                        let mut ones = 0u64;
+                        while undecided != 0 {
+                            frac *= 2.0;
+                            let bit = frac >= 1.0;
+                            if bit {
+                                frac -= 1.0;
+                            }
+                            let r = rng.next_u64();
+                            words_drawn += 1;
+                            if bit {
+                                // random bit 0 < p bit 1: decided 1
+                                ones |= undecided & !r;
+                                undecided &= r;
+                            } else {
+                                // random bit 1 > p bit 0: decided 0
+                                undecided &= !r;
+                            }
+                            if frac == 0.0 {
+                                break;
+                            }
+                        }
+                        acc ^= ones;
+                    }
+                }
+                best = best.min(t.elapsed().as_secs_f64());
+                std::hint::black_box(acc);
+            }
+            println!(
+                "bitsliced_bernoulli_min={best:.6} groups={} words_per_group_word={:.2} shots={}",
+                ps.len(),
+                words_drawn as f64 / (ps.len() * shots.div_ceil(64)) as f64,
+                shots.div_ceil(64) * 64
+            );
+        }
         "bench" => {
             let text = std::fs::read_to_string(&a[2]).unwrap();
             let shots: usize = a[3].parse().unwrap();
@@ -299,6 +368,9 @@ fn main() {
             let t_cv = t2.elapsed().as_secs_f64();
             let (mut best, mut best_sp, mut best_sp_small) =
                 (f64::INFINITY, f64::INFINITY, f64::INFINITY);
+            let mut pooled = s.clone();
+            pooled.pool_equal_dists();
+            let mut best_pooled = f64::INFINITY;
             for r in 0..reps {
                 let mut w = devnull();
                 let t = Instant::now();
@@ -314,11 +386,18 @@ fn main() {
                 let t = Instant::now();
                 sample_to_sparse(&s, &cv, shots, &mut rng, &mut w);
                 best_sp_small = best_sp_small.min(t.elapsed().as_secs_f64());
+                let mut w = devnull();
+                let mut rng = rand::rngs::SmallRng::seed_from_u64(6000 + r as u64);
+                let t = Instant::now();
+                sample_to_sparse(&pooled, &cv, shots, &mut rng, &mut w);
+                best_pooled = best_pooled.min(t.elapsed().as_secs_f64());
             }
             // sample_min: original dense path, StdRng (ChaCha12); sparse_*: sparse
             // draw + column-wise evaluation (bit-identical output for the same RNG stream)
             println!(
-                "parse={t_parse:.6} compile={t_compile:.6} colview={t_cv:.6} sample_min={best:.6} sparse_min={best_sp:.6} sparse_smallrng_min={best_sp_small:.6} shots={} dets={} vars={} nnz={}",
+                "parse={t_parse:.6} compile={t_compile:.6} colview={t_cv:.6} sample_min={best:.6} sparse_min={best_sp:.6} sparse_smallrng_min={best_sp_small:.6} sparse_pooled_smallrng_min={best_pooled:.6} runs={} pooled_runs={} shots={} dets={} vars={} nnz={}",
+                s.num_runs(),
+                pooled.num_runs(),
                 shots.div_ceil(64) * 64,
                 s.num_measurements(),
                 s.num_vars(),

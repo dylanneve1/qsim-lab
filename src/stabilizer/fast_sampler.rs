@@ -350,10 +350,16 @@ impl FastSampler {
                 Kind::Depol1 => &DEPOL1_MASK,
                 Kind::Depol2 => &DEPOL2_MASK,
             };
-            let mut entries: Vec<Vec<u32>> = Vec::with_capacity(c.firsts.len() * masks.len());
+            // entries as CSR: XOR of the pattern's variable columns (rows
+            // appearing an odd number of times), in t = group * m + pattern order
+            let n_ent = c.firsts.len() * masks.len();
+            let mut ent_start = Vec::with_capacity(n_ent + 1);
+            ent_start.push(0usize);
+            let mut ent_rows: Vec<u32> = Vec::with_capacity(4 * n_ent);
+            let mut e: Vec<u32> = Vec::with_capacity(64);
             for &f in &c.firsts {
                 for &mask in masks {
-                    let mut e: Vec<u32> = Vec::new();
+                    e.clear();
                     for k in 0..4 {
                         if mask >> k & 1 == 1 {
                             let v = f as usize + k;
@@ -362,27 +368,32 @@ impl FastSampler {
                             );
                         }
                     }
-                    // XOR of the columns: rows appearing an odd number of times
                     e.sort_unstable();
-                    let mut odd = Vec::with_capacity(e.len());
-                    for r in e {
-                        if odd.last() == Some(&r) {
-                            odd.pop();
+                    let base = ent_rows.len();
+                    for &r in &e {
+                        if ent_rows.len() > base && ent_rows.last() == Some(&r) {
+                            ent_rows.pop();
                         } else {
-                            odd.push(r);
+                            ent_rows.push(r);
                         }
                     }
-                    entries.push(odd);
+                    ent_start.push(ent_rows.len());
                 }
             }
-            let stride = entries.iter().map(|e| e.len()).max().unwrap_or(0).max(1);
+            let stride = ent_start
+                .windows(2)
+                .map(|w| w[1] - w[0])
+                .max()
+                .unwrap_or(0)
+                .max(1);
             if stride <= MAX_STRIDE {
                 let slot_rate = c.lambda / c.kind.patterns() as f64;
                 c.block_log2 = (BLOCK_MEAN / slot_rate).log2().round().clamp(4.0, 40.0) as u32;
                 c.pois = PoissonTable::new(slot_rate * (1u64 << c.block_log2) as f64);
                 c.stride = stride;
-                c.table = vec![sink; entries.len() * stride];
-                for (t, e) in entries.iter().enumerate() {
+                c.table = vec![sink; n_ent * stride];
+                for t in 0..n_ent {
+                    let e = &ent_rows[ent_start[t]..ent_start[t + 1]];
                     c.table[t * stride..t * stride + e.len()].copy_from_slice(e);
                 }
                 if sink < u16::MAX as u32 {

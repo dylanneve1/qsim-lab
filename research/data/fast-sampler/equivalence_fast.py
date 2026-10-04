@@ -6,7 +6,7 @@ Re-uses research/data/qec-r4/stim_equivalence.py unchanged (tests T0-T3, both di
 `sample-native-fast` (FastSampler, Xoshiro256++, 256-shot batches) instead of the old path.
 
 usage: equivalence_fast.py <shots> <d,d,...> <p> <out.jsonl> [directions=AB]
-env: QSIM_STIM_COMPARE (binary), WORK (scratch dir)
+env: QSIM_STIM_COMPARE (binary), WORK (scratch dir), QSIM_FAST_RNG = wy (default) | xo
 """
 import sys, os, json, time, subprocess
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "qec-r4"))
@@ -17,8 +17,10 @@ def run_fast(args, *a, **k):
     args = list(args)
     if len(args) > 1 and args[1] in ("sample", "sample-native"):
         args[1] += "-fast"
+        args.append(RNG)
     return _run(args, *a, **k)
 E.subprocess.run = run_fast
+RNG = os.environ.get("QSIM_FAST_RNG", "wy")
 
 shots = int(sys.argv[1])
 ds = [int(x) for x in sys.argv[2].split(",")]
@@ -30,7 +32,7 @@ for direction in dirs:
         t = time.time()
         r = E.run_cell(direction, d, shots, seed=300 + d)
         r["p"] = E.P
-        r["sampler"] = "FastSampler (Poisson hits, Xoshiro256++)"
+        r["sampler"] = "FastSampler (Poisson hits, %s)" % {"wy": "wyrand", "xo": "Xoshiro256++"}[RNG]
         r["wall_s"] = round(time.time() - t, 1)
         print(json.dumps(r), flush=True)
         open(out, "a").write(json.dumps(r) + "\n")
