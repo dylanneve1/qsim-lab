@@ -36,7 +36,12 @@
 //!   frequency-basis measurement (QFT of the exponent register after measuring
 //!   the accumulator), for one register (Shor-style `g^e`) or two
 //!   (Ekerå–Håstad `g^a y^{-b}`).
-//! * [`gate_loop4_step`] compiles one loop4 window step to X/CNOT/Toffoli gates
+//! * [`overlap`], [`best_shift`] and [`cond_fidelity`] give the exact fidelity
+//!   of the pre-measurement states and of the post-measurement exponent states
+//!   with exact arithmetic; [`paper_success`] is the success test of the
+//!   paper's own success-rate model.
+//! * [`gate_loop4_step`] and [`gate_loop3_pair`] compile one loop4 window step,
+//!   and one loop3 step with its unloop3 counterpart, to X/CNOT/Toffoli gates
 //!   (plus X-basis measurements and Z/CZ phase fix-ups) with the repo's
 //!   measurement-based building blocks, for the gate-level check.
 
