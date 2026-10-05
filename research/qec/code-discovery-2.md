@@ -24,8 +24,10 @@ Rapids) box; searches ran with at most 4 worker threads under `nice -n 15` while
     [[254,14,16]] (14.11); [[288,16,16]] also strictly dominates the published [[288,16,12]] codes.
   - **[[192,12,14]]**, k·d²/n = **12.25**, over SmallGroup(96,17) = C3 ⋊ (Q8 ⋊ C4). The best published
     weight-6 value with n ≤ 192 is the gross code's 12.0; it also dominates the 2026 [[216,12,14]].
-  - New Pareto points that do not raise k·d²/n: [[192,16,12]], [[200,16,12]] (over D10 × D10) and
-    [[224,18,12]] (dominating the published [[294,18,10]] and [[252,14,12]]).
+  - New Pareto points that do not raise k·d²/n: [[192,16,12]], [[200,16,12]] (over D10 × D10),
+    [[224,18,12]] (dominating the published [[294,18,10]] and [[252,14,12]]) and the high-rate
+    [[288,34,8]] over A4 × A4 (dominating the published [[288,32,6]] and [[292,18,8]]).
+  - Every new code strictly dominates at least one published weight-6 code.
 - Every claimed code is certified twice: the exact symmetry-rooted branch and bound in Rust (both CSS
   sectors), and an independent C program (`mwlogical.c`, all roots, no symmetry) that proves no
   nontrivial logical of weight < d exists in either sector, with k and weight-d witnesses checked by an
@@ -196,6 +198,7 @@ claimed below is then checked again by methods that share no code with the searc
 | [[192,16,12]] | SmallGroup(96,12) = C3 ⋊ ((C4 × C4) ⋊ C2) | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 3.0·10⁶ / 2.8·10⁶ | 12 / 12 |
 | [[200,16,12]] | SmallGroup(100,13) = D10 × D10 | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 2.8·10⁶ / 2.7·10⁶ | 12 / 12 |
 | [[224,18,12]] | SmallGroup(112,20) = C7 × ((C4 × C2) ⋊ C2) | 18 / 18 | 12, 12 (9.8·10⁴) | ≤ 11: 3.5·10⁶ / 3.6·10⁶ | 12 / 12 |
+| [[288,34,8]] | SmallGroup(144,184) = A4 × A4 | 34 / 34 | 8, 8 (1.3·10³) | ≤ 7: 4.2·10⁴ / 4.3·10⁴ | 8 / 8 |
 
 ### 4.1 The [[288,16,16]] code, explicitly
 
@@ -242,3 +245,62 @@ B = { 1,  a i,  a^2 i^-1 t^3 }
 B = {0, 20, 85}. k·d²/n = 12.25 exceeds the gross code's 12.0, the best published weight-6 value with
 n ≤ 192 in our tables, and the code dominates the 2026 [[216,12,14]] lift of Hirasaki & Lee. It was
 not covered by a targeted literature search the way [[288,16,16]] was.
+
+## 6. Circuit level
+
+**Schedule.** The depth-7 schedule of Bravyi et al. (`-143502/350124-`, X ancillas idle in the first
+CNOT layer, Z ancillas in the last) is valid for [[288,16,16]] and [[192,12,14]]: `schedule_valid`
+accepts it (every X-check/Z-check pair has an even number of shared qubits that the X check touches
+first) and the circuit's detector error model builds without non-deterministic detectors (the DEM
+builder panics otherwise). The memory circuits use one X and one Z ancilla per check (4N qubits:
+576 for n = 288), uniform circuit noise (two-qubit depolarizing p after every CNOT, single-qubit p on
+idle qubits, preparation and readout flips p), and BP+OSD-CS (min-sum, scale 0.625, 100 iterations,
+OSD order 10) on the Z sector, exactly as in the first study.
+
+(results pending)
+
+## 7. Caveats and negative results
+
+- **Weight 6 only, and "beyond the frontier" means beyond the tables we compiled.** The threshold
+  T(n, k) uses the 21 papers of the first study, the 17 of the 2026-10-05 supplement and the first
+  study's own codes; a separate check for [[288,16,16]] read 25 more (`novelty_288.md`). Published
+  upper bounds were taken at face value (this can only make "new" harder to reach). Papers that give
+  codes only in figures or ancillary files could still contain one of these codes. At higher check
+  weight the same [[288,16,16]] parameters are published (weight 9), and weight 7 does better.
+- **Small margins.** [[288,16,16]] beats the weight-6 [[254,14,16]] by 0.8 % in k·d²/n, and
+  [[192,12,14]] beats the gross code by 2 %. They are new points of the weight-6 trade-off, not a
+  change of scale.
+- **`le_T` is an upper bound.** Under the fast rule a class whose best logical found has weight T is
+  only known to have d ≤ T; whether d = T was proved only for the first 325 groups (`tie`).
+- **Undecided classes.** Classes where the DFS at weight T hit its node limit are listed in §5 with
+  their bounds; some of them (k = 8, n = 288, d ∈ [20, 22]; k = 2, d ∈ [23, 26]) could still be new
+  points.
+- **Symmetry used for root fixing** is the translation-type automorphisms only (outer automorphisms
+  of G are ignored): this costs time, never correctness, and the independent C check uses none.
+- **Enumeration.** Classes are merged under the automorphism *generators* GAP returns; a missing
+  generator could only produce duplicate classes, never miss one. The search does not decide whether
+  codes over different groups (e.g. the [[288,16,16]] codes over five groups of order 144) are
+  isomorphic.
+- **Coset codes** were implemented and tested (§3) but, on this loaded machine, not searched at scale.
+
+## 9. Reproduce
+
+```text
+# groups (GAP 4.15.1 with SmallGroups; ~1 min): one file per order N, 1000 groups
+gap -q research/data/code-discovery-2/export_groups.g      # after: ExportOrder(N, dir) for N = 6..150
+python3 research/data/code-discovery-2/known_codes.py > threshold.tsv     # T(n, k)
+cargo build --release --example group_codes
+G=target/release/examples/group_codes
+$G search threshold.tsv 4 200000000 groups/*.txt > w6.jsonl 2> w6.log    # all 1000 groups
+python3 research/data/code-discovery-2/analyze.py --out summary w6.jsonl w6.log
+
+# the headline code, three ways
+$G params groups/144.txt 167 0,9,83 0,51,90                                # Rust: [[288,16,16]], 4 s
+python3 research/data/code-discovery-2/code_288_from_presentation.py p288 # presentation only: k = 16
+gcc -O2 -o mwlogical research/data/code-discovery-2/mwlogical.c
+./mwlogical 15 < p288_Zlogicals.txt; ./mwlogical 15 < p288_Xlogicals.txt  # "none <= 15", ~1 min each
+./mwlogical 16 < p288_Zlogicals.txt                                        # finds a weight-16 logical
+cargo test --release --test group_codes new_code                           # group-free pins, 7 s
+```
+
+The certificate inputs for all five new codes are in `certificates/` (run `mwlogical d-1 < file`).

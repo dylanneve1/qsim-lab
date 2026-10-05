@@ -1,4 +1,4 @@
-# qsim-lab results (4 October 2026)
+# qsim-lab results (5 October 2026)
 
 What this repository has shown so far, with the caveats that go with each number. Every engine is
 **exact** (no truncation) and differential-tested against an independent reference state vector
@@ -229,6 +229,28 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
   0.5–1 % reported for union-find.
 - The hook-safe CNOT order restores full distance; a standard-looking order gave d = 5 an effective
   distance of 3 (confirmed by fault injection).
+
+## 9. Weight-6 qLDPC codes beyond the published frontier (`research/qec/code-discovery-2.md`)
+
+An exhaustive search of weight-6 two-block group-algebra codes over all 1000 groups of order ≤ 150
+that the first study (abelian, rank ≤ 2) did not cover — every non-abelian group and every abelian
+group of rank ≥ 3, from GAP's SmallGroups — compared against the published weight-6 frontier
+(`literature.md`, now including the 2026 non-abelian and coset codes) and all direct sums.
+- **[[288,16,16]]** over Z6 × (C3 ⋊ D8) (SmallGroup(144,167); explicit presentation in the
+  notebook): k·d²/n = 14.22, above every published *weight-6* code with n ≤ 288 (best:
+  [[254,14,16]], 14.11, Liang et al.); it also strictly dominates the published weight-6
+  [[288,16,12]] codes. The same parameters are published at weight 9 (a quantum Tanner code), and
+  weight 7 reaches [[288,16,18]], so the claim is specific to weight 6 and the margin is 0.8 %.
+- **[[192,12,14]]** over C3 ⋊ (Q8 ⋊ C4) (SmallGroup(96,17)): k·d²/n = 12.25, above the gross code's
+  12.0, the best published weight-6 value with n ≤ 192 in our tables.
+- New Pareto points without a k·d²/n record: [[192,16,12]], [[200,16,12]] (over D10 × D10),
+  [[224,18,12]] (dominating the published [[294,18,10]] and [[252,14,12]]) and [[288,34,8]] (over
+  A4 × A4). Every new code strictly dominates at least one published weight-6 code.
+- Each code is certified twice: the exact symmetry-rooted search (both CSS sectors) and an
+  independent C program with no symmetry that proves no lighter nontrivial logical exists (3.7·10⁸ and
+  3.8·10⁸ nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent
+  Python script; the two headline codes are also rebuilt from their written presentations alone and
+  re-proved. Literature novelty was checked against 40+ papers, not proved.
 
 ## Honest notes
 
