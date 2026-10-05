@@ -86,6 +86,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [theory-coset.md](theory/theory-coset.md) | Coset-representation error in the Gidney–Ekerå Shor circuit |
 | [theory-rank.md](theory/theory-rank.md) | Low stabilizer rank in algorithm circuits: branching-rank invariant and an exact engine |
 | [stabrank-lower.md](theory/stabrank-lower.md) | Stabilizer-rank lower bounds: state of the art, exact small-n values, a plateau lemma |
+| [stabrank5.md](theory/stabrank5.md) | χ(\|T⟩^{⊗5}) = 6 (hence χ(\|T⟩^{⊗6}) = 6): independent computer proof by Galois-pair enumeration and one-qubit lifts |
 | [theory-colour.md](theory/theory-colour.md) | Single-auxiliary syndrome extraction for the triangular colour code |
 | [transition-theory.md](theory/transition-theory.md) | Why ν_eff ≈ 2.5: the transition as the Clifford MIPT in a noise field |
 

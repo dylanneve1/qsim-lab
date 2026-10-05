@@ -257,6 +257,10 @@ decompositions with < k terms, and are excluded by design.
 | χ(H^{⊗m}) = χ(T^{⊗m}) | 2 | 2 | 3 | 4 | **5 or 6** (≥ 5 new) | **5 or 6** (≥ 5 by monotonicity; ≤ 6 known) |
 | χ(F^{⊗m}) | 2 | 2 | 3 | 3 | **5 or 6** (≥ 5 new) | **5 or 6** (≤ χ(F^{⊗4})χ(F^{⊗2}) = 6) |
 
+**Update (5 Oct 2026).** χ(H^{⊗5}) = 6, hence χ(H^{⊗6}) = 6: see [stabrank5.md](stabrank5.md)
+(complete search; an earlier "attested" claim of the same value by unitaryfoundation/stabrank
+used a different method). χ(F^{⊗5}) is still open in this repo.
+
 **Complete enumerations** (decompositions are unordered sets of stabilizer states up to phase,
 independent, with all coefficients non-zero):
 
