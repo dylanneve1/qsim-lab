@@ -1,7 +1,8 @@
 """Independent check of a two-block group-algebra code's [[n, k, d]].
 
 usage: python verify_code.py <groups.txt> <gap id> <A> <B> <d> [--witness-z q1,q2,...]
-                             [--witness-x q1,q2,...] [--subgroup h1,h2,...] [--no-lower]
+                             [--witness-x q1,q2,...] [--subgroup h1,h2,...] [--no-lower] [--upper]
+                             [--export prefix]
 
 Written from scratch (no code shared with qsim_lab): reads the group table
 exported by export_groups.g, builds H_X / H_Z in the convention of
@@ -21,7 +22,9 @@ x = 0, 1, ...) and
   2. k = n - rank H_X - rank H_Z (Gaussian elimination on Python ints);
   3. each witness is a nontrivial logical of weight d (Z-type witness: in
      ker H_X and not in rowspace H_Z; X-type symmetric);
-  4. (unless --no-lower) no nontrivial logical of weight < d exists in either
+  4. (with --upper) a nontrivial logical of weight <= d exists in each sector
+     (the search below run one level higher; prints the one it finds);
+  5. (unless --no-lower) no nontrivial logical of weight < d exists in either
      sector, by an exhaustive search over connected clusters rooted at EVERY
      qubit (earlier roots banned; no symmetry used): a minimum-weight
      nontrivial logical E has no proper non-empty subset in ker H, so from any
@@ -128,6 +131,15 @@ def main():
         syn0 = all(bin(v & h).count("1") % 2 == 0 for h in hcheck)
         return syn0 and not in_span(v, hother)
 
+    if "--export" in opts:
+        # check supports for mwlogical.c: <prefix>_z.txt (Z-type logicals: checked by the
+        # X-checks, trivial = rowspace of the Z-checks) and <prefix>_x.txt
+        pre = opts[opts.index("--export") + 1]
+        for label, chk, oth in (("z", xs, zs), ("x", zs, xs)):
+            with open(f"{pre}_{label}.txt", "w") as f:
+                f.write(f"{n} {len(chk)} {len(oth)}\n")
+                for s in chk + oth:
+                    f.write(f"{len(s)} " + " ".join(map(str, s)) + "\n")
     if wz is not None:
         out["witness_z"] = {"weight": len(set(wz)), "nontrivial": logical_ok(wz, HX, HZ)}
     if wx is not None:
@@ -139,6 +151,16 @@ def main():
             res[label] = no_logical_below(n, checks, other, d)
         out["lower"] = res
         out["lower_s"] = round(time.time() - t0, 1)
+    if "--upper" in opts:
+        # independent upper bound: the same exhaustive search one level higher
+        # returns a nontrivial logical of weight <= d (if any) in each sector
+        t0 = time.time()
+        up = {}
+        for label, checks, other in (("z", xs, HZ), ("x", zs, HX)):
+            r = no_logical_below(n, checks, other, d + 1)
+            up[label] = {"weight": len(r["found"]), "support": r["found"]} if not r["ok"] else None
+        out["upper"] = up
+        out["upper_s"] = round(time.time() - t0, 1)
     print(json.dumps(out))
 
 
