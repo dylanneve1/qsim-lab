@@ -4,7 +4,7 @@ Branch `exp/lowmagic-chem`. Author: qsim-lowmagic-chem agent (round 5, 5 Oct 202
 Code: `src/chem.rs` (FCIDUMP, Pauli-rotation programs, span-filtered Jordan–Wigner Hamiltonian, compressed-state
 energies, Rotosolve, register Lanczos), `src/adaptive.rs` (`CompressedState::register_terms`),
 `examples/lowmagic_chem.rs` (`profile`, `energy`, `check`), `tests/lowmagic_chem.rs` (8 tests; fixtures in
-`tests/data/lowmagic-chem/`). Python: `research/data/lowmagic-chem/{chem.py, dmrg.py, run.py, tables.py}`.
+`tests/data/lowmagic-chem/`). Python: `research/data/lowmagic-chem/{chem.py, dmrg.py, run.py, crosscheck.py, tables.py, headline.py}`.
 Data: `research/data/lowmagic-chem/` (`refs/` classical references, `runs/*.jsonl` every engine run,
 `tables.md` all tables). Machine: Mac M1 Pro, 1 thread per job, ≤ 2 jobs, 1-min load 11–24 from other agents —
 all timings are indicative only.
@@ -178,7 +178,7 @@ Errors in mEh against FCI (n ≤ 24) or DMRG (larger); `E_reg` is the best any c
 Selected rows (all rows: `tables.md` §"Energies"):
 
 Beyond state-vector size (D = register size; `E_opt` after Rotosolve of the 20 largest amplitudes, `E_reg` the
-register optimum, `—` not run; † CCSD not converged; * CCSD(T) reference, DMRG still running — see caveats):
+register optimum, `—` not run; † CCSD not converged; * CCSD(T) reference, DMRG not completed — see caveats):
 
 | system | n | ref | CCSD | CCSD(T) | D=8 E_reg | D=16 E_opt / E_reg | D=20 E_opt / E_reg | D=24 E (CCSD angles) | % corr, best register |
 |---|---|---|---|---|---|---|---|---|---|
@@ -289,6 +289,10 @@ are exactly the cases classical chemistry already treats as trivial (fragment me
   not the structure: d still counts independent rotation patterns, and the extensivity argument is unchanged.
 - QPE with a true stabilizer eigenstate (atlas: d = t) was not found for any non-trivial molecule; we did not
   attempt non-Trotter (exact) controlled evolutions.
+- References: DMRG for H₅₀ was stopped before convergence (≈ 4.5 min per sweep at M = 200 on the shared laptop), so
+  the H₅₀ rows use CCSD(T); for H₂₀ and H₃₀ CCSD(T) is within 1.2 and 2.8 mEh of DMRG, irrelevant next to the
+  700-mEh errors. For H₅₀ at 1.8 Å CCSD did not converge and no reliable reference exists here; its row only shows
+  that the register optimum barely moves below HF.
 - Timings are from a heavily shared laptop (1-min load 11–24), single runs, not benchmarks.
 - FCIDUMPs and programs are not committed (H₅₀: 40 MB); `chem.py prep NAME DIR` regenerates them deterministically.
 
@@ -304,6 +308,7 @@ WORKERS=2 python run.py $B $D $D/out/check.jsonl 'check:*.uccsd.jw.prog' 'check:
 WORKERS=2 python run.py $B $D $D/out/profile.jsonl 'profile:*.prog:1024'
 LANCZOS=40 WORKERS=2 python run.py $B $D $D/out/energy.jsonl 'energy:*.span16.jw.prog:1:20'
 $B energy $D/h50.fcidump $D/h50.span24.jw.prog 0             # 100 qubits, 537 generators, d = 24
-python tables.py RESULTS > tables.md                         # RESULTS = refs/ + runs/*.jsonl
+tools/datafiles.py unpack                                    # (repo root) restores runs/profile.jsonl
+python tables.py . > tables.md && python headline.py .       # in research/data/lowmagic-chem
 cargo test --release --test lowmagic_chem
 ```
