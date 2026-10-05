@@ -10,6 +10,7 @@
 //! Write-up and measurements: `research/graph-compiler.md`.
 
 pub mod compiled;
+pub mod dedup;
 pub mod observable;
 pub mod param;
 pub mod rewrite;

@@ -62,6 +62,8 @@ pub struct GraphOptions {
     /// circuit is used only if its executor plan is cheaper (fewer stages,
     /// then fewer executor ops, summed over the parts).
     pub rewrite: Option<super::rewrite::RewriteOptions>,
+    /// Evaluate identical numeric recipes once per bind.
+    pub dedup_recipes: bool,
 }
 
 impl Default for GraphOptions {
@@ -76,6 +78,7 @@ impl Default for GraphOptions {
             max_zstring: 6,
             patch_bind: true,
             rewrite: Some(super::rewrite::RewriteOptions::default()),
+            dedup_recipes: true,
         }
     }
 }
@@ -134,6 +137,44 @@ fn fac_matrix(f: &Fac, params: &[f64]) -> Mat2 {
     }
 }
 
+fn recipe_key(r: &Recipe) -> Vec<u64> {
+    let mut k = Vec::new();
+    let facs = |fs: &[Fac], k: &mut Vec<u64>| {
+        for f in fs {
+            match f {
+                Fac::Const(m) => {
+                    k.push(1);
+                    for z in m.iter().flatten() {
+                        k.push(z.re.to_bits());
+                        k.push(z.im.to_bits());
+                    }
+                }
+                Fac::Op(op) => {
+                    k.push(2);
+                    super::dedup::op_key(op, true, k);
+                }
+            }
+        }
+    };
+    match r {
+        Recipe::U1(fs) => {
+            k.push(10);
+            facs(fs, &mut k);
+        }
+        Recipe::DiagRun(fs) => {
+            k.push(11);
+            facs(fs, &mut k);
+        }
+        Recipe::Phase(c, a) => {
+            k.push(12);
+            k.push(c.re.to_bits());
+            k.push(c.im.to_bits());
+            super::dedup::op_key(&POp::Global(a.clone()), true, &mut k);
+        }
+    }
+    k
+}
+
 fn product(fs: &[Fac], params: &[f64]) -> Mat2 {
     let mut m = fac_matrix(&fs[0], params);
     for f in &fs[1..] {
@@ -174,6 +215,11 @@ struct DenseProgram {
     recipe_loc: Vec<(usize, OpLoc)>,
     /// Patch numbers in place (`false`: re-prepare bound stages).
     patch: bool,
+    /// Recipe classes: `uniq[c]` = representative recipe of class `c`,
+    /// `rclass[r]` = class of recipe `r` (identical recipes, e.g. every
+    /// `Rx(2β)` of a mixer layer, are evaluated once per bind).
+    uniq: Vec<usize>,
+    rclass: Vec<usize>,
     block: BlockConfig,
     /// Global phase `c · e^{i a}` from the ops (diagonal runs add theirs on bind).
     global: (Complex64, Angle),
@@ -412,6 +458,8 @@ impl DenseProgram {
             templates: Vec::new(),
             recipe_loc: Vec::new(),
             patch: opts.patch_bind,
+            uniq: Vec::new(),
+            rclass: Vec::new(),
             block: opts.block.clone(),
             global,
             prefix_end: 0,
@@ -455,6 +503,20 @@ impl DenseProgram {
                 .collect();
         }
         prog.templates = templates;
+        let mut seen: std::collections::HashMap<Vec<u64>, usize> = Default::default();
+        for (r, (_, rec)) in prog.recipes.iter().enumerate() {
+            let key = if opts.dedup_recipes {
+                recipe_key(rec)
+            } else {
+                vec![r as u64]
+            };
+            let next = seen.len();
+            let c = *seen.entry(key).or_insert(next);
+            if c == prog.uniq.len() {
+                prog.uniq.push(r);
+            }
+            prog.rclass.push(c);
+        }
         prog.prefix_end = prog
             .param_stage
             .iter()
@@ -497,18 +559,29 @@ impl DenseProgram {
     fn bind_patch(&self, params: &[f64]) -> BoundPart {
         let mut phase = self.global.0 * Complex64::from_polar(1.0, self.global.1.eval(params));
         let mut stages = self.templates.clone();
-        for ((_, r), &(s, loc)) in self.recipes.iter().zip(&self.recipe_loc) {
+        // evaluate each distinct recipe once (structural dedup of recipes)
+        let vals: Vec<Mat2> = self
+            .uniq
+            .iter()
+            .map(|&r| match &self.recipes[r].1 {
+                Recipe::U1(fs) | Recipe::DiagRun(fs) => product(fs, params),
+                Recipe::Phase(c, a) => {
+                    let f = c * Complex64::from_polar(1.0, a.eval(params));
+                    [[f, C0], [C0, f]]
+                }
+            })
+            .collect();
+        for (((_, r), &(s, loc)), &u) in self.recipes.iter().zip(&self.recipe_loc).zip(&self.rclass)
+        {
             let st = stages[s].as_mut().expect("template");
+            let m = &vals[u];
             match r {
-                Recipe::U1(fs) => st.set_u1(loc, &product(fs, params)),
-                Recipe::DiagRun(fs) => {
-                    let m = product(fs, params);
+                Recipe::U1(_) => st.set_u1(loc, m),
+                Recipe::DiagRun(_) => {
                     phase *= m[0][0];
                     st.set_phase(loc, m[1][1] / m[0][0]);
                 }
-                Recipe::Phase(c, a) => {
-                    st.set_phase(loc, c * Complex64::from_polar(1.0, a.eval(params)))
-                }
+                Recipe::Phase(..) => st.set_phase(loc, m[0][0]),
             }
         }
         BoundPart { stages, phase }

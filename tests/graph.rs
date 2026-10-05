@@ -436,3 +436,93 @@ fn gadget_ladders_collapse() {
         2
     );
 }
+
+#[test]
+fn dedup_blocks_reproduce_the_circuit() {
+    use qsim_lab::graph::dedup::{analyse, block_unitaries};
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a16);
+    for case in 0..60 * iters() {
+        let n = 2 + case % 6;
+        let np = rng.random_range(0..3);
+        let len = rng.random_range(1..50);
+        let pc = random_param_circuit(&mut rng, n, np, len);
+        let p = rand_params(&mut rng, np);
+        let r = reference(&pc, &p);
+        for k in [2usize, 3, 4] {
+            let d = analyse(&pc, k);
+            let covered: usize = d.blocks.iter().map(|b| b.ops.len()).sum();
+            assert_eq!(covered, d.total_ops);
+            let (u_plain, c_plain) = block_unitaries(&pc, &d, &p, false);
+            let (u_dedup, c_dedup) = block_unitaries(&pc, &d, &p, true);
+            assert_eq!(c_dedup, d.num_classes);
+            assert_eq!(c_plain, d.blocks.len());
+            // apply blocks in order of their last op
+            let mut order: Vec<usize> = (0..d.blocks.len()).collect();
+            order.sort_by_key(|&b| *d.blocks[b].ops.last().unwrap());
+            let mut s = RefSv::new(n);
+            for &bi in &order {
+                let b = &d.blocks[bi];
+                assert!(b.qubits.len() <= k);
+                for u in [&u_plain[bi], &u_dedup[bi]] {
+                    assert!(u
+                        .iter()
+                        .zip(u_plain[bi].iter())
+                        .all(|(a, b)| (a - b).norm() < 1e-12));
+                }
+                let u = &u_dedup[bi];
+                let dim = 1usize << b.qubits.len();
+                let old = s.a.clone();
+                for (x, out) in s.a.iter_mut().enumerate() {
+                    let loc = b
+                        .qubits
+                        .iter()
+                        .enumerate()
+                        .fold(0, |l, (j, &q)| l | ((x >> q) & 1) << j);
+                    let rest = b.qubits.iter().fold(x, |y, &q| y & !(1 << q));
+                    let mut acc = Complex64::new(0.0, 0.0);
+                    for y in 0..dim {
+                        let src = b
+                            .qubits
+                            .iter()
+                            .enumerate()
+                            .fold(rest, |z, (j, &q)| z | ((y >> j) & 1) << q);
+                        acc += u[loc * dim + y] * old[src];
+                    }
+                    *out = acc;
+                }
+            }
+            // global-phase ops are not in any block
+            let g = Complex64::from_polar(1.0, pc.global_phase(&p));
+            let dd = max_amp_diff(&r.a, s.a.iter().map(|a| a * g));
+            assert!(dd < 1e-10, "case {case} k={k} diff {dd}");
+        }
+    }
+}
+
+#[test]
+fn dedup_finds_trotter_steps_and_recipe_cse_is_exact() {
+    use qsim_lab::graph::dedup::analyse;
+    let n = 8;
+    let mut pc = ParamCircuit::new(n, 2);
+    for _ in 0..10 {
+        for q in 0..n - 1 {
+            pc.rzz(q, q + 1, Angle::scaled(0, 2.0));
+        }
+        for q in 0..n {
+            pc.rx(q, Angle::scaled(1, 2.0));
+        }
+    }
+    let d = analyse(&pc, 4);
+    assert!(d.coverage() > 0.9, "{}", d.coverage());
+    let mut obs = Observable::new();
+    obs.add(1.0, "Z3").unwrap().add(0.5, "X0 X1").unwrap();
+    let mut off = GraphOptions::default();
+    off.dedup_recipes = false;
+    let a = CompiledCircuit::compile(&pc, Some(&obs), &GraphOptions::default()).unwrap();
+    let b = CompiledCircuit::compile(&pc, Some(&obs), &off).unwrap();
+    for p in [[0.1, 0.2], [-1.3, 0.77]] {
+        let x = a.bind(&p).unwrap().expectation().unwrap();
+        let y = b.bind(&p).unwrap().expectation().unwrap();
+        assert_eq!(x, y);
+    }
+}
