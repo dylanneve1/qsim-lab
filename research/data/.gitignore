@@ -1,6 +1,7 @@
 # >>> tools/datafiles.py: unpacked originals of *.xz (do not edit by hand)
 /audit/d11_p0003.stim
 /audit/d15_p0003.stim
+/autoimprove/ledger.jsonl
 /code-discovery/search_w6_all.jsonl
 /colour-flags/runs/vps_bposd.jsonl
 /lowmagic-chem/runs/profile.jsonl

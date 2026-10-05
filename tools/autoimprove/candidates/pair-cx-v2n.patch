@@ -1,0 +1,291 @@
+# slug: pair-cx-v2n
+# family: kernel
+# parent: pair-cx (rejected 0.79x: scalar inner loop)
+# idea: pair-cx-v2 with the slice kernel #[inline(never)] (a real function boundary, so the &mut params certainly stay noalias)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..79edc05 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -541,6 +541,19 @@ enum LOp<T: Real> {
+         a: usize,
+         b: usize,
+     },
++    /// Two uncontrolled 1-qubit gates on distinct buffer bits `t1 < t2`
++    /// (both outside `SMALL`), then optionally a CNOT between the same two
++    /// bits (`cx`: 0 none, 1 control `t1`, 2 control `t2`), applied in one
++    /// sweep (see [`pair_u1`]).
++    Pair {
++        t1: usize,
++        m1: [T; 8],
++        k1: UKind,
++        t2: usize,
++        m2: [T; 8],
++        k2: UKind,
++        cx: u8,
++    },
+     Diag(DiagBlock),
+ }
+ 
+@@ -783,11 +796,77 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
+     Prepared {
+         l: st.inner.len(),
+         inner_mask,
+-        ops,
++        ops: pair_u1(ops),
+         tile: None,
+     }
+ }
+ 
++/// Merges adjacent uncontrolled 1-qubit gates on two distinct buffer bits
++/// (both outside `SMALL`) into one [`LOp::Pair`]: they commute, and the
++/// pair kernel applies both in a single sweep over the block instead of two.
++/// A CNOT (in-block control, no outer control) between the same two bits
++/// that immediately follows is folded in as a register permutation.
++fn pair_u1<T: Real>(ops: Vec<LOp<T>>) -> Vec<LOp<T>> {
++    let free = |op: &LOp<T>| match *op {
++        LOp::U1 {
++            t,
++            m,
++            kind,
++            cin: 0,
++            cout: 0,
++        } if (1usize << t) & SMALL == 0 => Some((t, m, kind)),
++        _ => None,
++    };
++    let mut out = Vec::with_capacity(ops.len());
++    let mut it = ops.into_iter().peekable();
++    while let Some(op) = it.next() {
++        if let Some((ta, ma, ka)) = free(&op) {
++            if let Some((tb, mb, kb)) = it.peek().and_then(free) {
++                if ta != tb {
++                    it.next();
++                    let ((t1, m1, k1), (t2, m2, k2)) = if ta < tb {
++                        ((ta, ma, ka), (tb, mb, kb))
++                    } else {
++                        ((tb, mb, kb), (ta, ma, ka))
++                    };
++                    let cx = match it.peek() {
++                        Some(LOp::U1 {
++                            t,
++                            kind: UKind::X,
++                            cin,
++                            cout: 0,
++                            ..
++                        }) if *t == t2 && *cin == 1 << t1 => 1,
++                        Some(LOp::U1 {
++                            t,
++                            kind: UKind::X,
++                            cin,
++                            cout: 0,
++                            ..
++                        }) if *t == t1 && *cin == 1 << t2 => 2,
++                        _ => 0,
++                    };
++                    if cx != 0 {
++                        it.next();
++                    }
++                    out.push(LOp::Pair {
++                        t1,
++                        m1,
++                        k1,
++                        t2,
++                        m2,
++                        k2,
++                        cx,
++                    });
++                    continue;
++                }
++            }
++        }
++        out.push(op);
++    }
++    out
++}
++
+ // ----- nested L1 tiling -----------------------------------------------------
+ 
+ /// `(non-diagonal target bits, all buffer bits involved)` of an op.
+@@ -795,6 +874,7 @@ fn lop_masks<T: Real>(op: &LOp<T>) -> (usize, usize) {
+     match op {
+         LOp::U1 { t, cin, .. } => (1 << t, (1 << t) | cin),
+         LOp::Swap { a, b } => ((1 << a) | (1 << b), (1 << a) | (1 << b)),
++        LOp::Pair { t1, t2, .. } => ((1 << t1) | (1 << t2), (1 << t1) | (1 << t2)),
+         LOp::Diag(d) => {
+             let mut sup = 0usize;
+             for g in &d.groups {
+@@ -818,6 +898,7 @@ fn tile_local<T: Real>(op: &LOp<T>, k: usize) -> bool {
+     match op {
+         LOp::U1 { t, .. } => (1usize << t) < lim,
+         LOp::Swap { b, .. } => (1usize << b) < lim,
++        LOp::Pair { t2, .. } => (1usize << t2) < lim,
+         LOp::Diag(_) => lop_masks(op).1 < lim,
+     }
+ }
+@@ -1164,6 +1245,126 @@ fn apply_u1<T: Real, const F: bool>(
+     });
+ }
+ 
++/// `(x, y) <- (m0 x + m1 y, m2 x + m3 y)`; `K = 1`: real matrix (an X
++/// is the real matrix `[0 1; 1 0]`, exact), `K = 2`: complex.
++#[inline(always)]
++fn mat_apply<T: Real, const F: bool, const K: u8>(
++    m: &[T; 8],
++    xr: T,
++    xi: T,
++    yr: T,
++    yi: T,
++) -> (T, T, T, T) {
++    let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
++    if K == 1 {
++        (
++            fma::<T, F>(m0r, xr, m1r * yr),
++            fma::<T, F>(m0r, xi, m1r * yi),
++            fma::<T, F>(m2r, xr, m3r * yr),
++            fma::<T, F>(m2r, xi, m3r * yi),
++        )
++    } else {
++        let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
++        let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
++        (a, b, c, d)
++    }
++}
++
++/// The pair kernel on one run: `a = [a0r, a0i, a1r, a1i, a2r, a2i, a3r,
++/// a3i]` are the four amplitude slices (index bits `t1`, `t2` = 00, 10,
++/// 01, 11). A separate function taking the slices as `&mut` parameters, so
++/// the compiler knows they do not alias and vectorises the loop (with
++/// eight slices split inside one function it would need 28 run-time alias
++/// checks and falls back to scalar code: 0.45x on brickwork f32).
++#[inline(always)]
++fn pair_kernel<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    a: [&mut [T]; 8],
++    m1: &[T; 8],
++    m2: &[T; 8],
++) {
++    let [a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i] = a;
++    pair_loop::<T, F, K1, K2, CX>(a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, m1, m2);
++}
++
++#[allow(clippy::too_many_arguments)]
++#[inline(never)]
++fn pair_loop<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    a0r: &mut [T],
++    a0i: &mut [T],
++    a1r: &mut [T],
++    a1i: &mut [T],
++    a2r: &mut [T],
++    a2i: &mut [T],
++    a3r: &mut [T],
++    a3i: &mut [T],
++    m1: &[T; 8],
++    m2: &[T; 8],
++) {
++    let len = a0r.len();
++    let (a1r, a2r, a3r) = (&mut a1r[..len], &mut a2r[..len], &mut a3r[..len]);
++    let (a0i, a1i, a2i, a3i) = (
++        &mut a0i[..len],
++        &mut a1i[..len],
++        &mut a2i[..len],
++        &mut a3i[..len],
++    );
++    for k in 0..len {
++        let (b0r, b0i, b1r, b1i) = mat_apply::<T, F, K1>(m1, a0r[k], a0i[k], a1r[k], a1i[k]);
++        let (b2r, b2i, b3r, b3i) = mat_apply::<T, F, K1>(m1, a2r[k], a2i[k], a3r[k], a3i[k]);
++        let (c0r, c0i, c2r, c2i) = mat_apply::<T, F, K2>(m2, b0r, b0i, b2r, b2i);
++        let (c1r, c1i, c3r, c3i) = mat_apply::<T, F, K2>(m2, b1r, b1i, b3r, b3i);
++        // the CNOT permutes the pair of amplitudes whose control bit is 1
++        let ((c1r, c1i, c3r, c3i), (c2r, c2i)) = match CX {
++            1 => ((c3r, c3i, c1r, c1i), (c2r, c2i)),
++            _ => ((c1r, c1i, c3r, c3i), (c2r, c2i)),
++        };
++        let ((c2r, c2i, c3r, c3i), (c1r, c1i)) = match CX {
++            2 => ((c3r, c3i, c2r, c2i), (c1r, c1i)),
++            _ => ((c2r, c2i, c3r, c3i), (c1r, c1i)),
++        };
++        a0r[k] = c0r;
++        a0i[k] = c0i;
++        a1r[k] = c1r;
++        a1i[k] = c1i;
++        a2r[k] = c2r;
++        a2i[k] = c2i;
++        a3r[k] = c3r;
++        a3i[k] = c3i;
++    }
++}
++
++/// `m1` on bit `t1` and `m2` on bit `t2` (`t1 < t2`, both `>= 2`), then
++/// for `CX = 1` a CNOT `t1 -> t2` and for `CX = 2` a CNOT `t2 -> t1`, in
++/// one sweep: each group of four amplitudes is loaded once, the gates are
++/// applied in registers, and it is stored once.
++#[inline(always)]
++fn apply_pair<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    buf: &mut View<T>,
++    t1: usize,
++    m1: &[T; 8],
++    t2: usize,
++    m2: &[T; 8],
++) {
++    let (s1, s2) = (1usize << t1, 1usize << t2);
++    let View { re, im } = buf;
++    for (cr, ci) in re.chunks_exact_mut(2 * s2).zip(im.chunks_exact_mut(2 * s2)) {
++        let (lr, hr) = cr.split_at_mut(s2);
++        let (li, hi) = ci.split_at_mut(s2);
++        for (((lr, hr), li), hi) in lr
++            .chunks_exact_mut(2 * s1)
++            .zip(hr.chunks_exact_mut(2 * s1))
++            .zip(li.chunks_exact_mut(2 * s1))
++            .zip(hi.chunks_exact_mut(2 * s1))
++        {
++            let (a0r, a1r) = lr.split_at_mut(s1);
++            let (a2r, a3r) = hr.split_at_mut(s1);
++            let (a0i, a1i) = li.split_at_mut(s1);
++            let (a2i, a3i) = hi.split_at_mut(s1);
++            pair_kernel::<T, F, K1, K2, CX>([a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i], m1, m2);
++        }
++    }
++}
++
+ #[inline(always)]
+ fn apply_swap<T: Real>(buf: &mut View<T>, l: usize, a: usize, b: usize) {
+     let (sa, sb) = (1usize << a, 1usize << b);
+@@ -1418,6 +1619,32 @@ fn apply_lop<T: Real, const F: bool>(
+             }
+         }
+         LOp::Swap { a, b } => apply_swap(v, l, *a, *b),
++        LOp::Pair {
++            t1,
++            m1,
++            k1,
++            t2,
++            m2,
++            k2,
++            cx,
++        } => {
++            let real = |k: &UKind| *k != UKind::Complex;
++            macro_rules! go {
++                ($c:literal) => {
++                    match (real(k1), real(k2)) {
++                        (true, true) => apply_pair::<T, F, 1, 1, $c>(v, *t1, m1, *t2, m2),
++                        (true, false) => apply_pair::<T, F, 1, 2, $c>(v, *t1, m1, *t2, m2),
++                        (false, true) => apply_pair::<T, F, 2, 1, $c>(v, *t1, m1, *t2, m2),
++                        (false, false) => apply_pair::<T, F, 2, 2, $c>(v, *t1, m1, *t2, m2),
++                    }
++                };
++            }
++            match cx {
++                0 => go!(0),
++                1 => go!(1),
++                _ => go!(2),
++            }
++        }
+         LOp::Diag(d) => {
+             for g in &d.groups {
+                 apply_diag_group::<T, F>(v, l, g, base, sc);
+@@ -1513,6 +1740,7 @@ fn run_ops_prof<T: Real, const F: bool>(
+                 }
+             }
+             LOp::Swap { .. } => 4,
++            LOp::Pair { .. } => 2,
+             LOp::Diag(_) => 5,
+         };
+         prof::add(k, t0);

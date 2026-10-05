@@ -1,0 +1,7 @@
+{
+  "comment": "Compile-time tuning constants of src/blocked.rs: each value becomes a one-line patch and goes through the full pipeline.",
+  "consts": [
+    {"name": "LO_BITS", "file": "src/blocked.rs", "pattern": "const LO_BITS: usize = \\d+;", "replace": "const LO_BITS: usize = {v};", "values": [6, 10, 12]},
+    {"name": "SMALL", "file": "src/blocked.rs", "pattern": "const SMALL: usize = \\d+;", "replace": "const SMALL: usize = {v};", "values": [1, 7]}
+  ]
+}

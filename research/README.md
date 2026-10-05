@@ -59,6 +59,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [sv-monomial.md](performance/sv-monomial.md) | k-qubit dense fusion and monomial-segment fusion |
 | [dense-fusion.md](performance/dense-fusion.md) | Dense k-qubit fusion in the blocked executor: 1.5-2.15x on generic 2-qubit unitaries (M1 Pro), a loss on brickwork; cost rule |
 | [mac-m1.md](performance/mac-m1.md) | Apple M1 Pro: NEON FMA kernels, nested L1 tiling, block size |
+| [autoimprove.md](performance/autoimprove.md) | Automated propose → verify → benchmark → keep loop for the blocked SV kernels: 1.14x single-thread / 1.26x 4-thread on M1 Pro from lookahead stage planning, per-thread scratch and a pair kernel; method and honest assessment |
 | [metal.md](performance/metal.md) | Metal (Apple GPU) f32 state-vector backend |
 | [ooc.md](performance/ooc.md) | Out-of-core state vector: fewer passes over disk |
 | [pipeline.md](performance/pipeline.md) | One entry point; blocked executor by default |

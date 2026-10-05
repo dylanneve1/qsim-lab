@@ -1,0 +1,16 @@
+# slug: mut-smallpairs
+# family: mutant (must be rejected by the gate)
+# idea: small_pairs control-pattern test `==` weakened to `>=` (wrong only for controlled gates with a control on buffer bit 0/1 and the pattern bits partly set)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..25d5950 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -1015,7 +1015,7 @@ fn small_pairs(l: usize, fixed: usize, cin: usize, s: usize, mut f: impl FnMut(u
+     for_each_run(l, fixed & !SMALL, |base, run| {
+         let base = base | cbig;
+         for k in 0..run {
+-            if k & fs == cs {
++            if k & fs >= cs {
+                 f(base + k, base + k + s);
+             }
+         }
