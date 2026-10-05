@@ -4,12 +4,27 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *" # nightly: also builds the examples in release
+
+# A newer push to the same PR/branch supersedes the running checks.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # No debuginfo in CI: compiling and linking ~120 test/example binaries with
+  # full debuginfo was most of the old 60-minute job. Panics still name the
+  # failing test and assertion.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  N_SHARDS: 4
 
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,11 +32,57 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
       - name: Format
         run: cargo fmt --all -- --check
-      - name: Clippy
+      - name: Clippy (all targets, incl. examples)
         run: cargo clippy --all-targets -- -D warnings
-      - name: Test
-        run: cargo test
-      - name: Examples build
-        run: cargo build --release --examples
+      - name: Links
+        run: python3 tools/check_links.py --anchors
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: ${{ matrix.shard == 1 }}
+      - name: Shard assignment
+        run: python3 tools/ci_shard.py --table "$N_SHARDS"
+      - name: Test (shard ${{ matrix.shard }}/4)
+        run: cargo test $(python3 tools/ci_shard.py ${{ matrix.shard }} "$N_SHARDS")
+      - name: Doctests
+        if: matrix.shard == 1
+        run: cargo test --doc
+      - name: Examples build (dev profile)
+        if: matrix.shard == 2
+        run: cargo build --examples
+
+  # Nightly / on demand: the examples in release, as users run them.
+  examples-release:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - run: cargo build --release --examples
+
+  # Single status to gate merges on (the old job name).
+  check:
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        run: |
+          [ "${{ needs.lint.result }}" = success ] && [ "${{ needs.test.result }}" = success ]
