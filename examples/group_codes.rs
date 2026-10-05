@@ -113,20 +113,21 @@ fn classify<F: FnOnce() -> Vec<(usize, Vec<usize>)>>(
     limit: u64,
     rng: &mut StdRng,
 ) -> (&'static str, usize, usize, usize, usize, usize) {
-    let secs: Vec<Sector> = [(hx, hz), (hz, hx)]
-        .iter()
-        .map(|(h, o)| Sector {
-            h: (*h).clone(),
-            masks: logical_masks(h, o).0,
-        })
-        .collect();
-    // randomized information-set search in two stages: most codes are far
-    // below the threshold and are dismissed after 10 iterations
+    // randomized information-set search in stages: most codes are far below
+    // the threshold and are dismissed after 10 iterations in the first sector
+    // (the second sector's logical basis is only built when needed)
     let lab = |w: usize| if w < t { "below" } else { "le_T" };
-    let mut ubs: Vec<usize> = secs
-        .iter()
-        .map(|s| distance_upper_bound(&s.h, &s.masks, 10, rng).0)
-        .collect();
+    let sector = |h: &Gf2Mat, o: &Gf2Mat| Sector {
+        h: h.clone(),
+        masks: logical_masks(h, o).0,
+    };
+    let mut secs: Vec<Sector> = vec![sector(hx, hz)];
+    let mut ubs: Vec<usize> = vec![distance_upper_bound(&secs[0].h, &secs[0].masks, 10, rng).0];
+    if t >= 1 && ubs[0] < t {
+        return (lab(ubs[0]), 0, ubs[0], 0, 0, 0);
+    }
+    secs.push(sector(hz, hx));
+    ubs.push(distance_upper_bound(&secs[1].h, &secs[1].masks, 10, rng).0);
     if t >= 1 && ubs[0].min(ubs[1]) < t {
         let ub = ubs[0].min(ubs[1]);
         return (lab(ub), 0, ub, 0, 0, 0);
