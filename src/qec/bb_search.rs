@@ -319,7 +319,11 @@ mod tests {
 
     #[test]
     fn groups_listed_once() {
-        assert_eq!(groups_of_order(72), vec![(72, 1), (36, 2), (12, 6)]);
+        // 72 = 2^3 3^2: Z72, Z36xZ2, Z24xZ3, Z12xZ6 (Z2^3 x ... has rank 3)
+        assert_eq!(
+            groups_of_order(72),
+            vec![(72, 1), (36, 2), (24, 3), (12, 6)]
+        );
         assert_eq!(groups_of_order(36), vec![(36, 1), (18, 2), (12, 3), (6, 6)]);
     }
 
