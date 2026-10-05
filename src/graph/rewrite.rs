@@ -358,12 +358,30 @@ fn rewrite_region(
 }
 
 /// Runs the region rewrite over a whole circuit (see the module docs).
+/// With `opts.reorder` both the re-scheduled and the original order are
+/// tried and the one leaving fewer permutation ops (then fewer gadgets) is
+/// kept: greedy re-scheduling can pull half of the next gadget's ladder into
+/// a region and stop it from cancelling.
 pub fn phase_regions(pc: &ParamCircuit, opts: &RewriteOptions) -> (ParamCircuit, RewriteStats) {
-    let ops = if opts.reorder {
-        reorder(pc)
+    let plain = regions_in_order(pc, pc.ops.clone(), opts);
+    if !opts.reorder {
+        return plain;
+    }
+    let re = regions_in_order(pc, reorder(pc), opts);
+    let key =
+        |r: &(ParamCircuit, RewriteStats)| (r.1.perm_ops_after, r.1.gadgets_after, r.0.ops.len());
+    if key(&re) < key(&plain) {
+        re
     } else {
-        pc.ops.clone()
-    };
+        plain
+    }
+}
+
+fn regions_in_order(
+    pc: &ParamCircuit,
+    ops: Vec<POp>,
+    opts: &RewriteOptions,
+) -> (ParamCircuit, RewriteStats) {
     let mut st = RewriteStats::default();
     let mut out = ParamCircuit::new(pc.num_qubits, pc.num_params);
     let mut i = 0;

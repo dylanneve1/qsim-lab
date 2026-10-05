@@ -58,6 +58,10 @@ pub struct GraphOptions {
     /// Bind by patching numbers into the prepared stages in place (`false`:
     /// re-prepare every parameter-dependent stage on each bind).
     pub patch_bind: bool,
+    /// Phase-polynomial region rewrite ([`super::rewrite`]); the rewritten
+    /// circuit is used only if its executor plan is cheaper (fewer stages,
+    /// then fewer executor ops, summed over the parts).
+    pub rewrite: Option<super::rewrite::RewriteOptions>,
 }
 
 impl Default for GraphOptions {
@@ -71,6 +75,7 @@ impl Default for GraphOptions {
             mem_bytes: MAX_STATE_BYTES,
             max_zstring: 6,
             patch_bind: true,
+            rewrite: Some(super::rewrite::RewriteOptions::default()),
         }
     }
 }
@@ -145,6 +150,8 @@ pub struct GraphStats {
     /// `(qubits, executor ops, stages, parameter-dependent stages)` per part.
     pub parts: Vec<(usize, usize, usize, usize)>,
     pub compile_secs: f64,
+    /// The phase-region rewrite was applied.
+    pub rewritten: bool,
 }
 
 /// One independent component, compiled for the blocked executor.
@@ -453,19 +460,25 @@ impl DenseProgram {
             .iter()
             .position(|&p| p)
             .unwrap_or(prog.stages.len());
-        if opts.prefix_cache && prog.prefix_end > 0 {
-            let mut sv = StateVectorF64::try_new(n)?;
-            for s in 0..prog.prefix_end {
-                run_prepared_stage(
-                    sv.amplitudes_mut(),
-                    n,
-                    prog.prepared[s].as_ref().expect("constant stage"),
-                    prog.simd,
-                );
-            }
-            prog.prefix_state = Some(sv.amplitudes().to_vec());
-        }
         Ok(prog)
+    }
+
+    /// Runs the constant prefix once and keeps the state.
+    fn compute_prefix(&mut self) -> Result<(), SimError> {
+        if self.prefix_end == 0 || self.prefix_state.is_some() {
+            return Ok(());
+        }
+        let mut sv = StateVectorF64::try_new(self.n)?;
+        for s in 0..self.prefix_end {
+            run_prepared_stage(
+                sv.amplitudes_mut(),
+                self.n,
+                self.prepared[s].as_ref().expect("constant stage"),
+                self.simd,
+            );
+        }
+        self.prefix_state = Some(sv.amplitudes().to_vec());
+        Ok(())
     }
 
     fn prepare(&self, s: usize, kops: &[KOp]) -> PreparedStage<f64> {
@@ -577,6 +590,39 @@ impl CompiledCircuit {
     /// Compiles `pc` for expectation values of `obs` (or, with `None`, for
     /// the full state / amplitudes: no light cone).
     pub fn compile(
+        pc: &ParamCircuit,
+        obs: Option<&Observable>,
+        opts: &GraphOptions,
+    ) -> Result<Self, SimError> {
+        let t0 = std::time::Instant::now();
+        let plain = Self::compile_one(pc, obs, opts)?;
+        let mut best = plain;
+        if let Some(ro) = &opts.rewrite {
+            let (rc, st) = super::rewrite::phase_regions(pc, ro);
+            if st.rewritten > 0 {
+                let cand = Self::compile_one(&rc, obs, opts)?;
+                let cost = |c: &CompiledCircuit| {
+                    c.stats
+                        .parts
+                        .iter()
+                        .fold((0usize, 0usize), |a, p| (a.0 + p.2, a.1 + p.1))
+                };
+                if cost(&cand) < cost(&best) {
+                    best = cand;
+                    best.stats.rewritten = true;
+                }
+            }
+        }
+        if opts.prefix_cache {
+            for (_, p) in best.parts.iter_mut() {
+                p.compute_prefix()?;
+            }
+        }
+        best.stats.compile_secs = t0.elapsed().as_secs_f64();
+        Ok(best)
+    }
+
+    fn compile_one(
         pc: &ParamCircuit,
         obs: Option<&Observable>,
         opts: &GraphOptions,
