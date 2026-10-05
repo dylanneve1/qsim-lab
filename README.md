@@ -114,6 +114,7 @@ cargo run --release --example surface_threshold
 
 # CLI
 cargo run --release -- run ghz --qubits 6 --backend stab
+cargo run --release -- export --example qft --qubits 4 -o qft4.onnx   # open in https://netron.app
 cargo run --release -- bench qft
 
 # 31-bit gate-level Shor (~90 s and ~4.3 GB on an M1 Pro)
@@ -181,7 +182,7 @@ All notebooks with one-line summaries: [research/README.md](research/README.md).
 - **QEC:** [qec.md](research/qec/qec.md) · [qec-r4.md](research/qec/qec-r4.md) · [schedules.md](research/qec/schedules.md) · [colour-global.md](research/qec/colour-global.md) · [colour-flags.md](research/qec/colour-flags.md) · [theory-colour.md](research/theory/theory-colour.md) · [fast-sampler.md](research/qec/fast-sampler.md) · [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) · [sampler-x.md](research/qec/sampler-x.md) · [neural-decoder.md](research/qec/neural-decoder.md) · [alphaqubit-lite.md](research/qec/alphaqubit-lite.md) · [code-discovery.md](research/qec/code-discovery.md) · [stab.md](research/performance/stab.md)
 - **Simulability, magic and physics:** [simulability.md](research/simulability/simulability.md) · [planner.md](research/simulability/planner.md) · [planner-v2.md](research/simulability/planner-v2.md) · [magic-atlas.md](research/simulability/magic-atlas.md) · [magic-transition.md](research/simulability/magic-transition.md) · [lowmagic-chem.md](research/simulability/lowmagic-chem.md) · [transition-theory.md](research/theory/transition-theory.md) · [theory-rank.md](research/theory/theory-rank.md) · [stabrank-lower.md](research/theory/stabrank-lower.md) · [adaptive.md](research/simulability/adaptive.md) · [pauli.md](research/performance/pauli.md) · [spoof-utility.md](research/simulability/spoof-utility.md)
 - **Performance:** [sv.md](research/performance/sv.md) · [mac-m1.md](research/performance/mac-m1.md) · [metal.md](research/performance/metal.md) · [ooc.md](research/performance/ooc.md) · [hsf.md](research/performance/hsf.md) · [mps.md](research/performance/mps.md) · [sv-monomial.md](research/performance/sv-monomial.md) · [autoimprove.md](research/performance/autoimprove.md) · [dense-fusion.md](research/performance/dense-fusion.md)
-- **Compiler:** [compiler.md](research/compiler/compiler.md) · [dag.md](research/compiler/dag.md) · [pipeline.md](research/performance/pipeline.md) · [repeat.md](research/compiler/repeat.md) · [phasepoly.md](research/compiler/phasepoly.md) · [todd.md](research/compiler/todd.md) · [graph-compiler.md](research/compiler/graph-compiler.md)
+- **Compiler:** [netron-export.md](research/compiler/netron-export.md) · [compiler.md](research/compiler/compiler.md) · [dag.md](research/compiler/dag.md) · [pipeline.md](research/performance/pipeline.md) · [repeat.md](research/compiler/repeat.md) · [phasepoly.md](research/compiler/phasepoly.md) · [todd.md](research/compiler/todd.md) · [graph-compiler.md](research/compiler/graph-compiler.md)
 - **Process:** [audit.md](research/process/audit.md) · [literature.md](research/process/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md) · [ARCHIVE.md](research/process/ARCHIVE.md) (archived branches)
 
 ## Corrections we have published

@@ -82,6 +82,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [todd.md](compiler/todd.md) | T-count optimisation with TODD on Hadamard-delimited slots, exact path-sum verification, against the best published counts |
 | [repeat.md](compiler/repeat.md) | Exact exploitation of repeated blocks (`compile::repeat`) |
 | [graph-compiler.md](compiler/graph-compiler.md) | Graph compiler: compile-once/bind, subgraph dedup, rewrites, basis folding, engine partitioning (`src/graph/`) |
+| [netron-export.md](compiler/netron-export.md) | Circuits as ONNX graphs for Netron (`qsim export`): mapping, checks, gallery renderer |
 
 ## Theory — [`theory/`](theory/)
 
