@@ -524,6 +524,124 @@ fn dedup_bench() {
     }
 }
 
+/// Long shallow chain A (MPS-friendly) + small deep all-to-all core B
+/// (state-vector friendly), joined by `cuts` CZ gates in the middle.
+pub fn chain_core(
+    na: usize,
+    nb: usize,
+    da: usize,
+    db: usize,
+    cuts: usize,
+    seed: u64,
+) -> qsim_lab::Circuit {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let n = na + nb;
+    let mut c = qsim_lab::Circuit::new(n);
+    let u = |rng: &mut StdRng, q: usize| {
+        Gate::U(
+            q,
+            rng.random_range(0.0..3.1),
+            rng.random_range(0.0..6.2),
+            rng.random_range(0.0..6.2),
+        )
+    };
+    let half = |c: &mut qsim_lab::Circuit, rng: &mut StdRng, da: usize, db: usize| {
+        for l in 0..da {
+            for q in 0..na {
+                c.gate(u(rng, q));
+            }
+            for q in (l % 2..na - 1).step_by(2) {
+                c.gate(Gate::Cz(q, q + 1));
+            }
+        }
+        for _ in 0..db {
+            for q in na..n {
+                c.gate(u(rng, q));
+            }
+            let mut qs: Vec<usize> = (na..n).collect();
+            for i in (1..qs.len()).rev() {
+                qs.swap(i, rng.random_range(0..=i));
+            }
+            for p in qs.chunks(2) {
+                if p.len() == 2 {
+                    c.gate(Gate::Cz(p[0], p[1]));
+                }
+            }
+        }
+    };
+    half(&mut c, &mut rng, da / 2, db / 2);
+    for _ in 0..cuts {
+        let a = rng.random_range(0..na);
+        let b = rng.random_range(na..n);
+        c.gate(Gate::Cz(a, b));
+    }
+    half(&mut c, &mut rng, da - da / 2, db - db / 2);
+    c
+}
+
+fn partition_bench(na: usize, nb: usize, da: usize, db: usize, cuts: usize, deadline: f64) {
+    use qsim_lab::graph::partition::{cut_amplitudes, plan_cut};
+    use qsim_lab::planner::{self, Engine, PlannerConfig};
+    let c = chain_core(na, nb, da, db, cuts, 3);
+    let n = na + nb;
+    let mut rng = StdRng::seed_from_u64(4);
+    let m = 64;
+    let xs: Vec<u128> = (0..m)
+        .map(|_| rng.random::<u128>() & ((1u128 << n) - 1))
+        .collect();
+    let cfg = PlannerConfig::default();
+    let (tp, plan) = time(|| plan_cut(&c, m, &cfg, 10, nb + 4));
+    let plan = plan.unwrap();
+    println!(
+        "chain_core na={na} nb={nb} da={da} db={db} cuts={cuts} gates={} | plan {:.2}s: cut {} |B|={} A:{:?} B:{:?} predicted {:.3}s; single best {:?}",
+        c.num_gates(),
+        tp,
+        plan.cut,
+        plan.in_a.iter().filter(|&&a| !a).count(),
+        plan.side_a,
+        plan.side_b,
+        plan.predicted_secs,
+        plan.single
+    );
+    let mut best = f64::INFINITY;
+    let mut amps = Vec::new();
+    for _ in 0..reps() {
+        let (t, a) = time(|| cut_amplitudes(&c, &plan, &xs, &cfg).unwrap());
+        best = best.min(t);
+        amps = a;
+    }
+    let norm: f64 = amps.iter().map(|a| a.norm_sqr()).sum::<f64>();
+    println!(
+        "  partitioned: {:.3}s for {m} amplitudes (sum |a|^2 = {norm:.3e})",
+        best
+    );
+    // every single engine, with a deadline
+    for e in [
+        Engine::StateVector,
+        Engine::Mps,
+        Engine::Hsf,
+        Engine::Sparse,
+    ] {
+        let (t, r) = time(|| planner::prepare(e, &c, &cfg, Some(deadline)));
+        let what = match r {
+            Ok(Some(mut p)) => match p.amplitudes(&xs) {
+                Ok(a) => {
+                    let err = a
+                        .iter()
+                        .zip(&amps)
+                        .map(|(x, y)| (x - y).norm())
+                        .fold(0.0, f64::max);
+                    format!("ok, max |diff| vs partitioned {err:.2e}")
+                }
+                Err(e) => format!("read-out error {e}"),
+            },
+            Ok(None) => format!("aborted (deadline {deadline}s / budget)"),
+            Err(e) => format!("error: {e}"),
+        };
+        println!("  single {e:?}: {t:.2}s {what}");
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let pipe = std::env::var("PIPE").is_ok();
@@ -570,6 +688,11 @@ fn main() {
             }
         }
         Some("dedup") => dedup_bench(),
+        Some("partition") => {
+            let a: Vec<usize> = args[2..7].iter().map(|x| x.parse().unwrap()).collect();
+            let dl: f64 = args.get(7).map_or(30.0, |x| x.parse().unwrap());
+            partition_bench(a[0], a[1], a[2], a[3], a[4], dl);
+        }
         _ => eprintln!("usage: graph_bench bind|rewrite|dedup [workload n p binds]"),
     }
 }
