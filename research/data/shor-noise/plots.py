@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plots for research/shor-noise.md (run analyze.py first; reads raw/ again)."""
+"""Plots for research/shor/shor-noise.md (run analyze.py first; reads raw/ again)."""
 import math, os, random
 import matplotlib
 matplotlib.use('Agg')

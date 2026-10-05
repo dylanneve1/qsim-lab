@@ -1,4 +1,4 @@
-//! Audit helper (research/audit.md §16): builds a magic-atlas instance and
+//! Audit helper (research/process/audit.md §16): builds a magic-atlas instance and
 //! writes the dense state after every original gate (raw little-endian
 //! f64 re,im pairs, 2^n per gate), for an independent stabilizer-nullity
 //! computation in Python.

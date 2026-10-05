@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Predicted work of exact branch tracking for the semiclassical gate-level
-Shor circuit (research/shor.md, round 4).
+Shor circuit (research/shor/shor.md, round 4).
 
 Before round i (t = 2n rounds) the work register is supported on
 {a^(m 2^(t-i)) : 0 <= m < 2^i}, of size B_i = min(2^i, r / gcd(r, 2^(t-i))).

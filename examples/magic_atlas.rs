@@ -1,4 +1,4 @@
-//! Magic atlas CLI (research/magic-atlas.md).
+//! Magic atlas CLI (research/simulability/magic-atlas.md).
 //!
 //! ```text
 //! magic_atlas profile SPEC [SEED] [PROFILE_CSV]   # one JSON line; optional per-checkpoint CSV

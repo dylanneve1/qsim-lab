@@ -1,4 +1,4 @@
-"""Toffoli cost models (research/ge-shor.md section 5).
+"""Toffoli cost models (research/shor/ge-shor.md section 5).
 
 GE19: Gidney & Ekera 2019 (arXiv:1905.09749), per lookup-addition 2n + 2^(ce+cm)
 Toffolis (their accounting), 2*(ne/ce)*(n/cm) lookup-additions, ne = 1.5n (EH).

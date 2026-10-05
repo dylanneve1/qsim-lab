@@ -287,7 +287,7 @@ impl Default for MetalConfig {
     fn default() -> Self {
         // Register kernel, 2^9 amplitudes per threadgroup of 64 threads
         // (8 per thread): best or within 10% of best for both QFT-26 and
-        // brickwork-26 in a sweep on an M1 Pro (research/metal.md).
+        // brickwork-26 in a sweep on an M1 Pro (research/performance/metal.md).
         MetalConfig {
             tg_bits: 9,
             slots: 4,
