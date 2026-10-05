@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Planner v2 data (research/planner-v2.md §1): one process per
+"""Planner v2 data (research/simulability/planner-v2.md §1): one process per
 (instance, engine), `planner_v2 req ENGINE SPEC SEED`, which evolves once and
 times every read-out (e, a1, a1k, prep, s1, s1k, s100k).
 

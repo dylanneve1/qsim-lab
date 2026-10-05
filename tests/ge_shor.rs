@@ -80,7 +80,7 @@ fn windowed_gate_by_gate_matches() {
     }
 }
 
-/// Theorem 1(b) of research/theory-shor.md (exact support of the
+/// Theorem 1(b) of research/theory/theory-shor.md (exact support of the
 /// semiclassical state after `i` measured bits).
 fn support_closed(n_mod: u64, a: u64, t: usize, i: usize, y: u128) -> usize {
     let gi = shor_ge::pow2k(a, t - i, n_mod);

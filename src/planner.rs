@@ -1,7 +1,7 @@
 //! Planner v2: choose the exact engine for a circuit and a *request*
 //! (expectation value, samples, amplitudes) from fitted per-engine cost
-//! models (research/planner.md, research/planner-v2.md,
-//! research/simulability.md).
+//! models (research/simulability/planner.md, research/simulability/planner-v2.md,
+//! research/simulability/simulability.md).
 //!
 //! ```text
 //! plan(circuit, request, config)
@@ -147,7 +147,7 @@ impl EngineModel {
 }
 
 /// Read-out costs (seconds per operation-count unit) on top of the
-/// evolution; research/planner-v2.md §2 defines the units.
+/// evolution; research/simulability/planner-v2.md §2 defines the units.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ReadoutModel {
     /// State vector (and HSF full output) sampling: per amplitude of the
@@ -199,7 +199,7 @@ pub struct CostModel {
 }
 
 impl ReadoutModel {
-    /// Fitted on the Mac (M1 Pro, one thread; research/planner-v2.md §2,
+    /// Fitted on the Mac (M1 Pro, one thread; research/simulability/planner-v2.md §2,
     /// `fit_v2.py`, all 350 instances).
     pub fn mac_m1() -> Self {
         ReadoutModel {
@@ -222,7 +222,7 @@ impl ReadoutModel {
 }
 
 impl CostModel {
-    /// Planner v2 (research/planner-v2.md §2): every model refitted on the
+    /// Planner v2 (research/simulability/planner-v2.md §2): every model refitted on the
     /// v2 Mac session (M1 Pro, one thread, 350 instances): expectation
     /// models on whole runs, `state` models on the evolution alone.
     pub fn mac_m1() -> Self {
@@ -246,7 +246,7 @@ impl CostModel {
         }
     }
 
-    /// Planner v1's constants (research/planner.md §3: the round-4 sweep,
+    /// Planner v1's constants (research/simulability/planner.md §3: the round-4 sweep,
     /// MPS refitted on the replayed work), for [`PlannerConfig::v1`].
     pub fn mac_m1_v1() -> Self {
         let m = |a: f64, b: f64| EngineModel { a, b };
@@ -279,7 +279,7 @@ impl Default for CostModel {
 }
 
 /// Predicted seconds of each planning tier (fitted on the Mac,
-/// research/planner-v2.md §3; RMSE 0.12-0.37 decades).
+/// research/simulability/planner-v2.md §3; RMSE 0.12-0.37 decades).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FeatureCost {
     /// Tier 1a, affine support bound: fixed + per gate.
@@ -379,7 +379,7 @@ impl Default for PlannerConfig {
 }
 
 impl PlannerConfig {
-    /// Planner v1 (research/planner.md): v1 staging, no cache.
+    /// Planner v1 (research/simulability/planner.md): v1 staging, no cache.
     pub fn v1() -> Self {
         PlannerConfig {
             tiered: false,
@@ -820,7 +820,7 @@ fn empty_plan(engine: Engine, ranked: Vec<(Engine, f64)>, features: PlanFeatures
     }
 }
 
-/// Planner v1 (research/planner.md §3), kept for A/B comparisons.
+/// Planner v1 (research/simulability/planner.md §3), kept for A/B comparisons.
 fn plan_v1(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, SimError> {
     let t0 = Instant::now();
     let n = c.num_qubits;
@@ -1139,7 +1139,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         ));
     }
     let fc = &cfg.feature_cost;
-    // tuned offline on the read-out session (research/planner-v2.md §3)
+    // tuned offline on the read-out session (research/simulability/planner-v2.md §3)
     let cfg = &PlannerConfig {
         voi: if amps { cfg.voi_amplitudes } else { cfg.voi },
         ..*cfg

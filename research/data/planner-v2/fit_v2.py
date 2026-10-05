@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Planner v2 cost models and leave-one-family-out decision study
-(research/planner-v2.md §2).
+(research/simulability/planner-v2.md §2).
 
 Inputs: the Mac read-out timings (`collect_req.py` -> mac/req.jsonl) and the
 planner features (`planner_v2 feat` -> feat.jsonl, deterministic).

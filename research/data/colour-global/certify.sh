@@ -1,5 +1,5 @@
 #!/bin/bash
-# Re-derive every UNSAT claim of research/colour-global.md as a CNF (schedule-space encoding +
+# Re-derive every UNSAT claim of research/qec/colour-global.md as a CNF (schedule-space encoding +
 # CEGAR cuts), re-solve it with Glucose emitting a DRAT proof, and check it with drat-trim.
 # usage: certify.sh <python> <drat-trim>   (writes certs/<name>.{cnf,drat,log} and certs/summary.txt)
 PY=${1:-python3}; DT=${2:-drat-trim}

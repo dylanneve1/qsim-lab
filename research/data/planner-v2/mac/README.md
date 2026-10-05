@@ -1,4 +1,4 @@
-Mac (M1 Pro, one thread, RAYON_NUM_THREADS=1, bench lock). Single shots. research/planner-v2.md.
+Mac (M1 Pro, one thread, RAYON_NUM_THREADS=1, bench lock). Single shots. research/simulability/planner-v2.md.
 - req.jsonl: read-out session (`planner_v2 req ENGINE`), 1770 (instance, engine) rows; evolve + every read-out
   timed separately. Load 6.7-12 (chunks 1-2, another agent's LER campaign running), 4.1-12.2 (chunks 3-4).
   Pairs the round-4 sweep measured as censored or > 4 s are `skipped` (counted as censored).

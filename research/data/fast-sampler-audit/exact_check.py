@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent exact check of the FastSampler (audit, research/fast-sampler-audit.md).
+"""Independent exact check of the FastSampler (audit, research/qec/fast-sampler-audit.md).
 
 For small Stim circuits:
   (A) EXACT ground truth: a branching TableauSimulator interpreter that follows Stim's channel

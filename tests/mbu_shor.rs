@@ -135,7 +135,7 @@ fn mbu_block_is_outcome_independent() {
     }
 }
 
-/// T2(c) of `research/theory-shor.md` on the measurement-based blocks: with
+/// T2(c) of `research/theory/theory-shor.md` on the measurement-based blocks: with
 /// a two-branch input (control |+⟩, x a basis state) the state at **every**
 /// op boundary (after each projection) is two distinct basis branches of
 /// equal weight whose relative phase is ±1, so it is a stabilizer state
@@ -174,7 +174,7 @@ fn t2_mbu_two_branch_boundaries_stay_stabilizer() {
 
 #[test]
 fn mbu_counts_halve_toffolis() {
-    // 20-bit instance of research/superopt.md
+    // 20-bit instance of research/shor/superopt.md
     let n_mod = 1_005_973u64;
     let n = shor::work_bits(n_mod);
     let a = 2;

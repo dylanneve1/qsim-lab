@@ -343,7 +343,7 @@ fn parse_csv_line(line: &str) -> Vec<String> {
 }
 
 /// Geometric-mean regret of the planner on the Mac dataset (state engines,
-/// request `<Z^{⊗n}>`), against research/simulability.md §5 (held-out
+/// request `<Z^{⊗n}>`), against research/simulability/simulability.md §5 (held-out
 /// 1.25×, top-1 85 %).
 #[test]
 fn dataset_regret_no_worse_than_published() {
@@ -401,7 +401,7 @@ fn dataset_regret_no_worse_than_published() {
         use_certificate: false,
         ..PlannerConfig::v1()
     };
-    // Planner v2 (tiered planning, research/planner-v2.md), no cache
+    // Planner v2 (tiered planning, research/simulability/planner-v2.md), no cache
     let tiered = PlannerConfig {
         use_certificate: false,
         cache: false,

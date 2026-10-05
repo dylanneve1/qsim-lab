@@ -42,6 +42,7 @@ pub mod compile;
 pub mod dag;
 pub mod dense_fusion;
 mod dense_kernels;
+pub mod ft;
 pub mod gate;
 pub mod hsf;
 pub mod magic_atlas;
