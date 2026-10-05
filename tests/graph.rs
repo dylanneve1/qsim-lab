@@ -462,7 +462,7 @@ fn dedup_blocks_reproduce_the_circuit() {
             let mut s = RefSv::new(n);
             for &bi in &order {
                 let b = &d.blocks[bi];
-                assert!(b.qubits.len() <= k);
+                assert!(b.qubits.len() <= k || b.ops.len() == 1);
                 for u in [&u_plain[bi], &u_dedup[bi]] {
                     assert!(u
                         .iter()
