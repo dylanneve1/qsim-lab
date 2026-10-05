@@ -45,7 +45,11 @@ fn walk_stats(m: &Model) -> (f64, Vec<f64>, Vec<f64>, f64, f64, Vec<f64>) {
                 }
                 if w.faithful {
                     // registers swap every window
-                    let (ix, ib) = if wn % 2 == 0 { (j, j2) } else { (j2, j) };
+                    let (ix, ib) = if wn.is_multiple_of(2) {
+                        (j, j2)
+                    } else {
+                        (j2, j)
+                    };
                     dx += (w.jx - ix as i64).abs() as f64;
                     db += (w.jb - ib as i64).abs() as f64;
                 }
@@ -363,7 +367,7 @@ fn main() {
                         } else {
                             (j2 as i64, j as i64)
                         };
-                        if !w.first_bad.is_some_and(|fb| fb <= k) {
+                        if w.first_bad.is_none_or(|fb| fb > k) {
                             disp[k].0 += (jx - ix) as f64;
                             disp[k].1 += ((jx - ix) as f64).powi(2);
                             nf[k] += 1.0;

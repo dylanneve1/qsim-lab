@@ -224,7 +224,7 @@ pub fn plan_cut(
             continue;
         };
         let t = reps * (pa.1 + pb.1);
-        if best.as_ref().map_or(true, |b| t < b.predicted_secs) {
+        if best.as_ref().is_none_or(|b| t < b.predicted_secs) {
             best = Some(CutPlan {
                 in_a,
                 cut: k,

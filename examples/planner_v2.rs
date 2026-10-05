@@ -420,6 +420,7 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         tier: 3,
         computed: [true; 6],
         hsf_split: None,
+        tn: None,
         base: base.clone(),
     };
     let mut choices = Vec::new();

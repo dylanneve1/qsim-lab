@@ -416,7 +416,7 @@ pub fn schedule_ooc(
 
             let score = (potential_hits as f64 + 1.0) / (k as f64);
 
-            if best_candidate.as_ref().map_or(true, |c| score > c.score) {
+            if best_candidate.as_ref().is_none_or(|c| score > c.score) {
                 best_candidate = Some(CandidateChoice {
                     needed,
                     evicted,

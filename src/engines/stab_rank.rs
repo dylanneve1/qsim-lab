@@ -565,7 +565,7 @@ impl ChState {
             return None;
         }
         let b = (r.e as u32 + 2 * popcount_and(&r.z, s)) % 4;
-        debug_assert!(b % 2 == 0);
+        debug_assert!(b.is_multiple_of(2));
         Some(b == 2) // true = eigenvalue −1
     }
 

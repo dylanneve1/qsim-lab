@@ -123,7 +123,7 @@ impl SliceIsa {
     pub fn active(l: usize) -> SliceIsa {
         #[cfg(target_arch = "x86_64")]
         {
-            if l % 8 == 0 && has_avx512() {
+            if l.is_multiple_of(8) && has_avx512() {
                 return SliceIsa::Avx512;
             }
             if has_avx2() {
@@ -165,7 +165,7 @@ impl<const L: usize> SliceBuf<L> {
 fn dispatch<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
     #[cfg(target_arch = "x86_64")]
     {
-        if L % 8 == 0 && has_avx512() {
+        if L.is_multiple_of(8) && has_avx512() {
             // SAFETY: AVX-512F detected at run time; L is a multiple of 8;
             // indices are checked by the callers.
             unsafe { eval_avx512::<L>(ops, w) };
@@ -262,7 +262,7 @@ unsafe fn eval_avx2<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
 #[target_feature(enable = "avx512f")]
 unsafe fn eval_avx512<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
     use std::arch::x86_64::{_mm512_loadu_si512, _mm512_storeu_si512, _mm512_ternarylogic_epi64};
-    debug_assert!(L % 8 == 0);
+    debug_assert!(L.is_multiple_of(8));
     let base = w.as_mut_ptr().cast::<u64>();
     for &[t, a, b] in ops {
         // SAFETY: indices < w.len() (caller); each word is L u64, L % 8 == 0,
@@ -428,7 +428,7 @@ impl SlicedProgram {
             SliceIsa::Avx2 => unsafe { eval_avx2::<L>(&self.ops, w) },
             #[cfg(target_arch = "x86_64")]
             SliceIsa::Avx512 => {
-                assert!(L % 8 == 0, "the AVX-512 tier needs L % 8 == 0");
+                assert!(L.is_multiple_of(8), "the AVX-512 tier needs L % 8 == 0");
                 // SAFETY: AVX-512F availability asserted above; L % 8 == 0.
                 unsafe { eval_avx512::<L>(&self.ops, w) }
             }
@@ -1078,7 +1078,7 @@ mod tests {
         let mut want = w0.to_vec();
         prog.eval_with::<L>(SliceIsa::Scalar, &mut want);
         for isa in [SliceIsa::Scalar, SliceIsa::Avx2, SliceIsa::Avx512] {
-            if !isa.available() || (isa == SliceIsa::Avx512 && L % 8 != 0) {
+            if !isa.available() || (isa == SliceIsa::Avx512 && !L.is_multiple_of(8)) {
                 continue;
             }
             let mut buf = SliceBuf::<L>::new(w0.len());

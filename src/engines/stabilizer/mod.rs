@@ -402,7 +402,7 @@ impl Tableau {
             + 2 * get_bit(&self.sz, a) as u32
             + ph.total()
             + if dagger { 1 } else { 3 };
-        debug_assert!(!track || e % 2 == 0);
+        debug_assert!(!track || e.is_multiple_of(2));
         set_bit(&mut self.sx, a, e & 3 == 2);
     }
 

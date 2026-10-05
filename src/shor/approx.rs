@@ -127,9 +127,9 @@ fn prime_factors(mut x: u64) -> Vec<u64> {
     let mut f = Vec::new();
     let mut d = 2;
     while d * d <= x {
-        if x % d == 0 {
+        if x.is_multiple_of(d) {
             f.push(d);
-            while x % d == 0 {
+            while x.is_multiple_of(d) {
                 x /= d;
             }
         }
@@ -443,7 +443,7 @@ impl ApproxConfig {
     /// Runs the precomputation (port of `ExecutionConfig.from_problem_config`).
     pub fn new(p: &ApproxParams) -> Result<Self, ApproxError> {
         let n_mod = p.n_mod;
-        if n_mod >= 1 << 32 || n_mod < 15 {
+        if !(15..1 << 32).contains(&n_mod) {
             return Err(ApproxError::Params(format!(
                 "N = {n_mod} outside [15, 2^32)"
             )));
@@ -706,7 +706,7 @@ fn check_rns(
         if mults.iter().flatten().any(|&f| f % q == 0) {
             return Err(ApproxError::NoRns(format!("{q} divides a multiplier")));
         }
-        if p.n_mod % q == 0 {
+        if p.n_mod.is_multiple_of(q) {
             return Err(ApproxError::NoRns(format!("{q} divides N")));
         }
     }
@@ -762,7 +762,7 @@ fn find_rns(
     let mut acceptable: Vec<u64> = available
         .iter()
         .copied()
-        .filter(|&q| n_mod % q != 0 && mults.iter().flatten().all(|&f| f % q != 0))
+        .filter(|&q| !n_mod.is_multiple_of(q) && mults.iter().flatten().all(|&f| f % q != 0))
         .collect();
     if acceptable.len() < 4 {
         return Err(ApproxError::NoRns("too few acceptable primes".into()));
@@ -806,7 +806,7 @@ fn find_rns(
             // prune: divide out primes that divide the candidate
             let mut kept: Vec<u64> = choice.clone();
             for &q in &choice {
-                if cand % q == 0 {
+                if cand.is_multiple_of(q) {
                     cand /= q;
                     kept.retain(|&x| x != q);
                 }

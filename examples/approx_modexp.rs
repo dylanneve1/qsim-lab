@@ -434,7 +434,7 @@ fn cmd_dist(a: &HashMap<String, String>) {
         }
         // Ekerå–Håstad pair quality: alpha = {d j + 2^m k} mod 2^{m+l}, centred
         let mbits = ge::eh_m(n_mod);
-        let pf = (2..n_mod).find(|&x| n_mod % x == 0).unwrap();
+        let pf = (2..n_mod).find(|&x| n_mod.is_multiple_of(x)).unwrap();
         let d = (pf + n_mod / pf - 2) / 2;
         let lb = p.regs[1].0;
         let modl = 1u128 << (mbits + lb);
@@ -760,6 +760,7 @@ fn cmd_sweep(a: &HashMap<String, String>) {
                 p.generator,
                 &[&d.actual, &d.ideal],
                 1e-13,
+                4096,
             );
             (s[0], s[1])
         };

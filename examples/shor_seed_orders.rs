@@ -26,14 +26,14 @@ fn main() {
         assert_eq!(pow_mod(a, lambda, n), 1);
         let mut r = lambda;
         for &p in primes {
-            if r % p == 0 && pow_mod(a, r / p, n) == 1 {
+            if r.is_multiple_of(p) && pow_mod(a, r / p, n) == 1 {
                 r /= p;
             }
         }
         let nu = r.trailing_zeros();
         let r_odd = r >> nu;
         let peak = if nu == 0 { r } else { r_odd.max(r / 2) };
-        let ok = r % 2 == 0 && pow_mod(a, r / 2, n) != n - 1;
+        let ok = r.is_multiple_of(2) && pow_mod(a, r / 2, n) != n - 1;
         println!(
             "seed={seed:2} a={a} r={r} nu2={nu} peak_support={peak} est_rss_f32={:.2} GB classical_ok={ok}",
             33.0 * peak as f64 / 1e9

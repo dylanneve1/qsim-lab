@@ -95,9 +95,9 @@ fn support_closed(n_mod: u64, a: u64, t: usize, i: usize, y: u128) -> usize {
         return p as usize;
     }
     let s = p % r;
-    let zeta_ne_1 = (r * y) % p != 0;
-    let b1 = zeta_ne_1 && (s * y) % p == 0;
-    let b2 = zeta_ne_1 && ((r - s) * y) % p == 0;
+    let zeta_ne_1 = !(r * y).is_multiple_of(p);
+    let b1 = zeta_ne_1 && (s * y).is_multiple_of(p);
+    let b2 = zeta_ne_1 && ((r - s) * y).is_multiple_of(p);
     (r - if b1 { r - s } else { 0 } - if b2 { s } else { 0 }) as usize
 }
 

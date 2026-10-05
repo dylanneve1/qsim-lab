@@ -363,7 +363,7 @@ pub fn merge(mut rots: Vec<Rotation>) -> Vec<Rotation> {
 /// a Hermitian string `Q`: unchanged if they commute, else `-Q` (`k = 4`)
 /// or `∓ i Q P` (`k = 2`, `6`).
 pub fn conjugate_by_rotation(q: &Pauli, p: &Pauli, k: u8) -> Pauli {
-    if q.commutes(p) || k % 8 == 0 {
+    if q.commutes(p) || k.is_multiple_of(8) {
         return q.clone();
     }
     match k % 8 {

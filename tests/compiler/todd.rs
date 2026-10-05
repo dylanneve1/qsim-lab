@@ -4,9 +4,12 @@
 //! engine on random states), corrupted outputs must fail every check, and
 //! the benchmark T-counts must not regress.
 
+#[path = "../audit_common/mod.rs"]
+mod audit_common;
 #[path = "../common/mod.rs"]
 mod common;
 
+use audit_common::{base_seed, iters};
 use common::*;
 use num_complex::Complex64;
 use qsim_lab::compile::todd::verify::{
@@ -134,7 +137,7 @@ fn random_phase_circuit(n: usize, len: usize, rng: &mut StdRng) -> PhaseCircuit 
     let mut gates = Vec::with_capacity(len);
     for _ in 0..len {
         let q = rng.random_range(0..n);
-        let mut other = |not: &[usize], rng: &mut StdRng| loop {
+        let other = |not: &[usize], rng: &mut StdRng| loop {
             let x = rng.random_range(0..n);
             if !not.contains(&x) {
                 break x;
@@ -215,10 +218,10 @@ fn corrupted_outputs_fail_verification() {
             Gate::Tdg(q) => vec![Gate::T(q)],
             Gate::S(q) => vec![Gate::Sdg(q)],
             Gate::Sdg(q) => vec![Gate::S(q)],
-            Gate::Z(q) => vec![],
+            Gate::Z(_q) => vec![],
             Gate::H(q) => vec![Gate::H((q + 1) % n)],
             Gate::Cnot(a, b) => vec![Gate::Cnot(b, a)],
-            Gate::X(q) => vec![],
+            Gate::X(_q) => vec![],
             _ => continue,
         };
         let mut bad = out.clone();

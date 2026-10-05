@@ -895,7 +895,7 @@ impl CompiledCircuit {
     /// NumPy binding hands over) → one expectation value per row.
     pub fn sweep_flat(&self, flat: &[f64]) -> Result<Vec<f64>, SimError> {
         let p = self.num_params.max(1);
-        if self.num_params == 0 || flat.len() % p != 0 {
+        if self.num_params == 0 || !flat.len().is_multiple_of(p) {
             return Err(SimError::NotSupported {
                 what: "sweep_flat: length is not a multiple of num_params",
             });

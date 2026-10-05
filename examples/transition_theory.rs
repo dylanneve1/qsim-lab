@@ -86,7 +86,7 @@ fn clifford_layer<R: Rng + ?Sized>(
         g.push(MOp::C2(rng.random_range(0..ng) as u16, i, i + 1));
         i += 2;
     }
-    if off == 1 && n % 2 == 0 && n > 2 {
+    if off == 1 && n.is_multiple_of(2) && n > 2 {
         g.push(MOp::C2(rng.random_range(0..ng) as u16, n - 1, 0));
     }
     let mut ms = Vec::new();

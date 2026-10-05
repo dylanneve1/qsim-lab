@@ -428,7 +428,7 @@ impl Parser {
             _ => None,
         };
         if let Some(g) = gate2 {
-            if line.targets.len() % 2 != 0 || !line.args.is_empty() {
+            if !line.targets.len().is_multiple_of(2) || !line.args.is_empty() {
                 return err(format!("bad {name} line"));
             }
             for pair in line.targets.chunks(2) {
@@ -494,7 +494,7 @@ impl Parser {
             }
             "DEPOLARIZE2" => {
                 let p = Self::prob(line)?;
-                if line.targets.len() % 2 != 0 {
+                if !line.targets.len().is_multiple_of(2) {
                     return err("DEPOLARIZE2 needs pairs");
                 }
                 for pair in line.targets.chunks(2) {
@@ -1198,7 +1198,7 @@ impl Builder {
         };
         if let Some(g) = g2 {
             let ts: Vec<&str> = targets.collect();
-            if ts.len() % 2 != 0 || !self.args.is_empty() {
+            if !ts.len().is_multiple_of(2) || !self.args.is_empty() {
                 return err(format!("bad {name} line"));
             }
             for pair in ts.chunks(2) {
@@ -1264,7 +1264,7 @@ impl Builder {
             "DEPOLARIZE2" => {
                 let p = self.prob(name)?;
                 let ts: Vec<&str> = targets.collect();
-                if ts.len() % 2 != 0 {
+                if !ts.len().is_multiple_of(2) {
                     return err("DEPOLARIZE2 needs pairs");
                 }
                 for t in ts {

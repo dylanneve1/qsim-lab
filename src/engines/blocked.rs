@@ -2017,6 +2017,7 @@ fn apply_diag_pass<T: Real, const F: bool>(
     let mut row = Vec::new();
     let (_, _, lo, hi, cross) = diag_pass_tables(d, base, sc);
     let View { re, im } = v;
+    #[allow(clippy::needless_range_loop)]
     for h in 0..1usize << (l - lo_bits) {
         let mut e = [[C1; 2]; LO_BITS];
         for c in cross {

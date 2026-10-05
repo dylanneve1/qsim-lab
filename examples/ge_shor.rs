@@ -99,7 +99,7 @@ fn slicebench<const L: usize>(
     }
     let mut want = None;
     for isa in [SliceIsa::Scalar, SliceIsa::Avx2, SliceIsa::Avx512] {
-        if !isa.available() || (isa == SliceIsa::Avx512 && L % 8 != 0) {
+        if !isa.available() || (isa == SliceIsa::Avx512 && !L.is_multiple_of(8)) {
             continue;
         }
         let mut buf = SliceBuf::<L>::new(lay.nq + 2);
