@@ -41,8 +41,8 @@
 use super::sliced::{eval_raw_unchecked, oracle_block, transpose64};
 use super::{postprocess, Instance, Oracle};
 use crate::circuit::{Circuit, Op};
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::statevector::Real;
 use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rand::Rng;
@@ -932,7 +932,7 @@ pub fn order_of(a: u64, n: u64) -> u64 {
 }
 
 /// Role of a qubit in the windowed layout (for fault attribution).
-pub fn windowed_role(lay: &crate::shor_window::WindowLayout, q: usize) -> &'static str {
+pub fn windowed_role(lay: &crate::shor::window::WindowLayout, q: usize) -> &'static str {
     if q == lay.ctrl {
         "ctrl"
     } else if lay.x.contains(&q) {

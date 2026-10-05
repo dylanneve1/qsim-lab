@@ -128,7 +128,7 @@ fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
 
 /// Operation counts of an [`Mps`] run (see [`Mps::stats`]), in the units of
 /// [`svd_work`] / [`qr_work`] / [`matmul_work`]. Used by the planner's MPS
-/// cost model (`crate::mps_cost`), which replays the same control flow
+/// cost model (`crate::engines::mps_cost`), which replays the same control flow
 /// symbolically.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MpsStats {

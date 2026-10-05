@@ -37,6 +37,7 @@
 //! (space edges per round and time edges only) for comparison.
 
 use crate::circuit::Circuit;
+use crate::engines::stabilizer::Tableau;
 use crate::noise::NoiseModel;
 use crate::qec::decoder::{DecodingGraph, UnionFindDecoder};
 use crate::qec::dem::{
@@ -44,7 +45,6 @@ use crate::qec::dem::{
     ErrorMechanism, GraphReport,
 };
 use crate::qec::repetition::MemoryExperimentResult;
-use crate::stabilizer::Tableau;
 use rand::RngCore;
 
 /// A stabilizer face on the dual grid.

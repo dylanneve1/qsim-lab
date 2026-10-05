@@ -51,10 +51,10 @@
 use super::noisy::{Capped, Fault, NoiseKind, Pauli, Site};
 use super::sliced::{eval_raw_unchecked, transpose64};
 use super::{postprocess, Instance, Oracle};
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::shor_mbu::{self, LOp, MbuLayout, MbuOpts};
-use crate::shor_window::WindowLayout;
-use crate::statevector::Real;
+use crate::shor::mbu::{self as shor_mbu, LOp, MbuLayout, MbuOpts};
+use crate::shor::window::WindowLayout;
 use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rand::Rng;
@@ -649,7 +649,7 @@ enum Source {
     Mbu(MbuOpts, usize),
     /// Gidney–Ekerå windowed exponentiation (`shor_ge`, exact arithmetic):
     /// one engine round per exponent window of `we` rounds.
-    Ge(crate::shor_ge::GeOpts),
+    Ge(crate::shor::ge::GeOpts),
 }
 
 /// Where the design variants put Z-basis measure-and-resets
@@ -783,7 +783,7 @@ impl GenCircuit {
     /// per window (`we` divides `t = 2n`), `wm`-bit multiplicand windows,
     /// all MBU constructions, exact modular arithmetic.
     pub fn new_ge(n_mod: u64, a: u64, we: usize, wm: usize, kind: NoiseKind) -> Self {
-        use crate::shor_ge::{GeLayout, GeOpts};
+        use crate::shor::ge::{GeLayout, GeOpts};
         let inst = Instance::new(n_mod, a, Oracle::WindowedMbu(wm));
         assert!(we >= 1 && inst.t % we == 0, "the window must divide t = 2n");
         let o = GeOpts {
@@ -843,7 +843,7 @@ impl GenCircuit {
             }
             Source::Ge(o) => {
                 let inst = &self.inst;
-                let lay = crate::shor_ge::GeLayout::new(inst.m, o);
+                let lay = crate::shor::ge::GeLayout::new(inst.m, o);
                 let we = o.we;
                 let rounds = (0..inst.t / we)
                     .map(|k| {
@@ -1008,10 +1008,10 @@ fn role_tags(lay: &WindowLayout, gates: &[Gate]) -> Vec<u8> {
 
 /// The `windowed-opt` controlled-`U_a` (`Opts::ALL`, block passes) emitted
 /// window by window with exact block tags; asserted equal, gate for gate,
-/// to [`crate::shor_superopt::controlled_ua`].
+/// to [`crate::shor::superopt::controlled_ua`].
 pub fn windowed_opt_tagged(lay: &WindowLayout, a: u64, n_mod: u64) -> (Vec<Gate>, Vec<u8>) {
     use crate::circuit::Circuit;
-    use crate::shor_superopt::{self as so, Opts};
+    use crate::shor::superopt::{self as so, Opts};
     let o = Opts::ALL;
     assert!(o.block_passes && o.direct_first && !o.window_dp);
     let block = so::modadd_block(lay, n_mod, &o);
@@ -1237,16 +1237,16 @@ fn mbu_round(
 /// One window of the Gidney–Ekerå windowed exponentiation, resolved and
 /// tagged (multiply-add by `g^e`, swap, inverse multiply-add by `g^{−e}`).
 fn ge_round(
-    lay: &crate::shor_ge::GeLayout,
-    o: &crate::shor_ge::GeOpts,
+    lay: &crate::shor::ge::GeLayout,
+    o: &crate::shor::ge::GeOpts,
     n_mod: u64,
     g: u64,
     bit: &mut dyn FnMut() -> bool,
 ) -> (Vec<NOp>, Vec<u8>) {
     let ml = lay.mbu.as_ref().expect("exact arithmetic");
-    let lops = crate::shor_ge::window_ops(lay, g, n_mod, o);
+    let lops = crate::shor::ge::window_ops(lay, g, n_mod, o);
     let modadd = shor_mbu::modadd_ops(ml, n_mod, &o.mbu);
-    let len1 = crate::shor_ge::emult(lay, g, n_mod, o, &modadd).len();
+    let len1 = crate::shor::ge::emult(lay, g, n_mod, o, &modadd).len();
     let swap_end = len1 + 3 * lay.nr;
     tag_top(&lops, len1, swap_end, &ml.win.k, bit)
 }

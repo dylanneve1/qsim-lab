@@ -1,5 +1,5 @@
 //! Bit-sliced branch tracking for the gate-level reversible oracles
-//! (ripple-carry [`crate::shor_ripple`] and windowed [`crate::shor_window`]).
+//! (ripple-carry [`crate::shor::ripple`] and windowed [`crate::shor::window`]).
 //!
 //! # What is simulated
 //!
@@ -11,7 +11,7 @@
 //! The controlled-`U` circuit contains only permutation gates, so it maps
 //! every computational basis state to one basis state; the exact state is a
 //! list of (basis state, amplitude) "branches", and applying the circuit means
-//! pushing every branch through every gate — what [`crate::sparse::SparseState`]
+//! pushing every branch through every gate — what [`crate::engines::sparse::SparseState`]
 //! does gate by gate. Here the branches are *bit-sliced*: a batch of `64·L`
 //! branches is stored as one `[u64; L]` word per qubit, and a gate becomes
 //! `w[t] ^= w[c1] & w[c2]` on those words (X and CNOT use an all-ones word as
@@ -40,8 +40,8 @@
 
 use super::{Instance, Oracle, OrderFindingState};
 use crate::circuit::{Circuit, Op};
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::statevector::Real;
 use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rayon::prelude::*;
@@ -117,7 +117,7 @@ pub struct SlicedProgram {
     /// The program addresses the sign word `nq + 1` (Z / CZ fix-ups and
     /// X-basis measurements of measurement-based uncomputation).
     pub signed: bool,
-    /// Accumulated global sign ([`crate::shor_mbu::MbuOp::GlobalNeg`]):
+    /// Accumulated global sign ([`crate::shor::mbu::MbuOp::GlobalNeg`]):
     /// every branch must end with this sign.
     pub global_neg: bool,
 }
@@ -186,7 +186,7 @@ impl SlicedProgram {
         })
     }
 
-    /// Compiles a resolved measurement-based block ([`crate::shor_mbu`]).
+    /// Compiles a resolved measurement-based block ([`crate::shor::mbu`]).
     /// Words: `0..nq` qubits, `nq` all ones, `nq + 1` the per-branch sign.
     /// `Z(q)` is `sign ^= w[q]`, `CZ(a, b)` is `sign ^= w[a] & w[b]`, and an
     /// X-basis measurement of `q` with outcome `m` followed by a reset is
@@ -194,8 +194,8 @@ impl SlicedProgram {
     /// exact when `q` is a deterministic function of the other qubits on
     /// every branch (then `P(m) = 1/2` and no two branches merge); the
     /// evaluator checks the consequences (see [`eval_block`]).
-    pub fn compile_ops(nq: usize, src: &[crate::shor_mbu::MbuOp]) -> Result<Self, String> {
-        use crate::shor_mbu::MbuOp;
+    pub fn compile_ops(nq: usize, src: &[crate::shor::mbu::MbuOp]) -> Result<Self, String> {
+        use crate::shor::mbu::MbuOp;
         let one = nq as u32;
         let sign = one + 1;
         let mut ops = Vec::with_capacity(src.len() + src.len() / 4);
@@ -452,7 +452,7 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
     match inst.oracle {
         Oracle::Ripple => {
             let lay = inst.ripple_layout();
-            let c = crate::shor_ripple::controlled_ua(&lay, 0, mult, inst.n_mod);
+            let c = crate::shor::ripple::controlled_ua(&lay, 0, mult, inst.n_mod);
             (
                 c,
                 SliceIo {
@@ -462,8 +462,8 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
             )
         }
         Oracle::Windowed(w) => {
-            let lay = crate::shor_window::WindowLayout::new(inst.m, w);
-            let c = crate::shor_window::controlled_ua(&lay, mult, inst.n_mod);
+            let lay = crate::shor::window::WindowLayout::new(inst.m, w);
+            let c = crate::shor::window::controlled_ua(&lay, mult, inst.n_mod);
             (
                 c,
                 SliceIo {
@@ -473,12 +473,12 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
             )
         }
         Oracle::WindowedOpt(w) => {
-            let lay = crate::shor_window::WindowLayout::new(inst.m, w);
-            let c = crate::shor_superopt::controlled_ua(
+            let lay = crate::shor::window::WindowLayout::new(inst.m, w);
+            let c = crate::shor::superopt::controlled_ua(
                 &lay,
                 mult,
                 inst.n_mod,
-                &crate::shor_superopt::Opts::ALL,
+                &crate::shor::superopt::Opts::ALL,
             );
             (
                 c,
@@ -493,20 +493,20 @@ pub fn oracle_block(inst: &Instance, mult: u64) -> (Circuit, SliceIo) {
 }
 
 /// The controlled-`U_mult` block of any oracle the sliced engine runs, as
-/// resolved ops ([`crate::shor_mbu::MbuOp`]), with its I/O and qubit count.
+/// resolved ops ([`crate::shor::mbu::MbuOp`]), with its I/O and qubit count.
 /// For the measurement-based oracles the X-basis measurement outcomes are
 /// drawn from a fixed pseudo-random stream seeded by `(N, mult)` (and
 /// `QSIM_MBU_SEED`; `QSIM_MBU_OUTCOMES=zero|one` forces them); a round
 /// applies the *same* outcomes to all of its branches, as one physical
 /// shot would.
-pub fn oracle_ops(inst: &Instance, mult: u64) -> (Vec<crate::shor_mbu::MbuOp>, SliceIo, usize) {
-    use crate::shor_mbu::{MbuLayout, MbuOp, MbuOpts, Outcomes};
+pub fn oracle_ops(inst: &Instance, mult: u64) -> (Vec<crate::shor::mbu::MbuOp>, SliceIo, usize) {
+    use crate::shor::mbu::{MbuLayout, MbuOp, MbuOpts, Outcomes};
     let mbu = |w: usize, o: MbuOpts| {
         let lay = MbuLayout::new(inst.m, w, &o);
         let mut oc = Outcomes::from_env(
             inst.n_mod.wrapping_mul(0x2545_F491_4F6C_DD1D) ^ mult.rotate_left(17),
         );
-        let ops = crate::shor_mbu::controlled_ua(&lay, mult, inst.n_mod, &o, &mut oc);
+        let ops = crate::shor::mbu::controlled_ua(&lay, mult, inst.n_mod, &o, &mut oc);
         let io = SliceIo {
             ctrl: lay.win.ctrl,
             x: lay.win.x.clone(),
@@ -820,7 +820,7 @@ impl<T: Real> OrderFindingState for SlicedState<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shor_ripple::{controlled_ua, eval_circuit_on_key, RippleLayout};
+    use crate::shor::ripple::{controlled_ua, eval_circuit_on_key, RippleLayout};
 
     #[test]
     #[allow(clippy::needless_range_loop)]
@@ -846,7 +846,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "relative sign")]
     fn missing_mbu_fixup_is_caught() {
-        use crate::shor_mbu::MbuOp;
+        use crate::shor::mbu::MbuOp;
         // qubits: 0 ctrl, 1..=2 x, 3 t = x0 ∧ x1, X-measured with outcome 1
         let ops = [MbuOp::G(Gate::Ccx(1, 2, 3)), MbuOp::MeasX(3, true)];
         let prog = SlicedProgram::compile_ops(4, &ops).unwrap();
@@ -859,7 +859,7 @@ mod tests {
 
     #[test]
     fn mbu_fixup_cancels_the_measurement_phase() {
-        use crate::shor_mbu::MbuOp;
+        use crate::shor::mbu::MbuOp;
         for m in [false, true] {
             let mut ops = vec![MbuOp::G(Gate::Ccx(1, 2, 3)), MbuOp::MeasX(3, m)];
             if m {

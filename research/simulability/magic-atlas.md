@@ -2,8 +2,8 @@
 
 Branch `exp/magic-atlas`. Author: qsim-magic-atlas agent (round 4, 4 Oct 2026). Based on main 73fb9fb.
 Code: `src/magic_atlas/{mod.rs,families.rs}`, `examples/magic_atlas.rs`, `tests/magic_atlas.rs`
-(11 tests), two small changes in `src/pauli_frame.rs` (support-only `map`, `post_conjugate`) and
-`src/adaptive.rs` (frame internals made `pub(crate)`).
+(11 tests), two small changes in `src/engines/pauli_frame.rs` (support-only `map`, `post_conjugate`) and
+`src/engines/adaptive.rs` (frame internals made `pub(crate)`).
 Data: `research/data/magic-atlas/` (`atlas.csv` 367 instances, `recycle.csv`, `magic.csv` + `magic/`
 80 ground-truth timelines, `profiles/` 17 "when" profiles, `mac/*.jsonl` timings, `tables.md` all
 per-family tables, PNGs, `driver.py`, `plots.py`, `run_mac.sh`).

@@ -10,7 +10,7 @@
 mod audit_common;
 
 use audit_common::*;
-use qsim_lab::blocked::BlockConfig;
+use qsim_lab::engines::blocked::BlockConfig;
 use qsim_lab::{StateVectorF32, StateVectorF64};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

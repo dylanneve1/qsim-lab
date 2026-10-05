@@ -515,7 +515,7 @@ the work register — the residual damage of the variant.
   windowed rounds), `run_trajectory`, `trajectory_distribution` (exact),
   block tags (`tag`), `ResetMode`, wide keys (`Key`, `K192`); unit tests
   (resolution = `shor_mbu::resolve`, tags, equality with `shor::noisy`).
-  `src/shor_superopt.rs`: `emit_window`, `madd_mask` made `pub(crate)` (tagging).
+  `src/shor/superopt.rs`: `emit_window`, `madd_mask` made `pub(crate)` (tagging).
 * `tests/noise_oracles.rs` (4 tests: MBU fixed patterns, collision streams,
   reset variants, windowed exponentiation, all vs the sparse reference).
 * `examples/noise_oracles.rs` (CSV per trajectory: y, ok, weight, support

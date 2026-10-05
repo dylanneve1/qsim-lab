@@ -1,13 +1,13 @@
 # Measurement-based uncomputation in the exact gate-level Shor simulation (exp/mbu-shor)
 
 Branch `exp/mbu-shor`, based on `d44563c` (main + exp/superopt). Code:
-`src/shor_mbu.rs` (the measurement-based blocks, `MbuOpts`, logical-op IR,
+`src/shor/mbu.rs` (the measurement-based blocks, `MbuOpts`, logical-op IR,
 outcome resolution), `src/shor/sliced.rs` (sign word, `compile_ops`,
-`oracle_ops`, the sign assertion), `src/shor.rs` (`Oracle::WindowedMbu`,
+`oracle_ops`, the sign assertion), `src/shor/mod.rs` (`Oracle::WindowedMbu`,
 `Oracle::WindowedMbuLookup`, the gate-by-gate path with real X-basis
 measurements), CLI `--oracle windowed-mbu | windowed-mbu-lookup`,
 `examples/mbu_counts.rs`, `examples/shor_seed_orders.rs`, tests in
-`src/shor_mbu.rs`, `src/shor/sliced.rs`, `tests/mbu_shor.rs`,
+`src/shor/mbu.rs`, `src/shor/sliced.rs`, `tests/mbu_shor.rs`,
 `tests/theory_shor_mbu.rs`. Raw data: `research/data/mbu-shor/`.
 
 **Machines.** Builds, tests, counts and timings ran on the Mac (M1 Pro,
@@ -134,7 +134,7 @@ are resolved after inversion.
 determinism is assumed on this path, so it is an independent quantum
 reference.
 
-## 2. The measurement-based blocks (`src/shor_mbu.rs`)
+## 2. The measurement-based blocks (`src/shor/mbu.rs`)
 
 | block | construction | Toffolis (n = 31, w = 4) | proof / test |
 |---|---|---|---|

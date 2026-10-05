@@ -13,8 +13,8 @@
 //! measurement outcomes from the same stream.
 use qsim_lab::algorithms::gcd;
 use qsim_lab::shor;
-use qsim_lab::shor_ge::{self, GeOpts};
-use qsim_lab::shor_mbu::MbuOpts;
+use qsim_lab::shor::ge::{self as shor_ge, GeOpts};
+use qsim_lab::shor::mbu::MbuOpts;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::Instant;

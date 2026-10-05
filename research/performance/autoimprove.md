@@ -208,7 +208,7 @@ paired ratio / worst case (the larger of the two statistics for the slowest case
 
 Dense fusion merged mid-session (895543f; default width 2 on aarch64). Two merges followed:
 lowmagic-chem (eee9bb0, no kernel changes) and the graph compiler (c0403bb, which touches
-`src/blocked.rs`). Every round-1 winner was re-run against the new main through the same
+`src/engines/blocked.rs`). Every round-1 winner was re-run against the new main through the same
 pipeline, and the loop bred children for the ones that broke.
 
 | base | candidate | verdict | screen | full |
@@ -477,7 +477,7 @@ hour. Over about 5 hours it evaluated:
   both statistics. `low-t-chunks` shows a patch can sit on the line and flip between bases.
 * **A per-thread scratch buffer stays allocated after a run**, one block (1 MiB) per rayon
   thread (`tls-scratch`).
-* **The pair kernel adds about 230 lines** of `src/blocked.rs` for 3.4% single-thread. Most
+* **The pair kernel adds about 230 lines** of `src/engines/blocked.rs` for 3.4% single-thread. Most
   of the gain is on Clifford+T-like circuits; brickwork gains only 1–2%.
 
 * **The ledger has five `error` rows.** They are the queue items consumed while a driver bug

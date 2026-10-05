@@ -4,11 +4,11 @@
 //!
 //! For a unitary circuit `U` on `|0^n>` (lowered to Clifford + Z rotations)
 //! the rotation frame writes `U_k = C_k R_{m_k} ⋯ R_1` after gate `k`, with
-//! `R_j = exp(-iθ_j Q_j/2)` (research/performance/pauli.md, src/adaptive.rs). [`profile`]
+//! `R_j = exp(-iθ_j Q_j/2)` (research/performance/pauli.md, src/engines/adaptive.rs). [`profile`]
 //! records, in one O(gates · n/64) pass (plus O(n²·w) for the GF(2) basis):
 //!
 //! * `d_k = dim span{x(Q_1..Q_{m_k})}` — the active dimension: the exact
-//!   register size of the compressed-state engine ([`crate::adaptive`]);
+//!   register size of the compressed-state engine ([`crate::engines::adaptive`]);
 //!   `Σ_j 2^{d_j}` is its exact amplitude-update count;
 //! * `f_k` — the **factored** active dimension: in the CNOT frame `V` that
 //!   maps `W_m` onto the first `d` coordinates, each rotation acts on the
@@ -31,10 +31,10 @@
 
 pub mod families;
 
-use crate::adaptive::rotate_dense;
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::adaptive::rotate_dense;
+use crate::engines::pauli_frame::HeisenbergTableau;
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::pauli_frame::HeisenbergTableau;
 use num_complex::Complex64;
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 use std::time::Instant;
@@ -519,7 +519,7 @@ pub struct FactoredStats {
 
 /// The exact state of a Clifford + Z-rotation circuit on `|0^n>` as
 /// `C V† (|φ_1> ⊗ ⋯ ⊗ |φ_r> ⊗ |0^{n-d}>)`: the compressed state of
-/// [`crate::adaptive::CompressedState`] with its active register kept as a
+/// [`crate::engines::adaptive::CompressedState`] with its active register kept as a
 /// tensor product of factors that are merged only when a rotation couples
 /// them. Exact (no truncation); memory and work are set by the largest
 /// factor `f`, not by `d`.
@@ -1131,7 +1131,7 @@ mod tests {
         for spec in ["rct:n=12,L=6,t=14", "qft:n=9,in=graph", "qaoa:n=10,p=2"] {
             let c = families::build(spec, 3).unwrap();
             let p = profile(&c, &AtlasOptions::default()).unwrap();
-            let want = crate::adaptive::active_dimension_profile(&c).unwrap();
+            let want = crate::engines::adaptive::active_dimension_profile(&c).unwrap();
             let got: Vec<usize> = p.d_prof.iter().map(|&x| x as usize).collect();
             assert_eq!(got, want, "{spec}");
         }

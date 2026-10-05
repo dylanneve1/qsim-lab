@@ -27,7 +27,7 @@ use num_complex::Complex64 as C;
 use qsim_lab::compile::plan::{compile_unitary, PlanOptions};
 use qsim_lab::compile::{optimize, phase_fold};
 use qsim_lab::gate::toffoli_clifford_t;
-use qsim_lab::shor_ripple::{controlled_ua, cuccaro_add, RippleLayout};
+use qsim_lab::shor::ripple::{controlled_ua, cuccaro_add, RippleLayout};
 use qsim_lab::{Circuit, Gate, Op};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

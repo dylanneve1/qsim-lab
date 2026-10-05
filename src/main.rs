@@ -1,9 +1,9 @@
 //! `qsim`: run examples and benchmarks from the command line.
 
 use clap::{Parser, Subcommand, ValueEnum};
-use qsim_lab::adaptive_bench;
 use qsim_lab::algorithms;
 use qsim_lab::bench;
+use qsim_lab::bench::adaptive as adaptive_bench;
 use qsim_lab::circuit::{Circuit, Simulator};
 use qsim_lab::shor;
 use qsim_lab::{Mps, StateVectorF64, Tableau};
@@ -614,13 +614,13 @@ fn main() {
                         semiclassical,
                         sparse,
                         f32,
-                        qsim_lab::statevector::MAX_STATE_BYTES,
+                        qsim_lab::engines::statevector::MAX_STATE_BYTES,
                     );
                     if path.overridden {
                         eprintln!(
                             "note: the dense register for N={n} would exceed the {} MiB memory cap; \
                              running {}{} (exact; pass --semiclassical/--sparse to silence this)",
-                            qsim_lab::statevector::MAX_STATE_BYTES >> 20,
+                            qsim_lab::engines::statevector::MAX_STATE_BYTES >> 20,
                             if path.semiclassical { "semiclassical" } else { "gate-level" },
                             if path.sparse { " sparse" } else { "" },
                         );

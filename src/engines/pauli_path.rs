@@ -28,7 +28,7 @@ use crate::gate::{is_multiple_of_half_pi, Gate};
 use rayon::prelude::*;
 use std::f64::consts::FRAC_PI_4;
 
-pub use crate::pauli_frame::FrameOptions;
+pub use crate::engines::pauli_frame::FrameOptions;
 
 /// Default cap on the number of Pauli terms kept at once.
 pub const DEFAULT_MAX_TERMS: usize = 1 << 22;
@@ -329,7 +329,7 @@ pub(crate) fn conj_string(k: &mut [u64], w: usize, g: &Gate) -> u64 {
 
 /// Exact expectation value `<0| U† O U |0>` of a Pauli observable for a
 /// circuit `U` of arbitrary gates. Uses the rotation-frame engine with
-/// exact pruning ([`FrameOptions::default`]); see [`crate::pauli_frame`].
+/// exact pruning ([`FrameOptions::default`]); see [`crate::engines::pauli_frame`].
 /// Returns the value and path statistics.
 pub fn expectation(
     circuit: &Circuit,
@@ -354,7 +354,7 @@ pub fn expectation_with(
     opt: &FrameOptions,
 ) -> Result<(f64, PathStats), SimError> {
     assert_eq!(observable.n, circuit.num_qubits);
-    match crate::pauli_frame::expectation(circuit, observable, opt) {
+    match crate::engines::pauli_frame::expectation(circuit, observable, opt) {
         Some(r) => r,
         None => expectation_legacy(circuit, observable, opt.max_terms),
     }

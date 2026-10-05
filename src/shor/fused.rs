@@ -18,9 +18,9 @@
 //! control. Only the bookkeeping of the control qubit is analytic.
 
 use super::{mod_inverse, mul_mod, Instance, Oracle, OrderFindingState};
+use crate::engines::sparse::AmpMap;
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::sparse::AmpMap;
-use crate::statevector::Real;
 use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rayon::prelude::*;

@@ -396,7 +396,7 @@ impl ScheduledSurfaceCode {
         shots: usize,
         rng: &mut R,
     ) -> (f64, usize) {
-        use crate::stabilizer::Tableau;
+        use crate::engines::stabilizer::Tableau;
         let circuit = self.build_circuit();
         let total_q = SurfaceCode::total_qubits(self.d);
         let mut errors = 0;

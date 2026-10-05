@@ -1,7 +1,7 @@
 //! Windowed gate-level modular multiplication (Gidney 2019, "Windowed
 //! quantum arithmetic", arXiv:1905.07682), built only from X, CNOT and CCX.
 //!
-//! The ripple oracle ([`crate::shor_ripple`]) does one doubly-controlled
+//! The ripple oracle ([`crate::shor::ripple`]) does one doubly-controlled
 //! modular addition per bit of `x`. Here the bits of `x` are grouped into
 //! windows of `w` bits; per window a *table lookup* (a QROM: for every
 //! address `v`, an AND-chain computes `[ctrl ∧ x_window = v]` into an
@@ -24,7 +24,7 @@
 
 use crate::circuit::Circuit;
 use crate::gate::Gate;
-use crate::shor_ripple::{cuccaro_add, cuccaro_sub, load_constant};
+use crate::shor::ripple::{cuccaro_add, cuccaro_sub, load_constant};
 
 /// Qubit layout of the windowed multiplier.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -194,7 +194,7 @@ pub fn controlled_ua(lay: &WindowLayout, a: u64, n_mod: u64) -> Circuit {
 mod tests {
     use super::*;
     use crate::algorithms::gcd;
-    use crate::shor_ripple::eval_circuit_on_key;
+    use crate::shor::ripple::eval_circuit_on_key;
 
     #[test]
     fn lookup_exhaustive() {

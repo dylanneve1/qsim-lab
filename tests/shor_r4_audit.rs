@@ -6,8 +6,8 @@ use qsim_lab::algorithms::gcd;
 use qsim_lab::shor::sliced::{
     eval_block, eval_block_into, BlockOut, SliceIo, SlicedProgram, SlicedState,
 };
+use qsim_lab::shor::window::{controlled_ua, WindowLayout};
 use qsim_lab::shor::{self, Instance, Oracle};
-use qsim_lab::shor_window::{controlled_ua, WindowLayout};
 use qsim_lab::{Circuit, Gate, Op};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 

@@ -1,12 +1,12 @@
 # Superoptimising the gate-level Shor oracle (exp/superopt)
 
-Branch `exp/superopt`, based on main `ecb83ea`. Code: `src/shor_superopt.rs`
+Branch `exp/superopt`, based on main `ecb83ea`. Code: `src/shor/superopt.rs`
 (the optimised blocks, `Oracle::WindowedOpt`, CLI `--oracle windowed-opt`),
-`src/shor_superopt_rules.txt` (SAT-derived rewrite rules),
+`src/shor/superopt_rules.txt` (SAT-derived rewrite rules),
 `tools/superopt/` (SAT synthesiser `synth.py`, block certificates
 `blocks.py`, SAT peephole `peep.py`), `examples/superopt_counts.rs`
 (counts, ablations, window sweep, per-block counts, circuit dumps), tests in
-`src/shor_superopt.rs`, `tests/superopt.rs`, `tests/theory_shor_opt.rs`. Raw
+`src/shor/superopt.rs`, `tests/superopt.rs`, `tests/theory_shor_opt.rs`. Raw
 data: `research/data/superopt/`.
 
 **Machines.** All builds, SAT runs and timings ran on the Mac (Apple M1 Pro,

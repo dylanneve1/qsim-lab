@@ -16,8 +16,8 @@
 //! Total qubits: `3n + 4`.
 
 use crate::circuit::{Circuit, Op};
+use crate::engines::sparse::SparseState;
 use crate::gate::Gate;
-use crate::sparse::SparseState;
 
 /// Qubit layout for an `n`-bit modulus in Cuccaro ripple-carry arithmetic.
 #[derive(Clone, Debug, PartialEq, Eq)]

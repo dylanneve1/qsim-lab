@@ -7,7 +7,7 @@
 //! ```
 //! Prints one JSON line per (steps, δ): exact <Z_root>, SPD value, norm, time.
 
-use qsim_lab::spd::{simulate, KickedIsing, Lattice, PauliObs, SpdOptions};
+use qsim_lab::engines::spd::{simulate, KickedIsing, Lattice, PauliObs, SpdOptions};
 use qsim_lab::StateVector;
 use std::time::Instant;
 

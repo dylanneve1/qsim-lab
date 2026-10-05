@@ -2,7 +2,7 @@
 //! every engine answers `<Z^{⊗n}>` like the reference state vector, and the
 //! cheap features are valid bounds.
 
-use qsim_lab::adaptive;
+use qsim_lab::engines::adaptive;
 use qsim_lab::simulability::{build, features, run_engine, support_bound, Spec, ENGINES};
 use qsim_lab::{Circuit, Gate, Mps, SparseState, StateVectorF64};
 

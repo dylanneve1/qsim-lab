@@ -22,8 +22,8 @@
 //! of every ancilla after each round, `QSIM_NOISE_KMIN` = smallest k (strat).
 
 use qsim_lab::shor::noisy::{self, NoiseKind, NoisyCircuit, Site};
+use qsim_lab::shor::window::WindowLayout;
 use qsim_lab::shor::{Instance, Oracle};
-use qsim_lab::shor_window::WindowLayout;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;

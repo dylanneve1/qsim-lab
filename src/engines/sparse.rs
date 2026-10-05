@@ -309,7 +309,7 @@ impl SparseState {
             return Vec::new();
         }
         let total = self.norm_sqr();
-        let rs: Vec<(f64, usize)> = crate::statevector::sorted_uniforms(shots, total, rng)
+        let rs: Vec<(f64, usize)> = crate::engines::statevector::sorted_uniforms(shots, total, rng)
             .into_iter()
             .zip(0..)
             .collect();

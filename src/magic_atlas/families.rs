@@ -348,7 +348,7 @@ fn adder(
         _ => return Err(format!("unknown adder input {inp:?}")),
     }
     match kind {
-        "cuccaro" => crate::shor_ripple::cuccaro_add(&mut c, &a, &b, anc[0]),
+        "cuccaro" => crate::shor::ripple::cuccaro_add(&mut c, &a, &b, anc[0]),
         "gidney" => gidney_add(&mut c, &a, &b, &anc, false),
         "draper" => draper_add(&mut c, &a, &b, cut),
         _ => unreachable!(),
@@ -405,7 +405,7 @@ pub fn shor_modulus(nb: usize) -> (u64, u64) {
 /// its low half (`in=half`).
 fn shor_window_oracle(nb: usize, w: usize, inp: &str) -> Result<Circuit, String> {
     let (n_mod, a) = shor_modulus(nb);
-    let lay = crate::shor_window::WindowLayout::new(nb, w);
+    let lay = crate::shor::window::WindowLayout::new(nb, w);
     let mut c = Circuit::new(lay.num_qubits());
     c.h(lay.ctrl);
     match inp {
@@ -419,7 +419,7 @@ fn shor_window_oracle(nb: usize, w: usize, inp: &str) -> Result<Circuit, String>
         }
         _ => return Err(format!("unknown shorwin input {inp:?}")),
     }
-    c.append(&crate::shor_window::controlled_ua(&lay, a, n_mod));
+    c.append(&crate::shor::window::controlled_ua(&lay, a, n_mod));
     Ok(c)
 }
 
@@ -428,7 +428,7 @@ fn shor_window_oracle(nb: usize, w: usize, inp: &str) -> Result<Circuit, String>
 /// `j`), inverse QFT on the counting register.
 fn shor_full(nb: usize, w: usize, cnt: usize) -> Result<Circuit, String> {
     let (n_mod, a) = shor_modulus(nb);
-    let lay = crate::shor_window::WindowLayout::new(nb, w);
+    let lay = crate::shor::window::WindowLayout::new(nb, w);
     let nw = lay.num_qubits(); // includes the oracle's own control slot 0
     let n = cnt + nw - 1;
     // map oracle qubit q (q >= 1) -> cnt + q - 1; control 0 -> counting j
@@ -439,7 +439,7 @@ fn shor_full(nb: usize, w: usize, cnt: usize) -> Result<Circuit, String> {
     c.x(cnt + lay.x[0] - 1);
     let mut aj = a % n_mod;
     for j in 0..cnt {
-        let o = crate::shor_window::controlled_ua(&lay, aj, n_mod);
+        let o = crate::shor::window::controlled_ua(&lay, aj, n_mod);
         for g in o.gates() {
             let m = |q: usize| if q == 0 { j } else { cnt + q - 1 };
             c.gate(remap(g, &m));

@@ -3,10 +3,10 @@
 Branch `exp/planner` (rebased on main 73fb9fb). Author: qsim-planner agent
 (round 4, 3–4 Oct 2026).
 Code:
-- `src/mps_cost.rs`: rigorous bond bounds and the MPS replay.
+- `src/engines/mps_cost.rs`: rigorous bond bounds and the MPS replay.
 - `src/planner.rs`: Planner v0.
-- `src/mps.rs`: operation counters, bond trace, per-step rank caps, and an SVD robustness fix.
-- `src/adaptive.rs`: the `Strategy::Auto` change.
+- `src/engines/mps.rs`: operation counters, bond trace, per-step rank caps, and an SVD robustness fix.
+- `src/engines/adaptive.rs`: the `Strategy::Auto` change.
 - `src/compile/plan.rs` and `src/pipeline.rs`: expectation values now go through the planner, with a debug mode.
 - `src/simulability.rs`: new `hea` and `qft` families, and new engines `plan`/`planx`/`planp`/`mpsb`.
 - `tests/planner.rs`.

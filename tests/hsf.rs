@@ -7,11 +7,11 @@ use common::*;
 use num_complex::Complex64;
 use proptest::prelude::*;
 use qsim_lab::circuit::{Circuit, SimError};
-use qsim_lab::gate::Gate;
-use qsim_lab::hsf::{
+use qsim_lab::engines::hsf::{
     auto_partition, cut_bits, two_block_circuit, HsfOptions, HybridSchrodingerFeynman, LeafMode,
     SchmidtMode,
 };
+use qsim_lab::gate::Gate;
 use qsim_lab::StateVectorF64;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -455,7 +455,7 @@ fn auto_partition_finds_planted_cut() {
         }
         let mut s = Circuit::new(n);
         for g in c.gates() {
-            s.gate(qsim_lab::hsf::map_gate(*g, |q| perm[q]));
+            s.gate(qsim_lab::engines::hsf::map_gate(*g, |q| perm[q]));
         }
         let o = HsfOptions::default();
         let part = auto_partition(&s, &o).unwrap();
@@ -486,7 +486,7 @@ fn forty_qubit_two_block_amplitudes_are_consistent() {
         if qs[0] < 20 {
             ca.gate(*g);
         } else {
-            cb.gate(qsim_lab::hsf::map_gate(*g, |q| q - 20));
+            cb.gate(qsim_lab::engines::hsf::map_gate(*g, |q| q - 20));
         }
     }
     let (sa, sb) = (sv_of(&ca), sv_of(&cb));

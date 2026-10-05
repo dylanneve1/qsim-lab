@@ -10,8 +10,8 @@
 //! ```
 //! SPEC is `family:key=value,...`, e.g. `ct:n=24,L=8,t=20,nn=1`.
 
-use qsim_lab::mps::{Mps, MpsStats};
-use qsim_lab::mps_cost::{replay, BondSource, Estimator, ReplayCost};
+use qsim_lab::engines::mps::{Mps, MpsStats};
+use qsim_lab::engines::mps_cost::{replay, BondSource, Estimator, ReplayCost};
 use qsim_lab::simulability::{build, features_for, observable_qubits, run_engine_obs, Spec};
 use std::time::Instant;
 
@@ -139,8 +139,9 @@ fn main() {
             }
             let secs = t1.elapsed().as_secs_f64();
             // bound-capped exact run
-            let bt = qsim_lab::mps_cost::replay_traced(&c, BondSource::Bound(Estimator::Best))
-                .expect("replay");
+            let bt =
+                qsim_lab::engines::mps_cost::replay_traced(&c, BondSource::Bound(Estimator::Best))
+                    .expect("replay");
             let t2 = Instant::now();
             let mut mb = Mps::new(c.num_qubits, 1 << 20);
             mb.set_step_caps(bt.trace.clone());
@@ -174,8 +175,11 @@ fn main() {
                 let r = replay(&c, BondSource::Trace(m.trace())).expect("replay");
                 check = format!("{}", r.stats == m.stats());
                 // the best bound must dominate the real trace step by step
-                let b = qsim_lab::mps_cost::replay_traced(&c, BondSource::Bound(Estimator::Best))
-                    .expect("replay");
+                let b = qsim_lab::engines::mps_cost::replay_traced(
+                    &c,
+                    BondSource::Bound(Estimator::Best),
+                )
+                .expect("replay");
                 let bad: Vec<(usize, u32, u32)> = b
                     .trace
                     .iter()

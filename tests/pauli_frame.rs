@@ -6,8 +6,8 @@ mod common;
 
 use common::*;
 use qsim_lab::circuit::Circuit;
+use qsim_lab::engines::pauli_path::{self, FrameOptions, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::gate::Gate;
-use qsim_lab::pauli_path::{self, FrameOptions, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::StateVectorF64;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

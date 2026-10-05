@@ -3,8 +3,8 @@
 
 use num_complex::Complex64;
 use qsim_lab::algorithms::gcd;
+use qsim_lab::shor::arith::{self, BeauregardLayout};
 use qsim_lab::shor::{self, Backend, Instance, Oracle};
-use qsim_lab::shor_arith::{self, BeauregardLayout};
 use qsim_lab::{Circuit, SparseState, StateVectorF64};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -159,7 +159,7 @@ fn beauregard_controlled_ua_is_the_permutation() {
         let m = shor::work_bits(n);
         let lay = BeauregardLayout::new(m);
         for a in bases(n, 3) {
-            let circ = shor_arith::controlled_ua(&lay, 0, a, n);
+            let circ = arith::controlled_ua(&lay, 0, a, n);
             for ctrl in 0..2u64 {
                 for x in 0..n {
                     let idx = ctrl | (x << 1);
@@ -380,7 +380,7 @@ fn ripple_circuit_runs_through_classic_control() {
 
 // ---------------------------------------------------------------------------
 // Round 4: bit-sliced branch tracking (src/shor/sliced.rs) and the windowed
-// table-lookup oracle (src/shor_window.rs).
+// table-lookup oracle (src/shor/window.rs).
 
 fn dist<S: shor::OrderFindingState>(inst: &Instance, s: S) -> Vec<f64> {
     shor::semiclassical_distribution(inst, s, 1e-15)

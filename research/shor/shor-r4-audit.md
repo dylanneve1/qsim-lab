@@ -6,7 +6,7 @@ Independent audit (qsim-shor-r4-audit, 3 Oct 2026). Verdict: **FIX-THEN-MERGE**
 
 ## 1. Is it really the circuit?
 
-Code read (`src/shor/sliced.rs`, `src/shor_window.rs`, `src/shor.rs`):
+Code read (`src/shor/sliced.rs`, `src/shor/window.rs`, `src/shor/mod.rs`):
 
 * Each round builds the controlled-`U_{a^(2^k)}` circuit with
   `shor_window::controlled_ua` and compiles it with `SlicedProgram::compile`,

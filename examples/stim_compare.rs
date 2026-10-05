@@ -20,10 +20,10 @@
 //! stim_compare bench-fast <in.stim> <shots> [reps] [words]
 //!     FastSampler only (Xoshiro256++ and wyrand), ptb64 to /dev/null.
 //! ```
+use qsim_lab::engines::stabilizer::fast_sampler::{FastSampler, WyRand};
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
+use qsim_lab::io::stim::{parse_stim, to_stim};
 use qsim_lab::qec::surface::SurfaceCode;
-use qsim_lab::stabilizer::fast_sampler::{FastSampler, WyRand};
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
-use qsim_lab::stim_io::{parse_stim, to_stim};
 use qsim_lab::{Circuit, NoiseModel};
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
@@ -66,7 +66,7 @@ fn sample_to<W: Write>(s: &SymPhaseSampler, shots: usize, seed: u64, w: &mut W) 
 /// generic RNG.
 fn sample_to_sparse<W: Write, R: rand::Rng>(
     s: &SymPhaseSampler,
-    cv: &qsim_lab::stabilizer::symphase::ColumnView,
+    cv: &qsim_lab::engines::stabilizer::symphase::ColumnView,
     shots: usize,
     rng: &mut R,
     w: &mut W,
@@ -122,7 +122,7 @@ fn devnull() -> BufWriter<std::fs::File> {
     )
 }
 
-fn load(path: &str) -> qsim_lab::stim_io::StimProgram {
+fn load(path: &str) -> qsim_lab::io::stim::StimProgram {
     parse_stim(&std::fs::read_to_string(path).expect("read")).expect("parse")
 }
 
@@ -295,9 +295,9 @@ fn main() {
                 .groups()
                 .iter()
                 .filter_map(|g| match g.dist {
-                    qsim_lab::stabilizer::symphase::VarDist::Flip(p)
-                    | qsim_lab::stabilizer::symphase::VarDist::Depol1(p)
-                    | qsim_lab::stabilizer::symphase::VarDist::Depol2(p) => Some(p),
+                    qsim_lab::engines::stabilizer::symphase::VarDist::Flip(p)
+                    | qsim_lab::engines::stabilizer::symphase::VarDist::Depol1(p)
+                    | qsim_lab::engines::stabilizer::symphase::VarDist::Depol2(p) => Some(p),
                     _ => None,
                 })
                 .collect();
@@ -420,7 +420,12 @@ fn main() {
             let coins = s
                 .groups()
                 .iter()
-                .filter(|g| matches!(g.dist, qsim_lab::stabilizer::symphase::VarDist::Coin))
+                .filter(|g| {
+                    matches!(
+                        g.dist,
+                        qsim_lab::engines::stabilizer::symphase::VarDist::Coin
+                    )
+                })
                 .count();
             let t = Instant::now();
             for _ in 0..batches {

@@ -292,7 +292,7 @@ fn qasm_angles_round_trip_exactly() {
 
 #[test]
 fn blocked_executor_handles_new_gates() {
-    use qsim_lab::blocked::BlockConfig;
+    use qsim_lab::engines::blocked::BlockConfig;
     let mut rng = StdRng::seed_from_u64(5);
     for _ in 0..50 {
         let n = 6;

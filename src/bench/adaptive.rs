@@ -1,12 +1,12 @@
-//! Benchmarks for [`crate::adaptive`] (`qsim adaptive ...`). Each call runs
+//! Benchmarks for [`crate::engines::adaptive`] (`qsim adaptive ...`). Each call runs
 //! one method on one circuit family and prints markdown rows, so that A/B
 //! comparisons can be interleaved run by run through the swarm's bench lock.
 
-use crate::adaptive::{self, AdaptiveOptions, CompressedState, Strategy};
 use crate::bench::{clifford_t_family, skeleton_stabilizer};
 use crate::circuit::Circuit;
-use crate::pauli_path::{self, FrameOptions, PauliSum};
-use crate::statevector::{StateVectorF64, MAX_STATE_BYTES};
+use crate::engines::adaptive::{self, AdaptiveOptions, CompressedState, Strategy};
+use crate::engines::pauli_path::{self, FrameOptions, PauliSum};
+use crate::engines::statevector::{StateVectorF64, MAX_STATE_BYTES};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::io::Write;

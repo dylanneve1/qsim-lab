@@ -16,15 +16,15 @@
 //! 1..6 again, `MX` anc, `R` anc (not after the last round). Z detectors
 //! every round, X detectors from the second round on, final data `M`.
 //!
-//! Noise is written as explicit ops (so [`crate::stim_io::to_stim`] exports
+//! Noise is written as explicit ops (so [`crate::io::stim::to_stim`] exports
 //! exactly the circuit that is sampled); only the readout flip lives in the
 //! returned [`NoiseModel`].
 #![allow(clippy::needless_range_loop)]
 
 use crate::circuit::{Circuit, Op};
+use crate::engines::stabilizer::symphase::SymPhaseSampler;
 use crate::gate::Gate;
 use crate::noise::NoiseModel;
-use crate::stabilizer::symphase::SymPhaseSampler;
 
 /// Data-qubit offsets of a plaquette, positions `a..f`.
 pub const OFFSETS: [(i32, i32); 6] = [(-2, 1), (2, 1), (4, 0), (2, -1), (-2, -1), (-4, 0)];
@@ -547,7 +547,7 @@ pub fn circuit_dem(
     detectors: &[Vec<usize>],
     observables: &[Vec<usize>],
 ) -> Vec<DemEntry> {
-    use crate::stabilizer::symphase::VarDist;
+    use crate::engines::stabilizer::symphase::VarDist;
     use std::collections::HashMap;
     let sets: Vec<Vec<usize>> = detectors.iter().chain(observables).cloned().collect();
     let s = SymPhaseSampler::new(circuit, noise)

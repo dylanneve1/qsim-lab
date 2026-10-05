@@ -11,8 +11,8 @@
 use qsim_lab::algorithms::qft;
 use qsim_lab::compile::{optimize, phase_fold};
 use qsim_lab::gate::toffoli_clifford_t;
-use qsim_lab::qasm::to_qasm;
-use qsim_lab::shor_ripple::{add_mod, controlled_ua, cuccaro_add, RippleLayout};
+use qsim_lab::io::qasm::to_qasm;
+use qsim_lab::shor::ripple::{add_mod, controlled_ua, cuccaro_add, RippleLayout};
 use qsim_lab::{Circuit, Gate, Op, StateVectorF64};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
