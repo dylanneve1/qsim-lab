@@ -24,13 +24,18 @@ use std::f64::consts::PI;
 /// the ancilla is `2n + 2`. Qubit 0 is left for the control.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BeauregardLayout {
+    /// Width of the modulus (work-register bits).
     pub n: usize,
+    /// Work-register qubits, LSB first (`1..=n`).
     pub x: Vec<usize>,
+    /// Fourier-space accumulator qubits, LSB first (`n+1..=2n+1`).
     pub b: Vec<usize>,
+    /// Ancilla qubit of the modular adder (`2n + 2`).
     pub anc: usize,
 }
 
 impl BeauregardLayout {
+    /// Layout for an `n`-bit modulus.
     pub fn new(n: usize) -> Self {
         Self {
             n,
@@ -40,6 +45,7 @@ impl BeauregardLayout {
         }
     }
 
+    /// Total qubits including the control: `2n + 3`.
     pub fn num_qubits(&self) -> usize {
         2 * self.n + 3
     }

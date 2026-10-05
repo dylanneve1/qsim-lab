@@ -45,6 +45,8 @@ fn cvt<T: Real>(z: Complex64) -> Complex<T> {
 }
 
 impl<T: Real> FusedDense<T> {
+    /// Initial state for `inst`: work register `|1>`. Panics unless the oracle is
+    /// [`Oracle::Permutation`].
     pub fn new(inst: &Instance) -> Self {
         assert_eq!(inst.oracle, Oracle::Permutation);
         let len = 1usize << inst.m;
@@ -167,6 +169,8 @@ pub struct FusedSparse {
 }
 
 impl FusedSparse {
+    /// Initial state for `inst`: work register `|1>`. Panics unless the oracle is
+    /// [`Oracle::Permutation`].
     pub fn new(inst: &Instance) -> Self {
         assert_eq!(inst.oracle, Oracle::Permutation);
         let mut psi = AmpMap::default();
@@ -182,6 +186,7 @@ impl FusedSparse {
         }
     }
 
+    /// Number of stored nonzero amplitudes of `ψ`.
     pub fn nnz(&self) -> usize {
         self.psi.len()
     }
