@@ -7,7 +7,7 @@
 //!   the parameters.
 //! * [`observable`]: Pauli-sum observables.
 //!
-//! Write-up and measurements: `research/graph-compiler.md`.
+//! Write-up and measurements: `research/compiler/graph-compiler.md`.
 
 pub mod compiled;
 pub mod dedup;
