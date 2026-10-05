@@ -1,0 +1,8 @@
+H^3: chi = 3 (16 optimal decompositions)
+  degenerate, bra #0: combos 57499200 found 200
+  degenerate, bra #1: combos 57499200 found 200
+  degenerate, bra #4: combos 57499200 found 0
+  non-degenerate: 42261 minimal 4-term decompositions of H^3 (1467 orbits), glued 26
+H^4: 4-term decompositions found (up to symmetry, with repeats): 426
+H^4: total 449 decompositions with 4 terms; l1 norms: 1.914213562x16 2.000000000x65 2.073132185x32 2.207106781x128 2.224744871x16 2.414213562x64 2.573132185x32 2.866025404x32 2.914213562x16 3.073132185x32 3.207106781x16
+  19 orbits; representatives written
