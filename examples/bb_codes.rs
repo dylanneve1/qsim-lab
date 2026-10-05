@@ -65,6 +65,11 @@ fn search(a: &[String]) {
             let (mut exact, mut pruned, mut aborted) = (0u64, 0u64, 0u64);
             let (ranked, found) = enumerate_codes(&g, wa, wb, |c| {
                 let code = c.code();
+                if c.k > 128 {
+                    let (pa, pb) = code.poly_strings();
+                    writeln!(out, "{{\"n\":{},\"k\":{},\"d_lo\":0,\"d_up\":0,\"l\":{l},\"m\":{m},\"wa\":{wa},\"wb\":{wb},\"A\":\"{pa}\",\"B\":\"{pb}\",\"skipped\":true}}", 2 * nn, c.k).unwrap();
+                    return;
+                }
                 let (hx, hz) = (code.hx(), code.hz());
                 let (masks, k) = logical_masks(&hx, &hz);
                 assert_eq!(k, c.k);
