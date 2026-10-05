@@ -622,3 +622,41 @@ fn fold_basis_exact() {
     }
     assert!(removed > 200, "{removed}");
 }
+
+#[test]
+fn pipeline_graph_option_matches_reference() {
+    use qsim_lab::pipeline::{simulate_with, Budget, Output, Request, SimOptions};
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a19);
+    let opts = SimOptions {
+        graph: Some(GraphOptions::default()),
+        ..Default::default()
+    };
+    for case in 0..80 * iters() {
+        let n = 1 + case % 7;
+        let pc = region_heavy(&mut rng, n, 0, rng.random_range(0..40));
+        let c = pc.bind(&[]).unwrap();
+        let r = ref_run(&c);
+        let xs: Vec<u128> = (0..1u128 << n).collect();
+        match simulate_with(&c, &Request::Amplitudes(xs), &Budget::default(), &opts)
+            .unwrap()
+            .output
+        {
+            Output::Amplitudes(a) => {
+                let d = max_amp_diff(&r.a, a.into_iter());
+                assert!(d < 1e-10, "case {case} diff {d}");
+            }
+            o => panic!("{o:?}"),
+        }
+        let qs: Vec<usize> = (0..n).filter(|_| rng.random_bool(0.5)).collect();
+        let s: String = (0..n)
+            .map(|q| if qs.contains(&q) { 'Z' } else { 'I' })
+            .collect();
+        match simulate_with(&c, &Request::Expectation(qs), &Budget::default(), &opts)
+            .unwrap()
+            .output
+        {
+            Output::Expectation(v) => assert!((v - r.pauli_expectation(&s)).abs() < 1e-10),
+            o => panic!("{o:?}"),
+        }
+    }
+}
