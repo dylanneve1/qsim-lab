@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Markdown tables for research/noise-oracles.md from summary.csv,
+"""Markdown tables for research/shor/noise-oracles.md from summary.csv,
 fatality_*.csv, windows.csv (written by analyze.py) -> tables.md."""
 import csv, os
 from collections import defaultdict

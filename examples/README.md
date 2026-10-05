@@ -57,6 +57,8 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [superopt_counts](superopt_counts.rs) | Oracle gate/Toffoli counts per superoptimisation | [superopt.md](../research/shor/superopt.md) |
 | [shor_noise](shor_noise.rs) | Noisy gate-level Shor trajectories at scale | [shor-noise.md](../research/shor/shor-noise.md) |
 | [shor_noise_validate](shor_noise_validate.rs) | Statistical validation of the noisy trajectory sampler | [shor-noise.md](../research/shor/shor-noise.md) |
+| [noise_oracles](noise_oracles.rs) | Noisy gate-level Shor on every oracle (`shor::noisy_gen`), one CSV row per trajectory | [noise-oracles.md](../research/shor/noise-oracles.md) |
+| [noise_oracles_validate](noise_oracles_validate.rs) | Statistical validation of the generic noisy trajectory sampler | [noise-oracles.md](../research/shor/noise-oracles.md) |
 | [shor_precision](shor_precision.rs) | f32 vs f64 amplitudes in the sliced Shor state | [shor.md](../research/shor/shor.md) |
 | [shor_support](shor_support.rs) | Reachable support of the semiclassical Shor circuit | [shor.md](../research/shor/shor.md) |
 | [shor_seed_orders](shor_seed_orders.rs) | Base and order drawn by each `--seed` | [mbu-shor.md](../research/shor/mbu-shor.md) |
