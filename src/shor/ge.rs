@@ -33,8 +33,8 @@ use crate::algorithms::{gcd, pow_mod};
 use crate::engines::statevector::Real;
 use crate::gate::Gate;
 use crate::shor::mbu::{
-    add_g, inverse, modadd_ops, resolve, sub_g, LOp, LookupSpec, MbuCounts, MbuLayout, MbuOp,
-    MbuOpts, Outcomes, NO_CTRL,
+    add_g, inverse, modadd_ops, resolve, LOp, LookupSpec, MbuCounts, MbuLayout, MbuOp, MbuOpts,
+    Outcomes, NO_CTRL,
 };
 use crate::shor::sliced::{transpose64, SlicedProgram};
 use crate::shor::window::WindowLayout;
@@ -263,11 +263,6 @@ pub fn window_block(
     let mut out = Vec::with_capacity(ops.len() * 2);
     resolve(&ops, &mut || outc.next_bit(), &mut out);
     out
-}
-
-/// Plain `(n + c)`-bit subtraction (for tests).
-pub fn sub_plain(ops: &mut Vec<LOp>, lay: &GeLayout) {
-    sub_g(ops, &lay.l, &lay.b, &lay.cy[..lay.nr - 2]);
 }
 
 // ---------------------------------------------------------------------------

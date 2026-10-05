@@ -132,13 +132,9 @@ impl Schedule {
 // ScheduledSurfaceCode
 // ──────────────────────────────────────────────────────────
 
-/// Stabiliser face (plaquette) with its CNOT application order.
+/// Stabiliser face (plaquette): its data qubits in CNOT application order.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 struct ScheduledFace {
-    r: usize,
-    c: usize,
-    is_z: bool,
     data_qubits: Vec<usize>,
 }
 
@@ -248,12 +244,7 @@ impl ScheduledSurfaceCode {
                 };
                 let data_qubits: Vec<usize> = perm.iter().filter_map(|&ci| compass[ci]).collect();
 
-                let face = ScheduledFace {
-                    r,
-                    c,
-                    is_z,
-                    data_qubits,
-                };
+                let face = ScheduledFace { data_qubits };
                 if is_z {
                     z_stabs.push(face);
                 } else {

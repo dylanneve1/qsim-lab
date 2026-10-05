@@ -880,10 +880,6 @@ fn hhl(t: usize, m: usize) -> Result<Circuit, String> {
     Ok(c)
 }
 
-pub fn reverse_bits(v: usize, k: usize) -> usize {
-    (0..k).fold(0, |acc, i| acc | (((v >> i) & 1) << (k - 1 - i)))
-}
-
 /// Random Clifford+T (simulability's `ct` family, NN brickwork).
 fn rct(n: usize, layers: usize, t: usize, rng: &mut StdRng) -> Circuit {
     let mut c = Circuit::new(n);
