@@ -67,6 +67,8 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [color_ler](color_ler.rs) | Colour-code memory logical error rate (SymPhase + BP+OSD) | [colour-flags.md](../research/qec/colour-flags.md) |
 | [dem_distance](dem_distance.rs) | Exact minimum-weight logical of a DEM on stdin | [colour-global.md](../research/qec/colour-global.md) |
 | [simulability](simulability.rs) | Simulability phase-diagram campaign | [simulability.md](../research/simulability/simulability.md) |
+| [spoof_utility](spoof_utility.rs) | Classical reproduction of IBM's 127-qubit kicked-Ising utility experiment (sparse Pauli dynamics) | [spoof-utility.md](../research/simulability/spoof-utility.md) |
+| [spoof_patch](spoof_patch.rs) | Deep-circuit check of truncated SPD against the exact state vector on a heavy-hex patch | [spoof-utility.md](../research/simulability/spoof-utility.md) |
 | [magic_atlas](magic_atlas.rs) | Magic atlas CLI | [magic-atlas.md](../research/simulability/magic-atlas.md) |
 | [magic_transition](magic_transition.rs) | Monitored Clifford+T transition campaign | [magic-transition.md](../research/simulability/magic-transition.md) |
 | [transition_theory](transition_theory.rs) | d-only polynomial campaign for the transition theory | [transition-theory.md](../research/theory/transition-theory.md) |
