@@ -1,0 +1,5 @@
+OK N=4911456443897 window=0 w=1 g=3146915323931 qubits=181 ops=28353 (CCX 7033, CX 18421, CZ 462, MX 1602, X 796, Z 39) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=4911456443897 window=21 w=1 g=786125898223 qubits=181 ops=28874 (CCX 7201, CX 18782, CZ 460, MX 1598, X 800, Z 33) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=4911456443897 window=22 w=1 g=3799085965873 qubits=181 ops=29071 (CCX 7204, CX 18963, CZ 465, MX 1601, X 800, Z 38) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=4911456443897 window=43 w=1 g=3747114797197 qubits=181 ops=28005 (CCX 6942, CX 18182, CZ 457, MX 1597, X 792, Z 35) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=4911456443897 window=65 w=1 g=3089596228147 qubits=181 ops=28658 (CCX 7123, CX 18626, CZ 458, MX 1606, X 800, Z 45) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
