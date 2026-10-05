@@ -6,8 +6,10 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | Data | Notebook |
 |---|---|
 | [`adaptive/`](adaptive/) | [adaptive.md](../simulability/adaptive.md) |
+| [`alphaqubit-lite/`](alphaqubit-lite/) | [alphaqubit-lite.md](../qec/alphaqubit-lite.md) |
 | [`audit/`](audit/) | [audit.md](../process/audit.md) |
 | [`colour-flags/`](colour-flags/) | [colour-flags.md](../qec/colour-flags.md) |
+| [`code-discovery/`](code-discovery/) | [code-discovery.md](../qec/code-discovery.md) |
 | [`colour-global/`](colour-global/) | [colour-global.md](../qec/colour-global.md) |
 | [`compiler/`](compiler/) | [compiler.md](../compiler/compiler.md) |
 | [`dag/`](dag/) | [dag.md](../compiler/dag.md) |
@@ -16,6 +18,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`dense-fusion/`](dense-fusion/) | [dense-fusion.md](../performance/dense-fusion.md) |
 | [`ft-shor/`](ft-shor/) | [ft-shor.md](../shor/ft-shor.md) |
 | [`ge-shor/`](ge-shor/) | [ge-shor.md](../shor/ge-shor.md) |
+| [`graph-compiler/`](graph-compiler/) | [graph-compiler.md](../compiler/graph-compiler.md) |
 | [`hsf/`](hsf/) | [hsf.md](../performance/hsf.md) |
 | [`mac-m1/`](mac-m1/) | [mac-m1.md](../performance/mac-m1.md) |
 | [`l1/`](l1/) | [mac-m1.md](../performance/mac-m1.md) |

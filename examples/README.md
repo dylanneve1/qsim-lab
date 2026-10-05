@@ -40,6 +40,7 @@ interleaved A/B, and report machine and load ([CONTRIBUTING.md](../CONTRIBUTING.
 | [stim_export](stim_export.rs) | Exports the surface-code circuit to .stim; per-detector rates and timing vs Stim | [qec-r4.md](../research/qec/qec-r4.md) |
 | [compile_bench](compile_bench.rs) | Compiler passes vs always simulating the original circuit | [compiler.md](../research/compiler/compiler.md) |
 | [dag_bench](dag_bench.rs) | DAG IR construction cost and gate counts after each peephole | [dag.md](../research/compiler/dag.md) |
+| [graph_bench](graph_bench.rs) | Graph compiler: compile once / bind many, dedup, fusion, partitioning | [graph-compiler.md](../research/compiler/graph-compiler.md) |
 | [phasepoly_bench](phasepoly_bench.rs) | T-count: DAG peephole vs phase folding | [phasepoly.md](../research/compiler/phasepoly.md) |
 | [phasepoly_e2e](phasepoly_e2e.rs) | End-to-end wall time with phase folding off vs on | [phasepoly.md](../research/compiler/phasepoly.md) |
 | [repeat_bench](repeat_bench.rs) | The repeat pass (`compile::repeat`) | [repeat.md](../research/compiler/repeat.md) |
@@ -65,12 +66,14 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [theory_coset](theory_coset.rs) | Data for the coset-error theory | [theory-coset.md](../research/theory/theory-coset.md) |
 | [theory_rank](theory_rank.rs) | Branching-rank profiles and demos | [theory-rank.md](../research/theory/theory-rank.md) |
 | [schedule_search](schedule_search.rs) | Surface-code CNOT schedule search | [schedules.md](../research/qec/schedules.md) |
+| [bb_codes](bb_codes.rs) | Two-block (BB / GB / coprime-BB) codes: parameters, search, circuit-level LER | [code-discovery.md](../research/qec/code-discovery.md) |
 | [color_search](color_search.rs) | Colour-code schedule experiments | [qec-r4.md](../research/qec/qec-r4.md), [colour-global.md](../research/qec/colour-global.md) |
 | [color_ler](color_ler.rs) | Colour-code memory logical error rate (SymPhase + BP+OSD) | [colour-flags.md](../research/qec/colour-flags.md) |
 | [dem_distance](dem_distance.rs) | Exact minimum-weight logical of a DEM on stdin | [colour-global.md](../research/qec/colour-global.md) |
 | [simulability](simulability.rs) | Simulability phase-diagram campaign | [simulability.md](../research/simulability/simulability.md) |
 | [spoof_utility](spoof_utility.rs) | Classical reproduction of IBM's 127-qubit kicked-Ising utility experiment (sparse Pauli dynamics) | [spoof-utility.md](../research/simulability/spoof-utility.md) |
 | [spoof_patch](spoof_patch.rs) | Deep-circuit check of truncated SPD against the exact state vector on a heavy-hex patch | [spoof-utility.md](../research/simulability/spoof-utility.md) |
+| [lowmagic_chem](lowmagic_chem.rs) | Low-magic chemistry runs | [lowmagic-chem.md](../research/simulability/lowmagic-chem.md) |
 | [magic_atlas](magic_atlas.rs) | Magic atlas CLI | [magic-atlas.md](../research/simulability/magic-atlas.md) |
 | [magic_transition](magic_transition.rs) | Monitored Clifford+T transition campaign | [magic-transition.md](../research/simulability/magic-transition.md) |
 | [transition_theory](transition_theory.rs) | d-only polynomial campaign for the transition theory | [transition-theory.md](../research/theory/transition-theory.md) |

@@ -1,5 +1,8 @@
 //! Quantum error correction (QEC) codes, decoders, and threshold benchmarks.
 
+pub mod bb_circuit;
+pub mod bb_search;
+pub mod bicycle;
 pub mod bposd;
 pub mod color;
 pub mod decoder;
