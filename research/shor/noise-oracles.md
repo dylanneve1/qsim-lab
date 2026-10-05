@@ -3,7 +3,7 @@
 **Question.** The Shor oracle got much smaller today (round-4 windowed 1.70 M
 gates → windowed-opt 1.04 M at 31 bits; Toffolis halved again by
 measurement-based uncomputation (MBU); Gidney–Ekerå (GE) techniques → 45–61 k
-Toffolis). research/shor-noise.md measured, on the round-4 oracle, that a
+Toffolis). research/shor/shor-noise.md measured, on the round-4 oracle, that a
 random depolarizing fault is fatal with probability d = 0.716 and that the
 success probability halves at p½ = 5.49·10⁻⁷ per gate-qubit location at
 n = 24. Did noise tolerance improve in proportion, or do the new
@@ -71,7 +71,7 @@ these are Monte-Carlo statistics (per-trajectory seconds are in the raw CSVs).
 
 ## 1. Engine: exact noisy trajectories for every oracle (`src/shor/noisy_gen.rs`)
 
-The engine of research/shor-noise.md (`src/shor/noisy.rs`) handles X / CNOT /
+The engine of research/shor/shor-noise.md (`src/shor/noisy.rs`) handles X / CNOT /
 CCX oracles. The new module generalises it, with the same fault model and
 the same control algebra, to:
 
@@ -176,9 +176,9 @@ lower bound.
 
 ## 3. Results: p½, d, G_eff per oracle
 
-![p½ and d vs n](data/noise-oracles/phalf_d_vs_n.png)
+![p½ and d vs n](../data/noise-oracles/phalf_d_vs_n.png)
 
-Depolarizing noise; ±1σ bootstrap; S₀ pooled over oracles (identical noiseless distributions); p½ (ĉ = 0) is the systematic lower bound of §2; round-4 values from research/shor-noise.md (`tables.md` has the same rows):
+Depolarizing noise; ±1σ bootstrap; S₀ pooled over oracles (identical noiseless distributions); p½ (ĉ = 0) is the systematic lower bound of §2; round-4 values from research/shor/shor-noise.md (`tables.md` has the same rows):
 
 | oracle | n | L̄ | S₀ | S₁ | S₂ | S₃ | d | G_eff | p½ | p½ (ĉ = 0) | p½·L̄ | p½ / p½(round 4) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -242,7 +242,7 @@ the MBU oracles; `data/noise-oracles/counts_24.txt`):
 
 ## 4. The fatality map
 
-![fatality by block](data/noise-oracles/fatality_blocks.png)
+![fatality by block](../data/noise-oracles/fatality_blocks.png)
 
 By block (k = 1 trajectories, depolarizing, pooled over n = 10–24; each cell: share of locations / P(ok | fault there)/S₀ / share of G_eff):
 
@@ -307,7 +307,7 @@ and 0.73 (GE). What remains fatal is arithmetic: X/Y faults in the
 reduction part of the modular adder (on b, K, the carries; P(ok) 0.24–0.36), which
 corrupt the sum itself; changing how ancillas are uncomputed cannot make those benign.
 
-## 5. Theory check (research/theory-shor.md, T3)
+## 5. Theory check (research/theory/theory-shor.md, T3)
 
 P(ok | one fault)/S₀ by T3 window (start = rounds < ⌊t − 2 log₂ r⌋, end = last ν₂(r) rounds; XY / Z = Pauli family; clean / dirty = whether an ancilla was left non-zero after the fault's round; pooled over n; counts in brackets):
 
@@ -445,7 +445,7 @@ the work register — the residual damage of the variant.
 
 ## 7. Caveats
 
-* The fault model of research/shor-noise.md: uniform rate p at every
+* The fault model of research/shor/shor-noise.md: uniform rate p at every
   gate-qubit location, each CCX gets three independent single-qubit channels,
   ideal state preparation of the work register and ancillas, no idle noise,
   Pauli (stochastic) noise only, noiseless classical phase corrections. The
@@ -476,7 +476,7 @@ the work register — the residual damage of the variant.
   k = 0 / k = 1 strata, which are used (all seeds distinct per (job, k, j)).
 * Design (§6) measured at n = 12–20, not at n = 24 (machine time).
 * GE windowed exponentiation measured with w_e = 2 (t = 2n must be a multiple of
-  w_e for every instance); research/ge-shor.md's 31-bit count used w_e = 3.
+  w_e for every instance); research/shor/ge-shor.md's 31-bit count used w_e = 3.
   Ekerå–Håstad and coset arithmetic are not measured (coset arithmetic is
   approximate even without noise; EH uses a different post-processing).
 
@@ -496,14 +496,14 @@ the work register — the residual damage of the variant.
   propagation (e.g. ancilla verification and flag qubits in fault-tolerant
   gadgets, Chao & Reichardt arXiv:1705.02329), here quantified on whole
   Shor circuits.
-* **Circuit-level fault statistics of Shor**: research/shor-noise.md (this
+* **Circuit-level fault statistics of Shor**: research/shor/shor-noise.md (this
   repo; round-4 oracle, n ≤ 24) and the works cited there (Devitt, Fowler &
   Hollenberg quant-ph/0408081; Yang et al. arXiv:2509.00417, Beauregard
   circuit, 4–9-bit N). To our knowledge no circuit-level noise statistics of
   MBU or windowed-exponentiation Shor circuits have been reported; this note
   does it exactly for 10–24-bit N (up to 130 qubits).
 * **Mid-circuit reset** of ancillas between rounds was measured for the round-4
-  oracle in research/shor-noise.md (d 0.72 → 0.47); §6 extends it to the new
+  oracle in research/shor/shor-noise.md (d 0.72 → 0.47); §6 extends it to the new
   oracles and compares placements.
 
 ## 9. Files and commands

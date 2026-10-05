@@ -1,10 +1,10 @@
-//! Superoptimised windowed oracle (exp/superopt, `research/superopt.md`).
+//! Superoptimised windowed oracle (exp/superopt, `research/shor/superopt.md`).
 //!
 //! Same qubit layout and the same arithmetic as [`crate::shor_window`]
 //! (Gidney-style windowed modular multiplication built from X, CNOT and
 //! CCX only), with every building block replaced by a cheaper one that is
 //! proved correct (exhaustively for small widths in the tests, and by the
-//! inductive argument in `research/superopt.md`). Each improvement can be
+//! inductive argument in `research/shor/superopt.md`). Each improvement can be
 //! switched on separately through [`Opts`] so its effect can be measured:
 //!
 //! * `unary`: the table lookup walks the address tree MSB-first with

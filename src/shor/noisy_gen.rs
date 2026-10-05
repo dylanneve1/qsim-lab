@@ -779,7 +779,7 @@ impl GenCircuit {
         }
     }
 
-    /// Windowed exponentiation (research/ge-shor.md): `we` exponent qubits
+    /// Windowed exponentiation (research/shor/ge-shor.md): `we` exponent qubits
     /// per window (`we` divides `t = 2n`), `wm`-bit multiplicand windows,
     /// all MBU constructions, exact modular arithmetic.
     pub fn new_ge(n_mod: u64, a: u64, we: usize, wm: usize, kind: NoiseKind) -> Self {
@@ -2359,7 +2359,7 @@ pub fn argmax_choice(p: &[f64]) -> (usize, f64) {
     (best, p[best])
 }
 
-/// The success criterion of research/shor-noise.md ("peak"):
+/// The success criterion of research/shor/shor-noise.md ("peak"):
 /// `|y/2^t − s/r| < 1/(2r²)` for the nearest `s`.
 pub fn peak_ok(y: u128, t: usize, r: u64) -> bool {
     // dist(y·r/2^t, Z) < 1/(2r)  <=>  |y·r − s·2^t| · 2r < 2^t
