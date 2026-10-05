@@ -180,6 +180,33 @@ Reading the table:
   subset AlphaQubit-lite is 3.532 % (1.147), BP+OSD 3.366 % (1.093), correlated PyMatching 3.429 %
   (1.113), PyMatching 3.878 % (1.259).
 
+**Held-out comparison, d = 5 (odd shots, 2 bases × 12 round counts × 25,000 = 0.6 M shots).**
+
+| decoder | LER (fit R = 3…25) | 95 % CI | ratio vs TN | ε at R = 3 | ε at R = 25 |
+|---|---|---|---|---|---|
+| **AlphaQubit-lite (this work)** | **5.554 %** | **[5.403, 5.716]** | **1.865 [1.813, 1.926]** | **2.64 %** | **5.17 %** |
+| PyMatching (shipped) | 4.454 % | [4.365, 4.557] | 1.495 [1.459, 1.535] | 2.74 % | 4.29 % |
+| PyMatching 2.4, pij DEM (ours) | 4.388 % | [4.303, 4.496] | 1.473 [1.442, 1.514] | 2.67 % | 4.16 % |
+| correlated matching (shipped) | 3.614 % | [3.552, 3.679] | 1.213 [1.192, 1.239] | 2.42 % | 3.44 % |
+| PyMatching 2.4 correlated (ours) | 3.529 % | [3.467, 3.588] | 1.185 [1.162, 1.207] | 2.30 % | 3.38 % |
+| belief matching (shipped) | 3.086 % | [3.039, 3.131] | 1.036 [1.019, 1.052] | 2.07 % | 2.97 % |
+| tensor network (shipped) | 2.978 % | [2.936, 3.024] | 1.000 | 1.92 % | 2.88 % |
+| AlphaQubit, paper | 2.748 ± 0.015 % | | 0.943 (vs paper's TN) | | |
+
+BP+OSD-CS (order 10, ours) on the first 5,000 shots per experiment (paired 120 k-shot subset):
+3.803 % [3.654, 3.982], ratio 1.249 — worse than correlated matching at d = 5 although better at
+d = 3. Tesseract at d = 5: §5.3.
+
+At d = 5 AlphaQubit-lite **loses to PyMatching** (5.55 % vs 4.39 %). It only had 0.67 M d = 5
+samples (0.32 M pretraining warm-started from the d = 3 model, 0.35 M fine-tuning, of which the best
+checkpoint saw 0.1 M) at 180–330 samples/s; it matches PyMatching on R = 3 experiments and falls
+behind as R grows. Two observations from the runs: (i) fine-tuning at the d = 3 learning rate
+(3e-4, batch 80) wrecked the pretrained model within 0.1 M samples (dev 5.7 % → 12–16 %); lr 5e-5
+was stable but gained little (5.68 → 5.51 %); (ii) the released d = 5 pij DEMs produce 9 % more
+detection events than the real device (d = 3: 2–6 %), and Sycamore d = 5 sits at threshold
+(Λ₃/₅ ≈ 1.04), so DEM-simulated d = 5 data is substantially harder than the real data (simulated-dev
+LER 13 % vs real-dev 5.7 % for the same model).
+
 ### 5.2 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
 
 Test fold: odd-index shots (25,000 per configuration). Per-round LER ε = ½(1 − (1 − 2E)^{1/r}) per
