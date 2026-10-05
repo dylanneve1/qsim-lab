@@ -157,7 +157,10 @@ pub fn gsearch(
     let ip1: Vec<C> = t.states.iter().map(|v| dot(&q1, v)).collect();
     // no stabilizer state lies in U (needed: phi_1 is independent of U)
     for v in 0..nst {
-        assert!(1.0 - ip0[v].n2() - ip1[v].n2() > 1e-6, "stabilizer state in U");
+        assert!(
+            1.0 - ip0[v].n2() - ip1[v].n2() > 1e-6,
+            "stabilizer state in U"
+        );
     }
     let f1 = random_functional(dim, 0x9E3779B97F4A7C15);
     let f2 = random_functional(dim, 0x2545F4914F6CDD1D);
@@ -203,8 +206,20 @@ pub fn gsearch(
                         let ips = [&ip0, &ip1, &ip2];
                         lpairs += 1;
                         hash_step(
-                            t, psi, psip, &[r as u32], &qs, &ips, &cands, &f1, &f2, &fv1, &fv2,
-                            &mut lfound, &mut lcand, &mut lver,
+                            t,
+                            psi,
+                            psip,
+                            &[r as u32],
+                            &qs,
+                            &ips,
+                            &cands,
+                            &f1,
+                            &f2,
+                            &fv1,
+                            &fv2,
+                            &mut lfound,
+                            &mut lcand,
+                            &mut lver,
                         );
                         for s in lfound.drain(..) {
                             lseen.insert(s);
@@ -217,10 +232,7 @@ pub fn gsearch(
                         if v2 == r {
                             continue;
                         }
-                        if stabs[o]
-                            .iter()
-                            .any(|&e| (group[e][v2] as usize) < v2)
-                        {
+                        if stabs[o].iter().any(|&e| (group[e][v2] as usize) < v2) {
                             continue;
                         }
                         let c0 = ip0[v2];
@@ -265,7 +277,12 @@ pub fn gsearch(
                         }
                     }
                     if std::env::var("PROGRESS").is_ok() {
-                        eprintln!("orbit {}/{} distinct found so far {}", o, norbits, lseen.len());
+                        eprintln!(
+                            "orbit {}/{} distinct found so far {}",
+                            o,
+                            norbits,
+                            lseen.len()
+                        );
                     }
                 }
                 let mut g = out.lock().unwrap();
@@ -327,7 +344,12 @@ fn hash_step(
         }
         let s = a.n2() + b.n2();
         let ab = a * cj(b);
-        pts.push((2.0 * ab.re / s, 2.0 * ab.im / s, (a.n2() - b.n2()) / s, v as u32));
+        pts.push((
+            2.0 * ab.re / s,
+            2.0 * ab.im / s,
+            (a.n2() - b.n2()) / s,
+            v as u32,
+        ));
     }
     pts.sort_unstable_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
     // union-find of near-coincident projective points
@@ -371,7 +393,11 @@ fn hash_step(
         *nver += 1;
         if let Some(d) = check_set(t, psi, &s) {
             // Galois lemma sanity: psip is in the span too
-            let vs: Vec<&[C]> = d.idx.iter().map(|&i| t.states[i as usize].as_slice()).collect();
+            let vs: Vec<&[C]> = d
+                .idx
+                .iter()
+                .map(|&i| t.states[i as usize].as_slice())
+                .collect();
             let (_, res) = lsq(&vs, psip);
             assert!(res < 1e-7, "Galois lemma violated?");
             found.push(d.idx);
@@ -445,7 +471,12 @@ fn project_points(
         dg.nonzero_pn2_min = dg.nonzero_pn2_min.min(pn2);
         let s = a.n2() + b.n2();
         let ab = a * cj(b);
-        pts.push((2.0 * ab.re / s, 2.0 * ab.im / s, (a.n2() - b.n2()) / s, v as u32));
+        pts.push((
+            2.0 * ab.re / s,
+            2.0 * ab.im / s,
+            (a.n2() - b.n2()) / s,
+            v as u32,
+        ));
     }
     pts.sort_unstable_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
     (zero, pts)
@@ -502,8 +533,8 @@ pub struct Diag {
     pub acc_gram_min: f64,    // smallest Gram determinant among accepted sets
     pub acc_coef_min: f64,    // smallest |coefficient| among accepted sets
     pub acc_res_max: f64,     // largest residual among accepted sets
-    pub ambiguous: u64,       // rejected sets with residual < 1e-6 and (Gram < 1e-6 or min|c| < 1e-6)
-    pub rej_res_min: f64,     // smallest residual among sets rejected only for the residual
+    pub ambiguous: u64, // rejected sets with residual < 1e-6 and (Gram < 1e-6 or min|c| < 1e-6)
+    pub rej_res_min: f64, // smallest residual among sets rejected only for the residual
 }
 impl Diag {
     pub fn new() -> Diag {
@@ -538,7 +569,11 @@ pub fn check_set_diag(t: &Table, psi: &[C], set: &[u32], dg: &mut Diag) -> Optio
     }
     let vs: Vec<&[C]> = s.iter().map(|&i| t.states[i as usize].as_slice()).collect();
     let g = gram_det(&vs);
-    let (c, res) = if g > 1e-14 { lsq(&vs, psi) } else { (vec![], f64::INFINITY) };
+    let (c, res) = if g > 1e-14 {
+        lsq(&vs, psi)
+    } else {
+        (vec![], f64::INFINITY)
+    };
     let cmin = c.iter().map(|z| z.abs()).fold(f64::MAX, f64::min);
     if g > 1e-10 && res < 1e-8 && cmin > 1e-8 {
         dg.acc_gram_min = dg.acc_gram_min.min(g);
@@ -576,7 +611,10 @@ pub fn gsearch5r(
     let ip0: Vec<C> = t.states.iter().map(|v| dot(&q0, v)).collect();
     let ip1: Vec<C> = t.states.iter().map(|v| dot(&q1, v)).collect();
     for v in 0..nst {
-        assert!(1.0 - ip0[v].n2() - ip1[v].n2() > 1e-6, "stabilizer state in U");
+        assert!(
+            1.0 - ip0[v].n2() - ip1[v].n2() > 1e-6,
+            "stabilizer state in U"
+        );
     }
     let f1 = random_functional(dim, 0x9E3779B97F4A7C15);
     let f2 = random_functional(dim, 0x2545F4914F6CDD1D);
@@ -699,8 +737,11 @@ pub fn gsearch5r(
                             s.extend_from_slice(extra);
                             lver += 1;
                             if let Some(d) = check_set_diag(t, psi, &s, &mut ldiag) {
-                                let vs: Vec<&[C]> =
-                                    d.idx.iter().map(|&i| t.states[i as usize].as_slice()).collect();
+                                let vs: Vec<&[C]> = d
+                                    .idx
+                                    .iter()
+                                    .map(|&i| t.states[i as usize].as_slice())
+                                    .collect();
                                 let (_, res) = lsq(&vs, psip);
                                 assert!(res < 1e-7, "Galois lemma violated?");
                                 lfound.insert(d.idx);
@@ -730,7 +771,13 @@ pub fn gsearch5r(
                         }
                     }
                     if std::env::var("PROGRESS").is_ok() {
-                        eprintln!("orbit {}/{} (|cands| {}) found so far {}", o, norbits, cands.len(), lfound.len());
+                        eprintln!(
+                            "orbit {}/{} (|cands| {}) found so far {}",
+                            o,
+                            norbits,
+                            cands.len(),
+                            lfound.len()
+                        );
                     }
                 }
                 let mut g = out.lock().unwrap();
@@ -748,7 +795,10 @@ pub fn gsearch5r(
     st.cand += g.2;
     st.verified += g.3;
     if g.4 > 0 {
-        eprintln!("  note: {} level-2 zero projections outside the level-1 class (kept as zeros)", g.4);
+        eprintln!(
+            "  note: {} level-2 zero projections outside the level-1 class (kept as zeros)",
+            g.4
+        );
     }
     eprintln!("  margins: {:?}", diag.into_inner().unwrap());
     g.0
@@ -774,7 +824,11 @@ pub fn bottoms(a: &[C], nq: usize) -> Vec<Vec<C>> {
             // (X^v Z^u a)[x ^ v] = (-1)^{u.x} a[x]
             let mut b = vec![C::default(); dim];
             for x in 0..dim {
-                let sgn = if (u & x).count_ones() % 2 == 1 { -1.0 } else { 1.0 };
+                let sgn = if (u & x).count_ones() % 2 == 1 {
+                    -1.0
+                } else {
+                    1.0
+                };
                 b[x ^ v] = csc(a[x], sgn);
             }
             for &w in &phases {
@@ -817,10 +871,10 @@ pub fn verify_terms(terms: &[Vec<C>], target: &[C]) -> Option<Vec<C>> {
 
 // ---------------------------------------------------------------- lifts
 pub struct LiftCtx {
-    pub nq: usize,       // qubits of the restricted level (n-1)
-    pub tpsi: Vec<C>,    // t * psi^{⊗(n-1)}, t = psi_1/psi_0
-    pub target: Vec<C>,  // psi^{⊗n}
-    pub f: Vec<C>,       // random functionals on C^{2^(n-1)}
+    pub nq: usize,      // qubits of the restricted level (n-1)
+    pub tpsi: Vec<C>,   // t * psi^{⊗(n-1)}, t = psi_1/psi_0
+    pub target: Vec<C>, // psi^{⊗n}
+    pub f: Vec<C>,      // random functionals on C^{2^(n-1)}
     pub g: Vec<C>,
 }
 impl LiftCtx {
@@ -1007,8 +1061,14 @@ pub fn lift_degenerate(
         }
     }
     // scalar tables
-    let ff: Vec<Vec<C>> = opts.iter().map(|o| o.iter().map(|z| dot(&cx.f, z)).collect()).collect();
-    let gg: Vec<Vec<C>> = opts.iter().map(|o| o.iter().map(|z| dot(&cx.g, z)).collect()).collect();
+    let ff: Vec<Vec<C>> = opts
+        .iter()
+        .map(|o| o.iter().map(|z| dot(&cx.f, z)).collect())
+        .collect();
+    let gg: Vec<Vec<C>> = opts
+        .iter()
+        .map(|o| o.iter().map(|z| dot(&cx.g, z)).collect())
+        .collect();
     let tf = dot(&cx.f, &cx.tpsi);
     let tg = dot(&cx.g, &cx.tpsi);
     let eps = 1e-8;
@@ -1202,19 +1262,33 @@ impl Level {
         let gens = sym_generators(&t, &p);
         let orbit = orbits(t.states.len(), &gens);
         let group = group_closure(&gens, 100_000).expect("group too large");
-        Level { t, psi, psip, gens, orbit, group }
+        Level {
+            t,
+            psi,
+            psip,
+            gens,
+            orbit,
+            group,
+        }
     }
 }
 
 /// Decompositions (as index sets) -> coefficient vectors for the normalised target.
 pub fn coefs(lv: &Level, s: &[u32]) -> Vec<C> {
-    check_set(&lv.t, &lv.psi, s).expect("not a decomposition").coef
+    check_set(&lv.t, &lv.psi, s)
+        .expect("not a decomposition")
+        .coef
 }
 
 fn write_sets(path: &str, lv: &Level, sets: &[Vec<u32>], header: &str) {
     use std::io::Write;
     let mut f = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
-    writeln!(f, "# {}  format: idx:re,im per term (idx = position in enum_states(n))", header).unwrap();
+    writeln!(
+        f,
+        "# {}  format: idx:re,im per term (idx = position in enum_states(n))",
+        header
+    )
+    .unwrap();
     for s in sets {
         let c = coefs(lv, s);
         let parts: Vec<String> = s
@@ -1242,7 +1316,32 @@ pub fn read_reps_u16(path: &str, k: usize) -> Vec<Vec<u32>> {
     let b = std::fs::read(path).expect("reps file");
     assert_eq!(b.len() % (2 * k), 0);
     b.chunks(2 * k)
-        .map(|c| c.chunks(2).map(|w| u16::from_le_bytes([w[0], w[1]]) as u32).collect())
+        .map(|c| {
+            c.chunks(2)
+                .map(|w| u16::from_le_bytes([w[0], w[1]]) as u32)
+                .collect()
+        })
+        .collect()
+}
+
+/// Orbit representatives from a `.u16` certificate or a text list (`idx:re,im` per term).
+pub fn load_reps(path: &str, k: usize) -> Vec<Vec<u32>> {
+    if path.ends_with(".u16") {
+        return read_reps_u16(path, k);
+    }
+    std::fs::read_to_string(path)
+        .expect("reps file")
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .map(|l| {
+            let mut v: Vec<u32> = l
+                .split_whitespace()
+                .map(|p| p.split(':').next().unwrap().parse().unwrap())
+                .collect();
+            v.sort();
+            assert_eq!(v.len(), k);
+            v
+        })
         .collect()
 }
 
@@ -1252,14 +1351,22 @@ pub fn read_reps_u16(path: &str, k: usize) -> Vec<Vec<u32>> {
 pub fn decs(lv: &Level, k: usize) -> (Vec<Vec<u32>>, usize, f64) {
     let t0 = std::time::Instant::now();
     let found: Vec<Vec<u32>> = if k <= 3 {
-        let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
+        let mut st = SearchStats {
+            w_count: 0,
+            cand_count: 0,
+            verified: 0,
+        };
         let g16 = lv.group.clone();
         search(&lv.t, &lv.psi, k, &lv.orbit, Some(&g16), &mut st)
             .into_iter()
             .map(|d| d.idx)
             .collect()
     } else {
-        let mut st = GStats { pairs: 0, cand: 0, verified: 0 };
+        let mut st = GStats {
+            pairs: 0,
+            cand: 0,
+            verified: 0,
+        };
         let f = if k == 5 && std::env::var("SIMPLE").is_err() {
             gsearch5r(&lv.t, &lv.psi, &lv.psip, &lv.orbit, &lv.group, &mut st)
         } else {
@@ -1267,7 +1374,11 @@ pub fn decs(lv: &Level, k: usize) -> (Vec<Vec<u32>>, usize, f64) {
         };
         eprintln!(
             "  gsearch k={}: pairs={} candidates={} verified={} raw found={}",
-            k, st.pairs, st.cand, st.verified, f.len()
+            k,
+            st.pairs,
+            st.cand,
+            st.verified,
+            f.len()
         );
         f
     };
@@ -1300,7 +1411,10 @@ pub fn lift_all(
                     break;
                 }
                 let s = &opts_reps[i];
-                let tops: Vec<&[C]> = s.iter().map(|&x| lv.t.states[x as usize].as_slice()).collect();
+                let tops: Vec<&[C]> = s
+                    .iter()
+                    .map(|&x| lv.t.states[x as usize].as_slice())
+                    .collect();
                 let d = coefs(lv, s);
                 let (f, ch, nt) = lift_degenerate(&cx, &lv.t, &tops, &d);
                 let mut st = stats.lock().unwrap();
@@ -1339,7 +1453,10 @@ pub fn lift_all(
                     break;
                 }
                 let s = &mins_reps[i];
-                let tops: Vec<&[C]> = s.iter().map(|&x| lv.t.states[x as usize].as_slice()).collect();
+                let tops: Vec<&[C]> = s
+                    .iter()
+                    .map(|&x| lv.t.states[x as usize].as_slice())
+                    .collect();
                 let a = coefs(lv, s);
                 let f = lift_type1(&cx, &tops, &a);
                 if !f.is_empty() {
@@ -1347,7 +1464,12 @@ pub fn lift_all(
                 }
                 let dn = done.fetch_add(1, Ordering::SeqCst) + 1;
                 if std::env::var("PROGRESS").is_ok() && dn % 1000 == 0 {
-                    eprintln!("  type I lifted {}/{} ({:.0}s)", dn, mins_reps.len(), t1.elapsed().as_secs_f64());
+                    eprintln!(
+                        "  type I lifted {}/{} ({:.0}s)",
+                        dn,
+                        mins_reps.len(),
+                        t1.elapsed().as_secs_f64()
+                    );
                 }
             });
         }
@@ -1366,7 +1488,10 @@ pub fn lift_all(
 /// stabilizer states of Table::new(1); default 0 = |0>), u a Clifford with u|s> = |0>.
 pub fn last_state(kind: &str) -> [C; 2] {
     let p = psi1(kind);
-    let s: usize = std::env::var("BRA").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+    let s: usize = std::env::var("BRA")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
     if s == 0 {
         return p;
     }
@@ -1649,19 +1774,9 @@ fn main() {
             let lv = Level::new(&kind, n - 1);
             let p = psi1(&kind);
             let rabs = cdiv(p[1], p[0]).abs();
-            let txt = std::fs::read_to_string(path).expect("reps file");
-            let reps: Vec<Dec> = txt
-                .lines()
-                .filter(|l| !l.starts_with('#'))
-                .map(|l| {
-                    let mut v: Vec<u32> = l
-                        .split_whitespace()
-                        .map(|p| p.split(':').next().unwrap().parse().unwrap())
-                        .collect();
-                    v.sort();
-                    assert_eq!(v.len(), k);
-                    check_set(&lv.t, &lv.psi, &v).expect("rep is not a decomposition")
-                })
+            let reps: Vec<Dec> = load_reps(path, k)
+                .iter()
+                .map(|v| check_set(&lv.t, &lv.psi, v).expect("rep is not a decomposition"))
                 .collect();
             let l1: Vec<f64> = l1_norms(&reps);
             let (mn, mx) = l1.iter().fold((f64::MAX, 0f64), |(a, b), &x| (a.min(x), b.max(x)));
@@ -1753,15 +1868,9 @@ fn main() {
             }
             // case B
             let rabs = cdiv(p[1], p[0]).abs();
-            let txt = std::fs::read_to_string(path).expect("reps file");
-            let reps: Vec<Dec> = txt
-                .lines()
-                .filter(|l| !l.starts_with('#'))
-                .map(|l| {
-                    let mut v: Vec<u32> = l.split_whitespace().map(|p| p.split(':').next().unwrap().parse().unwrap()).collect();
-                    v.sort();
-                    check_set(&lv.t, &lv.psi, &v).expect("rep is not a decomposition")
-                })
+            let reps: Vec<Dec> = load_reps(path, k)
+                .iter()
+                .map(|v| check_set(&lv.t, &lv.psi, v).expect("rep is not a decomposition"))
                 .collect();
             let l1 = l1_norms(&reps);
             let (mn, mx) = l1.iter().fold((f64::MAX, 0f64), |(a, b), &x| (a.min(x), b.max(x)));

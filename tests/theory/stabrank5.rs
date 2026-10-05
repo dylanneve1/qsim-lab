@@ -19,7 +19,10 @@ mod stabrank5;
 use stabrank5::*;
 use std::collections::HashSet;
 
-const CERT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/research/data/stabrank5/m5_H4_reps.u16");
+const CERT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/research/data/stabrank5/m5_H4_reps.u16"
+);
 const H4_LIST: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/research/data/stabrank-lower/dec_H4_k4.txt"
@@ -78,7 +81,14 @@ fn expand_found(kind: &str, n: usize, found: &[Vec<Vec<C>>], bra: usize) -> Vec<
 
 /// Algorithm 1 at level n-1 -> n with restriction bra `bra`: degenerate lifts of the optimal
 /// representatives plus type-I lifts of the minimal ones.
-fn algorithm1(kind: &str, n: usize, lv: &Level, opt: &[Vec<u32>], min: &[Vec<u32>], bra: usize) -> Vec<Vec<Vec<C>>> {
+fn algorithm1(
+    kind: &str,
+    n: usize,
+    lv: &Level,
+    opt: &[Vec<u32>],
+    min: &[Vec<u32>],
+    bra: usize,
+) -> Vec<Vec<Vec<C>>> {
     let p = psi1(kind);
     let last = if bra == 0 {
         p
@@ -93,11 +103,17 @@ fn algorithm1(kind: &str, n: usize, lv: &Level, opt: &[Vec<u32>], min: &[Vec<u32
     let cx = LiftCtx::with_last(&p, n, &last);
     let mut found = vec![];
     for s in opt {
-        let tops: Vec<&[C]> = s.iter().map(|&x| lv.t.states[x as usize].as_slice()).collect();
+        let tops: Vec<&[C]> = s
+            .iter()
+            .map(|&x| lv.t.states[x as usize].as_slice())
+            .collect();
         found.extend(lift_degenerate(&cx, &lv.t, &tops, &coefs(lv, s)).0);
     }
     for s in min {
-        let tops: Vec<&[C]> = s.iter().map(|&x| lv.t.states[x as usize].as_slice()).collect();
+        let tops: Vec<&[C]> = s
+            .iter()
+            .map(|&x| lv.t.states[x as usize].as_slice())
+            .collect();
         found.extend(lift_type1(&cx, &tops, &coefs(lv, s)));
     }
     found
@@ -133,7 +149,10 @@ fn galois_search_reproduces_the_known_lists() {
     let lv4 = Level::new("H", 4);
     let (r4, tot4, _) = decs(&lv4, 4);
     assert_eq!((tot4, r4.len()), (449, 19));
-    let ds: Vec<Dec> = r4.iter().map(|s| check_set(&lv4.t, &lv4.psi, s).unwrap()).collect();
+    let ds: Vec<Dec> = r4
+        .iter()
+        .map(|s| check_set(&lv4.t, &lv4.psi, s).unwrap())
+        .collect();
     let mut all: Vec<Vec<u32>> = expand(&lv4.t, &lv4.psi, &ds, &lv4.gens)
         .into_iter()
         .map(|d| d.idx)
@@ -142,7 +161,10 @@ fn galois_search_reproduces_the_known_lists() {
     assert_eq!(all, read_list(H4_LIST));
     // Galois lemma: psi_perp^{⊗4} lies in the span of every one of them
     for s in &all {
-        let vs: Vec<&[C]> = s.iter().map(|&i| lv4.t.states[i as usize].as_slice()).collect();
+        let vs: Vec<&[C]> = s
+            .iter()
+            .map(|&i| lv4.t.states[i as usize].as_slice())
+            .collect();
         assert!(lsq(&vs, &lv4.psip).1 < 1e-10);
     }
     // and H^4 has no 3-term decomposition (old projective-hash search)
@@ -180,10 +202,18 @@ fn both_algorithms_reproduce_the_449_decompositions_of_h4() {
             .unwrap();
         let udag: M2 = [cj(u[0]), cj(u[2]), cj(u[1]), cj(u[3])];
         for terms in g {
-            f.push(terms.iter().map(|v| apply_local(&udag, 3, v)).collect::<Vec<_>>());
+            f.push(
+                terms
+                    .iter()
+                    .map(|v| apply_local(&udag, 3, v))
+                    .collect::<Vec<_>>(),
+            );
         }
     }
-    let reps: Vec<Dec> = min.iter().map(|s| check_set(&lv.t, &lv.psi, s).unwrap()).collect();
+    let reps: Vec<Dec> = min
+        .iter()
+        .map(|s| check_set(&lv.t, &lv.psi, s).unwrap())
+        .collect();
     let bfull = expand(&lv.t, &lv.psi, &reps, &lv.gens);
     for (terms, _) in glue_from(&lv.t, &reps, &bfull, &p, 4) {
         f.push(terms);
@@ -211,7 +241,10 @@ fn certificate_is_the_orbit_list_of_minimal_five_term_decompositions_of_h4() {
         l1min = l1min.min(l1);
         l1max = l1max.max(l1);
         // ... whose span also contains psi_perp^{⊗4} (Galois lemma)
-        let vs: Vec<&[C]> = r.iter().map(|&i| lv.t.states[i as usize].as_slice()).collect();
+        let vs: Vec<&[C]> = r
+            .iter()
+            .map(|&i| lv.t.states[i as usize].as_slice())
+            .collect();
         assert!(lsq(&vs, &lv.psip).1 < 1e-10);
     }
     assert_eq!(total, 2_662_464);
@@ -219,7 +252,10 @@ fn certificate_is_the_orbit_list_of_minimal_five_term_decompositions_of_h4() {
     // lift a deterministic sample (every 97th representative) to H^{⊗5}: nothing
     let cx = LiftCtx::new(&psi1("H"), 5);
     for r in reps.iter().step_by(97) {
-        let tops: Vec<&[C]> = r.iter().map(|&x| lv.t.states[x as usize].as_slice()).collect();
+        let tops: Vec<&[C]> = r
+            .iter()
+            .map(|&x| lv.t.states[x as usize].as_slice())
+            .collect();
         assert!(lift_type1(&cx, &tops, &coefs(&lv, r)).is_empty());
     }
 }
