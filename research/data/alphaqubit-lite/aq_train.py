@@ -59,6 +59,9 @@ ap.add_argument("--curr-sc", type=float, default=1.0)
 ap.add_argument("--rmax0", type=int, default=0)
 ap.add_argument("--rcurr", type=float, default=0)
 ap.add_argument("--eval-split", default="test")
+ap.add_argument("--eval-bs", type=int, default=512)
+ap.add_argument("--test-max", type=int, default=0, help="first N held-out shots per experiment (0 = all)")
+ap.add_argument("--weights", default="model.safetensors")
 ap.add_argument("--eval-rounds", default=None, help="round counts for dev/test (default: --rounds)")
 ap.add_argument("--source", default="pij", help="pretraining sample source tag (aq_gen --source)")
 ap.add_argument("--n-ctx", type=int, default=32)
@@ -155,7 +158,7 @@ model = AlphaQubitLite(L0.cell, L0.onbasis, d, D=cfg["D"], L=cfg["L"], heads=cfg
                        indicators=not cfg["no_indicators"], aux=True, n_ctx=cfg.get("n_ctx", 32),
                        max_rounds=64)
 if a.init:
-    model.load_weights(os.path.join(a.init, "model.safetensors"))
+    model.load_weights(os.path.join(a.init, a.weights if a.mode == "eval" else "model.safetensors"))
 if a.init_partial:
     from mlx.utils import tree_unflatten
     src = mx.load(os.path.join(a.init_partial, "model.safetensors"))
@@ -170,7 +173,8 @@ json.dump(cfg, open(os.path.join(a.out, "cfg.json"), "w"), indent=1)
 print(f"params {nparams}", flush=True)
 
 
-def predict(m, rows_by_key, bs=512):
+def predict(m, rows_by_key, bs=None):
+    bs = bs or a.eval_bs
     """logits per key (line-0 logit)"""
     out = {}
     for k, rows in rows_by_key.items():
@@ -204,7 +208,7 @@ def ler_table(m, split):
 
 
 if a.mode == "eval":
-    split = {k: v[0] for k, v in TEST.items()} if a.eval_split == "test" else DEV
+    split = {k: (v[0][:a.test_max] if a.test_max else v[0]) for k, v in TEST.items()} if a.eval_split == "test" else DEV
     t0 = time.time()
     ler, per, fails = ler_table(model, split)
     os.makedirs(os.path.join(a.out, "fails"), exist_ok=True)
@@ -219,6 +223,7 @@ if a.mode == "eval":
     rec = dict(split=a.eval_split, ler=ler, eps_by_round={R: float(np.mean(v)) for R, v in sorted(byR.items())}, per={f"{ctxs[c][0]}{ctxs[c][1]}": v for c, v in per.items()},
                shots=int(sum(len(f) for f in fails.values())), secs=round(time.time() - t0, 1), **mem_report())
     print(json.dumps(rec), flush=True)
+    print(f"eval {rec['shots']} shots in {rec['secs']} s", flush=True)
     json.dump(rec, open(os.path.join(a.out, f"eval_{a.eval_split}.json"), "w"), indent=1)
     sys.exit(0)
 
