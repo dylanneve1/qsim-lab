@@ -385,6 +385,7 @@ fn dataset_regret_no_worse_than_published() {
         Engine::Hsf => "hsf",
         Engine::Compressed => "cstate",
         Engine::Zero => "zero",
+        Engine::Tn => "tn",
     };
     // the model's choice (staging off: every feature computed)
     let cfg = PlannerConfig {
@@ -401,10 +402,13 @@ fn dataset_regret_no_worse_than_published() {
         use_certificate: false,
         ..PlannerConfig::v1()
     };
-    // Planner v2 (tiered planning, research/simulability/planner-v2.md), no cache
+    // Planner v2 (tiered planning, research/simulability/planner-v2.md), no cache.
+    // The Mac dataset has no tensor-network timings, so the TN candidate
+    // (research/simulability/tn.md) is left out of this state-engine comparison.
     let tiered = PlannerConfig {
         use_certificate: false,
         cache: false,
+        tn: false,
         ..PlannerConfig::default()
     };
     let mut eps_log2 = 0.0f64;
