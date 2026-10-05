@@ -21,7 +21,7 @@ env:
   # failing test and assertion.
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
-  N_SHARDS: 4
+  N_SHARDS: 5
 
 jobs:
   lint:
@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4] # keep in sync with N_SHARDS
+        shard: [1, 2, 3, 4, 5] # keep in sync with N_SHARDS
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -60,7 +60,7 @@ jobs:
           save-if: ${{ matrix.shard == 1 }}
       - name: Shard assignment
         run: python3 tools/ci_shard.py --table "$N_SHARDS"
-      - name: Test (shard ${{ matrix.shard }}/4)
+      - name: Test (shard ${{ matrix.shard }}/${{ env.N_SHARDS }})
         run: cargo test $(python3 tools/ci_shard.py ${{ matrix.shard }} "$N_SHARDS")
       - name: Doctests
         if: matrix.shard == 1
