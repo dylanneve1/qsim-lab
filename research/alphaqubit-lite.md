@@ -10,7 +10,24 @@ on Google's Sycamore surface-code data, but neither its code nor its weights are
 its accuracy can an open reimplementation recover on a laptop (M1 Pro GPU, ≤ 2 GB MLX memory,
 45-min runs), using our own FastSampler for pretraining and only public data?
 
-**Answer.** _(filled in §5 when the GPU runs finish)_
+**Answer.** On held-out real data, with 2.2 M training samples and 84 GPU-minutes, AlphaQubit-lite
+recovers roughly half of AlphaQubit's d = 3 gain over PyMatching but not the rest:
+
+| real data (held out) | AlphaQubit-lite | PyMatching | correlated matching | Tesseract | best published |
+|---|---|---|---|---|---|
+| Sycamore d = 3, LER (fit R = 3…25) | **3.51 %** | 3.88 % | 3.43 % (ours) / 3.49 % (Google) | 3.11 % | tensor net 3.06 %; AlphaQubit 2.90 % (paper) |
+| Sycamore d = 5 | **5.55 %** | 4.39 % | 3.53 % / 3.61 % | (§5.3) | tensor net 2.98 %; AlphaQubit 2.75 % (paper) |
+| Willow d = 3, mean ε r = 10/13/30 | **0.760 %** (0.807 % zero-shot) | 0.993 % | 0.865 % (ours) / 0.739 % (Google, RL prior) | 0.738 % (arXiv:2609.04557) | Harmony-RL 0.714 % |
+
+- d = 3 Sycamore: 10 % better than PyMatching, level with Google's correlated matching, 15 % above
+  the tensor network (paper: 4 % *below* it). Near-optimal on short experiments (R = 3: within 1.5 %
+  of the tensor network), weaker on long ones.
+- d = 5 Sycamore: under-trained (0.67 M samples at ~200 samples/s); worse than PyMatching.
+- Willow d = 3: a Sycamore-trained model transfers zero-shot (beats PyMatching by 19 %); after one
+  fine-tuning run it matches a 101-member matching ensemble (Harmony-SI1000) and Google's correlated
+  matching with the RL-optimised prior at the trained round counts.
+- The binding constraint is compute: ~10³ fewer samples than the paper (and a ≥ 15× smaller model);
+  §6 lists what limits further gains.
 
 ---
 
@@ -107,7 +124,11 @@ inactive ≥ 5.3 GB). Lite model: D = 64, key 16, conv 32, 0.37 M parameters.
 | d3 fine-tune | real training half (even shots, 19,880 / experiment, 1.9 M shots), batch 256, lr 2e-4, decoupled wd 0.02 towards the pretrained weights | 0.96 M (0.5 epoch) | 42 min | ~380 | 1.64 GB | 3.35 % |
 | d3 held-out evaluation | odd shots, 2.4 M | – | 17 min | 2,330 | | 3.512 % (test) |
 | d5 pretrain | as d3, warm start from the d3 model (180/185 tensors), batch 80, t_c = 0.12 M | 0.32 M | 42 min | 220–330 | 1.60 GB | 5.68 % |
-| d5 fine-tune | real training half | _(running)_ | | | | |
+| d5 fine-tune, lr 3e-4 | real training half, batch 80 | 0.12 M (stopped) | 20 min | ~170 | 1.60 GB | 12–16 % (wrecked; discarded) |
+| d5 fine-tune, lr 5e-5 | real training half, batch 80 | 0.35 M | 42 min | ~170 | 1.60 GB | 5.51 % (best at 0.1 M) |
+| d5 held-out evaluation | odd shots, 0.6 M | – | 12 min | 850 | | 5.554 % (test) |
+| Willow d3 fine-tune | from the Sycamore d3 model; Willow even shots, r ∈ {10, 13} (0.72 M), batch 256, lr 2e-4 | 1.02 M | 42 min | ~680 | 1.24 GB | (dev fit too noisy, §5.2) |
+| Willow d3 evaluations (zero-shot, fine-tuned) | odd shots, 10 k per configuration, r ∈ {10, 13, 30, 50} | – | 12 + 9 min | | | §5.2 |
 
 Total for the reported d = 3 model: 2.2 M training samples, 84 GPU-minutes. AlphaQubit's Sycamore
 models: up to 2 × 10⁹ pretraining samples + ~120 fine-tuning epochs per model, ×20 ensemble members,
@@ -228,11 +249,70 @@ there; r = 1 is excluded). "fit" is the paper-style log-fidelity fit over r ∈ 
 | BP+OSD (SI1000), arXiv:2609.04557 | 0.936 % | – | 0.659 % | – | paper |
 
 Our uncorrelated-matching numbers reproduce arXiv:2609.04557 to the third digit (0.994 vs 0.995 %,
-0.622 vs 0.622 %), so the two pipelines agree. The Willow paper's own neural decoder (an AlphaQubit
+0.622 vs 0.622 %), so the two pipelines agree.
+
+**AlphaQubit-lite on Willow d = 3** (held-out odd shots, first 10,000 per configuration, 18
+patch × basis datasets × r ∈ {10, 13, 30, 50} = 720 k shots, every decoder on the same shots; 95 % CIs
+and ratios from the paired bootstrap; reference = Harmony with the RL-optimised prior, the best
+decoder in the archive).
+
+| decoder | mean ε, r = 10/13/30 | ratio vs Harmony-RL | ε r = 10 | ε r = 13 | ε r = 30 | ε r = 50 |
+|---|---|---|---|---|---|---|
+| PyMatching 2.4 (SI1000) | 0.993 % [0.985, 1.000] | 1.390 | 0.910 | 0.950 | 1.118 | 0.979 |
+| PyMatching 2.4 correlated (SI1000) | 0.865 % [0.857, 0.872] | 1.211 | 0.798 | 0.834 | 0.962 | 0.854 |
+| correlated matching (SI1000), shipped | 0.817 % [0.809, 0.824] | 1.144 | 0.755 | 0.787 | 0.908 | 0.802 |
+| **AlphaQubit-lite, zero-shot (Sycamore-trained only)** | **0.807 % [0.800, 0.814]** | **1.131** | 0.725 | 0.761 | 0.936 | 0.948 |
+| **AlphaQubit-lite, fine-tuned on Willow** | **0.760 % [0.754, 0.766]** | **1.065 [1.057, 1.072]** | **0.679** | **0.710** | 0.891 | 0.865 |
+| Harmony (SI1000), shipped | 0.757 % [0.751, 0.764] | 1.061 | 0.703 | 0.732 | 0.838 | 0.745 |
+| correlated matching (RL prior), shipped | 0.739 % [0.733, 0.745] | 1.036 | 0.678 | 0.707 | 0.834 | 0.728 |
+| Harmony (RL prior), shipped | 0.714 % [0.708, 0.720] | 1.000 | 0.658 | 0.684 | 0.799 | 0.701 |
+| Tesseract (SI1000), arXiv:2609.04557 (all shots) | 0.738 % | | | | | |
+| BeliefMatching (SI1000), arXiv:2609.04557 | 0.815 % | | | | | |
+
+- **Zero-shot transfer works.** The d = 3 model trained only on Sycamore 2022 (DEM samples + real
+  Sycamore shots, a different chip with 4× higher error rates and a different circuit variant), with
+  10 of the 18 Willow context embeddings untrained, already beats PyMatching by 19 % and edges out
+  Google's correlated matching with the SI1000 prior. The canonical layout (§1) is what makes this
+  possible.
+- **Fine-tuning** (one 42-min run, 1.0 M samples ≈ 1.4 epochs of the Willow training half,
+  r ∈ {10, 13} only, lr 2e-4) brings it level with Harmony-SI1000 (a 101-member matching ensemble) and
+  within 0.1 % (absolute) of correlated matching with the RL-optimised prior at the trained round counts
+  (r = 10: 0.679 vs 0.678 %; r = 13: 0.710 vs 0.707 %). It generalises less well to r = 30 and 50,
+  which it never saw (it is 7–19 % above the RL-prior decoders there).
+- The paper-style log-fidelity *fit* over r = 10…50 is unkind to the network (0.922 % vs Harmony-RL
+  0.723 %): on Willow every decoder is worse at r = 30 than at r = 50 (the configurations were taken
+  separately), and the network's long-r degradation dominates a 4-point fit. We therefore quote the
+  fixed-round numbers (the convention of the dataset release and of arXiv:2609.04557).
+- Model selection on the Willow dev split used a two-point fit (r = 10, 13), which is too noisy to rank
+  checkpoints; we report the final weights. A fixed-round dev metric would be the right choice.
+- Willow d = 5 was not trained (time). The Willow paper's own neural decoder (an AlphaQubit
 descendant, ref. [27] there) is not in the archive; it reports ε₇ = 0.143 % and Λ = 2.14 on this
 device.
 
-## 6. Reproducing
+## 6. What limits further gains
+
+1. **Samples.** Every learning curve we have is still falling when the 42-min cap hits (d = 3 dev LER
+   4.6 → 4.0 → 3.7 → 3.55 % across the last pretraining evaluations, fine-tuning 3.55 → 3.35 %). The
+   paper used ≤ 2 × 10⁹ pretraining samples per model and ~120 fine-tuning epochs; we used 1.25 M and
+   0.5 epochs. On the M1 Pro under a 1.2 GB MLX cap we get 500–1,000 samples/s at d = 3 and 200–330 at
+   d = 5, so a paper-scale run is ~10⁶ GPU-seconds — weeks, not minutes. At d = 5 this is decisive.
+2. **Long experiments.** The model is near-optimal at R = 3 and degrades with R (fit intercepts
+   F₀ = 1.06–1.15). The rounds curriculum front-loads short experiments; with the sample budget fixed,
+   more R = 25 data (and the paper's per-round auxiliary labels, unavailable for DEM samples) is the
+   obvious lever.
+3. **Model size.** D = 64 vs the paper's 320, a 4-layer instead of 16-layer readout, a 2-layer
+   attention-bias ResNet instead of 8. Under the 2 GB memory rule a larger model also means a smaller
+   batch; we have not measured the trade-off.
+4. **Pretraining prior.** The released pij DEMs over-predict the real detection density (d = 3:
+   +2–6 %, d = 5: +9 %), which at d = 5 (Λ ≈ 1.04) makes simulated data much harder than the real data.
+   The paper's XEB-DEM pretraining and fine-tuning on many more real epochs mitigate this.
+5. **Ensembling.** The paper's numbers are 20-model ensembles (−0.03 / −0.08 percentage points at
+   d = 3 / 5); ours are single models.
+6. **Throughput engineering.** The recurrence is a Python loop of small kernels; `mx.compile` gave
+   only ~10 % here. A fused per-round kernel, bf16, or a larger effective batch via gradient
+   accumulation are untried.
+
+## 7. Reproducing
 
 ```
 # Sycamore (315 MB)
