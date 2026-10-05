@@ -1,0 +1,958 @@
+## calibration: weighted success among v-capped trajectories (no binding cap)
+('meas', 'middle'): 270.2/3187.1 (M=3184) = 0.0848 ± 0.0049
+('meas', 'start'): 155.9/259.9 (M=260) = 0.5996 ± 0.0304
+('rev', 'middle'): 12.0/1212.0 (M=1212) = 0.0099 ± 0.0028
+('rev', 'start'): 3.0/113.0 (M=113) = 0.0265 ± 0.0151
+per n (completed v-capped, not end-window): ge(2;4) n=10: 45/428, ge(2;4) n=12: 34/452, ge(2;4) n=14: 19/219, ge(2;4) n=16: 26/559, ge(2;4) n=18: 78/602, ge(2;4) n=20: 25/63, mbu n=10: 96/726, mbu n=11: 25/348, mbu n=12: 158/1020, mbu n=14: 4/125, mbu n=16: 1/83, mbu n=18: 105/569, mbu n=20: 35/67, mbu-lookup n=10: 54/1025, mbu-lookup n=11: 27/460, mbu-lookup n=12: 149/1257, mbu-lookup n=14: 5/232, mbu-lookup n=16: 2/155, mbu-lookup n=18: 62/592, mbu-lookup n=20: 58/132, windowed-opt n=10: 11/661, windowed-opt n=11: 4/664, windowed-opt n=12: 3/68, windowed-opt n=20: 6/46
+
+## strata: S_k (calibrated), S_lo (v-capped = failure), counts
+variant kind n k M S S_lo vcapped realcapped w!=1 mean_w dirty_frac Lbar secs
+ge(2;4) depol 10 0 150 1.000 1.000 0 0 0 1.0000 0.000 63218 0.019
+ge(2;4) depol 10 1 800 0.438 0.435 178 7 271 0.9990 0.225 63278 0.017
+ge(2;4) depol 10 2 300 0.235 0.233 112 5 143 0.9994 0.333 63250 0.018
+ge(2;4) depol 10 3 300 0.125 0.120 164 14 213 0.9984 0.530 63284 0.019
+ge(2;4) depol 12 0 150 0.987 0.987 0 0 0 1.0000 0.000 106843 0.034
+ge(2;4) depol 12 1 800 0.450 0.446 192 13 279 1.0001 0.300 106838 0.035
+ge(2;4) depol 12 2 300 0.201 0.200 128 2 170 0.9994 0.483 106844 0.031
+ge(2;4) depol 12 3 300 0.134 0.130 160 13 223 1.0006 0.653 106912 0.036
+ge(2;4) depol 14 0 150 0.987 0.987 0 0 0 1.0000 0.000 169425 0.052
+ge(2;4) depol 14 1 800 0.414 0.414 85 0 264 1.0002 0.247 169315 0.085
+ge(2;4) depol 14 2 300 0.130 0.130 53 0 168 1.0005 0.423 169351 0.114
+ge(2;4) depol 14 3 300 0.053 0.053 81 0 209 1.0006 0.533 169260 0.138
+ge(2;4) depol 16 0 150 0.993 0.993 0 0 0 1.0000 0.000 245951 0.094
+ge(2;4) depol 16 1 800 0.434 0.434 233 0 282 1.0000 0.284 246048 0.281
+ge(2;4) depol 16 2 300 0.173 0.173 146 0 178 1.0009 0.497 245913 0.468
+ge(2;4) depol 16 3 300 0.093 0.093 180 0 212 1.0004 0.633 245991 0.453
+ge(2;4) depol 18 0 150 1.000 1.000 0 0 0 1.0000 0.000 359199 0.109
+ge(2;4) depol 18 1 800 0.472 0.467 265 15 270 1.0006 0.261 358969 0.544
+ge(2;4) depol 18 2 300 0.254 0.250 179 15 172 0.9995 0.503 358912 0.672
+ge(2;4) depol 18 3 300 0.110 0.103 213 25 216 1.0000 0.653 358961 0.883
+ge(2;4) depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 475317 0.241
+ge(2;4) depol 20 1 800 0.463 0.407 286 255 270 0.9998 0.296 475365 0.557
+ge(2;4) depol 20 2 300 0.225 0.170 166 145 148 0.9995 0.433 475435 0.732
+ge(2;4) depol 20 3 300 0.117 0.057 213 202 189 0.9995 0.590 475303 0.802
+ge(2;4) depol 24 0 100 0.990 0.990 0 0 0 1.0000 0.000 806266 0.818
+ge(2;4) depol 24 1 800 0.457 0.404 275 275 231 0.9998 0.290 806351 2.799
+ge(2;4) depol 24 2 150 0.218 0.153 78 78 73 0.9999 0.433 806161 3.514
+ge(2;4) depol 24 3 150 0.106 0.047 105 105 98 0.9999 0.713 806248 5.180
+mbu depol 10 0 150 0.973 0.973 0 0 0 1.0000 0.000 75924 0.018
+mbu depol 10 1 800 0.523 0.523 158 0 257 1.0002 0.280 75939 0.017
+mbu depol 10 2 300 0.290 0.290 99 0 158 0.9934 0.480 75958 0.021
+mbu depol 10 3 300 0.179 0.179 143 0 212 0.9930 0.637 75930 0.021
+mbu depol 12 0 150 0.993 0.993 0 0 0 1.0000 0.000 119654 0.035
+mbu depol 12 1 800 0.536 0.535 176 4 303 1.0005 0.341 119756 0.037
+mbu depol 12 2 300 0.272 0.271 127 2 193 1.0023 0.567 119682 0.035
+mbu depol 12 3 300 0.119 0.116 185 9 238 1.0025 0.753 119721 0.036
+mbu depol 14 0 150 1.000 1.000 0 0 0 1.0000 0.000 213533 0.063
+mbu depol 14 1 800 0.429 0.429 36 0 294 1.0011 0.300 213717 0.074
+mbu depol 14 2 300 0.200 0.200 37 0 184 0.9990 0.513 213543 0.083
+mbu depol 14 3 300 0.103 0.103 52 0 202 0.9939 0.610 213472 0.092
+mbu depol 16 0 150 0.967 0.967 0 0 0 1.0000 0.000 297086 0.080
+mbu depol 16 1 800 0.456 0.456 30 0 315 1.0028 0.311 297075 0.181
+mbu depol 16 2 300 0.187 0.187 20 0 189 1.0005 0.547 296926 0.231
+mbu depol 16 3 300 0.118 0.118 33 0 221 0.9935 0.660 297069 0.231
+mbu depol 18 0 150 1.000 1.000 0 0 0 1.0000 0.000 474141 0.242
+mbu depol 18 1 800 0.521 0.517 270 18 303 0.9971 0.319 473871 0.898
+mbu depol 18 2 300 0.288 0.279 160 20 182 1.0037 0.540 473977 0.814
+mbu depol 18 3 300 0.170 0.158 212 35 223 1.0023 0.680 474077 2.015
+mbu depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 604043 0.300
+mbu depol 20 1 800 0.494 0.445 275 242 302 0.9990 0.321 604619 0.379
+mbu depol 20 2 300 0.235 0.183 164 155 174 0.9946 0.503 604293 0.445
+mbu depol 20 3 300 0.172 0.110 220 208 222 1.0016 0.643 604242 0.890
+mbu depol 24 0 150 1.000 1.000 0 0 0 1.0000 0.000 1062339 1.042
+mbu depol 24 1 800 0.455 0.408 278 278 279 1.0011 0.341 1061903 2.506
+mbu depol 24 2 150 0.233 0.187 70 70 69 0.9968 0.433 1061966 2.189
+mbu depol 24 3 150 0.125 0.053 114 114 99 1.0022 0.613 1062743 5.144
+WindowedMbu(4)+round depol 12 0 150 0.987 0.987 0 0 0 1.0000 0.000 120980 0.030
+WindowedMbu(4)+round depol 12 1 800 0.568 0.568 97 0 137 0.9999 0.010 120974 0.030
+WindowedMbu(4)+round depol 12 2 300 0.283 0.283 82 0 113 0.9998 0.027 121044 0.032
+WindowedMbu(4)+round depol 12 3 300 0.183 0.183 94 0 135 1.0009 0.030 120988 0.042
+WindowedMbu(4)+round depol 14 0 150 0.987 0.987 0 0 0 1.0000 0.000 215249 0.102
+WindowedMbu(4)+round depol 14 1 800 0.511 0.511 0 0 130 1.0003 0.006 215366 0.099
+WindowedMbu(4)+round depol 14 2 300 0.267 0.267 0 0 72 0.9991 0.010 215368 0.097
+WindowedMbu(4)+round depol 14 3 300 0.126 0.126 0 0 124 0.9983 0.023 215412 0.102
+WindowedMbu(4)+round depol 16 0 150 0.993 0.993 0 0 0 1.0000 0.000 299465 0.101
+WindowedMbu(4)+round depol 16 1 800 0.516 0.516 0 0 153 1.0002 0.003 299441 0.148
+WindowedMbu(4)+round depol 16 2 300 0.290 0.290 0 0 91 1.0000 0.017 299207 0.188
+WindowedMbu(4)+round depol 16 3 300 0.147 0.147 0 0 120 1.0011 0.047 299331 0.186
+WindowedMbu(4)+window depol 12 0 150 0.993 0.993 0 0 0 1.0000 0.000 123986 0.043
+WindowedMbu(4)+window depol 12 1 800 0.590 0.590 90 0 104 1.0007 0.005 124061 0.048
+WindowedMbu(4)+window depol 12 2 300 0.330 0.330 76 0 86 0.9995 0.017 123967 0.054
+WindowedMbu(4)+window depol 12 3 300 0.220 0.220 108 0 120 1.0008 0.043 124098 0.065
+WindowedMbu(4)+window depol 14 0 150 1.000 1.000 0 0 0 1.0000 0.000 222304 0.120
+WindowedMbu(4)+window depol 14 1 800 0.505 0.505 0 0 118 0.9999 0.001 222040 0.148
+WindowedMbu(4)+window depol 14 2 300 0.292 0.292 0 0 64 1.0027 0.007 222109 0.141
+WindowedMbu(4)+window depol 14 3 300 0.153 0.153 0 0 112 0.9997 0.013 222126 0.211
+WindowedMbu(4)+window depol 16 0 150 0.993 0.993 0 0 0 1.0000 0.000 308061 0.085
+WindowedMbu(4)+window depol 16 1 800 0.534 0.534 0 0 109 0.9998 0.006 308058 0.232
+WindowedMbu(4)+window depol 16 2 300 0.267 0.267 0 0 73 0.9986 0.010 308031 0.615
+WindowedMbu(4)+window depol 16 3 300 0.150 0.150 0 0 108 1.0020 0.010 308039 0.548
+WindowedMbu(4)+window depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 626428 0.486
+WindowedMbu(4)+window depol 20 1 800 0.587 0.559 135 122 110 1.0000 0.003 626328 0.574
+mbu-lookup depol 10 0 150 0.993 0.993 0 0 0 1.0000 0.000 63523 0.034
+mbu-lookup depol 10 1 800 0.449 0.449 228 2 308 0.9989 0.364 63503 0.029
+mbu-lookup depol 10 2 300 0.197 0.194 155 5 193 1.0000 0.597 63508 0.038
+mbu-lookup depol 10 3 300 0.097 0.093 201 8 227 0.9959 0.757 63495 0.034
+mbu-lookup depol 12 0 150 0.993 0.993 0 0 0 1.0000 0.000 101402 0.055
+mbu-lookup depol 12 1 800 0.440 0.437 247 9 350 1.0014 0.400 101431 0.062
+mbu-lookup depol 12 2 300 0.168 0.164 179 8 213 1.0001 0.703 101365 0.069
+mbu-lookup depol 12 3 300 0.107 0.100 210 20 245 0.9959 0.787 101343 0.077
+mbu-lookup depol 14 0 150 0.993 0.993 0 0 0 1.0000 0.000 171503 0.109
+mbu-lookup depol 14 1 800 0.334 0.334 78 0 372 0.9975 0.410 171426 0.136
+mbu-lookup depol 14 2 300 0.114 0.113 61 2 216 0.9981 0.643 171389 0.153
+mbu-lookup depol 14 3 300 0.051 0.050 97 2 260 0.9986 0.790 171360 0.149
+mbu-lookup depol 16 0 150 0.973 0.973 0 0 0 1.0000 0.000 243446 0.153
+mbu-lookup depol 16 1 800 0.420 0.420 52 0 374 1.0001 0.412 243412 0.286
+mbu-lookup depol 16 2 300 0.157 0.157 45 1 207 0.9959 0.633 243429 0.400
+mbu-lookup depol 16 3 300 0.068 0.067 64 5 258 1.0008 0.817 243538 0.499
+mbu-lookup depol 18 0 150 1.000 1.000 0 0 0 1.0000 0.000 387331 0.242
+mbu-lookup depol 18 1 800 0.448 0.437 326 52 361 1.0000 0.454 387385 0.737
+mbu-lookup depol 18 2 300 0.165 0.147 219 53 226 1.0012 0.723 387381 3.382
+mbu-lookup depol 18 3 300 0.129 0.106 226 74 236 1.0018 0.790 387546 1.730
+mbu-lookup depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 493305 0.520
+mbu-lookup depol 20 1 800 0.452 0.372 324 302 298 1.0013 0.415 493358 0.901
+mbu-lookup depol 20 2 300 0.229 0.153 202 190 190 1.0021 0.663 493215 1.177
+mbu-lookup depol 20 3 300 0.166 0.090 251 240 216 0.9958 0.773 493319 1.243
+mbu-lookup depol 24 0 150 0.993 0.993 0 0 0 1.0000 0.000 856691 0.990
+mbu-lookup depol 24 1 800 0.413 0.346 338 338 322 0.9996 0.448 856189 2.038
+mbu-lookup depol 24 2 300 0.217 0.150 193 193 167 0.9999 0.627 856237 4.075
+mbu-lookup depol 24 3 300 0.135 0.060 249 249 215 0.9984 0.753 856327 3.879
+WindowedMbuLookup(4)+round depol 12 0 150 1.000 1.000 0 0 0 1.0000 0.000 102397 0.049
+WindowedMbuLookup(4)+round depol 12 1 800 0.505 0.505 121 0 163 1.0003 0.010 102462 0.053
+WindowedMbuLookup(4)+round depol 12 2 300 0.273 0.273 97 0 120 0.9998 0.033 102505 0.048
+WindowedMbuLookup(4)+round depol 12 3 300 0.167 0.167 105 0 156 0.9996 0.010 102499 0.052
+WindowedMbuLookup(4)+round depol 14 0 150 0.980 0.980 0 0 0 1.0000 0.000 172843 0.138
+WindowedMbuLookup(4)+round depol 14 1 800 0.439 0.439 0 0 131 1.0000 0.006 172745 0.155
+WindowedMbuLookup(4)+round depol 14 2 300 0.223 0.223 0 0 103 0.9999 0.007 172671 0.137
+WindowedMbuLookup(4)+round depol 14 3 300 0.127 0.127 0 0 125 1.0007 0.017 172772 0.140
+WindowedMbuLookup(4)+round depol 16 0 150 0.980 0.980 0 0 0 1.0000 0.000 245255 0.124
+WindowedMbuLookup(4)+round depol 16 1 800 0.509 0.509 0 0 151 0.9995 0.015 245149 0.200
+WindowedMbuLookup(4)+round depol 16 2 300 0.303 0.303 0 0 106 1.0000 0.030 245142 0.179
+WindowedMbuLookup(4)+round depol 16 3 300 0.100 0.100 0 0 139 0.9999 0.027 245201 1.638
+WindowedMbuLookup(4)+round depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 496001 0.227
+WindowedMbuLookup(4)+round depol 20 1 800 0.514 0.491 172 145 181 0.9997 0.006 496064 0.396
+WindowedMbuLookup(4)+round depol 20 2 300 0.258 0.223 109 100 100 1.0003 0.010 495881 0.665
+WindowedMbuLookup(4)+round depol 20 3 300 0.185 0.143 154 143 131 1.0000 0.023 495901 0.856
+WindowedMbuLookup(4)+window depol 12 0 150 0.987 0.987 0 0 0 1.0000 0.000 104748 0.051
+WindowedMbuLookup(4)+window depol 12 1 800 0.597 0.597 113 0 125 1.0017 0.010 104640 0.045
+WindowedMbuLookup(4)+window depol 12 2 300 0.310 0.310 87 0 90 0.9982 0.007 104615 0.046
+WindowedMbuLookup(4)+window depol 12 3 300 0.140 0.140 135 0 122 1.0015 0.037 104718 0.057
+WindowedMbuLookup(4)+window depol 14 0 150 0.987 0.987 0 0 0 1.0000 0.000 177595 0.136
+WindowedMbuLookup(4)+window depol 14 1 800 0.476 0.476 0 0 132 0.9992 0.010 177684 0.171
+WindowedMbuLookup(4)+window depol 14 2 300 0.253 0.253 0 0 94 0.9998 0.010 177595 0.201
+WindowedMbuLookup(4)+window depol 14 3 300 0.147 0.147 0 0 131 0.9994 0.027 177625 0.192
+WindowedMbuLookup(4)+window depol 16 0 150 0.987 0.987 0 0 0 1.0000 0.000 251572 0.212
+WindowedMbuLookup(4)+window depol 16 1 800 0.476 0.476 0 0 122 1.0001 0.006 251512 0.511
+WindowedMbuLookup(4)+window depol 16 2 300 0.327 0.327 0 0 82 1.0002 0.013 251469 0.353
+WindowedMbuLookup(4)+window depol 16 3 300 0.123 0.123 0 0 119 0.9978 0.027 251478 0.435
+WindowedMbuLookup(4)+window depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 509214 0.381
+WindowedMbuLookup(4)+window depol 20 1 800 0.535 0.507 165 149 146 1.0005 0.006 509144 0.762
+WindowedMbuLookup(4)+window depol 20 2 300 0.270 0.230 139 131 104 1.0000 0.007 509168 1.144
+WindowedMbuLookup(4)+window depol 20 3 300 0.210 0.173 138 122 114 1.0001 0.003 509154 1.215
+windowed-opt depol 10 0 1250 0.986 0.986 0 0 0 1.0000 0.000 76138 0.002
+windowed-opt depol 10 1 1100 0.272 0.264 625 625 0 1.0000 0.660 76138 0.001
+windowed-opt depol 10 2 300 0.088 0.080 242 242 0 1.0000 0.887 76138 0.001
+windowed-opt depol 10 3 300 0.030 0.020 279 279 0 1.0000 0.980 76138 0.001
+windowed-opt depol 12 0 1250 0.997 0.997 0 0 0 1.0000 0.000 126008 0.003
+windowed-opt depol 12 1 1100 0.261 0.253 641 641 0 1.0000 0.668 126008 0.003
+windowed-opt depol 12 2 300 0.056 0.047 247 247 0 1.0000 0.883 126008 0.003
+windowed-opt depol 12 3 300 0.023 0.013 283 283 0 1.0000 0.973 126008 0.003
+windowed-opt depol 14 0 1250 0.989 0.989 0 0 0 1.0000 0.000 205256 0.017
+windowed-opt depol 14 1 1100 0.257 0.250 623 623 0 1.0000 0.638 205256 0.017
+windowed-opt depol 14 2 300 0.114 0.107 227 227 0 1.0000 0.850 205256 0.019
+windowed-opt depol 14 3 300 0.029 0.020 274 274 0 1.0000 0.953 205256 0.011
+windowed-opt depol 16 0 1250 0.988 0.988 0 0 0 1.0000 0.000 298942 0.019
+windowed-opt depol 16 1 1100 0.296 0.289 612 612 0 1.0000 0.664 298942 0.031
+windowed-opt depol 16 2 300 0.111 0.103 230 230 0 1.0000 0.877 298942 0.059
+windowed-opt depol 16 3 300 0.039 0.030 276 276 0 1.0000 0.970 298942 0.070
+windowed-opt depol 18 0 150 1.000 1.000 0 0 0 1.0000 0.000 461838 0.100
+windowed-opt depol 18 1 800 0.328 0.321 424 424 0 1.0000 0.624 461838 0.148
+windowed-opt depol 18 2 300 0.102 0.093 241 241 0 1.0000 0.873 461838 0.153
+windowed-opt depol 18 3 300 0.030 0.020 283 283 0 1.0000 0.983 461838 0.152
+windowed-opt depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 600988 0.339
+windowed-opt depol 20 1 800 0.301 0.292 468 468 0 1.0000 0.649 600988 0.328
+windowed-opt depol 20 2 300 0.096 0.087 251 251 0 1.0000 0.873 600988 0.254
+windowed-opt depol 20 3 300 0.039 0.030 274 274 0 1.0000 0.950 600988 0.243
+windowed-opt depol 24 0 150 1.000 1.000 0 0 0 1.0000 0.000 1038566 0.414
+windowed-opt depol 24 1 800 0.294 0.287 438 438 0 1.0000 0.667 1038566 1.402
+windowed-opt depol 24 2 300 0.079 0.070 247 247 0 1.0000 0.870 1038566 2.553
+windowed-opt depol 24 3 300 0.033 0.023 273 273 0 1.0000 0.953 1038566 2.619
+WindowedOpt(4)+round depol 12 0 150 0.993 0.993 0 0 0 1.0000 0.000 127040 0.005
+WindowedOpt(4)+round depol 12 1 800 0.539 0.539 16 0 0 1.0000 0.009 127040 0.006
+WindowedOpt(4)+round depol 12 2 300 0.330 0.330 8 0 0 1.0000 0.007 127040 0.006
+WindowedOpt(4)+round depol 12 3 300 0.163 0.163 12 0 0 1.0000 0.030 127040 0.006
+WindowedOpt(4)+round depol 14 0 150 0.980 0.980 0 0 0 1.0000 0.000 206628 0.035
+WindowedOpt(4)+round depol 14 1 800 0.479 0.479 0 0 0 1.0000 0.005 206628 0.030
+WindowedOpt(4)+round depol 14 2 300 0.223 0.223 0 0 0 1.0000 0.003 206628 0.039
+WindowedOpt(4)+round depol 14 3 300 0.127 0.127 0 0 0 1.0000 0.037 206628 0.031
+WindowedOpt(4)+round depol 16 0 150 0.980 0.980 0 0 0 1.0000 0.000 300702 0.064
+WindowedOpt(4)+round depol 16 1 800 0.515 0.515 0 0 0 1.0000 0.010 300702 0.069
+WindowedOpt(4)+round depol 16 2 300 0.243 0.243 0 0 0 1.0000 0.013 300702 0.071
+WindowedOpt(4)+round depol 16 3 300 0.107 0.107 0 0 0 1.0000 0.013 300702 0.053
+WindowedOpt(4)+round depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 603668 0.132
+WindowedOpt(4)+round depol 20 1 800 0.557 0.554 31 24 0 1.0000 0.006 603668 0.148
+WindowedOpt(4)+round depol 20 2 300 0.309 0.303 23 21 0 1.0000 0.017 603668 0.175
+WindowedOpt(4)+round depol 20 3 300 0.180 0.173 35 24 0 1.0000 0.027 603668 0.182
+WindowedOpt(4)+window depol 12 0 150 0.987 0.987 0 0 0 1.0000 0.000 129272 0.008
+WindowedOpt(4)+window depol 12 1 800 0.560 0.560 10 0 0 1.0000 0.006 129272 0.010
+WindowedOpt(4)+window depol 12 2 300 0.370 0.370 8 0 0 1.0000 0.013 129272 0.010
+WindowedOpt(4)+window depol 12 3 300 0.193 0.193 14 0 0 1.0000 0.030 129272 0.010
+WindowedOpt(4)+window depol 14 0 150 0.973 0.973 0 0 0 1.0000 0.000 211528 0.063
+WindowedOpt(4)+window depol 14 1 800 0.521 0.521 0 0 0 1.0000 0.009 211528 0.052
+WindowedOpt(4)+window depol 14 2 300 0.277 0.277 0 0 0 1.0000 0.013 211528 0.064
+WindowedOpt(4)+window depol 14 3 300 0.197 0.197 0 0 0 1.0000 0.037 211528 0.070
+WindowedOpt(4)+window depol 16 0 150 0.960 0.960 0 0 0 1.0000 0.000 306942 0.112
+WindowedOpt(4)+window depol 16 1 800 0.529 0.529 0 0 0 1.0000 0.004 306942 0.116
+WindowedOpt(4)+window depol 16 2 300 0.330 0.330 0 0 0 1.0000 0.017 306942 0.097
+WindowedOpt(4)+window depol 16 3 300 0.183 0.183 0 0 0 1.0000 0.020 306942 0.084
+WindowedOpt(4)+window depol 20 0 150 1.000 1.000 0 0 0 1.0000 0.000 616828 0.318
+WindowedOpt(4)+window depol 20 1 800 0.576 0.573 42 30 0 1.0000 0.003 616828 0.432
+WindowedOpt(4)+window depol 20 2 300 0.355 0.350 23 18 0 1.0000 0.000 616828 0.394
+WindowedOpt(4)+window depol 20 3 300 0.245 0.237 38 29 0 1.0000 0.013 616828 0.458
+
+## per instance: d = 1 - S1/S0, G_eff = Lbar d, p_1/2 (bootstrap 1 sigma)
+variant kind n r Lbar S0 S1 S2 S3 d±sd Geff p_half±sd p_half(tail=0) p_half*L dirty_frac(k=1)
+ge(2;4) depol 10 210 63268 0.986 0.438 0.235 0.125 0.556±0.018 3.52e+04 2.072e-05±5.8e-07 2.038e-05 1.311 0.225
+ge(2;4) depol 12 690 106854 0.994 0.450 0.201 0.134 0.547±0.018 5.85e+04 1.211e-05±3.1e-07 1.191e-05 1.294 0.300
+ge(2;4) depol 14 4134 169322 0.988 0.414 0.130 0.053 0.581±0.017 9.84e+04 6.844e-06±1.5e-07 6.812e-06 1.159 0.247
+ge(2;4) depol 16 17000 246001 0.984 0.434 0.173 0.093 0.559±0.018 1.38e+05 5.026e-06±1.2e-07 4.976e-06 1.236 0.284
+ge(2;4) depol 18 16632 358979 1.000 0.472 0.254 0.110 0.528±0.017 1.9e+05 3.777e-06±9.9e-08 3.719e-06 1.356 0.261
+ge(2;4) depol 20 34164 475362 1.000 0.463 0.225 0.117 0.537±0.016 2.55e+05 2.776e-06±6.0e-08 2.734e-06 1.320 0.296
+ge(2;4) depol 24 1692480 806307 0.996 0.457 0.218 0.106 0.541±0.018 4.36e+05 1.616e-06±4.8e-08 1.595e-06 1.303 0.290
+mbu depol 10 210 75940 0.986 0.523 0.290 0.179 0.470±0.019 3.57e+04 2.032e-05±6.4e-07 1.959e-05 1.543 0.280
+mbu depol 12 690 119725 0.994 0.536 0.272 0.119 0.461±0.017 5.51e+04 1.235e-05±3.4e-07 1.210e-05 1.479 0.341
+mbu depol 14 4134 213618 0.988 0.429 0.200 0.103 0.566±0.018 1.21e+05 5.867e-06±1.6e-07 5.799e-06 1.253 0.300
+mbu depol 16 17000 297046 0.984 0.456 0.187 0.118 0.536±0.018 1.59e+05 4.346e-06±1.1e-07 4.284e-06 1.291 0.311
+mbu depol 18 16632 473957 1.000 0.521 0.288 0.170 0.479±0.018 2.27e+05 3.187e-06±9.3e-08 3.086e-06 1.510 0.319
+mbu depol 20 34164 604427 1.000 0.494 0.235 0.172 0.506±0.016 3.06e+05 2.336e-06±5.8e-08 2.273e-06 1.412 0.321
+mbu depol 24 1692480 1062064 0.996 0.455 0.233 0.125 0.544±0.016 5.77e+05 1.247e-06±3.7e-08 1.226e-06 1.324 0.341
+WindowedMbu(4)+round depol 12 690 120991 0.994 0.568 0.283 0.183 0.429±0.018 5.19e+04 1.322e-05±4.0e-07 1.271e-05 1.600 0.010
+WindowedMbu(4)+round depol 14 4134 215364 0.988 0.511 0.267 0.126 0.483±0.018 1.04e+05 6.731e-06±1.9e-07 6.590e-06 1.450 0.006
+WindowedMbu(4)+round depol 16 17000 299377 0.984 0.516 0.290 0.147 0.475±0.017 1.42e+05 5.028e-06±1.4e-07 4.890e-06 1.505 0.003
+WindowedMbu(4)+window depol 12 690 124042 0.994 0.590 0.330 0.220 0.406±0.018 5.04e+04 1.408e-05±4.8e-07 1.326e-05 1.746 0.005
+WindowedMbu(4)+window depol 14 4134 222096 0.988 0.505 0.292 0.153 0.489±0.019 1.09e+05 6.713e-06±2.1e-07 6.525e-06 1.491 0.001
+WindowedMbu(4)+window depol 16 17000 308049 0.984 0.534 0.267 0.150 0.458±0.018 1.41e+05 4.895e-06±1.5e-07 4.760e-06 1.508 0.006
+WindowedMbu(4)+window depol 20 34164 626344 1.000 0.587 nan nan 0.413±0.016 2.59e+05 7.983e-05±0.0e+00 1.980e-06 50.000 0.003
+mbu-lookup depol 10 210 63504 0.986 0.449 0.197 0.097 0.545±0.018 3.46e+04 2.010e-05±5.2e-07 1.987e-05 1.277 0.364
+mbu-lookup depol 12 690 101398 0.994 0.440 0.168 0.107 0.558±0.018 5.66e+04 1.222e-05±2.9e-07 1.208e-05 1.239 0.400
+mbu-lookup depol 14 4134 171413 0.988 0.334 0.114 0.051 0.662±0.016 1.13e+05 6.142e-06±1.3e-07 6.122e-06 1.053 0.410
+mbu-lookup depol 16 17000 243443 0.984 0.420 0.157 0.068 0.573±0.018 1.4e+05 4.906e-06±1.1e-07 4.874e-06 1.194 0.412
+mbu-lookup depol 18 16632 387410 1.000 0.448 0.165 0.129 0.552±0.017 2.14e+05 3.237e-06±7.5e-08 3.191e-06 1.254 0.454
+mbu-lookup depol 20 34164 493318 1.000 0.452 0.229 0.166 0.548±0.016 2.71e+05 2.712e-06±6.4e-08 2.650e-06 1.338 0.415
+mbu-lookup depol 24 1692480 856273 0.996 0.413 0.217 0.135 0.585±0.016 5.01e+05 1.467e-06±3.4e-08 1.444e-06 1.256 0.448
+WindowedMbuLookup(4)+round depol 12 690 102471 0.994 0.505 0.273 0.167 0.492±0.019 5.04e+04 1.438e-05±4.5e-07 1.396e-05 1.474 0.010
+WindowedMbuLookup(4)+round depol 14 4134 172745 0.988 0.439 0.223 0.127 0.556±0.018 9.6e+04 7.530e-06±2.0e-07 7.410e-06 1.301 0.006
+WindowedMbuLookup(4)+round depol 16 17000 245168 0.984 0.509 0.303 0.100 0.483±0.018 1.18e+05 5.993e-06±1.7e-07 5.889e-06 1.469 0.015
+WindowedMbuLookup(4)+round depol 20 34164 495991 1.000 0.514 0.258 0.185 0.486±0.017 2.41e+05 2.982e-06±8.2e-08 2.884e-06 1.479 0.006
+WindowedMbuLookup(4)+window depol 12 690 104661 0.994 0.597 0.310 0.140 0.399±0.018 4.18e+04 1.560e-05±4.6e-07 1.513e-05 1.633 0.010
+WindowedMbuLookup(4)+window depol 14 4134 177647 0.988 0.476 0.253 0.147 0.518±0.018 9.2e+04 7.873e-06±2.3e-07 7.695e-06 1.399 0.010
+WindowedMbuLookup(4)+window depol 16 17000 251503 0.984 0.476 0.327 0.123 0.516±0.018 1.3e+05 5.826e-06±1.7e-07 5.698e-06 1.465 0.006
+WindowedMbuLookup(4)+window depol 20 34164 509158 1.000 0.535 0.270 0.210 0.465±0.017 2.37e+05 3.045e-06±8.8e-08 2.917e-06 1.550 0.006
+windowed-opt depol 10 210 76138 0.986 0.272 0.088 0.030 0.725±0.013 5.52e+04 1.269e-05±2.1e-07 1.267e-05 0.966 0.660
+windowed-opt depol 12 690 126008 0.994 0.261 0.056 0.023 0.737±0.013 9.29e+04 7.423e-06±1.1e-07 7.416e-06 0.935 0.668
+windowed-opt depol 14 4134 205256 0.988 0.257 0.114 0.029 0.740±0.013 1.52e+05 4.691e-06±8.1e-08 4.684e-06 0.963 0.638
+windowed-opt depol 16 17000 298942 0.984 0.296 0.111 0.039 0.700±0.014 2.09e+05 3.368e-06±6.2e-08 3.361e-06 1.007 0.664
+windowed-opt depol 18 16632 461838 1.000 0.328 0.102 0.030 0.672±0.015 3.1e+05 2.228e-06±4.1e-08 2.224e-06 1.029 0.624
+windowed-opt depol 20 34164 600988 1.000 0.301 0.096 0.039 0.699±0.017 4.2e+05 1.660e-06±3.4e-08 1.657e-06 0.998 0.649
+windowed-opt depol 24 1692480 1038566 0.996 0.294 0.079 0.033 0.705±0.016 7.32e+05 9.453e-07±1.8e-08 9.438e-07 0.982 0.667
+WindowedOpt(4)+round depol 12 690 127040 0.994 0.539 0.330 0.163 0.458±0.018 5.82e+04 1.253e-05±4.0e-07 1.210e-05 1.592 0.009
+WindowedOpt(4)+round depol 14 4134 206628 0.988 0.479 0.223 0.127 0.515±0.017 1.07e+05 6.573e-06±1.8e-07 6.457e-06 1.358 0.005
+WindowedOpt(4)+round depol 16 17000 300702 0.984 0.515 0.243 0.107 0.477±0.019 1.43e+05 4.724e-06±1.3e-07 4.646e-06 1.421 0.010
+WindowedOpt(4)+round depol 20 34164 603668 1.000 0.557 0.309 0.180 0.443±0.017 2.67e+05 2.657e-06±7.9e-08 2.554e-06 1.604 0.006
+WindowedOpt(4)+window depol 12 690 129272 0.994 0.560 0.370 0.193 0.437±0.019 5.64e+04 1.328e-05±4.3e-07 1.262e-05 1.717 0.006
+WindowedOpt(4)+window depol 14 4134 211528 0.988 0.521 0.277 0.197 0.472±0.019 9.99e+04 7.275e-06±2.3e-07 6.990e-06 1.539 0.009
+WindowedOpt(4)+window depol 16 17000 306942 0.984 0.529 0.330 0.183 0.463±0.019 1.42e+05 5.253e-06±1.8e-07 5.036e-06 1.612 0.004
+WindowedOpt(4)+window depol 20 34164 616828 1.000 0.576 0.355 0.245 0.424±0.017 2.62e+05 2.895e-06±1.1e-07 2.694e-06 1.786 0.003
+
+## fatality by block (k = 1, depol, pooled over n; P(ok|fault)/S0, share of locations, share of G_eff)
+-- windowed-opt
+   modadd                       M=3923  share=0.577 P_ok=0.252±0.007 G_eff_frac=0.605
+   lookup                       M=1421  share=0.209 P_ok=0.338±0.013 G_eff_frac=0.194
+   unlookup                     M=1374  share=0.202 P_ok=0.332±0.013 G_eff_frac=0.189
+   swap                         M=78    share=0.011 P_ok=0.279±0.051 G_eff_frac=0.012
+   control sites                M=4     share=0.001 P_ok=0.503±0.250 G_eff_frac=0.000
+-- mbu-lookup
+   modadd                       M=3625  share=0.647 P_ok=0.362±0.008 G_eff_frac=0.718
+   lookup                       M=1515  share=0.271 P_ok=0.573±0.013 G_eff_frac=0.201
+   unlookup                     M=374   share=0.067 P_ok=0.453±0.026 G_eff_frac=0.064
+   swap                         M=85    share=0.015 P_ok=0.367±0.052 G_eff_frac=0.017
+   control sites                M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- mbu
+   modadd                       M=4028  share=0.719 P_ok=0.478±0.008 G_eff_frac=0.738
+   lookup                       M=1213  share=0.217 P_ok=0.548±0.014 G_eff_frac=0.192
+   unlookup                     M=287   share=0.051 P_ok=0.456±0.029 G_eff_frac=0.055
+   swap                         M=67    share=0.012 P_ok=0.442±0.061 G_eff_frac=0.013
+   control sites                M=5     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+-- ge(2;4)
+   modadd                       M=2598  share=0.464 P_ok=0.404±0.010 G_eff_frac=0.503
+   lookup                       M=2586  share=0.462 P_ok=0.503±0.010 G_eff_frac=0.418
+   unlookup                     M=361   share=0.064 P_ok=0.442±0.026 G_eff_frac=0.065
+   swap                         M=48    share=0.009 P_ok=0.228±0.061 G_eff_frac=0.012
+   control sites                M=7     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+-- WindowedMbu(4)+round
+   modadd                       M=1647  share=0.686 P_ok=0.550±0.012 G_eff_frac=0.667
+   lookup                       M=578   share=0.241 P_ok=0.533±0.021 G_eff_frac=0.243
+   unlookup                     M=133   share=0.055 P_ok=0.441±0.043 G_eff_frac=0.067
+   swap                         M=24    share=0.010 P_ok=0.168±0.076 G_eff_frac=0.018
+   reset                        M=15    share=0.006 P_ok=0.808±0.102 G_eff_frac=0.003
+   control sites                M=3     share=0.001 P_ok=0.335±0.273 G_eff_frac=0.002
+-- WindowedMbu(4)+window
+   modadd                       M=2161  share=0.675 P_ok=0.555±0.011 G_eff_frac=0.680
+   lookup                       M=726   share=0.227 P_ok=0.581±0.018 G_eff_frac=0.216
+   unlookup                     M=176   share=0.055 P_ok=0.563±0.037 G_eff_frac=0.054
+   reset                        M=102   share=0.032 P_ok=0.570±0.049 G_eff_frac=0.031
+   swap                         M=32    share=0.010 P_ok=0.271±0.079 G_eff_frac=0.017
+   control sites                M=3     share=0.001 P_ok=0.000±0.006 G_eff_frac=0.002
+-- WindowedMbuLookup(4)+round
+   modadd                       M=2022  share=0.632 P_ok=0.496±0.011 G_eff_frac=0.632
+   lookup                       M=910   share=0.284 P_ok=0.507±0.017 G_eff_frac=0.278
+   unlookup                     M=184   share=0.058 P_ok=0.511±0.037 G_eff_frac=0.056
+   swap                         M=50    share=0.016 P_ok=0.307±0.065 G_eff_frac=0.021
+   reset                        M=30    share=0.009 P_ok=0.381±0.089 G_eff_frac=0.012
+   control sites                M=4     share=0.001 P_ok=0.253±0.217 G_eff_frac=0.002
+-- WindowedMbuLookup(4)+window
+   modadd                       M=1995  share=0.623 P_ok=0.508±0.011 G_eff_frac=0.647
+   lookup                       M=846   share=0.264 P_ok=0.561±0.017 G_eff_frac=0.245
+   unlookup                     M=204   share=0.064 P_ok=0.608±0.034 G_eff_frac=0.053
+   reset                        M=106   share=0.033 P_ok=0.495±0.049 G_eff_frac=0.035
+   swap                         M=47    share=0.015 P_ok=0.336±0.069 G_eff_frac=0.021
+   control sites                M=2     share=0.001 P_ok=1.003±0.007 G_eff_frac=-0.000
+-- WindowedOpt(4)+round
+   modadd                       M=1771  share=0.553 P_ok=0.527±0.012 G_eff_frac=0.553
+   lookup                       M=697   share=0.218 P_ok=0.501±0.019 G_eff_frac=0.230
+   unlookup                     M=659   share=0.206 P_ok=0.569±0.019 G_eff_frac=0.187
+   swap                         M=47    share=0.015 P_ok=0.281±0.066 G_eff_frac=0.022
+   reset                        M=24    share=0.007 P_ok=0.549±0.102 G_eff_frac=0.007
+   control sites                M=2     share=0.001 P_ok=0.500±0.354 G_eff_frac=0.001
+-- WindowedOpt(4)+window
+   modadd                       M=1732  share=0.541 P_ok=0.493±0.012 G_eff_frac=0.612
+   unlookup                     M=693   share=0.217 P_ok=0.769±0.016 G_eff_frac=0.112
+   lookup                       M=656   share=0.205 P_ok=0.510±0.020 G_eff_frac=0.224
+   reset                        M=80    share=0.025 P_ok=0.390±0.055 G_eff_frac=0.034
+   swap                         M=34    share=0.011 P_ok=0.237±0.073 G_eff_frac=0.018
+   control sites                M=5     share=0.002 P_ok=0.607±0.218 G_eff_frac=0.001
+
+## fatality by block.part (k = 1, depol, pooled over n; P(ok|fault)/S0, share of locations, share of G_eff)
+-- windowed-opt
+   modadd.reduce                M=1908  share=0.281 P_ok=0.256±0.010 G_eff_frac=0.292
+   modadd.add                   M=1013  share=0.149 P_ok=0.251±0.014 G_eff_frac=0.156
+   modadd.cmp                   M=1002  share=0.147 P_ok=0.244±0.014 G_eff_frac=0.156
+   lookup.fanout                M=758   share=0.111 P_ok=0.353±0.017 G_eff_frac=0.101
+   unlookup.fanout              M=731   share=0.107 P_ok=0.343±0.018 G_eff_frac=0.099
+   lookup.unary                 M=663   share=0.098 P_ok=0.320±0.018 G_eff_frac=0.093
+   unlookup.unary               M=643   share=0.095 P_ok=0.320±0.018 G_eff_frac=0.090
+   swap.gate                    M=78    share=0.011 P_ok=0.279±0.051 G_eff_frac=0.012
+   control                      M=4     share=0.001 P_ok=0.503±0.250 G_eff_frac=0.000
+-- mbu-lookup
+   modadd.reduce                M=1903  share=0.340 P_ok=0.342±0.011 G_eff_frac=0.389
+   modadd.add                   M=930   share=0.166 P_ok=0.398±0.016 G_eff_frac=0.174
+   lookup.fanout                M=790   share=0.141 P_ok=0.572±0.018 G_eff_frac=0.105
+   lookup.unary                 M=725   share=0.129 P_ok=0.574±0.018 G_eff_frac=0.096
+   modadd.cmp                   M=534   share=0.095 P_ok=0.374±0.021 G_eff_frac=0.104
+   modadd.flagfix               M=257   share=0.046 P_ok=0.363±0.030 G_eff_frac=0.051
+   unlookup.fix                 M=193   share=0.034 P_ok=0.423±0.036 G_eff_frac=0.035
+   unlookup.meas                M=181   share=0.032 P_ok=0.484±0.037 G_eff_frac=0.029
+   swap.gate                    M=85    share=0.015 P_ok=0.367±0.052 G_eff_frac=0.017
+   control                      M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+   modadd.flagmeas              M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- mbu
+   modadd.reduce                M=2166  share=0.387 P_ok=0.430±0.011 G_eff_frac=0.434
+   modadd.add                   M=1008  share=0.180 P_ok=0.537±0.016 G_eff_frac=0.164
+   lookup.fanout                M=659   share=0.118 P_ok=0.555±0.019 G_eff_frac=0.103
+   modadd.cmp                   M=582   share=0.104 P_ok=0.528±0.021 G_eff_frac=0.096
+   lookup.unary                 M=554   share=0.099 P_ok=0.541±0.021 G_eff_frac=0.089
+   modadd.flagfix               M=270   share=0.048 P_ok=0.541±0.030 G_eff_frac=0.043
+   unlookup.meas                M=145   share=0.026 P_ok=0.447±0.041 G_eff_frac=0.028
+   unlookup.fix                 M=142   share=0.025 P_ok=0.465±0.042 G_eff_frac=0.027
+   swap.gate                    M=67    share=0.012 P_ok=0.442±0.061 G_eff_frac=0.013
+   control                      M=5     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+   modadd.flagmeas              M=2     share=0.000 P_ok=0.000±0.007 G_eff_frac=0.001
+-- ge(2;4)
+   modadd.reduce                M=1373  share=0.245 P_ok=0.393±0.013 G_eff_frac=0.270
+   lookup.unary                 M=1354  share=0.242 P_ok=0.520±0.014 G_eff_frac=0.211
+   lookup.fanout                M=1232  share=0.220 P_ok=0.484±0.014 G_eff_frac=0.206
+   modadd.add                   M=651   share=0.116 P_ok=0.410±0.019 G_eff_frac=0.125
+   modadd.cmp                   M=387   share=0.069 P_ok=0.424±0.025 G_eff_frac=0.072
+   unlookup.fix                 M=269   share=0.048 P_ok=0.461±0.030 G_eff_frac=0.047
+   modadd.flagfix               M=185   share=0.033 P_ok=0.420±0.036 G_eff_frac=0.035
+   unlookup.meas                M=92    share=0.016 P_ok=0.384±0.051 G_eff_frac=0.018
+   swap.gate                    M=48    share=0.009 P_ok=0.228±0.061 G_eff_frac=0.012
+   ctrl.gate                    M=7     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+   modadd.flagmeas              M=2     share=0.000 P_ok=0.000±0.007 G_eff_frac=0.001
+-- WindowedMbu(4)+round
+   modadd.reduce                M=875   share=0.365 P_ok=0.538±0.017 G_eff_frac=0.365
+   modadd.add                   M=415   share=0.173 P_ok=0.558±0.024 G_eff_frac=0.165
+   lookup.fanout                M=304   share=0.127 P_ok=0.539±0.029 G_eff_frac=0.126
+   lookup.unary                 M=274   share=0.114 P_ok=0.527±0.030 G_eff_frac=0.117
+   modadd.cmp                   M=220   share=0.092 P_ok=0.589±0.033 G_eff_frac=0.082
+   modadd.flagfix               M=135   share=0.056 P_ok=0.539±0.043 G_eff_frac=0.056
+   unlookup.fix                 M=73    share=0.030 P_ok=0.374±0.057 G_eff_frac=0.041
+   unlookup.meas                M=60    share=0.025 P_ok=0.522±0.064 G_eff_frac=0.026
+   swap.gate                    M=24    share=0.010 P_ok=0.168±0.076 G_eff_frac=0.018
+   reset.gate                   M=15    share=0.006 P_ok=0.808±0.102 G_eff_frac=0.003
+   control                      M=3     share=0.001 P_ok=0.335±0.273 G_eff_frac=0.002
+   modadd.flagmeas              M=2     share=0.001 P_ok=1.012±0.007 G_eff_frac=-0.000
+-- WindowedMbu(4)+window
+   modadd.reduce                M=1101  share=0.344 P_ok=0.556±0.015 G_eff_frac=0.346
+   modadd.add                   M=568   share=0.177 P_ok=0.556±0.021 G_eff_frac=0.179
+   lookup.fanout                M=381   share=0.119 P_ok=0.602±0.025 G_eff_frac=0.107
+   modadd.cmp                   M=346   share=0.108 P_ok=0.556±0.027 G_eff_frac=0.109
+   lookup.unary                 M=345   share=0.108 P_ok=0.557±0.027 G_eff_frac=0.108
+   modadd.flagfix               M=145   share=0.045 P_ok=0.541±0.041 G_eff_frac=0.047
+   unlookup.fix                 M=104   share=0.033 P_ok=0.477±0.049 G_eff_frac=0.039
+   reset.gate                   M=102   share=0.032 P_ok=0.570±0.049 G_eff_frac=0.031
+   unlookup.meas                M=72    share=0.022 P_ok=0.687±0.055 G_eff_frac=0.016
+   swap.gate                    M=32    share=0.010 P_ok=0.271±0.079 G_eff_frac=0.017
+   control                      M=3     share=0.001 P_ok=0.000±0.006 G_eff_frac=0.002
+   modadd.flagmeas              M=1     share=0.000 P_ok=1.012±0.010 G_eff_frac=-0.000
+-- WindowedMbuLookup(4)+round
+   modadd.reduce                M=1084  share=0.339 P_ok=0.482±0.015 G_eff_frac=0.348
+   modadd.add                   M=537   share=0.168 P_ok=0.531±0.022 G_eff_frac=0.156
+   lookup.unary                 M=479   share=0.150 P_ok=0.518±0.023 G_eff_frac=0.143
+   lookup.fanout                M=431   share=0.135 P_ok=0.496±0.024 G_eff_frac=0.135
+   modadd.cmp                   M=263   share=0.082 P_ok=0.503±0.031 G_eff_frac=0.081
+   modadd.flagfix               M=136   share=0.043 P_ok=0.462±0.043 G_eff_frac=0.045
+   unlookup.fix                 M=101   share=0.032 P_ok=0.481±0.050 G_eff_frac=0.033
+   unlookup.meas                M=83    share=0.026 P_ok=0.549±0.055 G_eff_frac=0.023
+   swap.gate                    M=50    share=0.016 P_ok=0.307±0.065 G_eff_frac=0.021
+   reset.gate                   M=30    share=0.009 P_ok=0.381±0.089 G_eff_frac=0.012
+   control                      M=4     share=0.001 P_ok=0.253±0.217 G_eff_frac=0.002
+   modadd.flagmeas              M=2     share=0.001 P_ok=0.000±0.007 G_eff_frac=0.001
+-- WindowedMbuLookup(4)+window
+   modadd.reduce                M=1042  share=0.326 P_ok=0.529±0.015 G_eff_frac=0.323
+   modadd.add                   M=525   share=0.164 P_ok=0.495±0.022 G_eff_frac=0.175
+   lookup.fanout                M=423   share=0.132 P_ok=0.577±0.024 G_eff_frac=0.118
+   lookup.unary                 M=423   share=0.132 P_ok=0.544±0.024 G_eff_frac=0.127
+   modadd.cmp                   M=278   share=0.087 P_ok=0.475±0.030 G_eff_frac=0.096
+   modadd.flagfix               M=149   share=0.047 P_ok=0.463±0.041 G_eff_frac=0.053
+   unlookup.fix                 M=109   share=0.034 P_ok=0.407±0.047 G_eff_frac=0.043
+   reset.gate                   M=106   share=0.033 P_ok=0.495±0.049 G_eff_frac=0.035
+   unlookup.meas                M=95    share=0.030 P_ok=0.838±0.038 G_eff_frac=0.010
+   swap.gate                    M=47    share=0.015 P_ok=0.336±0.069 G_eff_frac=0.021
+   control                      M=2     share=0.001 P_ok=1.003±0.007 G_eff_frac=-0.000
+   modadd.flagmeas              M=1     share=0.000 P_ok=1.016±0.010 G_eff_frac=-0.000
+-- WindowedOpt(4)+round
+   modadd.reduce                M=872   share=0.273 P_ok=0.536±0.017 G_eff_frac=0.267
+   modadd.add                   M=455   share=0.142 P_ok=0.515±0.023 G_eff_frac=0.146
+   modadd.cmp                   M=444   share=0.139 P_ok=0.523±0.024 G_eff_frac=0.140
+   lookup.fanout                M=375   share=0.117 P_ok=0.524±0.026 G_eff_frac=0.118
+   unlookup.fanout              M=363   share=0.113 P_ok=0.667±0.025 G_eff_frac=0.080
+   lookup.unary                 M=322   share=0.101 P_ok=0.474±0.028 G_eff_frac=0.112
+   unlookup.unary               M=296   share=0.092 P_ok=0.449±0.029 G_eff_frac=0.108
+   swap.gate                    M=47    share=0.015 P_ok=0.281±0.066 G_eff_frac=0.022
+   reset.gate                   M=24    share=0.007 P_ok=0.549±0.102 G_eff_frac=0.007
+   control                      M=2     share=0.001 P_ok=0.500±0.354 G_eff_frac=0.001
+-- WindowedOpt(4)+window
+   modadd.reduce                M=864   share=0.270 P_ok=0.512±0.017 G_eff_frac=0.294
+   modadd.cmp                   M=447   share=0.140 P_ok=0.479±0.024 G_eff_frac=0.162
+   modadd.add                   M=421   share=0.132 P_ok=0.468±0.024 G_eff_frac=0.156
+   lookup.fanout                M=363   share=0.113 P_ok=0.547±0.026 G_eff_frac=0.115
+   unlookup.fanout              M=352   share=0.110 P_ok=0.830±0.020 G_eff_frac=0.042
+   unlookup.unary               M=341   share=0.107 P_ok=0.705±0.025 G_eff_frac=0.070
+   lookup.unary                 M=293   share=0.092 P_ok=0.466±0.029 G_eff_frac=0.109
+   reset.gate                   M=80    share=0.025 P_ok=0.390±0.055 G_eff_frac=0.034
+   swap.gate                    M=34    share=0.011 P_ok=0.237±0.073 G_eff_frac=0.018
+   control                      M=5     share=0.002 P_ok=0.607±0.218 G_eff_frac=0.001
+
+## fatality by block.part x Pauli family (k = 1, depol, pooled over n; P(ok|fault)/S0, share of locations, share of G_eff)
+-- windowed-opt
+   modadd.reduce:XY             M=1268  share=0.186 P_ok=0.108±0.009 G_eff_frac=0.233
+   modadd.add:XY                M=650   share=0.096 P_ok=0.092±0.011 G_eff_frac=0.122
+   modadd.cmp:XY                M=648   share=0.095 P_ok=0.095±0.012 G_eff_frac=0.121
+   modadd.reduce:Z              M=640   share=0.094 P_ok=0.551±0.020 G_eff_frac=0.059
+   unlookup.fanout:XY           M=493   share=0.072 P_ok=0.115±0.014 G_eff_frac=0.090
+   lookup.fanout:XY             M=470   share=0.069 P_ok=0.095±0.014 G_eff_frac=0.088
+   lookup.unary:XY              M=443   share=0.065 P_ok=0.140±0.016 G_eff_frac=0.078
+   unlookup.unary:XY            M=433   share=0.064 P_ok=0.126±0.016 G_eff_frac=0.078
+   modadd.add:Z                 M=363   share=0.053 P_ok=0.536±0.026 G_eff_frac=0.035
+   modadd.cmp:Z                 M=354   share=0.052 P_ok=0.515±0.027 G_eff_frac=0.035
+   lookup.fanout:Z              M=288   share=0.042 P_ok=0.773±0.025 G_eff_frac=0.013
+   unlookup.fanout:Z            M=238   share=0.035 P_ok=0.813±0.025 G_eff_frac=0.009
+   lookup.unary:Z               M=220   share=0.032 P_ok=0.683±0.031 G_eff_frac=0.014
+   unlookup.unary:Z             M=210   share=0.031 P_ok=0.720±0.031 G_eff_frac=0.012
+   swap.gate:XY                 M=50    share=0.007 P_ok=0.132±0.048 G_eff_frac=0.009
+   swap.gate:Z                  M=28    share=0.004 P_ok=0.542±0.094 G_eff_frac=0.003
+   control:XY                   M=2     share=0.000 P_ok=0.000±0.007 G_eff_frac=0.000
+   control:Z                    M=2     share=0.000 P_ok=1.006±0.007 G_eff_frac=-0.000
+-- mbu-lookup
+   modadd.reduce:XY             M=1240  share=0.221 P_ok=0.244±0.012 G_eff_frac=0.291
+   modadd.reduce:Z              M=663   share=0.118 P_ok=0.524±0.019 G_eff_frac=0.098
+   modadd.add:XY                M=634   share=0.113 P_ok=0.351±0.019 G_eff_frac=0.128
+   lookup.fanout:XY             M=525   share=0.094 P_ok=0.477±0.022 G_eff_frac=0.085
+   lookup.unary:XY              M=397   share=0.071 P_ok=0.528±0.025 G_eff_frac=0.058
+   modadd.cmp:XY                M=359   share=0.064 P_ok=0.315±0.025 G_eff_frac=0.076
+   modadd.add:Z                 M=296   share=0.053 P_ok=0.497±0.029 G_eff_frac=0.046
+   lookup.fanout:Z              M=265   share=0.047 P_ok=0.760±0.026 G_eff_frac=0.020
+   lookup.unary:Z               M=181   share=0.032 P_ok=0.629±0.036 G_eff_frac=0.021
+   modadd.cmp:Z                 M=175   share=0.031 P_ok=0.495±0.038 G_eff_frac=0.027
+   modadd.flagfix:XY            M=160   share=0.029 P_ok=0.287±0.036 G_eff_frac=0.035
+   unlookup.fix:XY              M=113   share=0.020 P_ok=0.437±0.047 G_eff_frac=0.020
+   modadd.flagfix:Z             M=97    share=0.017 P_ok=0.489±0.051 G_eff_frac=0.015
+   unlookup.meas:measx-reset    M=97    share=0.017 P_ok=0.404±0.050 G_eff_frac=0.018
+   unlookup.meas:measx-ro       M=84    share=0.015 P_ok=0.576±0.054 G_eff_frac=0.011
+   lookup.unary:measx-ro        M=77    share=0.014 P_ok=0.837±0.042 G_eff_frac=0.004
+   lookup.unary:measx-reset     M=70    share=0.013 P_ok=0.406±0.059 G_eff_frac=0.013
+   swap.gate:XY                 M=62    share=0.011 P_ok=0.437±0.063 G_eff_frac=0.011
+   unlookup.fix:Z               M=50    share=0.009 P_ok=0.364±0.068 G_eff_frac=0.010
+   swap.gate:Z                  M=23    share=0.004 P_ok=0.176±0.079 G_eff_frac=0.006
+   unlookup.fix:measx-reset     M=15    share=0.003 P_ok=0.408±0.127 G_eff_frac=0.003
+   unlookup.fix:measx-ro        M=15    share=0.003 P_ok=0.537±0.129 G_eff_frac=0.002
+   control:XY                   M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+   modadd.flagmeas:measx-reset  M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- mbu
+   modadd.reduce:XY             M=1295  share=0.231 P_ok=0.363±0.013 G_eff_frac=0.289
+   modadd.reduce:Z              M=642   share=0.115 P_ok=0.539±0.020 G_eff_frac=0.104
+   modadd.add:XY                M=589   share=0.105 P_ok=0.520±0.021 G_eff_frac=0.099
+   lookup.fanout:XY             M=436   share=0.078 P_ok=0.423±0.024 G_eff_frac=0.088
+   modadd.cmp:XY                M=336   share=0.060 P_ok=0.491±0.027 G_eff_frac=0.060
+   modadd.add:Z                 M=310   share=0.055 P_ok=0.556±0.028 G_eff_frac=0.048
+   lookup.unary:XY              M=301   share=0.054 P_ok=0.436±0.029 G_eff_frac=0.060
+   lookup.fanout:Z              M=223   share=0.040 P_ok=0.813±0.026 G_eff_frac=0.015
+   modadd.cmp:Z                 M=197   share=0.035 P_ok=0.552±0.035 G_eff_frac=0.031
+   modadd.flagfix:XY            M=158   share=0.028 P_ok=0.525±0.040 G_eff_frac=0.026
+   lookup.unary:Z               M=141   share=0.025 P_ok=0.736±0.037 G_eff_frac=0.013
+   modadd.reduce:measx-reset    M=117   share=0.021 P_ok=0.319±0.043 G_eff_frac=0.028
+   modadd.reduce:measx-ro       M=112   share=0.020 P_ok=0.683±0.044 G_eff_frac=0.012
+   modadd.flagfix:Z             M=82    share=0.015 P_ok=0.540±0.055 G_eff_frac=0.013
+   unlookup.meas:measx-reset    M=76    share=0.014 P_ok=0.469±0.057 G_eff_frac=0.014
+   unlookup.meas:measx-ro       M=69    share=0.012 P_ok=0.423±0.059 G_eff_frac=0.014
+   unlookup.fix:XY              M=68    share=0.012 P_ok=0.450±0.060 G_eff_frac=0.013
+   modadd.add:measx-reset       M=67    share=0.012 P_ok=0.500±0.061 G_eff_frac=0.012
+   lookup.unary:measx-reset     M=64    share=0.011 P_ok=0.397±0.061 G_eff_frac=0.014
+   lookup.unary:measx-ro        M=48    share=0.009 P_ok=0.819±0.056 G_eff_frac=0.003
+   swap.gate:XY                 M=47    share=0.008 P_ok=0.395±0.071 G_eff_frac=0.010
+   modadd.add:measx-ro          M=42    share=0.007 P_ok=0.696±0.071 G_eff_frac=0.004
+   unlookup.fix:Z               M=38    share=0.007 P_ok=0.451±0.081 G_eff_frac=0.007
+   modadd.cmp:measx-ro          M=28    share=0.005 P_ok=0.719±0.085 G_eff_frac=0.003
+   modadd.cmp:measx-reset       M=21    share=0.004 P_ok=0.633±0.105 G_eff_frac=0.003
+   swap.gate:Z                  M=20    share=0.004 P_ok=0.553±0.111 G_eff_frac=0.003
+   unlookup.fix:measx-ro        M=20    share=0.004 P_ok=0.656±0.106 G_eff_frac=0.002
+   modadd.flagfix:measx-reset   M=16    share=0.003 P_ok=0.432±0.124 G_eff_frac=0.003
+   unlookup.fix:measx-reset     M=16    share=0.003 P_ok=0.322±0.117 G_eff_frac=0.004
+   modadd.flagfix:measx-ro      M=14    share=0.003 P_ok=0.860±0.093 G_eff_frac=0.001
+   control:XY                   M=3     share=0.001 P_ok=0.000±0.006 G_eff_frac=0.001
+   control:Z                    M=2     share=0.000 P_ok=0.000±0.007 G_eff_frac=0.001
+   modadd.flagmeas:measx-reset  M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+   modadd.flagmeas:measx-ro     M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- ge(2;4)
+   modadd.reduce:XY             M=821   share=0.147 P_ok=0.317±0.016 G_eff_frac=0.182
+   lookup.fanout:XY             M=813   share=0.145 P_ok=0.360±0.017 G_eff_frac=0.169
+   lookup.unary:XY              M=712   share=0.127 P_ok=0.421±0.019 G_eff_frac=0.134
+   modadd.reduce:Z              M=420   share=0.075 P_ok=0.501±0.024 G_eff_frac=0.068
+   lookup.fanout:Z              M=419   share=0.075 P_ok=0.723±0.022 G_eff_frac=0.038
+   lookup.unary:Z               M=372   share=0.066 P_ok=0.688±0.024 G_eff_frac=0.038
+   modadd.add:XY                M=371   share=0.066 P_ok=0.402±0.025 G_eff_frac=0.072
+   modadd.cmp:XY                M=239   share=0.043 P_ok=0.424±0.032 G_eff_frac=0.045
+   modadd.add:Z                 M=202   share=0.036 P_ok=0.394±0.034 G_eff_frac=0.040
+   lookup.unary:measx-reset     M=154   share=0.028 P_ok=0.270±0.036 G_eff_frac=0.037
+   unlookup.fix:XY              M=134   share=0.024 P_ok=0.357±0.041 G_eff_frac=0.028
+   lookup.unary:measx-ro        M=116   share=0.021 P_ok=0.921±0.025 G_eff_frac=0.003
+   modadd.flagfix:XY            M=115   share=0.021 P_ok=0.372±0.045 G_eff_frac=0.023
+   modadd.cmp:Z                 M=107   share=0.019 P_ok=0.405±0.047 G_eff_frac=0.021
+   unlookup.fix:Z               M=92    share=0.016 P_ok=0.526±0.052 G_eff_frac=0.014
+   modadd.reduce:measx-ro       M=71    share=0.013 P_ok=0.581±0.059 G_eff_frac=0.010
+   modadd.reduce:measx-reset    M=61    share=0.011 P_ok=0.463±0.064 G_eff_frac=0.011
+   unlookup.meas:measx-ro       M=55    share=0.010 P_ok=0.402±0.066 G_eff_frac=0.011
+   modadd.flagfix:Z             M=53    share=0.009 P_ok=0.455±0.068 G_eff_frac=0.009
+   modadd.add:measx-ro          M=41    share=0.007 P_ok=0.588±0.077 G_eff_frac=0.005
+   modadd.add:measx-reset       M=37    share=0.007 P_ok=0.387±0.080 G_eff_frac=0.007
+   unlookup.meas:measx-reset    M=37    share=0.007 P_ok=0.356±0.079 G_eff_frac=0.008
+   swap.gate:XY                 M=31    share=0.006 P_ok=0.223±0.075 G_eff_frac=0.008
+   unlookup.fix:measx-ro        M=30    share=0.005 P_ok=0.706±0.083 G_eff_frac=0.003
+   modadd.cmp:measx-ro          M=21    share=0.004 P_ok=0.720±0.098 G_eff_frac=0.002
+   modadd.cmp:measx-reset       M=20    share=0.004 P_ok=0.212±0.091 G_eff_frac=0.005
+   swap.gate:Z                  M=17    share=0.003 P_ok=0.237±0.103 G_eff_frac=0.004
+   unlookup.fix:measx-reset     M=13    share=0.002 P_ok=0.519±0.139 G_eff_frac=0.002
+   modadd.flagfix:measx-ro      M=10    share=0.002 P_ok=0.804±0.125 G_eff_frac=0.001
+   modadd.flagfix:measx-reset   M=7     share=0.001 P_ok=0.384±0.184 G_eff_frac=0.001
+   ctrl.gate:XY                 M=6     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+   ctrl.gate:Z                  M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+   modadd.flagmeas:measx-reset  M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+   modadd.flagmeas:measx-ro     M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- WindowedMbu(4)+round
+   modadd.reduce:XY             M=514   share=0.214 P_ok=0.537±0.022 G_eff_frac=0.214
+   modadd.reduce:Z              M=265   share=0.110 P_ok=0.515±0.031 G_eff_frac=0.116
+   modadd.add:XY                M=257   share=0.107 P_ok=0.571±0.031 G_eff_frac=0.099
+   lookup.fanout:XY             M=203   share=0.085 P_ok=0.433±0.035 G_eff_frac=0.104
+   lookup.unary:XY              M=161   share=0.067 P_ok=0.477±0.039 G_eff_frac=0.076
+   modadd.cmp:XY                M=142   share=0.059 P_ok=0.591±0.041 G_eff_frac=0.052
+   modadd.add:Z                 M=116   share=0.048 P_ok=0.497±0.046 G_eff_frac=0.053
+   lookup.fanout:Z              M=101   share=0.042 P_ok=0.750±0.043 G_eff_frac=0.023
+   lookup.unary:Z               M=70    share=0.029 P_ok=0.591±0.059 G_eff_frac=0.026
+   modadd.flagfix:XY            M=68    share=0.028 P_ok=0.491±0.061 G_eff_frac=0.031
+   modadd.cmp:Z                 M=62    share=0.026 P_ok=0.571±0.063 G_eff_frac=0.024
+   modadd.reduce:measx-reset    M=53    share=0.022 P_ok=0.477±0.069 G_eff_frac=0.025
+   modadd.flagfix:Z             M=44    share=0.018 P_ok=0.460±0.075 G_eff_frac=0.021
+   modadd.reduce:measx-ro       M=43    share=0.018 P_ok=0.754±0.066 G_eff_frac=0.010
+   unlookup.fix:XY              M=38    share=0.016 P_ok=0.319±0.076 G_eff_frac=0.023
+   unlookup.meas:measx-reset    M=34    share=0.014 P_ok=0.623±0.083 G_eff_frac=0.012
+   unlookup.meas:measx-ro       M=26    share=0.011 P_ok=0.389±0.096 G_eff_frac=0.014
+   lookup.unary:measx-reset     M=25    share=0.010 P_ok=0.445±0.099 G_eff_frac=0.012
+   unlookup.fix:Z               M=25    share=0.010 P_ok=0.323±0.094 G_eff_frac=0.015
+   modadd.add:measx-ro          M=24    share=0.010 P_ok=0.757±0.087 G_eff_frac=0.005
+   lookup.unary:measx-ro        M=18    share=0.007 P_ok=0.843±0.086 G_eff_frac=0.003
+   modadd.add:measx-reset       M=18    share=0.007 P_ok=0.507±0.118 G_eff_frac=0.008
+   reset.gate:XY                M=15    share=0.006 P_ok=0.808±0.102 G_eff_frac=0.003
+   swap.gate:XY                 M=14    share=0.006 P_ok=0.072±0.069 G_eff_frac=0.012
+   modadd.flagfix:measx-reset   M=13    share=0.005 P_ok=0.700±0.127 G_eff_frac=0.004
+   modadd.flagfix:measx-ro      M=10    share=0.004 P_ok=1.012±0.003 G_eff_frac=-0.000
+   swap.gate:Z                  M=10    share=0.004 P_ok=0.303±0.145 G_eff_frac=0.006
+   modadd.cmp:measx-ro          M=9     share=0.004 P_ok=0.562±0.165 G_eff_frac=0.004
+   modadd.cmp:measx-reset       M=7     share=0.003 P_ok=0.723±0.169 G_eff_frac=0.002
+   unlookup.fix:measx-reset     M=5     share=0.002 P_ok=0.810±0.175 G_eff_frac=0.001
+   unlookup.fix:measx-ro        M=5     share=0.002 P_ok=0.610±0.218 G_eff_frac=0.002
+   control:XY                   M=3     share=0.001 P_ok=0.335±0.273 G_eff_frac=0.002
+   modadd.flagmeas:measx-reset  M=2     share=0.001 P_ok=1.012±0.007 G_eff_frac=-0.000
+-- WindowedMbu(4)+window
+   modadd.reduce:XY             M=647   share=0.202 P_ok=0.557±0.020 G_eff_frac=0.203
+   modadd.reduce:Z              M=335   share=0.105 P_ok=0.526±0.027 G_eff_frac=0.112
+   modadd.add:XY                M=327   share=0.102 P_ok=0.537±0.028 G_eff_frac=0.107
+   lookup.fanout:XY             M=246   share=0.077 P_ok=0.481±0.032 G_eff_frac=0.090
+   modadd.cmp:XY                M=215   share=0.067 P_ok=0.529±0.034 G_eff_frac=0.072
+   lookup.unary:XY              M=196   share=0.061 P_ok=0.499±0.036 G_eff_frac=0.070
+   modadd.add:Z                 M=170   share=0.053 P_ok=0.517±0.038 G_eff_frac=0.058
+   lookup.fanout:Z              M=135   share=0.042 P_ok=0.822±0.033 G_eff_frac=0.017
+   reset.gate:XY                M=102   share=0.032 P_ok=0.570±0.049 G_eff_frac=0.031
+   modadd.cmp:Z                 M=95    share=0.030 P_ok=0.509±0.051 G_eff_frac=0.033
+   modadd.flagfix:XY            M=94    share=0.029 P_ok=0.567±0.051 G_eff_frac=0.029
+   lookup.unary:Z               M=78    share=0.024 P_ok=0.749±0.049 G_eff_frac=0.014
+   modadd.reduce:measx-ro       M=62    share=0.019 P_ok=0.796±0.051 G_eff_frac=0.009
+   modadd.reduce:measx-reset    M=57    share=0.018 P_ok=0.461±0.066 G_eff_frac=0.022
+   unlookup.fix:XY              M=46    share=0.014 P_ok=0.355±0.071 G_eff_frac=0.021
+   modadd.flagfix:Z             M=41    share=0.013 P_ok=0.393±0.076 G_eff_frac=0.018
+   lookup.unary:measx-reset     M=37    share=0.012 P_ok=0.321±0.077 G_eff_frac=0.018
+   modadd.add:measx-reset       M=37    share=0.012 P_ok=0.785±0.068 G_eff_frac=0.006
+   unlookup.meas:measx-reset    M=37    share=0.012 P_ok=0.982±0.022 G_eff_frac=0.000
+   unlookup.meas:measx-ro       M=35    share=0.011 P_ok=0.375±0.082 G_eff_frac=0.015
+   lookup.unary:measx-ro        M=34    share=0.011 P_ok=0.713±0.078 G_eff_frac=0.007
+   modadd.add:measx-ro          M=34    share=0.011 P_ok=0.682±0.080 G_eff_frac=0.008
+   unlookup.fix:Z               M=28    share=0.009 P_ok=0.325±0.088 G_eff_frac=0.013
+   modadd.cmp:measx-reset       M=23    share=0.007 P_ok=0.790±0.085 G_eff_frac=0.003
+   swap.gate:XY                 M=22    share=0.007 P_ok=0.303±0.098 G_eff_frac=0.011
+   unlookup.fix:measx-reset     M=16    share=0.005 P_ok=0.944±0.057 G_eff_frac=0.001
+   unlookup.fix:measx-ro        M=14    share=0.004 P_ok=0.648±0.128 G_eff_frac=0.003
+   modadd.cmp:measx-ro          M=13    share=0.004 P_ok=0.933±0.069 G_eff_frac=0.001
+   swap.gate:Z                  M=10    share=0.003 P_ok=0.201±0.127 G_eff_frac=0.006
+   modadd.flagfix:measx-reset   M=5     share=0.002 P_ok=1.006±0.004 G_eff_frac=-0.000
+   modadd.flagfix:measx-ro      M=5     share=0.002 P_ok=0.811±0.175 G_eff_frac=0.001
+   control:XY                   M=2     share=0.001 P_ok=0.000±0.007 G_eff_frac=0.001
+   control:Z                    M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.001
+   modadd.flagmeas:measx-ro     M=1     share=0.000 P_ok=1.012±0.010 G_eff_frac=-0.000
+-- WindowedMbuLookup(4)+round
+   modadd.reduce:XY             M=699   share=0.218 P_ok=0.452±0.019 G_eff_frac=0.237
+   modadd.reduce:Z              M=385   share=0.120 P_ok=0.537±0.025 G_eff_frac=0.111
+   modadd.add:XY                M=347   share=0.108 P_ok=0.537±0.027 G_eff_frac=0.100
+   lookup.fanout:XY             M=292   share=0.091 P_ok=0.387±0.028 G_eff_frac=0.111
+   lookup.unary:XY              M=266   share=0.083 P_ok=0.390±0.030 G_eff_frac=0.101
+   modadd.add:Z                 M=190   share=0.059 P_ok=0.521±0.036 G_eff_frac=0.056
+   modadd.cmp:XY                M=171   share=0.053 P_ok=0.502±0.038 G_eff_frac=0.053
+   lookup.fanout:Z              M=139   share=0.043 P_ok=0.725±0.038 G_eff_frac=0.024
+   lookup.unary:Z               M=130   share=0.041 P_ok=0.659±0.042 G_eff_frac=0.027
+   modadd.cmp:Z                 M=92    share=0.029 P_ok=0.504±0.052 G_eff_frac=0.028
+   modadd.flagfix:XY            M=88    share=0.028 P_ok=0.463±0.053 G_eff_frac=0.029
+   lookup.unary:measx-ro        M=52    share=0.016 P_ok=0.873±0.046 G_eff_frac=0.004
+   modadd.flagfix:Z             M=48    share=0.015 P_ok=0.462±0.072 G_eff_frac=0.016
+   unlookup.meas:measx-ro       M=46    share=0.014 P_ok=0.504±0.074 G_eff_frac=0.014
+   unlookup.fix:XY              M=42    share=0.013 P_ok=0.384±0.075 G_eff_frac=0.016
+   swap.gate:XY                 M=37    share=0.012 P_ok=0.252±0.071 G_eff_frac=0.017
+   unlookup.meas:measx-reset    M=37    share=0.012 P_ok=0.604±0.080 G_eff_frac=0.009
+   lookup.unary:measx-reset     M=31    share=0.010 P_ok=0.423±0.089 G_eff_frac=0.011
+   unlookup.fix:Z               M=31    share=0.010 P_ok=0.489±0.090 G_eff_frac=0.010
+   reset.gate:XY                M=30    share=0.009 P_ok=0.381±0.089 G_eff_frac=0.012
+   unlookup.fix:measx-ro        M=15    share=0.005 P_ok=0.739±0.113 G_eff_frac=0.002
+   swap.gate:Z                  M=13    share=0.004 P_ok=0.465±0.138 G_eff_frac=0.004
+   unlookup.fix:measx-reset     M=13    share=0.004 P_ok=0.474±0.138 G_eff_frac=0.004
+   control:XY                   M=4     share=0.001 P_ok=0.253±0.217 G_eff_frac=0.002
+   modadd.flagmeas:measx-reset  M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.001
+   modadd.flagmeas:measx-ro     M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.001
+-- WindowedMbuLookup(4)+window
+   modadd.reduce:XY             M=712   share=0.223 P_ok=0.529±0.019 G_eff_frac=0.221
+   modadd.add:XY                M=356   share=0.111 P_ok=0.511±0.026 G_eff_frac=0.115
+   modadd.reduce:Z              M=330   share=0.103 P_ok=0.528±0.027 G_eff_frac=0.103
+   lookup.fanout:XY             M=283   share=0.088 P_ok=0.446±0.030 G_eff_frac=0.103
+   lookup.unary:XY              M=227   share=0.071 P_ok=0.455±0.033 G_eff_frac=0.082
+   modadd.cmp:XY                M=196   share=0.061 P_ok=0.468±0.036 G_eff_frac=0.069
+   modadd.add:Z                 M=169   share=0.053 P_ok=0.459±0.038 G_eff_frac=0.060
+   lookup.fanout:Z              M=140   share=0.044 P_ok=0.843±0.031 G_eff_frac=0.015
+   reset.gate:XY                M=106   share=0.033 P_ok=0.495±0.049 G_eff_frac=0.035
+   lookup.unary:Z               M=104   share=0.033 P_ok=0.707±0.045 G_eff_frac=0.020
+   modadd.flagfix:XY            M=98    share=0.031 P_ok=0.436±0.050 G_eff_frac=0.036
+   modadd.cmp:Z                 M=82    share=0.026 P_ok=0.492±0.055 G_eff_frac=0.027
+   unlookup.fix:XY              M=59    share=0.018 P_ok=0.325±0.061 G_eff_frac=0.026
+   unlookup.meas:measx-reset    M=56    share=0.018 P_ok=1.007±0.001 G_eff_frac=-0.000
+   lookup.unary:measx-reset     M=52    share=0.016 P_ok=0.329±0.065 G_eff_frac=0.023
+   modadd.flagfix:Z             M=51    share=0.016 P_ok=0.514±0.070 G_eff_frac=0.016
+   lookup.unary:measx-ro        M=40    share=0.013 P_ok=0.909±0.046 G_eff_frac=0.002
+   unlookup.meas:measx-ro       M=39    share=0.012 P_ok=0.595±0.079 G_eff_frac=0.010
+   unlookup.fix:Z               M=34    share=0.011 P_ok=0.474±0.086 G_eff_frac=0.012
+   swap.gate:XY                 M=33    share=0.010 P_ok=0.386±0.085 G_eff_frac=0.013
+   swap.gate:Z                  M=14    share=0.004 P_ok=0.217±0.110 G_eff_frac=0.007
+   unlookup.fix:measx-ro        M=12    share=0.004 P_ok=0.421±0.143 G_eff_frac=0.005
+   unlookup.fix:measx-reset     M=4     share=0.001 P_ok=1.014±0.005 G_eff_frac=-0.000
+   control:XY                   M=1     share=0.000 P_ok=1.000±0.010 G_eff_frac=0.000
+   control:Z                    M=1     share=0.000 P_ok=1.006±0.010 G_eff_frac=-0.000
+   modadd.flagmeas:measx-reset  M=1     share=0.000 P_ok=1.016±0.010 G_eff_frac=-0.000
+-- WindowedOpt(4)+round
+   modadd.reduce:XY             M=571   share=0.178 P_ok=0.495±0.021 G_eff_frac=0.190
+   modadd.add:XY                M=302   share=0.094 P_ok=0.496±0.029 G_eff_frac=0.100
+   modadd.reduce:Z              M=301   share=0.094 P_ok=0.613±0.028 G_eff_frac=0.077
+   modadd.cmp:XY                M=281   share=0.088 P_ok=0.488±0.030 G_eff_frac=0.095
+   lookup.fanout:XY             M=260   share=0.081 P_ok=0.443±0.031 G_eff_frac=0.096
+   unlookup.fanout:XY           M=247   share=0.077 P_ok=0.588±0.031 G_eff_frac=0.067
+   lookup.unary:XY              M=214   share=0.067 P_ok=0.360±0.033 G_eff_frac=0.090
+   unlookup.unary:XY            M=205   share=0.064 P_ok=0.349±0.033 G_eff_frac=0.088
+   modadd.cmp:Z                 M=163   share=0.051 P_ok=0.582±0.039 G_eff_frac=0.045
+   modadd.add:Z                 M=153   share=0.048 P_ok=0.554±0.040 G_eff_frac=0.045
+   unlookup.fanout:Z            M=116   share=0.036 P_ok=0.834±0.035 G_eff_frac=0.013
+   lookup.fanout:Z              M=115   share=0.036 P_ok=0.710±0.042 G_eff_frac=0.022
+   lookup.unary:Z               M=108   share=0.034 P_ok=0.701±0.044 G_eff_frac=0.021
+   unlookup.unary:Z             M=91    share=0.028 P_ok=0.676±0.049 G_eff_frac=0.019
+   swap.gate:XY                 M=29    share=0.009 P_ok=0.315±0.086 G_eff_frac=0.013
+   reset.gate:XY                M=24    share=0.007 P_ok=0.549±0.102 G_eff_frac=0.007
+   swap.gate:Z                  M=18    share=0.006 P_ok=0.225±0.098 G_eff_frac=0.009
+   control:XY                   M=2     share=0.001 P_ok=0.500±0.354 G_eff_frac=0.001
+-- WindowedOpt(4)+window
+   modadd.reduce:XY             M=570   share=0.178 P_ok=0.509±0.021 G_eff_frac=0.195
+   modadd.cmp:XY                M=316   share=0.099 P_ok=0.502±0.028 G_eff_frac=0.110
+   modadd.reduce:Z              M=294   share=0.092 P_ok=0.518±0.029 G_eff_frac=0.099
+   modadd.add:XY                M=260   share=0.081 P_ok=0.471±0.031 G_eff_frac=0.096
+   lookup.fanout:XY             M=250   share=0.078 P_ok=0.431±0.031 G_eff_frac=0.099
+   unlookup.fanout:XY           M=247   share=0.077 P_ok=0.861±0.022 G_eff_frac=0.024
+   unlookup.unary:XY            M=233   share=0.073 P_ok=0.672±0.031 G_eff_frac=0.053
+   lookup.unary:XY              M=180   share=0.056 P_ok=0.360±0.036 G_eff_frac=0.080
+   modadd.add:Z                 M=161   share=0.050 P_ok=0.463±0.039 G_eff_frac=0.060
+   modadd.cmp:Z                 M=131   share=0.041 P_ok=0.423±0.043 G_eff_frac=0.053
+   lookup.fanout:Z              M=113   share=0.035 P_ok=0.802±0.037 G_eff_frac=0.016
+   lookup.unary:Z               M=113   share=0.035 P_ok=0.633±0.045 G_eff_frac=0.029
+   unlookup.unary:Z             M=108   share=0.034 P_ok=0.776±0.040 G_eff_frac=0.017
+   unlookup.fanout:Z            M=105   share=0.033 P_ok=0.758±0.042 G_eff_frac=0.018
+   reset.gate:XY                M=80    share=0.025 P_ok=0.390±0.055 G_eff_frac=0.034
+   swap.gate:XY                 M=20    share=0.006 P_ok=0.151±0.080 G_eff_frac=0.012
+   swap.gate:Z                  M=14    share=0.004 P_ok=0.360±0.128 G_eff_frac=0.006
+   control:XY                   M=4     share=0.001 P_ok=0.507±0.250 G_eff_frac=0.001
+   control:Z                    M=1     share=0.000 P_ok=1.006±0.010 G_eff_frac=-0.000
+
+## fatality by register (role of the faulted qubit) (k = 1, depol, pooled over n; P(ok|fault)/S0, share of locations, share of G_eff)
+-- windowed-opt
+   lookup                       M=1961  share=0.288 P_ok=0.271±0.010 G_eff_frac=0.294
+   and                          M=1784  share=0.262 P_ok=0.362±0.011 G_eff_frac=0.234
+   b                            M=1271  share=0.187 P_ok=0.239±0.012 G_eff_frac=0.199
+   const                        M=1255  share=0.185 P_ok=0.273±0.013 G_eff_frac=0.188
+   x                            M=279   share=0.041 P_ok=0.209±0.024 G_eff_frac=0.045
+   carry                        M=104   share=0.015 P_ok=0.290±0.044 G_eff_frac=0.015
+   flag                         M=94    share=0.014 P_ok=0.243±0.044 G_eff_frac=0.015
+   ctrl                         M=48    share=0.007 P_ok=0.176±0.055 G_eff_frac=0.008
+   ctrl(site)                   M=4     share=0.001 P_ok=0.503±0.250 G_eff_frac=0.000
+-- mbu-lookup
+   lookup                       M=1586  share=0.283 P_ok=0.386±0.012 G_eff_frac=0.302
+   const                        M=1285  share=0.229 P_ok=0.306±0.013 G_eff_frac=0.277
+   b                            M=1151  share=0.206 P_ok=0.457±0.015 G_eff_frac=0.194
+   and                          M=1141  share=0.204 P_ok=0.602±0.014 G_eff_frac=0.141
+   x                            M=196   share=0.035 P_ok=0.335±0.034 G_eff_frac=0.040
+   flag                         M=94    share=0.017 P_ok=0.394±0.050 G_eff_frac=0.018
+   carry                        M=86    share=0.015 P_ok=0.409±0.053 G_eff_frac=0.016
+   ctrl                         M=60    share=0.011 P_ok=0.419±0.064 G_eff_frac=0.011
+   ctrl(site)                   M=1     share=0.000 P_ok=0.000±0.010 G_eff_frac=0.000
+-- mbu
+   cy                           M=2074  share=0.370 P_ok=0.500±0.011 G_eff_frac=0.364
+   b                            M=976   share=0.174 P_ok=0.485±0.016 G_eff_frac=0.177
+   and                          M=855   share=0.153 P_ok=0.578±0.017 G_eff_frac=0.127
+   lookup                       M=806   share=0.144 P_ok=0.510±0.018 G_eff_frac=0.139
+   const                        M=603   share=0.108 P_ok=0.390±0.020 G_eff_frac=0.129
+   x                            M=160   share=0.029 P_ok=0.368±0.038 G_eff_frac=0.036
+   flag                         M=84    share=0.015 P_ok=0.369±0.053 G_eff_frac=0.019
+   ctrl                         M=37    share=0.007 P_ok=0.278±0.074 G_eff_frac=0.009
+   ctrl(site)                   M=5     share=0.001 P_ok=0.000±0.004 G_eff_frac=0.002
+-- ge(2;4)
+   and                          M=1874  share=0.335 P_ok=0.574±0.011 G_eff_frac=0.259
+   cy                           M=1326  share=0.237 P_ok=0.462±0.014 G_eff_frac=0.231
+   lookup                       M=862   share=0.154 P_ok=0.411±0.017 G_eff_frac=0.165
+   b                            M=710   share=0.127 P_ok=0.308±0.017 G_eff_frac=0.159
+   const                        M=384   share=0.069 P_ok=0.354±0.024 G_eff_frac=0.081
+   x                            M=306   share=0.055 P_ok=0.277±0.026 G_eff_frac=0.072
+   exp                          M=60    share=0.011 P_ok=0.186±0.050 G_eff_frac=0.016
+   flag                         M=56    share=0.010 P_ok=0.303±0.061 G_eff_frac=0.013
+   ctrl                         M=22    share=0.004 P_ok=0.373±0.103 G_eff_frac=0.004
+-- WindowedMbu(4)+round
+   cy                           M=821   share=0.342 P_ok=0.569±0.017 G_eff_frac=0.319
+   b                            M=416   share=0.173 P_ok=0.486±0.025 G_eff_frac=0.193
+   and                          M=400   share=0.167 P_ok=0.591±0.025 G_eff_frac=0.147
+   lookup                       M=373   share=0.155 P_ok=0.502±0.026 G_eff_frac=0.168
+   const                        M=262   share=0.109 P_ok=0.610±0.030 G_eff_frac=0.092
+   x                            M=83    share=0.035 P_ok=0.231±0.046 G_eff_frac=0.058
+   flag                         M=22    share=0.009 P_ok=0.506±0.107 G_eff_frac=0.010
+   ctrl                         M=20    share=0.008 P_ok=0.302±0.103 G_eff_frac=0.013
+   ctrl(site)                   M=3     share=0.001 P_ok=0.335±0.273 G_eff_frac=0.002
+-- WindowedMbu(4)+window
+   cy                           M=1155  share=0.361 P_ok=0.571±0.015 G_eff_frac=0.351
+   and                          M=579   share=0.181 P_ok=0.629±0.020 G_eff_frac=0.152
+   b                            M=548   share=0.171 P_ok=0.486±0.021 G_eff_frac=0.200
+   lookup                       M=441   share=0.138 P_ok=0.530±0.024 G_eff_frac=0.147
+   const                        M=329   share=0.103 P_ok=0.659±0.026 G_eff_frac=0.080
+   x                            M=78    share=0.024 P_ok=0.285±0.051 G_eff_frac=0.040
+   flag                         M=37    share=0.012 P_ok=0.501±0.082 G_eff_frac=0.013
+   ctrl                         M=29    share=0.009 P_ok=0.173±0.070 G_eff_frac=0.017
+   ctrl(site)                   M=3     share=0.001 P_ok=0.000±0.006 G_eff_frac=0.002
+   carry                        M=1     share=0.000 P_ok=1.012±0.010 G_eff_frac=-0.000
+-- WindowedMbuLookup(4)+round
+   lookup                       M=880   share=0.275 P_ok=0.496±0.017 G_eff_frac=0.275
+   const                        M=715   share=0.223 P_ok=0.484±0.019 G_eff_frac=0.229
+   and                          M=667   share=0.208 P_ok=0.582±0.019 G_eff_frac=0.173
+   b                            M=659   share=0.206 P_ok=0.478±0.019 G_eff_frac=0.213
+   x                            M=133   share=0.042 P_ok=0.247±0.037 G_eff_frac=0.062
+   flag                         M=60    share=0.019 P_ok=0.589±0.064 G_eff_frac=0.015
+   carry                        M=46    share=0.014 P_ok=0.505±0.074 G_eff_frac=0.014
+   ctrl                         M=36    share=0.011 P_ok=0.239±0.071 G_eff_frac=0.017
+   ctrl(site)                   M=4     share=0.001 P_ok=0.253±0.217 G_eff_frac=0.002
+-- WindowedMbuLookup(4)+window
+   lookup                       M=929   share=0.290 P_ok=0.543±0.016 G_eff_frac=0.279
+   const                        M=718   share=0.224 P_ok=0.545±0.019 G_eff_frac=0.215
+   and                          M=638   share=0.199 P_ok=0.589±0.019 G_eff_frac=0.173
+   b                            M=634   share=0.198 P_ok=0.440±0.020 G_eff_frac=0.234
+   x                            M=117   share=0.037 P_ok=0.313±0.043 G_eff_frac=0.053
+   flag                         M=62    share=0.019 P_ok=0.653±0.060 G_eff_frac=0.014
+   carry                        M=59    share=0.018 P_ok=0.738±0.057 G_eff_frac=0.010
+   ctrl                         M=41    share=0.013 P_ok=0.206±0.063 G_eff_frac=0.021
+   ctrl(site)                   M=2     share=0.001 P_ok=1.003±0.007 G_eff_frac=-0.000
+-- WindowedOpt(4)+round
+   lookup                       M=929   share=0.290 P_ok=0.531±0.016 G_eff_frac=0.287
+   and                          M=834   share=0.261 P_ok=0.571±0.017 G_eff_frac=0.236
+   const                        M=585   share=0.183 P_ok=0.534±0.021 G_eff_frac=0.180
+   b                            M=581   share=0.182 P_ok=0.529±0.021 G_eff_frac=0.181
+   x                            M=155   share=0.048 P_ok=0.262±0.035 G_eff_frac=0.076
+   flag                         M=48    share=0.015 P_ok=0.610±0.070 G_eff_frac=0.012
+   carry                        M=45    share=0.014 P_ok=0.516±0.074 G_eff_frac=0.014
+   ctrl                         M=21    share=0.007 P_ok=0.096±0.064 G_eff_frac=0.013
+   ctrl(site)                   M=2     share=0.001 P_ok=0.500±0.354 G_eff_frac=0.001
+-- WindowedOpt(4)+window
+   lookup                       M=913   share=0.285 P_ok=0.540±0.016 G_eff_frac=0.292
+   and                          M=880   share=0.275 P_ok=0.671±0.016 G_eff_frac=0.202
+   const                        M=613   share=0.192 P_ok=0.535±0.020 G_eff_frac=0.198
+   b                            M=558   share=0.174 P_ok=0.454±0.021 G_eff_frac=0.212
+   x                            M=132   share=0.041 P_ok=0.301±0.040 G_eff_frac=0.064
+   carry                        M=40    share=0.013 P_ok=0.684±0.073 G_eff_frac=0.009
+   flag                         M=39    share=0.012 P_ok=0.594±0.079 G_eff_frac=0.011
+   ctrl                         M=20    share=0.006 P_ok=0.253±0.097 G_eff_frac=0.010
+   ctrl(site)                   M=5     share=0.002 P_ok=0.607±0.218 G_eff_frac=0.001
+
+## T3 windows: P(ok | 1 fault)/S0 by window x family (depol, pooled over n)
+start = rounds < floor(t - 2 log2 r); end = rounds >= t - nu2(r)
+windowed-opt   XY     start 0.034 (721) | middle 0.049 (3446) | end 1.004 (290)
+windowed-opt   Z      start 0.957 (366) | middle 0.525 (1815) | end 1.001 (162)
+windowed-opt   clean  start 0.955 (372) | middle 0.523 (1821) | end 1.001 (162)
+windowed-opt   dirty  start 0.027 (715) | middle 0.049 (3440) | end 1.004 (290)
+windowed-opt   all    start 0.344 (1087) | middle 0.213 (5261) | end 1.003 (452)
+mbu-lookup     XY     start 0.643 (693) | middle 0.231 (2842) | end 0.997 (315)
+mbu-lookup     Z      start 0.955 (272) | middle 0.436 (1370) | end 1.007 (108)
+mbu-lookup     clean  start 0.937 (618) | middle 0.416 (2431) | end 1.003 (229)
+mbu-lookup     dirty  start 0.363 (347) | middle 0.136 (1781) | end 0.996 (194)
+mbu-lookup     all    start 0.731 (965) | middle 0.298 (4212) | end 1.000 (423)
+mbu            XY     start 0.842 (625) | middle 0.321 (3063) | end 0.995 (257)
+mbu            Z      start 0.995 (256) | middle 0.481 (1290) | end 1.007 (109)
+mbu            clean  start 0.975 (660) | middle 0.449 (2915) | end 0.995 (254)
+mbu            dirty  start 0.620 (221) | middle 0.206 (1438) | end 1.007 (112)
+mbu            all    start 0.886 (881) | middle 0.369 (4353) | end 0.999 (366)
+ge(2;4)        XY     start 0.867 (548) | middle 0.283 (3202) | end 1.005 (167)
+ge(2;4)        Z      start 0.980 (242) | middle 0.485 (1377) | end 1.004 (64)
+ge(2;4)        clean  start 0.960 (642) | middle 0.414 (3262) | end 1.005 (173)
+ge(2;4)        dirty  start 0.646 (148) | middle 0.170 (1317) | end 1.005 (58)
+ge(2;4)        all    start 0.902 (790) | middle 0.344 (4579) | end 1.005 (231)
+WindowedMbu(4)+round XY     start 0.955 (241) | middle 0.423 (1359) | end 1.003 (107)
+WindowedMbu(4)+round Z      start 0.986 (88) | middle 0.451 (572) | end 1.013 (33)
+WindowedMbu(4)+round clean  start 0.963 (325) | middle 0.430 (1921) | end 1.005 (139)
+WindowedMbu(4)+round dirty  start 1.006 (4) | middle 0.709 (10) | end 1.006 (1)
+WindowedMbu(4)+round all    start 0.964 (329) | middle 0.431 (1931) | end 1.006 (140)
+WindowedMbu(4)+window XY     start 0.954 (360) | middle 0.444 (1820) | end 1.002 (127)
+WindowedMbu(4)+window Z      start 0.983 (134) | middle 0.465 (714) | end 1.010 (45)
+WindowedMbu(4)+window clean  start 0.962 (492) | middle 0.451 (2525) | end 1.010 (171)
+WindowedMbu(4)+window dirty  start 1.014 (2) | middle 0.131 (9) | end 0.000 (1)
+WindowedMbu(4)+window all    start 0.962 (494) | middle 0.450 (2534) | end 1.004 (172)
+WindowedMbuLookup(4)+round XY     start 0.968 (335) | middle 0.336 (1744) | end 1.009 (93)
+WindowedMbuLookup(4)+round Z      start 0.984 (144) | middle 0.466 (832) | end 1.010 (52)
+WindowedMbuLookup(4)+round clean  start 0.973 (477) | middle 0.379 (2551) | end 1.009 (142)
+WindowedMbuLookup(4)+round dirty  start 1.011 (2) | middle 0.255 (25) | end 1.010 (3)
+WindowedMbuLookup(4)+round all    start 0.973 (479) | middle 0.378 (2576) | end 1.009 (145)
+WindowedMbuLookup(4)+window XY     start 0.967 (363) | middle 0.379 (1791) | end 1.010 (121)
+WindowedMbuLookup(4)+window Z      start 0.980 (155) | middle 0.459 (723) | end 0.989 (47)
+WindowedMbuLookup(4)+window clean  start 0.971 (512) | middle 0.403 (2496) | end 1.004 (166)
+WindowedMbuLookup(4)+window dirty  start 0.941 (6) | middle 0.243 (18) | end 1.010 (2)
+WindowedMbuLookup(4)+window all    start 0.971 (518) | middle 0.402 (2514) | end 1.004 (168)
+WindowedOpt(4)+round XY     start 0.952 (337) | middle 0.342 (1699) | end 1.010 (99)
+WindowedOpt(4)+round Z      start 0.982 (161) | middle 0.553 (845) | end 0.994 (59)
+WindowedOpt(4)+round clean  start 0.961 (494) | middle 0.412 (2524) | end 1.004 (158)
+WindowedOpt(4)+round dirty  start 1.007 (4) | middle 0.458 (20) | end - (0)
+WindowedOpt(4)+round all    start 0.961 (498) | middle 0.412 (2544) | end 1.004 (158)
+WindowedOpt(4)+window XY     start 0.963 (346) | middle 0.412 (1699) | end 1.010 (115)
+WindowedOpt(4)+window Z      start 0.961 (158) | middle 0.496 (834) | end 1.009 (48)
+WindowedOpt(4)+window clean  start 0.962 (499) | middle 0.441 (2522) | end 1.010 (162)
+WindowedOpt(4)+window dirty  start 1.009 (5) | middle 0.182 (11) | end 1.012 (1)
+WindowedOpt(4)+window all    start 0.962 (504) | middle 0.440 (2533) | end 1.010 (163)
+
+## T3 window model: d_model from (window sizes, pooled clean/dirty rates, clean fraction) vs measured d
+variant n d d_model clean_frac
+ge(2;4) 10 0.556 0.502 0.775
+ge(2;4) 12 0.547 0.522 0.700
+ge(2;4) 14 0.581 0.566 0.752
+ge(2;4) 16 0.559 0.544 0.716
+ge(2;4) 18 0.528 0.492 0.739
+ge(2;4) 20 0.537 0.507 0.704
+ge(2;4) 24 0.541 0.508 0.710
+mbu 10 0.470 0.489 0.720
+mbu 12 0.461 0.506 0.659
+mbu 14 0.566 0.549 0.700
+mbu 16 0.536 0.522 0.689
+mbu 18 0.479 0.481 0.681
+mbu 20 0.506 0.487 0.679
+mbu 24 0.544 0.494 0.659
+WindowedMbu(4)+round 12 0.429 0.433 0.990
+WindowedMbu(4)+round 14 0.483 0.491 0.994
+WindowedMbu(4)+round 16 0.475 0.466 0.998
+WindowedMbu(4)+window 12 0.406 0.421 0.995
+WindowedMbu(4)+window 14 0.489 0.475 0.999
+WindowedMbu(4)+window 16 0.458 0.451 0.994
+WindowedMbu(4)+window 20 0.413 0.407 0.998
+mbu-lookup 10 0.545 0.569 0.636
+mbu-lookup 12 0.558 0.583 0.600
+mbu-lookup 14 0.662 0.631 0.590
+mbu-lookup 16 0.573 0.596 0.588
+mbu-lookup 18 0.552 0.576 0.546
+mbu-lookup 20 0.548 0.575 0.585
+mbu-lookup 24 0.585 0.572 0.552
+WindowedMbuLookup(4)+round 12 0.492 0.472 0.990
+WindowedMbuLookup(4)+round 14 0.556 0.535 0.994
+WindowedMbuLookup(4)+round 16 0.483 0.507 0.985
+WindowedMbuLookup(4)+round 20 0.486 0.456 0.994
+WindowedMbuLookup(4)+window 12 0.399 0.455 0.990
+WindowedMbuLookup(4)+window 14 0.518 0.516 0.990
+WindowedMbuLookup(4)+window 16 0.516 0.488 0.994
+WindowedMbuLookup(4)+window 20 0.465 0.440 0.994
+windowed-opt 10 0.725 0.724 0.340
+windowed-opt 12 0.737 0.734 0.332
+windowed-opt 14 0.740 0.737 0.362
+windowed-opt 16 0.700 0.705 0.336
+windowed-opt 18 0.672 0.679 0.376
+windowed-opt 20 0.699 0.714 0.351
+windowed-opt 24 0.705 0.678 0.333
+WindowedOpt(4)+round 12 0.458 0.449 0.991
+WindowedOpt(4)+round 14 0.515 0.508 0.995
+WindowedOpt(4)+round 16 0.477 0.481 0.990
+WindowedOpt(4)+round 20 0.443 0.435 0.994
+WindowedOpt(4)+window 12 0.437 0.428 0.994
+WindowedOpt(4)+window 14 0.472 0.485 0.991
+WindowedOpt(4)+window 16 0.463 0.458 0.996
+WindowedOpt(4)+window 20 0.424 0.414 0.998
+windowed-opt: clean fraction 0.347, middle clean 0.523, middle dirty 0.049 -> d_inf = 0.787
+mbu-lookup: clean fraction 0.585, middle clean 0.416, middle dirty 0.136 -> d_inf = 0.700
+mbu: clean fraction 0.684, middle clean 0.449, middle dirty 0.206 -> d_inf = 0.628
+ge(2;4): clean fraction 0.728, middle clean 0.414, middle dirty 0.170 -> d_inf = 0.652
+
+## T3(b): clean single faults in rounds with Delta_i >= 1: measured P(ok) vs mean bound L(Delta_i)
+## T3(d): dirty single faults: measured P(ok) vs mean dephasing bound 1/r + r_odd 2^(i+1+nu-t) (rounds with bound < 0.1)
+windowed-opt   T3(b) M=293   measured 0.976±0.009  mean bound 0.8140  (>= expected)
+windowed-opt   T3(d) M=2019  measured 0.016±0.003  mean bound 0.0111  (<= expected)
+mbu-lookup     T3(b) M=479   measured 0.955±0.009  mean bound 0.8274  (>= expected)
+mbu-lookup     T3(d) M=1023  measured 0.179±0.012  mean bound 0.0092  (<= expected)
+mbu            T3(b) M=532   measured 0.980±0.006  mean bound 0.8286  (>= expected)
+mbu            T3(d) M=749   measured 0.312±0.017  mean bound 0.0112  (<= expected)
+ge(2;4)        T3(b) M=642   measured 0.955±0.008  mean bound 0.8136  (>= expected)
+ge(2;4)        T3(d) M=642   measured 0.256±0.017  mean bound 0.0112  (<= expected)

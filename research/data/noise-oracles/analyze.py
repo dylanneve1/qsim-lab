@@ -22,9 +22,9 @@ from collections import defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 C_VCAP = 8.0
 random.seed(4242)
-ORDER = ['Windowed(4)', 'WindowedOpt(4)', 'WindowedMbuLookup(4)', 'WindowedMbu(4)']
+ORDER = ['Windowed(4)', 'WindowedOpt(4)', 'WindowedMbuLookup(4)', 'WindowedMbu(4)', 'Ge(2;4)']
 SHORT = {'Windowed(4)': 'windowed', 'WindowedOpt(4)': 'windowed-opt',
-         'WindowedMbuLookup(4)': 'mbu-lookup', 'WindowedMbu(4)': 'mbu'}
+         'WindowedMbuLookup(4)': 'mbu-lookup', 'WindowedMbu(4)': 'mbu', 'Ge(2;4)': 'ge(2;4)'}
 
 
 def load():
@@ -57,6 +57,13 @@ def load():
         r['dirty'] = r['dirty_from'] != '-1'
         r['flist'] = [f.split('/') for f in r['faults'].split('|')] if r['faults'] else []
     return rows
+
+
+def wspan(r, k):
+    """Rounds (lo, hi) of engine round k (one window of w_e rounds for GE)."""
+    o = r['oracle']
+    we = int(o[3:].split(';')[0]) if o.startswith('Ge(') else 1
+    return k * we, k * we + we - 1
 
 
 def nu2(x):
@@ -92,7 +99,9 @@ def main():
             key = (r['oracle'], r['N'])
             base[key] = max(base.get(key, 0), r['ms'])
     for r in rows:
-        b = base.get((r['oracle'], r['N']))
+        # no k = 0 rows (calibration-only instances): the noiseless peak
+        # support is max_i B_i = r / gcd(r, 2) (theory-shor T1)
+        b = base.get((r['oracle'], r['N']), r['r'] // math.gcd(r['r'], 2))
         r['vcap'] = b is not None and r['ms'] > C_VCAP * b
         if r['really_capped'] and not r['vcap']:
             print('warning: real cap below the virtual cap', r['file'], file=sys.stderr)
@@ -100,28 +109,52 @@ def main():
 
     # ---- calibration
     out.append('## calibration: weighted success among v-capped trajectories (no binding cap)')
+    # theory-shor T3(a): a trajectory whose faults all act in the last
+    # nu2(r) rounds succeeds with probability exactly S0, so a capped one is
+    # counted with S0 (not c_hat), and it is left out of the calibration
+    for r in rows:
+        t = r['t']; ew = t - nu2(r['r'])
+        r['endwin'] = bool(r['flist']) and all(wspan(r, int(f[0]))[0] >= ew for f in r['flist'])
     # success of trajectories that exceeded the v-cap but completed: the
     # calibration runs (n = 10, 11, no binding cap) and, for the MBU
-    # oracles, every run with cap 16r (n >= 12; their dirty supports stay
-    # small), which is the relevant regime for n = 24
+    # oracles, every run with cap 16r at n >= 14 (their dirty supports stay
+    # small; at n = 10, 12 the v-capped success is 12-13 %, at n >= 14 it
+    # is 1-3 %: the large-n regime of n = 24)
+    # calibration classes: oracle family (reversible: dirt persists; meas:
+    # MBU / GE / reset variants, dirt is removed) x where the faults act
+    # (start window only, or some fault in the middle)
+    def fam(r):
+        return 'rev' if r['variant'] in ('WindowedOpt(4)', 'Windowed(4)') else 'meas'
+
+    def cls(r):
+        t = r['t']; rr = r['r']
+        ew = t - nu2(rr); sw = max(0, math.floor(t - 2 * math.log2(rr)))
+        for f in r['flist']:
+            lo, hi = wspan(r, int(f[0]))
+            if lo < ew and hi >= sw:
+                return 'middle'
+        return 'start'
+    for r in rows:
+        r['ccls'] = (fam(r), cls(r))
     cal = defaultdict(lambda: [0, 0.0, 0.0])
     caln = defaultdict(lambda: [0, 0.0])
     for r in rows:
-        if not r['vcap'] or r['really_capped']:
+        if not r['vcap'] or r['really_capped'] or r['endwin']:
             continue
-        use = r['cal'] if r['oracle'] == 'WindowedOpt(4)' else (r['n'] >= 12 and r['realcap'] >= 16 * r['r'])
+        use = r['cal'] if fam(r) == 'rev' else (r['n'] >= 14 and r['realcap'] >= 16 * r['r'])
         if use:
-            c = cal[r['oracle']]
+            c = cal[r['ccls']]
             c[0] += 1; c[1] += r['w'] * r['ok']; c[2] += r['w']
         cn = caln[(r['oracle'], r['n'])]
         cn[0] += 1; cn[1] += r['w'] * r['ok']
     chat = {}
     for o, (m, s, wsum) in sorted(cal.items()):
         chat[o] = s / wsum if wsum else 0.0
-        out.append(f'{SHORT.get(o, o)}: {s:.1f}/{wsum:.1f} (M={m}) = {chat[o]:.4f}')
-    out.append('per n (all completed v-capped trajectories): ' + ', '.join(
+        se = math.sqrt(max(chat[o] * (1 - chat[o]), 1e-4) / m)
+        out.append(f'{o}: {s:.1f}/{wsum:.1f} (M={m}) = {chat[o]:.4f} ± {se:.4f}')
+    out.append('per n (completed v-capped, not end-window): ' + ', '.join(
         f"{SHORT.get(o, o)} n={n}: {x[1]:.0f}/{x[0]}" for (o, n), x in sorted(caln.items())))
-    CH = lambda o: chat.get(o, 0.021)
+    CH = lambda r: chat.get(r['ccls'], 0.021)
 
     # ---- strata
     cells = defaultdict(list)
@@ -130,11 +163,20 @@ def main():
             continue
         cells[(r['variant'], r['kind'], r['n'], r['k'])].append(r)
 
+    s0inst = defaultdict(lambda: [0.0, 0])
+    for r in rows:
+        if r['k'] == 0 and not r['cal']:
+            s0inst[r['N']][0] += r['w'] * r['ok']; s0inst[r['N']][1] += 1
+    S0I = {N: a / m for N, (a, m) in s0inst.items()}
+
     def est(v, o, lo=False):
         s = 0.0
         for r in v:
             if r['really_capped']:
-                s += 0.0 if lo else CH(o) * r['w']
+                if r['endwin']:
+                    s += S0I.get(r['N'], 1.0) * r['w']
+                elif not lo:
+                    s += CH(r) * r['w']
             else:
                 s += r['w'] * r['ok']
         return s / len(v)
@@ -161,6 +203,10 @@ def main():
     inst = defaultdict(dict)
     for (var, kind, n, k), v in cells.items():
         inst[(var, kind, n)][k] = v
+    s0pool = defaultdict(list)
+    for r in rows:
+        if r['k'] == 0 and not r['cal']:
+            s0pool[r['N']].append(r)
     summary = []
     for (var, kind, n), ks in sorted(inst.items()):
         if 1 not in ks or 0 not in ks:
@@ -197,11 +243,22 @@ def main():
         S = {k: est(v, o) for k, v in ks.items()}
         if any(k not in S for k in range(kmax + 1)):
             continue
+        # S0 is a property of the instance (every oracle is exact): pool the
+        # k = 0 trajectories of all oracles and variants of this N
+        pool0 = s0pool[ks[1][0]['N']]
+        S[0] = sum(r['w'] * r['ok'] for r in pool0) / len(pool0)
         d1 = 1 - S[1] / S[0]
         ph, phl = p_half(S), p_half_lo(S)
+        # systematic lower bound: capped trajectories counted as failures
+        # (except the end-window ones, exactly S0 by T3(a))
+        Slo = {k: est(v, o, lo=True) for k, v in ks.items()}
+        Slo[0] = S[0]
+        ph_c0 = p_half(Slo)
+        d_c0 = 1 - Slo[1] / S[0]
         boots = []
         for _ in range(400):
-            Sb = {k: est([random.choice(v) for _ in v], o) for k, v in ks.items()}
+            Sb = {k: est([random.choice(v) for _ in v], o) for k, v in ks.items() if k > 0}
+            Sb[0] = sum(r['w'] * r['ok'] for r in (random.choice(pool0) for _ in pool0)) / len(pool0)
             if Sb[0] <= 0:
                 continue
             boots.append((1 - Sb[1] / Sb[0], p_half(Sb)))
@@ -212,9 +269,10 @@ def main():
             return math.sqrt(sum((x - mu) ** 2 for x in xs) / (len(xs) - 1))
         r0 = ks[1][0]['r']
         summary.append(dict(variant=var, kind=kind, n=n, N=ks[1][0]['N'], r=r0, Lbar=Lbar, kmax=kmax,
-                            M1=len(ks[1]), S0=S[0], S1=S[1], S2=S.get(2, float('nan')), S3=S.get(3, float('nan')),
+                            M1=len(ks[1]), M0=len(pool0), S0=S[0], S1=S[1], S2=S.get(2, float('nan')), S3=S.get(3, float('nan')),
                             d=d1, d_sd=sd(0), Geff=Lbar * d1, Geff_sd=Lbar * sd(0),
                             p_half=ph, p_half_sd=sd(1), p_half_tail0=phl, pL_half=ph * Lbar,
+                            p_half_c0=ph_c0, d_c0=d_c0,
                             dirty1=sum(r['dirty'] for r in ks[1]) / len(ks[1])))
     if summary:
         with open(os.path.join(HERE, 'summary.csv'), 'w') as f:
@@ -244,7 +302,7 @@ def main():
                 tot[var] += 1
                 a = acc[(var, key)]
                 a[0] += 1
-                okv = (CH(r['oracle']) if r['vcap'] else float(r['ok'])) / s0[(var, kind, n)]
+                okv = ((S0I.get(r['N'], 1.0) if r['endwin'] else CH(r)) if r['really_capped'] else float(r['ok'])) / s0[(var, kind, n)]
                 a[1] += r['w'] * okv
                 a[2] += r['w']
         rowsf = []
@@ -290,7 +348,7 @@ def main():
         return f[4] if f[1] == 'gate' else 'ctrl(site)'
 
     def coarse(f):
-        if f[1] != 'gate':
+        if f[1] != 'gate' or f[5].startswith('ctrl'):
             return 'control sites'
         return f[5].split('.')[0]
 
@@ -309,11 +367,11 @@ def main():
             continue
         for r in v:
             f = r['flist'][0]
-            rnd = int(f[0]); t = r['t']; rr = r['r']
+            lo, hi = wspan(r, int(f[0])); t = r['t']; rr = r['r']
             sw = max(0, math.floor(t - 2 * math.log2(rr))); ew = t - nu2(rr)
-            wnd = 'start' if rnd < sw else ('end' if rnd >= ew else 'middle')
+            wnd = 'start' if hi < sw else ('end' if lo >= ew else 'middle')
             fam = 'Z' if f[6] == 'Z' else 'XY'
-            okv = (CH(r['oracle']) if r['vcap'] else float(r['ok'])) * r['w'] / s0[(var, kind, n)]
+            okv = ((S0I.get(r['N'], 1.0) if r['endwin'] else CH(r)) if r['really_capped'] else float(r['ok'])) * r['w'] / s0[(var, kind, n)]
             for key in [(var, wnd, fam), (var, wnd, 'clean' if not r['dirty'] else 'dirty'), (var, wnd, 'all')]:
                 win[key][0] += 1; win[key][1] += okv
     for var in ORDER + sorted({k[0] for k in win} - set(ORDER)):
@@ -374,9 +432,9 @@ def main():
             continue
         for r in v:
             f = r['flist'][0]
-            i = int(f[0]); t = r['t']; rr = r['r']; nu = nu2(rr); rodd = rr >> nu
+            i = wspan(r, int(f[0]))[0]; t = r['t']; rr = r['r']; nu = nu2(rr); rodd = rr >> nu
             if r['really_capped']:
-                okv = CH(r['oracle']) * r['w']
+                okv = (S0I.get(r['N'], 1.0) if r['endwin'] else CH(r)) * r['w']
             else:
                 okv = r['w'] * r['ok']
             if not r['dirty']:

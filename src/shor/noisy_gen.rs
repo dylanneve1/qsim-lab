@@ -1939,7 +1939,7 @@ impl<K: Key, T: Real> GenState<K, T> {
         for (key, e, a) in v {
             if rest.last() != Some(&key) {
                 rest.push(key);
-                wamps.extend(std::iter::repeat_n(Complex64::zero(), ne));
+                wamps.resize(wamps.len() + ne, Complex64::zero());
             } else if last == Some((key, e)) {
                 collided = true;
             }

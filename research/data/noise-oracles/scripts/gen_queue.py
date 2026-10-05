@@ -24,8 +24,8 @@ def jobs(oracles, ns, k0=150, k1=800, k23=300, tag='', kind='depol', extra_env='
             # MBU oracles keep dirty supports small (measurements reset the
             # dirt): cap at 16r (32x the noiseless peak) so almost nothing is
             # capped; n = 24 stays at 4r (memory)
-            cap = (mbu_cap if (o.startswith('mbu') or tag) and n <= 22 else 4) * r
-            base = 100000 * (1 + ['opt:4', 'mbul:4', 'mbu:4', 'windowed:4'].index(o)) + 100 * n
+            cap = (mbu_cap if (o.startswith('mbu') or o.startswith('ge') or tag) and n <= 22 else 4) * r
+            base = 100000 * (1 + ['opt:4', 'mbul:4', 'mbu:4', 'windowed:4', 'ge:2:4', 'ge:3:4'].index(o)) + 100 * n
             s = base + {'': 0, 'R': 50, 'W': 70}[tag]
             pre = f'{oname}{tag}_{kind}_{n}'
             out.append(f'{pre}_k0 QSIM_NOISE_KMIN=0 {extra_env} strat {o} {N} {a} {kind} 0 {k0} {s+1} {cap}')
@@ -48,6 +48,23 @@ if __name__ == '__main__':
             for o in ['opt:4', 'mbul:4', 'mbu:4']:
                 L += jobs([o], [n], tag='R', extra_env='QSIM_NOISE_DESIGN=round')
                 L += jobs([o], [n], tag='W', extra_env='QSIM_NOISE_DESIGN=window')
+    elif which == 'vps3':
+        # n = 18, 20 moved from the Mac; windowed exponentiation (we = 2)
+        L = []
+        for n in [18, 20]:
+            L += jobs(['opt:4', 'mbul:4', 'mbu:4'], [n])
+        L += jobs(['ge:2:4'], [10, 12, 14, 16, 18, 20])
+    elif which == 'vps4':
+        # design at n = 20 (per-window and per-round resets)
+        L = []
+        for o in ['opt:4', 'mbul:4', 'mbu:4']:
+            L += jobs([o], [20], tag='W', extra_env='QSIM_NOISE_DESIGN=window')
+            L += jobs([o], [20], tag='R', extra_env='QSIM_NOISE_DESIGN=round')
+    elif which == 'mac4':
+        L = []
+        for n in [24, 22]:
+            L += jobs(['opt:4', 'mbul:4', 'mbu:4'], [n])
+        L += jobs(['ge:2:4'], [24, 22])
     elif which == 'cal':
         # calibration: no binding cap (support may reach 2^(2n)), k = 1..3
         L = []

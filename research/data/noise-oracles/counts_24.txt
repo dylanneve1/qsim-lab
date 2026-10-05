@@ -1,0 +1,5 @@
+N=10161323 n=24 a=321017 r=1692480 oracle=Windowed(4) qubits=104 kind=depol ops=818630 meas=0 ccx=277632 L_mean=1867900 L_sd=0.0
+N=10161323 n=24 a=321017 r=1692480 oracle=WindowedOpt(4) qubits=104 kind=depol ops=463867 meas=0 ccx=120672 L_mean=1038566 L_sd=0.0
+N=10161323 n=24 a=321017 r=1692480 oracle=WindowedMbuLookup(4) qubits=104 kind=depol ops=383846 meas=22767 ccx=96639 L_mean=856349 L_sd=2444.1
+N=10161323 n=24 a=321017 r=1692480 oracle=WindowedMbu(4) qubits=127 kind=depol ops=516111 meas=64145 ccx=54065 L_mean=1063701 L_sd=1633.0
+N=10161323 n=24 a=321017 r=1692480 oracle=Ge(2;4) qubits=130 kind=depol ops=389370 meas=45953 ccx=40337 L_mean=807326 L_sd=3043.5
