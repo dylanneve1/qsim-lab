@@ -7,6 +7,12 @@ separate agent that tried to break its headline claim; the audits, including the
 corrected or withdrawn, are in `research/process/audit.md` (§16 is the latest), `research/shor/shor-r4-audit.md` and
 `research/qec/qec-r4.md` Part 1. Raw data and methods are in `research/`.
 
+> **Not yet audited (5 Oct 2026).** The branches merged on 5 October 2026 (`exp/shor-xl`, `exp/stabrank5`,
+> `exp/qldpc-x`, `exp/approx-modexp`, `exp/todd`, `exp/tn`, `exp/sampler-x`, `exp/avx512-sv`) were stopped
+> before their independent audits, and some were stopped mid-experiment (their last commit is a snapshot
+> of in-progress work). Every number they added here and in their notebooks is **provisional** until an
+> audit in `research/process/audit.md` confirms it. Treat their "new" / "record" claims with that caveat.
+
 Machines:
 - **VPS**: 4 vCPU AMD EPYC-Rome (AVX2), 7.7 GB, shared with other agents. Timings are only quoted when
   the 1-minute load was ≤ 4.
@@ -279,7 +285,7 @@ the Unitary Foundation qLDPC challenge board, and all direct sums of these.
   nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent Python
   script; codes are also rebuilt from presentations or permutation representations and re-proved.
   Novelty is relative to the 40+ papers, the dataset and the challenge board we read, not proved.
-## 9. Gidney 2025's approximate modular exponentiation, simulated on every branch (`research/shor/approx-modexp.md`)
+## 10. Gidney 2025's approximate modular exponentiation, simulated on every branch (`research/shor/approx-modexp.md`)
 
 **What.** The reference `approx_modexp` of Gidney 2025 (arXiv:2505.15917; code CC-BY-4.0,
 doi:10.5281/zenodo.15347487) — approximate residue arithmetic (Chevignard–Fouque–Schrottenloher),
