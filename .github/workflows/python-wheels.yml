@@ -55,12 +55,9 @@ jobs:
       - name: Build wheel
         uses: PyO3/maturin-action@v1
         env:
-          # Probe for the aarch64 rustc SIGTRAP: a trap in rustc is most often
-          # its main-thread stack guard on deep LLVM recursion. maturin-action
-          # forwards RUST_* into the manylinux container.
-          RUST_MIN_STACK: "67108864"
-          # Probe 2: 64 MiB stack alone did not help (run 37338981705). Try a
-          # lower opt-level / single codegen unit, aarch64 only.
+          # Workaround: rustc SIGTRAPs building the crate at opt-level 3 on
+          # aarch64 (a larger stack did not help). opt-level 2 + one codegen
+          # unit builds cleanly; other targets keep the release defaults.
           CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ matrix.platform == 'linux-aarch64' && '2' || '3' }}
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ matrix.platform == 'linux-aarch64' && '1' || '4' }}
         with:
