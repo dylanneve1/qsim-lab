@@ -1,0 +1,4 @@
+shift d=1: 1-|<psi|phi>|^2 = 0.0199  Eq.28 bound eps/S = 0.0100  2eps/S-(eps/S)^2 = 0.0199
+shift d=5: 1-|<psi|phi>|^2 = 0.0975  Eq.28 bound eps/S = 0.0500  2eps/S-(eps/S)^2 = 0.0975
+shift d=10: 1-|<psi|phi>|^2 = 0.1900  Eq.28 bound eps/S = 0.1000  2eps/S-(eps/S)^2 = 0.1900
+shift d=25: 1-|<psi|phi>|^2 = 0.4375  Eq.28 bound eps/S = 0.2500  2eps/S-(eps/S)^2 = 0.4375

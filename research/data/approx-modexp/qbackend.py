@@ -215,7 +215,15 @@ def main(argv: list[str]) -> int:
     T = int(trunc)
     psi = np.zeros((T, 1 << m), dtype=np.complex128)
     psi[acc_vals, e_vals] += qpu.amp
-    P = np.abs(np.fft.fft(psi, axis=1, norm="ortho")) ** 2
+    if eh:
+        # two exponent registers a (low m_a bits) and b: 2-D QFT
+        mm = (rc["modulus"].bit_length() + 1) // 2
+        ll = -(-mm // int(kv.get("s", "1")))
+        ma, mb = mm + ll, ll
+        P = np.abs(np.fft.fft2(psi.reshape(T, 1 << mb, 1 << ma), axes=(1, 2), norm="ortho")) ** 2
+        P = P.reshape(T, 1 << m)
+    else:
+        P = np.abs(np.fft.fft(psi, axis=1, norm="ortho")) ** 2
     Pj = P.sum(axis=0)
     PV = P.sum(axis=1)
     # Rust's distribution of the same instance (its own outcome stream)

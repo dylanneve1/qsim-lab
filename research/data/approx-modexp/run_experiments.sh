@@ -29,7 +29,13 @@ if [[ $part == all || $part == xcheck ]]; then
   # paper's own approx_modexp on a genuinely quantum backend vs this simulator
   (cd "$here" && run python3 xcheck_tables.py) | tee "$out/xcheck_tables.txt"
   (cd "$here" && run python3 qbackend.py $N8 m=10 f=6 mask=2 tag=n8) | tee "$out/xcheck_qbackend_n8.txt"
-  (cd "$here" && run python3 qbackend.py N=323 g=3 mode=eh f=7 mask=3 w1=2 w3a=2 w3b=3 w4=3 tag=n9eh) | tee "$out/xcheck_qbackend_n9eh.txt"
+  (cd "$here" && run python3 qbackend.py N=143 g=2 mode=eh f=6 mask=1 w1=2 w3a=2 w3b=2 w4=2 tag=n8eh) | tee "$out/xcheck_qbackend_n8eh.txt"
+  (cd "$here" && run python3 dist_numpy_check.py N=899 g=2 mode=eh f=8 mask=3 w1=2 w3a=1 w3b=2 w4=4
+   cd "$here" && run python3 dist_numpy_check.py N=899 g=2 f=8 mask=4 m=14) | tee "$out/xcheck_dist_numpy.txt"
+  (cd "$here" && run python3 model_vs_paper_csv.py 15 21 35 77 143 323) | tee "$out/model_vs_paper_csv.txt"
+  (cd "$here" && run python3 paper_trajectories.py 3127 3122 22 10 8 4 2 3 4 32) | tee "$out/paper_trajectories_n12.txt"
+  (cd "$here" && run python3 rns_prune_check.py) | tee "$out/rns_prune_check.txt"
+  (cd "$here" && run python3 eq28_check.py) | tee "$out/eq28_check.txt"
 fi
 
 if [[ $part == all || $part == verify ]]; then
@@ -77,7 +83,9 @@ fi
 
 if [[ $part == moon ]]; then
   {
-    run "$bin" dist $N20 mode=eh s=2 f=14 mask=paper w1=5 w3a=2 w3b=3 w4=4 unmasked=0
-    run "$bin" dist $N24 mode=eh s=3 f=16 mask=paper w1=5 w3a=2 w3b=3 w4=4 unmasked=0
+    run "$bin" verify $N20 mode=eh s=2 f=14 mask=paper w1=5 w3a=2 w3b=3 w4=4 seeds=2
+    run "$bin" dist $N20 mode=eh s=2 f=14 mask=paper w1=5 w3a=2 w3b=3 w4=4 unmasked=1
+    run "$bin" verify $N24 mode=eh s=3 f=16 mask=paper w1=4 w3a=2 w3b=3 w4=4 seeds=2
+    run "$bin" dist $N24 mode=eh s=3 f=16 mask=paper w1=4 w3a=2 w3b=3 w4=4 unmasked=0
   } | tee "$out/moon.txt"
 fi
