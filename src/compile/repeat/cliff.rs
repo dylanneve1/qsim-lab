@@ -28,12 +28,16 @@ use std::mem::{discriminant, Discriminant};
 /// `i^k X^x Z^z` over `n` qubits (bit `q` of the vectors is qubit `q`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pauli {
+    /// X part, packed in 64-bit words.
     pub x: Vec<u64>,
+    /// Z part, packed in 64-bit words.
     pub z: Vec<u64>,
+    /// Phase exponent: the operator carries the factor `i^k`, `k` in `0..4`.
     pub k: u8,
 }
 
 impl Pauli {
+    /// The identity with `words` 64-bit words per part.
     pub fn identity(words: usize) -> Self {
         Pauli {
             x: vec![0; words],
@@ -204,6 +208,7 @@ impl TableCache {
 }
 
 impl CliffordMap {
+    /// The identity map on `n` qubits.
     pub fn identity(n: usize) -> Self {
         let w = n.div_ceil(64).max(1);
         let mut rows = Vec::with_capacity(2 * n);
@@ -220,6 +225,7 @@ impl CliffordMap {
         CliffordMap { n, w, rows }
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }

@@ -40,12 +40,14 @@ pub struct CutPlan {
     pub cut: usize,
     /// Engines and predicted seconds of one run of each side.
     pub side_a: (Engine, f64),
+    /// Engine and predicted seconds of one run of side B.
     pub side_b: (Engine, f64),
     /// `2^c × (side A + side B)`.
     pub predicted_secs: f64,
     /// The planner's best single engine for the whole circuit (`None`: no
     /// engine fits the budget).
     pub single: Option<(Engine, f64)>,
+    /// Seconds spent choosing the partition.
     pub plan_secs: f64,
 }
 

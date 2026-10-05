@@ -198,6 +198,7 @@ fn sv_expect(sv: &StateVectorF64, obs: &PauliSum) -> f64 {
     total
 }
 
+/// Prints the Markdown table header for the expectation-value benchmark rows.
 pub fn expect_header() {
     println!("| circuit | method | value | peak terms | switch | dense qubits | dense memory | time (s) |");
     println!("|---|---|---|---|---|---|---|---|");
@@ -265,6 +266,7 @@ pub fn sample_row(c: &Circuit, label: &str, shots: usize, method: &str, max_dens
     flush();
 }
 
+/// Prints the Markdown table header for the sampling benchmark rows.
 pub fn sample_header() {
     println!("| circuit | method | active qubits | memory | state (s) | sampler setup (s) | shots (s) | shots/s |");
     println!("|---|---|---|---|---|---|---|---|");

@@ -222,6 +222,7 @@ pub fn convergent_denominators(x: u64, t: u32) -> Vec<u64> {
 /// Result of one run of Shor's order-finding routine.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShorRun {
+    /// Base `a` (coprime to `N`) whose order modulo `N` is sought.
     pub a: u64,
     /// Value read from the counting register.
     pub measured: u64,
@@ -229,6 +230,7 @@ pub struct ShorRun {
     pub order: Option<u64>,
     /// A non-trivial factor, if this run produced one.
     pub factor: Option<u64>,
+    /// Total qubits simulated: counting plus work register (`3⌈log2 N⌉`).
     pub qubits: usize,
 }
 

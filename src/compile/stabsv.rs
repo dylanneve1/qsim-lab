@@ -88,6 +88,7 @@ impl PhaseStabilizer {
         }
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }

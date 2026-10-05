@@ -64,7 +64,9 @@ impl Default for PeepholeOptions {
 /// An optimised circuit: `U_original = e^{i global_phase} U_circuit`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Optimized {
+    /// The optimised circuit.
     pub circuit: Circuit,
+    /// Phase (radians) removed by the optimisation, as in the type-level formula.
     pub global_phase: f64,
 }
 
