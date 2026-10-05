@@ -8,6 +8,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`adaptive/`](adaptive/) | [adaptive.md](../simulability/adaptive.md) |
 | [`audit/`](audit/) | [audit.md](../process/audit.md) |
 | [`colour-flags/`](colour-flags/) | [colour-flags.md](../qec/colour-flags.md) |
+| [`code-discovery/`](code-discovery/) | [code-discovery.md](../qec/code-discovery.md) |
 | [`colour-global/`](colour-global/) | [colour-global.md](../qec/colour-global.md) |
 | [`compiler/`](compiler/) | [compiler.md](../compiler/compiler.md) |
 | [`dag/`](dag/) | [dag.md](../compiler/dag.md) |

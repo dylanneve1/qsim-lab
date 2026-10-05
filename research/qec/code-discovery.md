@@ -7,7 +7,7 @@ Branch `exp/code-discovery`.
   - `src/qec/bb_circuit.rs`: depth-7 syndrome circuits and schedule validity.
   - `examples/bb_codes.rs`: CLI with `params`, `search`, `schedules`, `schedsearch`, `cdist`, `ler`.
 - Tests: `tests/bicycle_codes.rs` pins published parameters. There are also unit tests in all three modules, including a brute-force check that the enumeration is complete.
-- Data and scripts: `research/data/code-discovery/`. `literature.md` is a 341-entry table of published BB/GB/2BGA codes from 21 papers. It was compiled by a sub-agent, with every polynomial copied verbatim.
+- Data and scripts: [`research/data/code-discovery/`](../data/code-discovery/) (`search_w6_all.jsonl` is stored as `.xz`; run `tools/datafiles.py unpack` before re-running `frontier.py`). `literature.md` is a 341-entry table of published BB/GB/2BGA codes from 21 papers. It was compiled by a sub-agent, with every polynomial copied verbatim.
 - Compute: all runs were on the Mac (M1 Pro) with ≤ 2 workers and no GPU. The Mac was shared, with load 8–16.
 
 **Question.** Can a search over code families, scored with our fast exact tools, find quantum LDPC codes that beat known ones per physical qubit under circuit-level noise? The baselines are IBM's bivariate-bicycle codes and the 2024–26 code tables.
@@ -111,7 +111,7 @@ A two-block code is defined over a group `G` with `|G| = N` and has `n = 2N` qub
 ### 3.1 Frontier vs literature
 
 - `research/data/code-discovery/frontier_w6.md` has the full per-n frontier: every (n, k, d) not dominated at the same n, with polynomials and literature status.
-- `frontier_w6.png`: left, the (n, d) frontier points, marker size ∝ k; right, the best k·d²/n per n, ours vs published.
+- [`frontier_w6.png`](../data/code-discovery/frontier_w6.png): left, the (n, d) frontier points, marker size ∝ k; right, the best k·d²/n per n, ours vs published.
 - Every frontier point was compared with the 341 published entries **and with every direct sum of up to 5 of them** (`[[n₁+n₂, k₁+k₂, min d]]`).
 - Decided frontier points split into three groups:
   - **Published, or dominated by a published code at equal or smaller n.** This is every decided frontier point except the ones below.
