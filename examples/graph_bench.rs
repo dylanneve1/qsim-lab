@@ -418,6 +418,112 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
     );
 }
 
+fn dedup_family(name: &str) -> (ParamCircuit, usize) {
+    use qsim_lab::{algorithms, shor_ripple, shor_window};
+    let wrap = |c: &qsim_lab::Circuit| ParamCircuit::from_circuit(c).unwrap();
+    match name {
+        "trotter" => (trotter(12, 50).0, 0),
+        "qaoa" => (qaoa(16, 5).0, 0),
+        "hea" => (hea(12, 6).0, 0),
+        "pauli" => (pauli_trotter(12, 4).0, 0),
+        "adder" => {
+            let lay = shor_ripple::RippleLayout::new(8);
+            (wrap(&shor_ripple::controlled_ua(&lay, lay.ctrl, 7, 221)), 0)
+        }
+        "window" => {
+            let lay = shor_window::WindowLayout::new(6, 3);
+            (wrap(&shor_window::controlled_ua(&lay, 7, 55)), 0)
+        }
+        "qft" => (wrap(&algorithms::qft(16)), 0),
+        "brickwork" => {
+            let mut rng = StdRng::seed_from_u64(5);
+            (wrap(&algorithms::random_brickwork(16, 20, &mut rng)), 0)
+        }
+        _ => panic!("family"),
+    }
+}
+
+fn dedup_bench() {
+    use qsim_lab::graph::dedup::{analyse, block_unitaries};
+    println!("# load {:?}", std::fs::read_to_string("/proc/loadavg").ok());
+    for fam in [
+        "trotter",
+        "qaoa",
+        "hea",
+        "pauli",
+        "adder",
+        "window",
+        "qft",
+        "brickwork",
+    ] {
+        let (pc, _) = dedup_family(fam);
+        let mut row = format!("{fam:9} n={:3} ops={:6}", pc.num_qubits, pc.ops.len());
+        for k in [2usize, 3, 4, 5] {
+            let d = analyse(&pc, k);
+            row += &format!(
+                " | k={k} blocks {} classes {} cov {:.1}% shape {:.1}% reuse {:.1}% ({:.2}ms)",
+                d.blocks.len(),
+                d.num_classes,
+                100.0 * d.coverage(),
+                100.0 * d.shape_coverage(),
+                100.0 * d.reuse(),
+                d.secs * 1e3
+            );
+        }
+        println!("{row}");
+        // compile-time effect: block unitaries per instance vs per class (k = 4)
+        let d = analyse(&pc, 4);
+        let p: Vec<f64> = (0..pc.num_params).map(|i| 0.3 + 0.1 * i as f64).collect();
+        let mut best = [f64::INFINITY; 2];
+        let mut counts = (0, 0);
+        for _ in 0..reps() {
+            let (t, (_, c0)) = time(|| block_unitaries(&pc, &d, &p, false));
+            best[0] = best[0].min(t);
+            let (t, (_, c1)) = time(|| block_unitaries(&pc, &d, &p, true));
+            best[1] = best[1].min(t);
+            counts = (c0, c1);
+        }
+        println!(
+            "  block unitaries (k=4): per instance {} in {:.2}ms, per class {} in {:.2}ms ({:.1}x)",
+            counts.0,
+            best[0] * 1e3,
+            counts.1,
+            best[1] * 1e3,
+            best[0] / best[1]
+        );
+        // bind-time effect of recipe CSE (parameterised families)
+        if pc.num_params > 0 {
+            let mut off = GraphOptions::default();
+            off.dedup_recipes = false;
+            let on = GraphOptions::default();
+            let a = CompiledCircuit::compile(&pc, None, &on).unwrap();
+            let b = CompiledCircuit::compile(&pc, None, &off).unwrap();
+            let mut bb = [f64::INFINITY; 2];
+            let reps_b = 200;
+            for _ in 0..reps() {
+                let (t, _) = time(|| {
+                    for _ in 0..reps_b {
+                        std::hint::black_box(b.bind(&p).unwrap());
+                    }
+                });
+                bb[0] = bb[0].min(t / reps_b as f64);
+                let (t, _) = time(|| {
+                    for _ in 0..reps_b {
+                        std::hint::black_box(a.bind(&p).unwrap());
+                    }
+                });
+                bb[1] = bb[1].min(t / reps_b as f64);
+            }
+            println!(
+                "  bind: recipes evaluated per op {:.1}us, once per class {:.1}us ({:.2}x)",
+                bb[0] * 1e6,
+                bb[1] * 1e6,
+                bb[0] / bb[1]
+            );
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let pipe = std::env::var("PIPE").is_ok();
@@ -463,6 +569,7 @@ fn main() {
                 rewrite_bench(w, n, p, b);
             }
         }
-        _ => eprintln!("usage: graph_bench bind|rewrite [workload n p binds]"),
+        Some("dedup") => dedup_bench(),
+        _ => eprintln!("usage: graph_bench bind|rewrite|dedup [workload n p binds]"),
     }
 }
