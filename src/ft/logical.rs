@@ -22,16 +22,21 @@ use num_complex::Complex64;
 /// Small dense logical state (≤ ~16 qubits).
 #[derive(Clone, Debug)]
 pub struct LSv {
+    /// Number of logical qubits.
     pub n: usize,
+    /// `2^n` amplitudes; basis index bit `q` is qubit `q` (qubit 0 = least
+    /// significant bit).
     pub a: Vec<Complex64>,
 }
 
 impl LSv {
+    /// `n`-qubit register in |0…0⟩.
     pub fn new(n: usize) -> Self {
         let mut a = vec![Complex64::new(0.0, 0.0); 1 << n];
         a[0] = Complex64::new(1.0, 0.0);
         LSv { n, a }
     }
+    /// Pauli X on qubit `q`.
     pub fn x(&mut self, q: usize) {
         let m = 1 << q;
         for i in 0..self.a.len() {
@@ -40,9 +45,11 @@ impl LSv {
             }
         }
     }
+    /// Pauli Z on qubit `q`.
     pub fn z(&mut self, q: usize) {
         self.phase(q, Complex64::new(-1.0, 0.0));
     }
+    /// Multiplies every amplitude with qubit `q` = 1 by `ph` (diag(1, ph)).
     pub fn phase(&mut self, q: usize, ph: Complex64) {
         let m = 1 << q;
         for (i, v) in self.a.iter_mut().enumerate() {
@@ -51,18 +58,23 @@ impl LSv {
             }
         }
     }
+    /// S = diag(1, i) on qubit `q`.
     pub fn s(&mut self, q: usize) {
         self.phase(q, Complex64::new(0.0, 1.0));
     }
+    /// S† = diag(1, −i) on qubit `q`.
     pub fn sdg(&mut self, q: usize) {
         self.phase(q, Complex64::new(0.0, -1.0));
     }
+    /// T = diag(1, e^{iπ/4}) on qubit `q`.
     pub fn t(&mut self, q: usize) {
         self.phase(q, Complex64::from_polar(1.0, std::f64::consts::FRAC_PI_4));
     }
+    /// T† = diag(1, e^{−iπ/4}) on qubit `q`.
     pub fn tdg(&mut self, q: usize) {
         self.phase(q, Complex64::from_polar(1.0, -std::f64::consts::FRAC_PI_4));
     }
+    /// Hadamard on qubit `q`.
     pub fn h(&mut self, q: usize) {
         let m = 1 << q;
         let r = std::f64::consts::FRAC_1_SQRT_2;
@@ -74,6 +86,7 @@ impl LSv {
             }
         }
     }
+    /// CNOT with control `c` and target `t`.
     pub fn cnot(&mut self, c: usize, t: usize) {
         let (mc, mt) = (1 << c, 1 << t);
         for i in 0..self.a.len() {
@@ -82,6 +95,7 @@ impl LSv {
             }
         }
     }
+    /// Toffoli: flips `t` when both `a` and `b` are 1.
     pub fn ccx(&mut self, a: usize, b: usize, t: usize) {
         let (ma, mb, mt) = (1 << a, 1 << b, 1 << t);
         for i in 0..self.a.len() {
@@ -90,6 +104,8 @@ impl LSv {
             }
         }
     }
+    /// Applies a Pauli code (bit 0 = X, bit 1 = Z, 3 = Y up to phase) to qubit
+    /// `q`; Z is applied before X.
     pub fn pauli(&mut self, q: usize, code: u8) {
         if code & PZ != 0 {
             self.z(q);
@@ -98,6 +114,7 @@ impl LSv {
             self.x(q);
         }
     }
+    /// Probability that qubit `q` measures 1 (assumes a normalised state).
     pub fn prob1(&self, q: usize) -> f64 {
         let m = 1 << q;
         self.a
@@ -132,13 +149,21 @@ impl LSv {
 
 /// A Clifford+T logical machine with measurements.
 pub trait Logical {
+    /// Prepares logical qubit `q` in |0⟩ (`bit = false`) or |1⟩ (`bit = true`).
     fn prep(&mut self, q: usize, bit: bool);
+    /// Logical Hadamard.
     fn h(&mut self, q: usize);
+    /// Logical S.
     fn s(&mut self, q: usize);
+    /// Logical S†.
     fn sdg(&mut self, q: usize);
+    /// Logical T.
     fn t(&mut self, q: usize);
+    /// Logical T†.
     fn tdg(&mut self, q: usize);
+    /// Logical CNOT, control `c`, target `t`.
     fn cnot(&mut self, c: usize, t: usize);
+    /// Measures logical qubit `q` in the Z basis and returns the recorded outcome.
     fn meas(&mut self, q: usize) -> bool;
     /// Toffoli; default: the standard 7-T decomposition (Nielsen & Chuang
     /// Fig. 4.9: 6 CNOT, 7 T/T†, 2 H).
@@ -189,7 +214,10 @@ pub enum MagicMode {
 /// Statistics of the encoded run.
 #[derive(Clone, Debug, Default)]
 pub struct RunCounts {
+    /// Number of T/T† gadgets executed (one magic state consumed each).
     pub t_gadgets: u64,
+    /// Number of logical gates applied (H, S, S†, T, T†, CNOT and empty
+    /// S†-slots; preparations and measurements are not counted).
     pub logical_gates: u64,
     /// Frame mode: set as soon as any logical-level error is present (a
     /// non-zero decoded flip of a top-level measurement, or a data block whose
@@ -200,20 +228,31 @@ pub struct RunCounts {
 
 /// Encoded logical machine at level `k` (1 = Steane [[7,1,3]], 2 = [[49,1,9]]).
 pub struct Encoded<B: Phys> {
+    /// Concatenated-Steane machine that owns all physical qubits.
     pub m: Machine<B>,
+    /// Concatenation level (1 = [[7,1,3]], 2 = [[49,1,9]]).
     pub k: usize,
+    /// Index of the first physical qubit of each logical data block (one level-`k`
+    /// block of `7^k` qubits per logical qubit).
     pub blocks: Vec<usize>,
     /// Ideal logical state (frame backend only); the last qubit is the magic
     /// slot.
     pub sv: Option<LSv>,
+    /// RNG for sampling the ideal logical measurement outcomes and the
+    /// `MagicMode::Model` logical Z errors.
     pub mrng: Xoshiro,
+    /// How magic states for T gadgets are produced.
     pub magic: MagicMode,
+    /// Run statistics.
     pub counts: RunCounts,
     /// Logical qubits currently holding state (prepared, not yet measured).
     pub live: Vec<bool>,
 }
 
 impl Encoded<FrameBackend> {
+    /// Frame-backend machine with `nlog` logical qubits at level `k`; the ideal
+    /// logical vector has `nlog + 1` qubits (the extra one is the magic slot).
+    /// `seed` seeds the logical-measurement RNG; physical faults come from `noise`.
     pub fn frame(
         k: usize,
         nlog: usize,
@@ -238,6 +277,10 @@ impl Encoded<FrameBackend> {
 }
 
 impl Encoded<DenseBackend> {
+    /// Dense-backend machine (validation) with `nlog` logical qubits at level `k`
+    /// on a `cap`-qubit physical state vector (`cap` must cover all data and
+    /// ancilla blocks, otherwise it panics). `seed` seeds both the backend's
+    /// measurement RNG and the magic-model RNG.
     pub fn dense(
         k: usize,
         nlog: usize,
@@ -423,14 +466,20 @@ impl<B: Phys> Logical for Encoded<B> {
 /// `native_ccx`, a Toffoli is one gate followed by independent single-qubit
 /// depolarizing p on each of its three qubits (the `shor-noise` model).
 pub struct Unencoded {
+    /// Ideal state of the `nlog` bare qubits (noise is applied directly to it).
     pub sv: LSv,
+    /// Circuit-level noise source.
     pub noise: Noise,
+    /// RNG for Born-rule measurements and resets.
     pub mrng: Xoshiro,
+    /// Treat a Toffoli as a single noisy gate instead of the 7-T decomposition.
     pub native_ccx: bool,
+    /// Number of noise locations visited so far.
     pub locations: u64,
 }
 
 impl Unencoded {
+    /// `nlog` bare qubits in |0…0⟩; `seed` seeds the measurement RNG.
     pub fn new(nlog: usize, noise: Noise, native_ccx: bool, seed: u64) -> Self {
         Unencoded {
             sv: LSv::new(nlog),

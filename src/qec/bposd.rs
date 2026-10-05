@@ -18,6 +18,7 @@
 /// A detector error model as a sparse matrix.
 #[derive(Clone, Debug)]
 pub struct DemMatrix {
+    /// Number of detectors (rows of the check matrix).
     pub num_detectors: usize,
     /// Detectors flipped by each mechanism.
     pub cols: Vec<Vec<u32>>,
@@ -32,8 +33,12 @@ pub struct DemMatrix {
 pub struct BpOsd {
     m: DemMatrix,
     prior: Vec<f64>,
+    /// Maximum number of BP iterations before falling back to OSD.
     pub max_iter: usize,
+    /// Min-sum normalisation factor applied to every check-to-variable message.
     pub ms_scale: f64,
+    /// OSD combination-sweep order: the number of most likely non-pivot columns
+    /// tried as single and pairwise flips (0 = OSD-0 only).
     pub osd_order: usize,
     /// edge index layout: edges are numbered column-major; `col_edge[j]` is
     /// the first edge of column j; `row_edges[i]` lists edge ids of row i
@@ -54,11 +59,17 @@ pub struct BpOsdScratch {
 /// Decoder statistics.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DecodeStats {
+    /// Shots decided without OSD (empty syndrome or BP hard decision matched the
+    /// syndrome).
     pub bp_converged: u64,
+    /// Shots that needed OSD.
     pub osd_calls: u64,
 }
 
 impl BpOsd {
+    /// Builds the decoder for `m`: priors are `ln((1-p)/p)` with `p` clamped to
+    /// `[1e-15, 0.5)`; see the field docs for `max_iter`, `ms_scale` and
+    /// `osd_order`.
     pub fn new(m: DemMatrix, max_iter: usize, ms_scale: f64, osd_order: usize) -> Self {
         let nd = m.num_detectors;
         let mut row_edges: Vec<Vec<u32>> = vec![Vec::new(); nd];
@@ -90,10 +101,12 @@ impl BpOsd {
         }
     }
 
+    /// Number of error mechanisms (columns of the check matrix).
     pub fn num_mechanisms(&self) -> usize {
         self.m.cols.len()
     }
 
+    /// Fresh working memory sized for this decoder; one per thread.
     pub fn scratch(&self) -> BpOsdScratch {
         let ne = *self.col_edge.last().unwrap();
         let n = self.m.cols.len();
