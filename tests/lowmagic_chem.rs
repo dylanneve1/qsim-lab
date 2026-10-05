@@ -153,7 +153,10 @@ fn register_ground_bounds_the_circuit() {
     let (hist, _) = chem::register_ground(&st, &h, 40, 1e-12);
     let er = *hist.last().unwrap();
     // FCI (PySCF) <= register optimum <= circuit energy
-    assert!(er <= e + 1e-12 && er >= -2.1663874486347625 - 1e-9, "{er} {e}");
+    assert!(
+        er <= e + 1e-12 && er >= -2.1663874486347625 - 1e-9,
+        "{er} {e}"
+    );
 }
 
 #[test]

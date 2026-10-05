@@ -89,10 +89,17 @@ fn profile(prog_path: &str, rank_cap: usize) {
 fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize, nopt: usize) {
     let fd = Fcidump::parse(&read(fd_path)).unwrap();
     let prog = Program::parse(&read(prog_path)).unwrap();
-    assert_eq!(prog.n, fd.qubits(), "program and FCIDUMP disagree on qubits");
+    assert_eq!(
+        prog.n,
+        fd.qubits(),
+        "program and FCIDUMP disagree on qubits"
+    );
     let span = Span::from_program(&prog);
     let filt = prog.x_preserving();
-    assert!(filt || prog.n <= 40, "non-x-preserving program: full H only for n <= 40");
+    assert!(
+        filt || prog.n <= 40,
+        "non-x-preserving program: full H only for n <= 40"
+    );
     let (h, hs) = chem::jw_hamiltonian(&fd, if filt { Some(&span) } else { None }, 1e-12);
     let t0 = Instant::now();
     let (e0, st) = chem::energy(&prog, None, &h, max_d).unwrap();
