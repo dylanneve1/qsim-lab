@@ -1,0 +1,560 @@
+# slug: combo6
+# family: combo
+# parent: la-nophase-r3 + tls-scratch + pair-cx-v2-r3
+# idea: the accepted winners together on c0403bb
+diff --git a/src/blocked.rs b/src/blocked.rs
+index d79a5e2..1b80705 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -62,6 +62,16 @@ impl KOp {
+         }
+     }
+ 
++    /// Bit mask of the qubits the op acts on non-diagonally (controls and
++    /// phases are diagonal).
++    fn non_diag(&self) -> usize {
++        match *self {
++            KOp::U1 { q, .. } => 1 << q,
++            KOp::Phase { .. } => 0,
++            KOp::Swap { a, b } => (1 << a) | (1 << b),
++        }
++    }
++
+     /// Bit mask of the qubits that must be inner (in the cache block).
+     fn needs_inner(&self) -> usize {
+         match *self {
+@@ -365,7 +375,26 @@ pub struct Stage {
+ 
+ /// Splits `ops` into stages for an `n`-qubit register with blocks of `l`
+ /// qubits of which at most `slots` are outside the contiguous low range.
++///
++/// Keeps the op order: the stages are contiguous ranges of `ops` (the graph
++/// compiler and the Metal backend rely on this). The blocked executor itself
++/// plans with [`plan_stages_lookahead`], which reorders commuting ops.
+ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage> {
++    plan_stages_impl(ops, n, l, slots, 0)
++}
++
++/// Like [`plan_stages`], but each stage also takes later ops that fit its
++/// slots and commute with every op skipped so far, so circuits like
++/// brickwork need about half as many stages (full-state sweeps). Stages are
++/// no longer contiguous ranges of `ops`; the product of all stages is the
++/// same unitary.
++pub fn plan_stages_lookahead(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage> {
++    plan_stages_impl(ops, n, l, slots, 1024)
++}
++
++/// `lookahead = 0`: close a stage at the first op that does not fit (the op
++/// order is kept); otherwise scan up to `lookahead` ops past the first skip.
++fn plan_stages_impl(ops: &[KOp], n: usize, l: usize, slots: usize, lookahead: usize) -> Vec<Stage> {
+     if l >= n {
+         return vec![Stage {
+             inner: (0..n).collect(),
+@@ -387,22 +416,48 @@ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage>
+             ops,
+         }
+     };
++    // Each stage takes, in order, every remaining op that fits its slots and
++    // commutes with every op it skipped (two ops commute unless one acts
++    // non-diagonally on a qubit the other touches; with the skipped ops'
++    // masks OR-ed together this test is exact and O(1)). Skipped ops keep
++    // their order and form the input of the next stage. The scan stops
++    // `lookahead` ops after the first skip, bounding the work per stage
++    // (with 0 the stage is the prefix before the first skip).
+     let mut stages = Vec::new();
+-    let mut hi = 0usize;
+-    let mut cur: Vec<KOp> = Vec::new();
+-    for op in ops {
+-        let need = op.needs_inner() & !low;
+-        let merged = hi | need;
+-        if merged.count_ones() as usize > slots {
+-            stages.push(finish(hi, std::mem::take(&mut cur)));
+-            hi = need;
+-        } else {
+-            hi = merged;
++    let mut rest: Vec<KOp> = ops.to_vec();
++    while !rest.is_empty() {
++        let mut hi = 0usize;
++        let mut cur: Vec<KOp> = Vec::new();
++        let mut skipped: Vec<KOp> = Vec::new();
++        let (mut sk_nd, mut sk_touch) = (0usize, 0usize);
++        let mut first_skip = None;
++        for (i, op) in rest.iter().enumerate() {
++            if first_skip.is_some_and(|f| i > f + lookahead) {
++                skipped.extend_from_slice(&rest[i..]);
++                break;
++            }
++            let need = op.needs_inner() & !low;
++            let merged = hi | need;
++            let (nd, touch) = (op.non_diag(), op.touches());
++            let commutes = nd & sk_touch == 0 && touch & sk_nd == 0;
++            // phases never need a slot; pulling them ahead of skipped ops
++            // only fragments the stage's diagonal runs (more block passes),
++            // so after the first skip they wait for the next stage
++            let commutes = commutes && !(first_skip.is_some() && nd == 0);
++            // the first op of a stage is always taken (as before: with fewer
++            // slots than it needs, the stage gets a slightly bigger block)
++            if cur.is_empty() || (commutes && merged.count_ones() as usize <= slots) {
++                hi = merged;
++                cur.push(*op);
++            } else {
++                first_skip.get_or_insert(i);
++                sk_nd |= nd;
++                sk_touch |= touch;
++                skipped.push(*op);
++            }
+         }
+-        cur.push(*op);
+-    }
+-    if !cur.is_empty() {
+         stages.push(finish(hi, cur));
++        rest = skipped;
+     }
+     stages
+ }
+@@ -576,6 +631,19 @@ enum LOp<T: Real> {
+         a: usize,
+         b: usize,
+     },
++    /// Two uncontrolled 1-qubit gates on distinct buffer bits `t1 < t2`
++    /// (both outside `SMALL`), then optionally a CNOT between the same two
++    /// bits (`cx`: 0 none, 1 control `t1`, 2 control `t2`), applied in one
++    /// sweep (see [`pair_u1`]).
++    Pair {
++        t1: usize,
++        m1: [T; 8],
++        k1: UKind,
++        t2: usize,
++        m2: [T; 8],
++        k2: UKind,
++        cx: u8,
++    },
+     Diag(DiagBlock),
+     /// Dense `2^k x 2^k` unitary (`k` = 2 or 3) on buffer bits `t[..k]`
+     /// (ascending); `re`/`im` row-major.
+@@ -786,7 +854,11 @@ fn build_diag_block(
+ }
+ 
+ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
+-    prepare_mapped(st, n).0
++    // Pairs only here, not in `prepare_mapped`: the graph compiler patches
++    // the mapped stages' U1 coefficients in place by `OpLoc`.
++    let mut p = prepare_mapped(st, n).0;
++    p.ops = pair_u1(p.ops);
++    p
+ }
+ 
+ fn prepare_mapped<T: Real>(st: &Stage, n: usize) -> (Prepared<T>, Vec<OpLoc>) {
+@@ -936,6 +1008,72 @@ fn prepare_stage<T: Real>(st: &Stage, n: usize, cfg: &BlockConfig) -> Prepared<T
+     p
+ }
+ 
++/// Merges adjacent uncontrolled 1-qubit gates on two distinct buffer bits
++/// (both outside `SMALL`) into one [`LOp::Pair`]: they commute, and the
++/// pair kernel applies both in a single sweep over the block instead of two.
++/// A CNOT (in-block control, no outer control) between the same two bits
++/// that immediately follows is folded in as a register permutation.
++fn pair_u1<T: Real>(ops: Vec<LOp<T>>) -> Vec<LOp<T>> {
++    let free = |op: &LOp<T>| match *op {
++        LOp::U1 {
++            t,
++            m,
++            kind,
++            cin: 0,
++            cout: 0,
++        } if (1usize << t) & SMALL == 0 => Some((t, m, kind)),
++        _ => None,
++    };
++    let mut out = Vec::with_capacity(ops.len());
++    let mut it = ops.into_iter().peekable();
++    while let Some(op) = it.next() {
++        if let Some((ta, ma, ka)) = free(&op) {
++            if let Some((tb, mb, kb)) = it.peek().and_then(free) {
++                if ta != tb {
++                    it.next();
++                    let ((t1, m1, k1), (t2, m2, k2)) = if ta < tb {
++                        ((ta, ma, ka), (tb, mb, kb))
++                    } else {
++                        ((tb, mb, kb), (ta, ma, ka))
++                    };
++                    let cx = match it.peek() {
++                        Some(LOp::U1 {
++                            t,
++                            kind: UKind::X,
++                            cin,
++                            cout: 0,
++                            ..
++                        }) if *t == t2 && *cin == 1 << t1 => 1,
++                        Some(LOp::U1 {
++                            t,
++                            kind: UKind::X,
++                            cin,
++                            cout: 0,
++                            ..
++                        }) if *t == t1 && *cin == 1 << t2 => 2,
++                        _ => 0,
++                    };
++                    if cx != 0 {
++                        it.next();
++                    }
++                    out.push(LOp::Pair {
++                        t1,
++                        m1,
++                        k1,
++                        t2,
++                        m2,
++                        k2,
++                        cx,
++                    });
++                    continue;
++                }
++            }
++        }
++        out.push(op);
++    }
++    out
++}
++
+ // ----- nested L1 tiling -----------------------------------------------------
+ 
+ /// `(non-diagonal target bits, all buffer bits involved)` of an op.
+@@ -943,6 +1081,7 @@ fn lop_masks<T: Real>(op: &LOp<T>) -> (usize, usize) {
+     match op {
+         LOp::U1 { t, cin, .. } => (1 << t, (1 << t) | cin),
+         LOp::Swap { a, b } => ((1 << a) | (1 << b), (1 << a) | (1 << b)),
++        LOp::Pair { t1, t2, .. } => ((1 << t1) | (1 << t2), (1 << t1) | (1 << t2)),
+         LOp::Diag(d) => {
+             let mut sup = 0usize;
+             for g in &d.groups {
+@@ -970,6 +1109,7 @@ fn tile_local<T: Real>(op: &LOp<T>, k: usize) -> bool {
+     match op {
+         LOp::U1 { t, .. } => (1usize << t) < lim,
+         LOp::Swap { b, .. } => (1usize << b) < lim,
++        LOp::Pair { t2, .. } => (1usize << t2) < lim,
+         LOp::Diag(_) | LOp::Dense { .. } => lop_masks(op).1 < lim,
+     }
+ }
+@@ -1410,6 +1550,126 @@ fn apply_u1<T: Real, const F: bool>(
+     });
+ }
+ 
++/// `(x, y) <- (m0 x + m1 y, m2 x + m3 y)`; `K = 1`: real matrix (an X
++/// is the real matrix `[0 1; 1 0]`, exact), `K = 2`: complex.
++#[inline(always)]
++fn mat_apply<T: Real, const F: bool, const K: u8>(
++    m: &[T; 8],
++    xr: T,
++    xi: T,
++    yr: T,
++    yi: T,
++) -> (T, T, T, T) {
++    let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
++    if K == 1 {
++        (
++            fma::<T, F>(m0r, xr, m1r * yr),
++            fma::<T, F>(m0r, xi, m1r * yi),
++            fma::<T, F>(m2r, xr, m3r * yr),
++            fma::<T, F>(m2r, xi, m3r * yi),
++        )
++    } else {
++        let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
++        let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
++        (a, b, c, d)
++    }
++}
++
++/// The pair kernel on one run: `a = [a0r, a0i, a1r, a1i, a2r, a2i, a3r,
++/// a3i]` are the four amplitude slices (index bits `t1`, `t2` = 00, 10,
++/// 01, 11). A separate function taking the slices as `&mut` parameters, so
++/// the compiler knows they do not alias and vectorises the loop (with
++/// eight slices split inside one function it would need 28 run-time alias
++/// checks and falls back to scalar code: 0.45x on brickwork f32).
++#[inline(always)]
++fn pair_kernel<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    a: [&mut [T]; 8],
++    m1: &[T; 8],
++    m2: &[T; 8],
++) {
++    let [a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i] = a;
++    pair_loop::<T, F, K1, K2, CX>(a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i, m1, m2);
++}
++
++#[allow(clippy::too_many_arguments)]
++#[inline(always)]
++fn pair_loop<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    a0r: &mut [T],
++    a0i: &mut [T],
++    a1r: &mut [T],
++    a1i: &mut [T],
++    a2r: &mut [T],
++    a2i: &mut [T],
++    a3r: &mut [T],
++    a3i: &mut [T],
++    m1: &[T; 8],
++    m2: &[T; 8],
++) {
++    let len = a0r.len();
++    let (a1r, a2r, a3r) = (&mut a1r[..len], &mut a2r[..len], &mut a3r[..len]);
++    let (a0i, a1i, a2i, a3i) = (
++        &mut a0i[..len],
++        &mut a1i[..len],
++        &mut a2i[..len],
++        &mut a3i[..len],
++    );
++    for k in 0..len {
++        let (b0r, b0i, b1r, b1i) = mat_apply::<T, F, K1>(m1, a0r[k], a0i[k], a1r[k], a1i[k]);
++        let (b2r, b2i, b3r, b3i) = mat_apply::<T, F, K1>(m1, a2r[k], a2i[k], a3r[k], a3i[k]);
++        let (c0r, c0i, c2r, c2i) = mat_apply::<T, F, K2>(m2, b0r, b0i, b2r, b2i);
++        let (c1r, c1i, c3r, c3i) = mat_apply::<T, F, K2>(m2, b1r, b1i, b3r, b3i);
++        // the CNOT permutes the pair of amplitudes whose control bit is 1
++        let ((c1r, c1i, c3r, c3i), (c2r, c2i)) = match CX {
++            1 => ((c3r, c3i, c1r, c1i), (c2r, c2i)),
++            _ => ((c1r, c1i, c3r, c3i), (c2r, c2i)),
++        };
++        let ((c2r, c2i, c3r, c3i), (c1r, c1i)) = match CX {
++            2 => ((c3r, c3i, c2r, c2i), (c1r, c1i)),
++            _ => ((c2r, c2i, c3r, c3i), (c1r, c1i)),
++        };
++        a0r[k] = c0r;
++        a0i[k] = c0i;
++        a1r[k] = c1r;
++        a1i[k] = c1i;
++        a2r[k] = c2r;
++        a2i[k] = c2i;
++        a3r[k] = c3r;
++        a3i[k] = c3i;
++    }
++}
++
++/// `m1` on bit `t1` and `m2` on bit `t2` (`t1 < t2`, both `>= 2`), then
++/// for `CX = 1` a CNOT `t1 -> t2` and for `CX = 2` a CNOT `t2 -> t1`, in
++/// one sweep: each group of four amplitudes is loaded once, the gates are
++/// applied in registers, and it is stored once.
++#[inline(always)]
++fn apply_pair<T: Real, const F: bool, const K1: u8, const K2: u8, const CX: u8>(
++    buf: &mut View<T>,
++    t1: usize,
++    m1: &[T; 8],
++    t2: usize,
++    m2: &[T; 8],
++) {
++    let (s1, s2) = (1usize << t1, 1usize << t2);
++    let View { re, im } = buf;
++    for (cr, ci) in re.chunks_exact_mut(2 * s2).zip(im.chunks_exact_mut(2 * s2)) {
++        let (lr, hr) = cr.split_at_mut(s2);
++        let (li, hi) = ci.split_at_mut(s2);
++        for (((lr, hr), li), hi) in lr
++            .chunks_exact_mut(2 * s1)
++            .zip(hr.chunks_exact_mut(2 * s1))
++            .zip(li.chunks_exact_mut(2 * s1))
++            .zip(hi.chunks_exact_mut(2 * s1))
++        {
++            let (a0r, a1r) = lr.split_at_mut(s1);
++            let (a2r, a3r) = hr.split_at_mut(s1);
++            let (a0i, a1i) = li.split_at_mut(s1);
++            let (a2i, a3i) = hi.split_at_mut(s1);
++            pair_kernel::<T, F, K1, K2, CX>([a0r, a0i, a1r, a1i, a2r, a2i, a3r, a3i], m1, m2);
++        }
++    }
++}
++
+ #[inline(always)]
+ fn apply_swap<T: Real>(buf: &mut View<T>, l: usize, a: usize, b: usize) {
+     let (sa, sb) = (1usize << a, 1usize << b);
+@@ -1665,6 +1925,32 @@ fn apply_lop<T: Real, const F: bool>(
+             }
+         }
+         LOp::Swap { a, b } => apply_swap(v, l, *a, *b),
++        LOp::Pair {
++            t1,
++            m1,
++            k1,
++            t2,
++            m2,
++            k2,
++            cx,
++        } => {
++            let real = |k: &UKind| *k != UKind::Complex;
++            macro_rules! go {
++                ($c:literal) => {
++                    match (real(k1), real(k2)) {
++                        (true, true) => apply_pair::<T, F, 1, 1, $c>(v, *t1, m1, *t2, m2),
++                        (true, false) => apply_pair::<T, F, 1, 2, $c>(v, *t1, m1, *t2, m2),
++                        (false, true) => apply_pair::<T, F, 2, 1, $c>(v, *t1, m1, *t2, m2),
++                        (false, false) => apply_pair::<T, F, 2, 2, $c>(v, *t1, m1, *t2, m2),
++                    }
++                };
++            }
++            match cx {
++                0 => go!(0),
++                1 => go!(1),
++                _ => go!(2),
++            }
++        }
+         LOp::Diag(d) => {
+             for g in &d.groups {
+                 apply_diag_group::<T, F>(v, l, g, base, sc);
+@@ -1764,6 +2050,7 @@ fn run_ops_prof<T: Real, const F: bool>(
+                 }
+             }
+             LOp::Swap { .. } => 4,
++            LOp::Pair { .. } => 2,
+             LOp::Diag(_) => 5,
+             LOp::Dense { .. } => 8,
+         };
+@@ -1853,6 +2140,27 @@ fn new_buf<T: Real>(l: usize) -> Buf<T> {
+     }
+ }
+ 
++thread_local! {
++    /// Per-thread block buffer and diagonal scratch, reused across chunks
++    /// and stages instead of being allocated (and zeroed and page-faulted)
++    /// once per rayon split of every stage.
++    static SCRATCH: std::cell::RefCell<Option<Box<dyn std::any::Any>>> =
++        const { std::cell::RefCell::new(None) };
++}
++
++/// Runs `f` with this thread's cached `2^l` block buffer and scratch.
++fn with_scratch<T: Real, R>(l: usize, f: impl FnOnce(&mut Buf<T>, &mut DiagScratch<T>) -> R) -> R {
++    type Pair<T> = (Buf<T>, DiagScratch<T>);
++    let cached = SCRATCH.with(|s| s.borrow_mut().take());
++    let mut b: Box<Pair<T>> = match cached.and_then(|b| b.downcast::<Pair<T>>().ok()) {
++        Some(b) if b.0.re.len() == 1 << l => b,
++        _ => Box::new((new_buf::<T>(l), DiagScratch::default())),
++    };
++    let r = f(&mut b.0, &mut b.1);
++    SCRATCH.with(|s| *s.borrow_mut() = Some(b));
++    r
++}
++
+ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: bool) {
+     let l = p.l;
+     if l >= n {
+@@ -1865,23 +2173,24 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd:
+     }
+     let full = (1usize << n) - 1;
+     let outer_phys = full & !p.inner_mask;
+-    let init = || (new_buf::<T>(l), DiagScratch::default());
+     if p.inner_mask == (1usize << l) - 1 {
+         // Inner qubits are the low ones: chunks are contiguous.
+         amps.par_chunks_mut(1 << l)
+             .enumerate()
+-            .for_each_init(init, |(buf, sc), (c, chunk)| {
+-                let t0 = std::time::Instant::now();
+-                load_run(buf, 0, chunk);
+-                if prof::on() {
+-                    prof::add(6, t0);
+-                }
+-                run_ops(p, buf, c << l, sc, simd);
+-                let t0 = std::time::Instant::now();
+-                store_run(buf, 0, chunk);
+-                if prof::on() {
+-                    prof::add(7, t0);
+-                }
++            .for_each(|(c, chunk)| {
++                with_scratch::<T, _>(l, |buf, sc| {
++                    let t0 = std::time::Instant::now();
++                    load_run(buf, 0, chunk);
++                    if prof::on() {
++                        prof::add(6, t0);
++                    }
++                    run_ops(p, buf, c << l, sc, simd);
++                    let t0 = std::time::Instant::now();
++                    store_run(buf, 0, chunk);
++                    if prof::on() {
++                        prof::add(7, t0);
++                    }
++                })
+             });
+         return;
+     }
+@@ -1902,24 +2211,26 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd:
+     }
+     ord.par_chunks_mut(1 << ns)
+         .enumerate()
+-        .for_each_init(init, |(buf, sc), (c, runs)| {
+-            let t0 = std::time::Instant::now();
+-            for (r, run) in runs.iter().enumerate() {
+-                let run = run.as_ref().expect("every run is assigned");
+-                load_run(buf, r << bc, run);
+-            }
+-            if prof::on() {
+-                prof::add(6, t0);
+-            }
+-            run_ops(p, buf, deposit(c, outer_phys), sc, simd);
+-            let t0 = std::time::Instant::now();
+-            for (r, run) in runs.iter_mut().enumerate() {
+-                let run = run.as_mut().expect("every run is assigned");
+-                store_run(buf, r << bc, run);
+-            }
+-            if prof::on() {
+-                prof::add(7, t0);
+-            }
++        .for_each(|(c, runs)| {
++            with_scratch::<T, _>(l, |buf, sc| {
++                let t0 = std::time::Instant::now();
++                for (r, run) in runs.iter().enumerate() {
++                    let run = run.as_ref().expect("every run is assigned");
++                    load_run(buf, r << bc, run);
++                }
++                if prof::on() {
++                    prof::add(6, t0);
++                }
++                run_ops(p, buf, deposit(c, outer_phys), sc, simd);
++                let t0 = std::time::Instant::now();
++                for (r, run) in runs.iter_mut().enumerate() {
++                    let run = run.as_mut().expect("every run is assigned");
++                    store_run(buf, r << bc, run);
++                }
++                if prof::on() {
++                    prof::add(7, t0);
++                }
++            })
+         });
+ }
+ 
+@@ -1951,7 +2262,7 @@ pub fn tile_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> TileStat
+     let elem = std::mem::size_of::<Complex<T>>();
+     let l = cfg.block_bits(n, elem);
+     let mut out = TileStats::default();
+-    for st in plan_stages(ops, n, l, cfg.slots) {
++    for st in plan_stages_lookahead(ops, n, l, cfg.slots) {
+         out.stages += 1;
+         let p = prepare_stage::<T>(&st, n, cfg);
+         let Some(tp) = &p.tile else {
+@@ -1997,7 +2308,7 @@ pub fn fusion_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> Fusion
+     };
+     let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+     let mut out = FusionStats::default();
+-    for st in plan_stages(ops, n, l, cfg.slots) {
++    for st in plan_stages_lookahead(ops, n, l, cfg.slots) {
+         out.stages += 1;
+         let p = prepare_stage::<T>(&st, n, cfg);
+         out.passes += p.ops.len();
+@@ -2024,7 +2335,7 @@ impl<T: Real> StateVector<T> {
+             ops
+         };
+         let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, n, l, cfg.slots);
++        let stages = plan_stages_lookahead(ops, n, l, cfg.slots);
+         let trace = std::env::var_os("QSIM_TRACE").is_some();
+         prof::ON.store(
+             std::env::var_os("QSIM_PROF").is_some(),
+@@ -2088,7 +2399,7 @@ impl<T: Real> StateVector<T> {
+             ops
+         };
+         let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, n, l, cfg.slots)
++        let stages = plan_stages_lookahead(ops, n, l, cfg.slots)
+             .into_iter()
+             .map(|st| prepare_stage::<T>(&st, n, cfg))
+             .collect();
+@@ -2175,7 +2486,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
+             ops
+         };
+         let l = cfg.block_bits(c, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, c, l, cfg.slots);
++        let stages = plan_stages_lookahead(ops, c, l, cfg.slots);
+         let prepared = stages
+             .into_iter()
+             .map(|st| prepare_stage::<T>(&st, c, cfg))

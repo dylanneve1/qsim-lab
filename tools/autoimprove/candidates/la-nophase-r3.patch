@@ -1,0 +1,159 @@
+# slug: la-nophase-r3
+# family: pass
+# parent: la-nophase (accepted on eee9bb0)
+# idea: la-nophase on c0403bb: plan_stages stays order-preserving (graph compiler + metal map ops by contiguous stage ranges); the blocked executor's own paths use the new plan_stages_lookahead
+diff --git a/src/blocked.rs b/src/blocked.rs
+index d79a5e2..615c42e 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -62,6 +62,16 @@ impl KOp {
+         }
+     }
+ 
++    /// Bit mask of the qubits the op acts on non-diagonally (controls and
++    /// phases are diagonal).
++    fn non_diag(&self) -> usize {
++        match *self {
++            KOp::U1 { q, .. } => 1 << q,
++            KOp::Phase { .. } => 0,
++            KOp::Swap { a, b } => (1 << a) | (1 << b),
++        }
++    }
++
+     /// Bit mask of the qubits that must be inner (in the cache block).
+     fn needs_inner(&self) -> usize {
+         match *self {
+@@ -365,7 +375,26 @@ pub struct Stage {
+ 
+ /// Splits `ops` into stages for an `n`-qubit register with blocks of `l`
+ /// qubits of which at most `slots` are outside the contiguous low range.
++///
++/// Keeps the op order: the stages are contiguous ranges of `ops` (the graph
++/// compiler and the Metal backend rely on this). The blocked executor itself
++/// plans with [`plan_stages_lookahead`], which reorders commuting ops.
+ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage> {
++    plan_stages_impl(ops, n, l, slots, 0)
++}
++
++/// Like [`plan_stages`], but each stage also takes later ops that fit its
++/// slots and commute with every op skipped so far, so circuits like
++/// brickwork need about half as many stages (full-state sweeps). Stages are
++/// no longer contiguous ranges of `ops`; the product of all stages is the
++/// same unitary.
++pub fn plan_stages_lookahead(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage> {
++    plan_stages_impl(ops, n, l, slots, 1024)
++}
++
++/// `lookahead = 0`: close a stage at the first op that does not fit (the op
++/// order is kept); otherwise scan up to `lookahead` ops past the first skip.
++fn plan_stages_impl(ops: &[KOp], n: usize, l: usize, slots: usize, lookahead: usize) -> Vec<Stage> {
+     if l >= n {
+         return vec![Stage {
+             inner: (0..n).collect(),
+@@ -387,22 +416,48 @@ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage>
+             ops,
+         }
+     };
++    // Each stage takes, in order, every remaining op that fits its slots and
++    // commutes with every op it skipped (two ops commute unless one acts
++    // non-diagonally on a qubit the other touches; with the skipped ops'
++    // masks OR-ed together this test is exact and O(1)). Skipped ops keep
++    // their order and form the input of the next stage. The scan stops
++    // `lookahead` ops after the first skip, bounding the work per stage
++    // (with 0 the stage is the prefix before the first skip).
+     let mut stages = Vec::new();
+-    let mut hi = 0usize;
+-    let mut cur: Vec<KOp> = Vec::new();
+-    for op in ops {
+-        let need = op.needs_inner() & !low;
+-        let merged = hi | need;
+-        if merged.count_ones() as usize > slots {
+-            stages.push(finish(hi, std::mem::take(&mut cur)));
+-            hi = need;
+-        } else {
+-            hi = merged;
++    let mut rest: Vec<KOp> = ops.to_vec();
++    while !rest.is_empty() {
++        let mut hi = 0usize;
++        let mut cur: Vec<KOp> = Vec::new();
++        let mut skipped: Vec<KOp> = Vec::new();
++        let (mut sk_nd, mut sk_touch) = (0usize, 0usize);
++        let mut first_skip = None;
++        for (i, op) in rest.iter().enumerate() {
++            if first_skip.is_some_and(|f| i > f + lookahead) {
++                skipped.extend_from_slice(&rest[i..]);
++                break;
++            }
++            let need = op.needs_inner() & !low;
++            let merged = hi | need;
++            let (nd, touch) = (op.non_diag(), op.touches());
++            let commutes = nd & sk_touch == 0 && touch & sk_nd == 0;
++            // phases never need a slot; pulling them ahead of skipped ops
++            // only fragments the stage's diagonal runs (more block passes),
++            // so after the first skip they wait for the next stage
++            let commutes = commutes && !(first_skip.is_some() && nd == 0);
++            // the first op of a stage is always taken (as before: with fewer
++            // slots than it needs, the stage gets a slightly bigger block)
++            if cur.is_empty() || (commutes && merged.count_ones() as usize <= slots) {
++                hi = merged;
++                cur.push(*op);
++            } else {
++                first_skip.get_or_insert(i);
++                sk_nd |= nd;
++                sk_touch |= touch;
++                skipped.push(*op);
++            }
+         }
+-        cur.push(*op);
+-    }
+-    if !cur.is_empty() {
+         stages.push(finish(hi, cur));
++        rest = skipped;
+     }
+     stages
+ }
+@@ -1951,7 +2006,7 @@ pub fn tile_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> TileStat
+     let elem = std::mem::size_of::<Complex<T>>();
+     let l = cfg.block_bits(n, elem);
+     let mut out = TileStats::default();
+-    for st in plan_stages(ops, n, l, cfg.slots) {
++    for st in plan_stages_lookahead(ops, n, l, cfg.slots) {
+         out.stages += 1;
+         let p = prepare_stage::<T>(&st, n, cfg);
+         let Some(tp) = &p.tile else {
+@@ -1997,7 +2052,7 @@ pub fn fusion_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> Fusion
+     };
+     let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+     let mut out = FusionStats::default();
+-    for st in plan_stages(ops, n, l, cfg.slots) {
++    for st in plan_stages_lookahead(ops, n, l, cfg.slots) {
+         out.stages += 1;
+         let p = prepare_stage::<T>(&st, n, cfg);
+         out.passes += p.ops.len();
+@@ -2024,7 +2079,7 @@ impl<T: Real> StateVector<T> {
+             ops
+         };
+         let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, n, l, cfg.slots);
++        let stages = plan_stages_lookahead(ops, n, l, cfg.slots);
+         let trace = std::env::var_os("QSIM_TRACE").is_some();
+         prof::ON.store(
+             std::env::var_os("QSIM_PROF").is_some(),
+@@ -2088,7 +2143,7 @@ impl<T: Real> StateVector<T> {
+             ops
+         };
+         let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, n, l, cfg.slots)
++        let stages = plan_stages_lookahead(ops, n, l, cfg.slots)
+             .into_iter()
+             .map(|st| prepare_stage::<T>(&st, n, cfg))
+             .collect();
+@@ -2175,7 +2230,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
+             ops
+         };
+         let l = cfg.block_bits(c, std::mem::size_of::<Complex<T>>());
+-        let stages = plan_stages(ops, c, l, cfg.slots);
++        let stages = plan_stages_lookahead(ops, c, l, cfg.slots);
+         let prepared = stages
+             .into_iter()
+             .map(|st| prepare_stage::<T>(&st, c, cfg))

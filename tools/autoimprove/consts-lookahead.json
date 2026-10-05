@@ -1,0 +1,17 @@
+{
+ "comment": "Lookahead window of the accepted stage planner (child search on top of la-nophase-r3; not run this session).",
+ "consts": [
+  {
+   "name": "LOOKAHEAD",
+   "parent": "branches/la-nophase-r3.patch",
+   "file": "src/blocked.rs",
+   "pattern": "plan_stages_impl\\(ops, n, l, slots, \\d+\\)",
+   "replace": "plan_stages_impl(ops, n, l, slots, {v})",
+   "values": [
+    64,
+    256,
+    4096
+   ]
+  }
+ ]
+}

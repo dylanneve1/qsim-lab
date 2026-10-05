@@ -1,0 +1,87 @@
+# slug: la-nophase
+# family: pass
+# parent: plan-lookahead (rejected on eee9bb0: clifft-24 f32 0.965x, passes 274->288)
+# idea: plan-lookahead, but after a stage's first skipped op diagonal (phase) ops are deferred too, so lookahead does not fragment diagonal runs
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 07fd6da..03f2be5 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -62,6 +62,16 @@ impl KOp {
+         }
+     }
+ 
++    /// Bit mask of the qubits the op acts on non-diagonally (controls and
++    /// phases are diagonal).
++    fn non_diag(&self) -> usize {
++        match *self {
++            KOp::U1 { q, .. } => 1 << q,
++            KOp::Phase { .. } => 0,
++            KOp::Swap { a, b } => (1 << a) | (1 << b),
++        }
++    }
++
+     /// Bit mask of the qubits that must be inner (in the cache block).
+     fn needs_inner(&self) -> usize {
+         match *self {
+@@ -387,22 +397,48 @@ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage>
+             ops,
+         }
+     };
++    // Each stage takes, in order, every remaining op that fits its slots and
++    // commutes with every op it skipped (two ops commute unless one acts
++    // non-diagonally on a qubit the other touches; with the skipped ops'
++    // masks OR-ed together this test is exact and O(1)). Skipped ops keep
++    // their order and form the input of the next stage. The scan stops
++    // `LOOKAHEAD` ops after the first skip, bounding the work per stage.
++    const LOOKAHEAD: usize = 1024;
+     let mut stages = Vec::new();
+-    let mut hi = 0usize;
+-    let mut cur: Vec<KOp> = Vec::new();
+-    for op in ops {
+-        let need = op.needs_inner() & !low;
+-        let merged = hi | need;
+-        if merged.count_ones() as usize > slots {
+-            stages.push(finish(hi, std::mem::take(&mut cur)));
+-            hi = need;
+-        } else {
+-            hi = merged;
++    let mut rest: Vec<KOp> = ops.to_vec();
++    while !rest.is_empty() {
++        let mut hi = 0usize;
++        let mut cur: Vec<KOp> = Vec::new();
++        let mut skipped: Vec<KOp> = Vec::new();
++        let (mut sk_nd, mut sk_touch) = (0usize, 0usize);
++        let mut first_skip = None;
++        for (i, op) in rest.iter().enumerate() {
++            if first_skip.is_some_and(|f| i > f + LOOKAHEAD) {
++                skipped.extend_from_slice(&rest[i..]);
++                break;
++            }
++            let need = op.needs_inner() & !low;
++            let merged = hi | need;
++            let (nd, touch) = (op.non_diag(), op.touches());
++            let commutes = nd & sk_touch == 0 && touch & sk_nd == 0;
++            // phases never need a slot; pulling them ahead of skipped ops
++            // only fragments the stage's diagonal runs (more block passes),
++            // so after the first skip they wait for the next stage
++            let commutes = commutes && !(first_skip.is_some() && nd == 0);
++            // the first op of a stage is always taken (as before: with fewer
++            // slots than it needs, the stage gets a slightly bigger block)
++            if cur.is_empty() || (commutes && merged.count_ones() as usize <= slots) {
++                hi = merged;
++                cur.push(*op);
++            } else {
++                first_skip.get_or_insert(i);
++                sk_nd |= nd;
++                sk_touch |= touch;
++                skipped.push(*op);
++            }
+         }
+-        cur.push(*op);
+-    }
+-    if !cur.is_empty() {
+         stages.push(finish(hi, cur));
++        rest = skipped;
+     }
+     stages
+ }

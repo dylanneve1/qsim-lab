@@ -1,0 +1,91 @@
+{
+ "comment": "Round 2 (main with dense fusion, aarch64 default dense_fusion=2, dense_min_ops=0 => 2^k): one-knob-at-a-time sweep of the fusion cost model and the blocking knobs. A = default config, B = default + knob, same binary.",
+ "suite": [
+  [
+   "qft",
+   22,
+   "f32"
+  ],
+  [
+   "qft",
+   22,
+   "f64"
+  ],
+  [
+   "brick",
+   22,
+   "f32"
+  ],
+  [
+   "brick",
+   22,
+   "f64"
+  ],
+  [
+   "clifft",
+   22,
+   "f32"
+  ],
+  [
+   "clifft",
+   22,
+   "f64"
+  ],
+  [
+   "qft",
+   24,
+   "f32"
+  ],
+  [
+   "qft",
+   24,
+   "f64"
+  ],
+  [
+   "brick",
+   24,
+   "f32"
+  ],
+  [
+   "brick",
+   24,
+   "f64"
+  ],
+  [
+   "clifft",
+   24,
+   "f32"
+  ],
+  [
+   "clifft",
+   24,
+   "f64"
+  ]
+ ],
+ "configs": [
+  {
+   "dense_k": 0
+  },
+  {
+   "dense_k": 3
+  },
+  {
+   "dense_min": 2
+  },
+  {
+   "dense_min": 3
+  },
+  {
+   "dense_min": 6
+  },
+  {
+   "slots": 5
+  },
+  {
+   "slots": 7
+  },
+  {
+   "block_kib": 2048
+  }
+ ]
+}

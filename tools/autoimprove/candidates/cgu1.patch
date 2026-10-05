@@ -1,0 +1,13 @@
+# slug: cgu1
+# family: build
+# idea: codegen-units = 1 for the qsim-lab crate only in release (better intra-crate inlining / vectorisation of the kernels; dependencies untouched)
+diff --git a/Cargo.toml b/Cargo.toml
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -60,3 +60,6 @@ opt-level = 3
+ 
+ [profile.release]
+ codegen-units = 4
++
++[profile.release.package.qsim-lab]
++codegen-units = 1
