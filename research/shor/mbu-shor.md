@@ -7,8 +7,8 @@ outcome resolution), `src/shor/sliced.rs` (sign word, `compile_ops`,
 `Oracle::WindowedMbuLookup`, the gate-by-gate path with real X-basis
 measurements), CLI `--oracle windowed-mbu | windowed-mbu-lookup`,
 `examples/mbu_counts.rs`, `examples/shor_seed_orders.rs`, tests in
-`src/shor/mbu.rs`, `src/shor/sliced.rs`, `tests/mbu_shor.rs`,
-`tests/theory_shor_mbu.rs`. Raw data: `research/data/mbu-shor/`.
+`src/shor/mbu.rs`, `src/shor/sliced.rs`, `tests/shor/mbu_shor.rs`,
+`tests/theory/theory_shor_mbu.rs`. Raw data: `research/data/mbu-shor/`.
 
 **Machines.** Builds, tests, counts and timings ran on the Mac (M1 Pro,
 8 cores, 16 GB). Timings were taken under `/tmp/qsim-mac-bench.lock`, one
@@ -165,7 +165,7 @@ modular adders 14 × ≈ 108.
 * `src/shor/sliced.rs`: `missing_mbu_fixup_is_caught` (should_panic: a
   measurement phase without its CZ trips the sign assertion) and
   `mbu_fixup_cancels_the_measurement_phase`.
-* `tests/mbu_shor.rs` (6 tests). (i) The exact outcome distributions of the
+* `tests/shor/mbu_shor.rs` (6 tests). (i) The exact outcome distributions of the
   whole measurement tree match the permutation oracle to < 1e−12, both
   through the sliced engine and gate by gate on the sparse state (real
   measurements), for N = 15, 21, 35, w = 1…4 and both MBU oracles. (ii) The
@@ -174,7 +174,7 @@ modular adders 14 × ≈ 108.
   Beyond 64 qubits (24-bit N, w = 4, 5) results match the permutation
   oracle. (iv) The block is independent of the outcome stream. (v) T2(c)
   (§4). (vi) The Toffoli count is at most 55 % of windowed-opt at 20 bits.
-* `tests/theory_shor_mbu.rs`: **all T1/T2 checks of `tests/theory_shor.rs`
+* `tests/theory/theory_shor_mbu.rs`: **all T1/T2 checks of `tests/theory/theory_shor.rs`
   re-run on `Oracle::WindowedMbu(4)`**. These include the support law on
   whole gate-level measurement trees (20 instances, exact amplitudes) and
   the work-counter identity `W = Σ 2 B_i G_i` (G = ops of the resolved

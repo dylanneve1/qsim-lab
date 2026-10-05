@@ -1,4 +1,4 @@
-//! Variant of tests/qec_dem_audit.rs for the exp/qec circuit-derived DEM API
+//! Variant of tests/qec/qec_dem_audit.rs for the exp/qec circuit-derived DEM API
 //! (updated for exp/qec @ dbc3e86: `SurfaceCode::dem_sampler(&noise)`).
 //! Audit: does the surface-code "fast detector sampler" reproduce the
 //! detector statistics of full circuit-level tableau simulation?

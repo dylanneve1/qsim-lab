@@ -19,7 +19,7 @@
 //! real or `X` kernel) are taken here from the gate *kinds* for
 //! parameter-dependent ops (a run is diagonal iff every factor is diagonal
 //! for all angles), and kernel kinds are re-derived from the bound numbers
-//! by the stage preparation. `tests/graph.rs` checks every path against an
+//! by the stage preparation. `tests/compiler/graph.rs` checks every path against an
 //! independent reference state vector.
 
 use super::observable::{diagonal_expectation, pauli_expectation, Observable};

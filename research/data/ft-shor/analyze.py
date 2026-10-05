@@ -5,7 +5,7 @@ Estimators. For every run, the shots split into 'clean' runs (no logical-level
 fault: encoded = no decoded logical error anywhere; unencoded = no physical
 fault at all) and 'faulty' runs. Clean runs follow the ideal distribution
 exactly (location structure is outcome-independent; tested in
-tests/ft_shor.rs::clean_runs_follow_ideal_distribution), so
+tests/shor/ft_shor.rs::clean_runs_follow_ideal_distribution), so
     P(y) = (1-q) ideal(y) + q P(y | faulty),    q = P(faulty),
 and every output metric is q x (its value on the faulty runs). Errors:
 parametric bootstrap over (q, faulty histogram); TVD is bias-corrected.

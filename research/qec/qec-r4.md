@@ -51,7 +51,7 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
 
   Any other instruction is an error, never silently dropped.
 
-Tests (`tests/stim_io.rs`, plus unit tests):
+Tests (`tests/core/stim_io.rs`, plus unit tests):
 - **Exact round trip.** For the surface code (d = 3, 5) and for 200 random noisy Clifford circuits, `parse(to_stim(c))` compiles to a SymPhase sampler with the **same multiset of variable groups and the same per-outcome detector signatures** as `c` itself. That is an exact equality of sampling distributions, not a statistical test. The parsed program also re-serialises to identical text.
 - **Stim's generated circuit.** `stim.Circuit.generated("surface_code:rotated_memory_z", d=3)` parses into 24 detectors. All of them are deterministic: no random "coin" variable reaches a detector, and the noiseless version gives all-zero shots.
 
@@ -158,7 +158,7 @@ Stim pays per gate per 128- or 256-shot word but only a few ns per fault. On its
 - clear only the touched words;
 - evaluate column-wise over the faults that fired.
 
-It is **bit-identical** to the dense path for the same RNG stream (`tests/symphase.rs::sparse_sampling_path_is_identical_to_dense`). Together with `SmallRng` (Xoshiro256++) it cuts sampling time by 4–25% on x86 (indicative, load 15) and 23–36% on the M1. It does not change the x86 picture.
+It is **bit-identical** to the dense path for the same RNG stream (`tests/engines/symphase.rs::sparse_sampling_path_is_identical_to_dense`). Together with `SmallRng` (Xoshiro256++) it cuts sampling time by 4–25% on x86 (indicative, load 15) and 23–36% on the M1. It does not change the x86 picture.
 
 **The next lever, not done here:** cheaper fault draws. Options are batching geometric skips with a precomputed `1/ln(1-p)`, drawing the Pauli index from spare bits of the same random word, or a wider batch (256 shots) so that coins and per-group overhead amortise.
 
@@ -191,7 +191,7 @@ I looked at three candidates:
   - Two noise models, written as explicit ops so the sampled circuit is exactly the exported one: noisy-CNOT (`DEPOLARIZE2(p)` after every CNOT) and uniform depolarizing (adds idle `DEPOLARIZE1(p)`, readout flips, reset errors).
   - `KF_SCHEDULE` is their published pick (`zero_collision_schedules.csv`, row 1, the one `benchmark_circuits.py` loads).
 
-  Validation, `tests/color_code.rs`:
+  Validation, `tests/qec/color_code.rs`:
   - n = (3d²+1)/4 data qubits and (n−1)/2 plaquettes for d = 3–11.
   - All X/Z stabilizer pairs overlap evenly, and the logical (the y = 0 row, weight d) commutes with every stabilizer.
   - Code distance is d by brute force (d = 3, 5).
@@ -342,4 +342,4 @@ python research/data/qec-r4/ler_compare.py target/release/examples/color_ler 5 5
 python research/data/qec-r4/tesseract_ler.py target/release/examples/color_search target/release/examples/stim_compare 5 5 cnot 0.003 kf 128000 77 2   # needs tesseract-decoder
 ```
 
-Tests: `tests/stim_io.rs` (exact round trips), `tests/color_code.rs` (generator validation, K–F distance formula and counts, the d = 5 LNS schedule, X basis), `tests/symphase.rs::sparse_sampling_path_is_identical_to_dense`, `src/qec/distance.rs` (brute-force check of weights and counts), `src/qec/bposd.rs`.
+Tests: `tests/core/stim_io.rs` (exact round trips), `tests/qec/color_code.rs` (generator validation, K–F distance formula and counts, the d = 5 LNS schedule, X basis), `tests/engines/symphase.rs::sparse_sampling_path_is_identical_to_dense`, `src/qec/distance.rs` (brute-force check of weights and counts), `src/qec/bposd.rs`.

@@ -12,7 +12,7 @@ drew from a **hand-written phenomenological** mechanism list: one X flip per
 data qubit per round plus one measurement flip per check, all at rate `p`. The
 circuit and the `NoiseModel` were not used at all. `run_experiment` switched to
 it silently when `shots > 300`. Its "agreement" test only checked that both
-rates were < 0.15. The audit (`exp/audit`, `tests/qec_dem_audit.rs`) measured
+rates were < 0.15. The audit (`exp/audit`, `tests/qec/qec_dem_audit.rs`) measured
 the damage at d=3, rounds=3, `circuit_level(0.005, 0.005)`, 20k shots per side:
 decoded logical error 0.43% (fast) vs 2.50% (full tableau), with 12 of 16
 detectors off by up to 17.7σ.
@@ -35,7 +35,7 @@ with reset-only noise, 12 detectors were off by up to 28.6σ.
 ## 2. What the code does now (`src/qec/dem.rs`, `src/qec/surface.rs`)
 
 **Noise locations.** These mirror `Circuit::run_noisy` exactly, and
-`tests/surface.rs::fault_locations_cover_every_noisy_op` checks the list
+`tests/qec/surface.rs::fault_locations_cover_every_noisy_op` checks the list
 op by op.
 
 | location | outcomes (mutually exclusive) | probability each |
@@ -167,7 +167,7 @@ it halves p_L at d=7, p=0.3%.
 
 ## 5. Validation: DEM sampler vs full tableau (acceptance test)
 
-`tests/qec_dem_audit.rs` comes from `exp/audit`. Only `fast_stats()` was
+`tests/qec/qec_dem_audit.rs` comes from `exp/audit`. Only `fast_stats()` was
 changed, to drive the new `dem_sampler`. I also added a pooled check on the
 mean number of detection events per shot (Welch z) and the env overrides
 `QSIM_DEM_D`/`QSIM_DEM_P`. The test does a two-proportion z-test per detector
@@ -195,11 +195,11 @@ hook order is fixed. Both sides of the test use the same decoder, so the test
 compares samplers, not decoders.
 
 A quick, always-run version (3000 shots, 5σ) lives in
-`tests/surface.rs::dem_sampling_matches_tableau_quick`.
+`tests/qec/surface.rs::dem_sampling_matches_tableau_quick`.
 
 ### 5.1 Old model re-run
 
-I re-ran the auditor's unmodified `tests/qec_dem_audit.rs` against a worktree
+I re-ran the auditor's unmodified `tests/qec/qec_dem_audit.rs` against a worktree
 of `main` @ 86e5d67 (same seed 7, 20k shots). It reproduces the audit
 exactly:
 
@@ -209,7 +209,7 @@ exactly:
 
 Output: `research/data/qec/audit_OLD_main86e5d67_d3_p0.005_20k.txt`.
 
-## 6. Discriminating noise tests (`tests/noise.rs`)
+## 6. Discriminating noise tests (`tests/core/noise.rs`)
 
 - `single_qubit_depolarizing_and_readout_from_zero_in_z_and_x_basis` starts
   from |0⟩ and runs on the tableau, the state vector and the MPS:

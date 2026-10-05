@@ -3,7 +3,7 @@
 Branch `exp/lowmagic-chem`. Author: qsim-lowmagic-chem agent (round 5, 5 Oct 2026). Base: main b569597.
 Code: `src/chem.rs` (FCIDUMP, Pauli-rotation programs, span-filtered Jordan–Wigner Hamiltonian, compressed-state
 energies, Rotosolve, register Lanczos), `src/engines/adaptive.rs` (`CompressedState::register_terms`),
-`examples/lowmagic_chem.rs` (`profile`, `energy`, `check`), `tests/lowmagic_chem.rs` (8 tests; fixtures in
+`examples/lowmagic_chem.rs` (`profile`, `energy`, `check`), `tests/simulability/lowmagic_chem.rs` (8 tests; fixtures in
 `tests/data/lowmagic-chem/`). Python: `research/data/lowmagic-chem/{chem.py, dmrg.py, run.py, crosscheck.py, tables.py, headline.py}`.
 Data: `research/data/lowmagic-chem/` (`refs/` classical references, `runs/*.jsonl` every engine run,
 `tables.md` all tables). Machine: Mac M1 Pro, 1 thread per job, ≤ 2 jobs, 1-min load 11–24 from other agents —
@@ -92,7 +92,7 @@ as a degree-2 trigonometric polynomial, fixed exactly by 5 evaluations).
 ≤ 1e-12, filtered = unfiltered Hamiltonian; HF energies equal PySCF RHF to 1e-10 (Slater–Condon and Pauli);
 Rotosolve on H₂ reaches FCI to 1e-10; the H₄ selected-UCC energy equals an independent OpenFermion evaluation
 (expm of the fermionic generators, OpenFermion's own JW Hamiltonian) to 1e-12, and OpenFermion's sector ground state
-equals PySCF FCI. All in `tests/lowmagic_chem.rs` (8 tests) or `runs/check.jsonl`.
+equals PySCF FCI. All in `tests/simulability/lowmagic_chem.rs` (8 tests) or `runs/check.jsonl`.
 
 ## 2. Structure: d is the tapered qubit count
 

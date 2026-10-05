@@ -1,6 +1,6 @@
 # research/data/theory-coset
 
-Driver: `examples/theory_coset.rs` (model shared with `tests/theory_coset.rs` via
+Driver: `examples/theory_coset.rs` (model shared with `tests/theory/theory_coset.rs` via
 `tests/theory_coset_model/mod.rs`). All runs on the VPS, `nice -n 15`, single thread, < 200 MB.
 `B=target/release/examples/theory_coset`.
 

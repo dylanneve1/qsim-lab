@@ -33,7 +33,7 @@ numbers below as orders of magnitude, not as precise speedups.
    3n-qubit dense path only if it fits the 1 GiB cap; otherwise it switches itself to
    `--semiclassical --sparse` and prints a note on stderr. A semiclassical-dense request whose
    register does not fit also becomes sparse. Explicit flags are never overridden when they fit.
-4. **Exactness tests** (`tests/pipeline.rs`, 10 tests, proptest), see below.
+4. **Exactness tests** (`tests/compiler/pipeline.rs`, 10 tests, proptest), see below.
 5. **Benchmark** `examples/pipeline_bench.rs`, raw output in `research/data/pipeline/`.
 
 ## Rule-based planner (seed for the learned planner)
@@ -74,7 +74,7 @@ being chosen. That is what the learned cost model is for.
 ## Exactness evidence (all run, all green)
 
 `cargo test` (full suite, dev profile) plus `cargo fmt --check` and
-`cargo clippy --all-targets -- -D warnings`. New: `tests/pipeline.rs` (+1 unit test in
+`cargo clippy --all-targets -- -D warnings`. New: `tests/compiler/pipeline.rs` (+1 unit test in
 `pipeline.rs`):
 
 | test | what is compared | cases |
@@ -94,7 +94,7 @@ Not covered: the *sampling* path through `simulate` is checked statistically (ad
 its exact plan distribution, not by a goodness-of-fit test per engine over all circuit families.
 f32 is not used anywhere in the pipeline (f64 only).
 
-A pre-existing flake: `tests/dag.rs::prop_light_cone_exact` can fail with a deviation of
+A pre-existing flake: `tests/compiler/dag.rs::prop_light_cone_exact` can fail with a deviation of
 1.95e-12 against its 1e-12 tolerance (seed 5042061061179466422, n=3, len=25). I reproduced the
 identical failure on unmodified main 7112b5a with that fixed seed, so it is not caused by this
 branch (rounding after dividing by a small branch probability); it needs a looser tolerance or a
