@@ -11,7 +11,10 @@ Code: `src/shor/approx.rs` (precomputation port, resolved quint-level
 program, all-branch evaluator, exact output distributions, gate-level loop4
 step and loop3/unloop3 step pair), `examples/approx_modexp.rs` (driver), `tests/shor/approx_modexp.rs`
 (tests that fail if the statements below break). Data and scripts:
-`research/data/approx-modexp/`.
+[`research/data/approx-modexp/`](../data/approx-modexp/) (its README lists
+every file). Related notebooks: [ge-shor.md](ge-shor.md) (Ekerå–Håstad,
+post-processing, coset arithmetic), [mbu-shor.md](mbu-shor.md)
+(measurement-based uncomputation in the gate-level engine).
 
 **Source studied.** C. Gidney, *How to factor 2048 bit RSA integers with
 less than a million noisy qubits*, arXiv:2505.15917 (2025), which builds on
@@ -27,7 +30,38 @@ not committed here). We use its `facto/algorithm/_detailed_example_code.py`
 
 ## Headline
 
-HEADLINE_TEXT
+* **The construction is correct on every branch, and at the level of
+  interference, in every instance simulated** (scaled down: n = 8–24 bits,
+  not the paper's 2048-bit regime). On every branch of the exponent
+  register and the mask — up to 1.07·10⁹ per run, Shor-style and
+  Ekerå–Håstad — and for every measurement-outcome stream tried (all-0,
+  all-1, up to 8 random): every ancilla returns to 0, every residue is
+  exact and **every branch ends with sign +1**, i.e. all phase kickback of
+  the 1.4–4.6 k X-basis measurements per run (including the corrections the
+  paper defers from loop3 to unloop3) is cancelled exactly. The paper's own
+  `approx_modexp`, run unchanged on a genuinely quantum backend (full
+  superposition, real X-basis measurements), agrees with this simulator
+  branch by branch and to 7·10⁻¹⁸ in the output distribution (n = 8); no
+  two branches ever merge, so the measurements reveal nothing about the
+  exponent. MOON_HEADLINE
+* **Masking is what makes it work.** Without the mask the approximate
+  circuit's frequency distribution is far from exact arithmetic's (TV 0.72–
+  0.78) and loses 2.6–4.3× in success probability, although every branch is
+  computed correctly. With a mask of W values the distance falls as 1/W
+  (TV ≈ 0.6 (1 − F), not the trace-distance bound √(1 − F)); at the paper's
+  own mask rule it is 0.021 / 0.0070 / 0.0062 (N = 899 / 3127 Shor / 3127
+  Ekerå–Håstad), the frequency-peak structure matches exact arithmetic
+  (including the zero-peak enhancement predicted by the paper's Eq. 42) and
+  the success suppression matches the paper's model (0.671–0.678 vs 0.680,
+  1 − S = 0.673 at N = 3127).
+* **The paper's error analysis is safe but pessimistic here, with one
+  slip.** The deviation `F̃(e) − ⌊f(e)/2^t⌋` is a constant bias plus a
+  random walk of rounding errors with σ ≈ 0.3 √A (A accumulator additions):
+  `E|δ − c|` = 1.2–1.9 units against 51–190 units in the paper's worst-case
+  model, so at these sizes its mask rule over-masks (the approximate
+  circuit's success peaks at a 4× smaller mask at N = 899). The paper's
+  Eq. 28 omits a factor 2 (`1 − |⟨ψ1|ψ̃1⟩|² ≤ 2ε/S`, not ε/S), which would
+  move its 2048-bit expected shot count from 9.21 to 9.25–9.27.
 
 ## 1. What the paper verified, and what is new here
 
@@ -324,9 +358,9 @@ What the numbers say:
 
 * **The approximation is invisible at the level of the frequency peaks.**
   With the paper's mask, the approximate circuit's distribution is within
-  TV INTERF_TV_RANGE of exact arithmetic with the same mask — one to two
+  TV 0.006–0.021 of exact arithmetic with the same mask — one to two
   orders of magnitude below the rigorous trace-distance bound
-  `√(1 − F)` — and its success probability is within INTERF_SUCC_RANGE of
+  `√(1 − F)` — and its success probability is within 0.5–4 % of
   exact arithmetic's. The per-peak structure (probability of each
   frequency peak k ≈ j r/2^m) matches exact arithmetic to TV ≤ 0.002, and
   the paper's randomised-remainder prediction for the zero peak (Eq. 42:
@@ -340,7 +374,7 @@ What the numbers say:
 * **No information leaks through the measurements.** No branches merge in
   any X-basis measurement (§3.1), so every outcome is uniform and
   independent of the exponent; the exponent register's post-measurement
-  state given the measured output has average fidelity INTERF_CF_RANGE
+  state given the measured output has average fidelity 0.97–0.99
   with the exact-arithmetic one (after the constant output shift), and
   every measured output value of the approximate circuit is also a possible
   output of exact arithmetic (P(V outside the ideal support) = 0).
@@ -376,7 +410,7 @@ is below 2n, so absolute success values are low.)
 * **With the mask the damage is linear in 1/W**: TV halves per mask bit and
   equals ≈ 0.65 (1 − F), i.e. it tracks the infidelity itself, not the
   trace-distance bound √(1 − F) (the same linear behaviour the repo found
-  for the coset representation, `research/theory/theory-coset.md`).
+  for the coset representation, [theory-coset.md](../theory/theory-coset.md)).
   1 − F ≈ 2 E|δ − c| / W.
 * **The paper's trade-off is real but sits elsewhere**: the success
   probability of the approximate circuit peaks at W = 32 (S = W 2^t / N =
@@ -569,6 +603,16 @@ MOON_RESULTS
   measured register being a function of the remaining registers (argued in
   §2.3 for every measurement of the program). The genuinely quantum Python
   backend checks it without assuming it, but only at the cross-check size.
+* **Ekerå–Håstad success at toy sizes is inflated.** The repo's
+  single-run lattice post-processing enumerates up to 4096 candidates; for
+  d < 2^m with m ≤ 7 that can brute-force outcomes near `j = 0`, which is
+  why exact-arithmetic EH success rises with the mask here. The
+  scale-free comparisons are the TV distances and the `α` statistics; the
+  `cands=4` variant in `out/dist_eh.txt` is closer to the large-n regime.
+* **Two runs were cut short to free the machine** (load 50–60): the
+  N = 11663 verification after 5 of 10 outcome streams, and the first
+  N = 3127 Shor distribution run during an uninformative post-processing
+  step (its peak structure was recomputed in `out/dist_n12_shor_peaks.txt`).
 * **No noise.**
 
 ## 5. Reproduction
