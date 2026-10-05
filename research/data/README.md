@@ -25,6 +25,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`mbu-shor/`](mbu-shor/) | [mbu-shor.md](../shor/mbu-shor.md) |
 | [`metal/`](metal/) | [metal.md](../performance/metal.md) |
 | [`neural-decoder/`](neural-decoder/) | [neural-decoder.md](../qec/neural-decoder.md) |
+| [`noise-oracles/`](noise-oracles/) | [noise-oracles.md](../shor/noise-oracles.md) |
 | [`ooc/`](ooc/) | [ooc.md](../performance/ooc.md) |
 | [`pauli/`](pauli/) | [pauli.md](../performance/pauli.md) |
 | [`phasepoly/`](phasepoly/) | [phasepoly.md](../compiler/phasepoly.md) |

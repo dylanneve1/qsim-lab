@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Analysis of the noise-oracles campaign (research/noise-oracles.md).
+"""Analysis of the noise-oracles campaign (research/shor/noise-oracles.md).
 
 Input: raw/*.csv.gz from `examples/noise_oracles.rs` (one row per
 trajectory; columns ok, weight, support trace, faults with block tags).
 Output: analysis.txt, strata.csv, summary.csv, fatality_blocks.csv,
 fatality_roles.csv, windows.csv, t3_rounds.csv in this directory.
 
-Estimators (as research/shor-noise.md, plus importance weights):
+Estimators (as research/shor/shor-noise.md, plus importance weights):
 * S_k = (sum over non-v-capped trajectories of weight*ok + c_hat * sum of
   weights of v-capped ones) / M.  v-capped = support exceeded C_VCAP x the
   noiseless peak support (k = 0 rows) of the instance; c_hat = weighted

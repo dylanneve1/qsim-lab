@@ -8,7 +8,7 @@
 //! ```
 //! `ORACLE` = `windowed:W` | `opt:W` | `mbul:W` (measurement-based lookups) |
 //! `mbu:W` (all MBU constructions). `kind` = depol | bitflip | phaseflip.
-//! Columns: `ok` = peak criterion of research/shor-noise.md, `strict` = r is
+//! Columns: `ok` = peak criterion of research/shor/shor-noise.md, `strict` = r is
 //! a convergent denominator of y/2^t, `weight` = importance weight of the
 //! uniformly drawn recorded X-basis outcomes (1 unless branches collided;
 //! estimators are weighted means), `L` = locations of this trajectory's

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plots for research/noise-oracles.md (reads summary.csv, fatality_blocks.csv
+"""Plots for research/shor/noise-oracles.md (reads summary.csv, fatality_blocks.csv
 written by analyze.py, and ../shor-noise/summary.csv for the round-4 windowed
 oracle). Palette: the dataviz reference categorical order (validated: CVD
 adjacent dE >= 9.1); identity is also carried by marker shape and the legend,
