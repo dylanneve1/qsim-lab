@@ -76,6 +76,18 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
+    /// Find a circuit's peak (most likely output bitstring): exact single-qubit
+    /// marginals by tensor-network contraction, their sign bitstring and its
+    /// exact probability. Identity-insertion peaked circuits (HQAP) are first
+    /// reduced to their peaked core (see `qsim_lab::peaked::hqap`).
+    Peak {
+        /// OpenQASM 2.0 file.
+        #[arg(long)]
+        qasm: std::path::PathBuf,
+        /// `auto`: HQAP reduction when the circuit has that structure, else direct.
+        #[arg(long, value_enum, default_value_t = PeakMethod::Auto)]
+        method: PeakMethod,
+    },
     /// Run an example circuit and print its measurement statistics.
     Run {
         example: Example,
@@ -380,6 +392,14 @@ enum ExportExample {
     Surface,
     /// Repetition-code memory circuit (`--distance`, `--rounds`).
     Repetition,
+}
+
+/// How `qsim peak` finds the peak.
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum PeakMethod {
+    Auto,
+    Direct,
+    Hqap,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -708,6 +728,46 @@ fn main() {
                 shown,
                 circuit.ops.len()
             );
+        }
+        Cmd::Peak { qasm, method } => {
+            use qsim_lab::peaked::{self, hqap};
+            let t0 = std::time::Instant::now();
+            let src = std::fs::read_to_string(&qasm).unwrap_or_else(|e| {
+                eprintln!("cannot read {}: {e}", qasm.display());
+                std::process::exit(2)
+            });
+            let c = qsim_lab::io::qasm::from_qasm(&src).unwrap_or_else(|e| {
+                eprintln!("{e}");
+                std::process::exit(2)
+            });
+            let opts = qsim_lab::engines::tn::TnOptions::default();
+            let use_hqap = match method {
+                PeakMethod::Hqap => true,
+                PeakMethod::Direct => false,
+                PeakMethod::Auto => hqap::units(&c).is_ok(),
+            };
+            let (bits, prob) = if use_hqap {
+                let sol = hqap::solve(&c, &opts).unwrap_or_else(|e| {
+                    eprintln!("{e}");
+                    std::process::exit(1)
+                });
+                for line in &sol.log {
+                    println!("{line}");
+                }
+                (sol.bits, sol.core_probability)
+            } else {
+                let pk = peaked::find_peak(&c, &opts).unwrap_or_else(|e| {
+                    eprintln!("{e}");
+                    std::process::exit(1)
+                });
+                (pk.bits.clone(), pk.probability)
+            };
+            println!("peak (qubit 0 first): {}", peaked::bitstring(&bits));
+            println!(
+                "peak probability{}: {prob:.4}",
+                if use_hqap { " of the core" } else { "" }
+            );
+            println!("time: {:.1} s", t0.elapsed().as_secs_f64());
         }
         Cmd::Run {
             example,
