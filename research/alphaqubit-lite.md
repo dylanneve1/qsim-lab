@@ -93,9 +93,33 @@ each, one reused ancilla). Tests (`test_aq.py`):
 Generating 102,400 shots for each of the 96 d = 3 and 24 d = 5 sources took about 20 s in total on the
 Mac (one core).
 
-## 4. Training cost
+## 4. Training runs and cost
 
-_(filled in from the runs: samples/s on the M1 Pro GPU, wall time, MLX peak memory)_
+All on the M1 Pro GPU (MLX 0.32.3), one run at a time, each capped at 42 min wall clock *including*
+pauses (other agents' bench-lock timing runs pause us; the Mac's load average was 11–38 throughout,
+from other agents' CPU jobs). MLX memory: `set_memory_limit` 1.2 GB + 256 MB cache, hard stop if the
+MLX peak passes 1.75 GB; the run never exceeded 1.65 GB (wired memory stayed 2.9–3.4 GB, free +
+inactive ≥ 5.3 GB). Lite model: D = 64, key 16, conv 32, 0.37 M parameters.
+
+| run | data | samples | GPU time | samples/s | MLX peak | dev LER at end (best) |
+|---|---|---|---|---|---|---|
+| d3 pretrain (correct gradients) | FastSampler pij-DEM samples, noise curriculum f = 0.5→1 (t_c = 0.4 M, s_c = 2), rounds curriculum R_max 7→25 over 0.8 M, batch 256, lr 5e-4 cosine | 1.25 M | 42 min | 1,070 (short R) → 520 (R ≤ 25) | 1.64 GB | 3.55 % |
+| d3 fine-tune | real training half (even shots, 19,880 / experiment, 1.9 M shots), batch 256, lr 2e-4, decoupled wd 0.02 towards the pretrained weights | 0.96 M (0.5 epoch) | 42 min | ~380 | 1.64 GB | 3.35 % |
+| d3 held-out evaluation | odd shots, 2.4 M | – | 17 min | 2,330 | | 3.512 % (test) |
+| d5 pretrain | as d3, warm start from the d3 model (180/185 tensors), batch 80, t_c = 0.12 M | 0.32 M | 42 min | 220–330 | 1.60 GB | 5.68 % |
+| d5 fine-tune | real training half | _(running)_ | | | | |
+
+Total for the reported d = 3 model: 2.2 M training samples, 84 GPU-minutes. AlphaQubit's Sycamore
+models: up to 2 × 10⁹ pretraining samples + ~120 fine-tuning epochs per model, ×20 ensemble members,
+a ~3–15× larger model, on TPUs. We are ~10³ below the paper in samples and ~10⁴–10⁵ below it in
+FLOPs.
+
+**What went wrong first (and is worth knowing).** (i) The gradient-checkpointing bug of §2 cost three
+runs. (ii) Without a curriculum, even correct gradients learn slowly on Sycamore-strength noise
+(detection density 15 %); the paper's noise curriculum plus a short-experiments-first rounds
+curriculum gave a dev LER of 4.6 % after 0.5 M samples. (iii) An EMA with decay constant 1e-3 still
+carries 37 % of the initial weights after 1,000 steps; we warm the EMA up (rate max(1e-3, 1/(1 + it/10)))
+and select on the better of raw and EMA weights.
 
 ## 5. Results on real data
 
