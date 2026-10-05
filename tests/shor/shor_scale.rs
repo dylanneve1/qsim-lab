@@ -134,6 +134,25 @@ fn sparse_equals_dense_on_random_circuits() {
 }
 
 /// Measurements with the same seed collapse sparse and dense identically.
+/// Regression (exp/shor-xl): repeated outcome-0 collapses of `P = 1/2`
+/// qubits must not amplify the norm error. The old `collapse` took
+/// `P(0) = 1 − P(1)`, so a norm error doubled at every such collapse and a
+/// long measurement-based-uncomputation circuit reported `P(m) = 0.4999999986`.
+#[test]
+fn sparse_collapse_keeps_the_state_normalised() {
+    use qsim_lab::gate::Gate;
+    // slightly unnormalised start (norm² = 1 + 1e-14), as round-off leaves it
+    let a = num_complex::Complex64::new((0.5f64 * (1.0 + 1e-14)).sqrt(), 0.0);
+    let mut s = SparseState::from_amplitudes(3, vec![(0, a), (1, a)]);
+    for round in 0..80 {
+        s.apply_gate(&Gate::H(1)).unwrap();
+        let p = s.collapse(1, false);
+        assert!((p - 0.5).abs() < 1e-12, "round {round}: P(0) = {p}");
+        let n = s.norm_sqr();
+        assert!((n - 1.0).abs() < 1e-12, "round {round}: norm² = {n}");
+    }
+}
+
 #[test]
 fn sparse_measurement_matches_dense() {
     let mut rng = StdRng::seed_from_u64(11);

@@ -1,0 +1,49 @@
+#### eh-odd-31bit-A  reps=3  2026-10-05 12:52:36 IST
+-- eh-odd-31bit-A arm A rep 1
+== 2026-10-05 12:52:36 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 22.39, 24.76, 26.01  | avail 13 GB, used 9 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 75.033 s  (build 0.071, eval 25.542, sort 39.294, probs 4.283, new state 5.562)
+wall 75.03 s  user 542.44 s  sys 15.16 s  maxrss 4011120 KB
+after:  load average: 27.61, 25.83, 26.28  | avail 14 GB, used 8 GB
+-- eh-odd-31bit-A arm B rep 1
+== 2026-10-05 12:53:51 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 27.61, 25.83, 26.28  | avail 14 GB, used 8 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 68.780 s  (build 0.075, eval 19.372, sort 39.575, probs 4.028, new state 5.445)
+wall 68.78 s  user 466.46 s  sys 15.32 s  maxrss 4011920 KB
+after:  load average: 32.43, 27.71, 26.91  | avail 14 GB, used 8 GB
+-- eh-odd-31bit-A arm A rep 2
+== 2026-10-05 12:54:59 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 32.43, 27.71, 26.91  | avail 14 GB, used 8 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 76.579 s  (build 0.072, eval 25.998, sort 40.378, probs 4.269, new state 5.596)
+wall 76.58 s  user 541.12 s  sys 15.54 s  maxrss 4012328 KB
+after:  load average: 33.19, 29.05, 27.45  | avail 13 GB, used 9 GB
+-- eh-odd-31bit-A arm B rep 2
+== 2026-10-05 12:56:16 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 33.19, 29.05, 27.45  | avail 13 GB, used 9 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 69.144 s  (build 0.073, eval 20.056, sort 39.142, probs 4.178, new state 5.437)
+wall 69.15 s  user 458.98 s  sys 14.89 s  maxrss 4012288 KB
+after:  load average: 36.94, 30.76, 28.14  | avail 12 GB, used 10 GB
+-- eh-odd-31bit-A arm A rep 3
+== 2026-10-05 12:57:25 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 36.94, 30.76, 28.14  | avail 12 GB, used 10 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 76.926 s  (build 0.075, eval 26.462, sort 40.279, probs 4.249, new state 5.563)
+wall 76.93 s  user 538.86 s  sys 15.19 s  maxrss 4012968 KB
+after:  load average: 37.75, 32.64, 29.03  | avail 13 GB, used 9 GB
+-- eh-odd-31bit-A arm B rep 3
+== 2026-10-05 12:58:42 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 2 2 3 lookups eh-odd f32
+before: load average: 37.75, 32.64, 29.03  | avail 13 GB, used 9 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+qubits=134  windows=24  toffoli=128412  gates=551496  meas=32412  fixups=12646  steps=567646  peak_support=64063125  peak_branches=256252500  gate_branch_ops=6.468e13
+time 71.361 s  (build 0.077, eval 19.586, sort 41.208, probs 4.205, new state 5.982)
+wall 71.37 s  user 465.89 s  sys 15.53 s  maxrss 4011536 KB
+after:  load average: 37.70, 33.73, 29.67  | avail 15 GB, used 7 GB

@@ -1,4 +1,4 @@
-# qsim-lab results (4 October 2026)
+# qsim-lab results (5 October 2026)
 
 What this repository has shown so far, with the caveats that go with each number. Every engine is
 **exact** (no truncation) and differential-tested against an independent reference state vector
@@ -10,6 +10,8 @@ corrected or withdrawn, are in `research/process/audit.md` (§16 is the latest),
 Machines:
 - **VPS**: 4 vCPU AMD EPYC-Rome (AVX2), 7.7 GB, shared with other agents. Timings are only quoted when
   the 1-minute load was ≤ 4.
+- **Xeon VM** (exp/shor-xl): Intel Xeon Gold 6548Y+ (8 cores × 2 hyper-threads, AVX-512), 31 GB,
+  shared; the 1-minute load from other users was 15–55 during that work, so its timings are marked loaded.
 - **Mac**: Apple M1 Pro (8 cores, NEON), 16 GB, the owner's laptop. Timing runs hold a swarm-wide lock
   so only one benchmark runs at a time; the load is recorded and was often 3–10 from other agents'
   builds.
@@ -27,18 +29,43 @@ branches; a bit-sliced evaluator runs every gate on 64·L branches at once. The 
 oracle with a from-scratch gate interpreter (all 2^nq inputs at N = 15; random valid inputs at the
 record's size) and the outcome distributions against the reference simulators.
 
-**This repo's record (Mac, `research/shor/shor.md` round 4):** N = 1,537,596,787 (31 bits, generic: the
-first balanced semiprime of a seeded generator, random base), **132 qubits, 1.70 M gates per run,
+**Generic N with a random base (Mac, `research/shor/shor.md` round 4; this repo's record until
+exp/shor-xl, below):** N = 1,537,596,787 (31 bits, generic: the first balanced semiprime of a seeded
+generator, random base), **132 qubits, 1.70 M gates per run,
 r = 256,252,500, factored in 134 s (f32), 4.28 GB**. Cost is linear in the order r, so it is exponential
 in the bit length for generic N: 24–29-bit N take 0.2–44 s depending on r. Structured N = p(2p − 1)
 (classically trivial, λ ≈ √(2N)) go to 52 bits (216 qubits, 7.4 M gates, 60 s), which only shows that
 r, not N, sets the cost. The old N ≈ 10⁶ record circuit (1.15 M gates) now takes 0.05 s instead of 10.8 s.
 
-**Context.** Larger simulated Shor runs exist: Willsch et al. 2023 (arXiv:2308.05047) factored the
-39-bit 549,755,813,701 = 712,321 × 771,781 by simulating Shor's algorithm on a GPU supercomputer
-(JUWELS Booster), with a different circuit construction, so the two are not like-for-like. What is
-specific here is that every gate of a compilable X/CNOT/Toffoli circuit is simulated exactly on a
-laptop.
+**Larger N whose support is small (exp/shor-xl, Xeon VM, `research/shor/shor-xl.md`).** Ekerå–Håstad
+(EH) with an odd-order base `g = h^(2^n)` (h from a seeded rule; no factors used in the run) keeps
+the support at `ord(g)`, a divisor of the odd part of λ(N), so the cost depends on λ(N), not on N:
+- **N_W = 549,755,813,701 = 712,321 × 771,781** (39 bits), the largest N of Willsch et al. 2023
+  (arXiv:2308.05047; a 40-qubit state vector on up to 2048 GPUs of the JUWELS Booster, modular
+  multiplication applied as a permutation, cost independent of the order): factored by exact
+  simulation of every gate of a 165-qubit EH circuit (60 exponent bits, 1.48 M operations, 352 k
+  Toffolis) on every branch, one run, **99.6 s on 16 threads at a 1-min load of 21–27 (loaded),
+  2.26 GB** — cheap here only because `ord(g) = λ_odd(N_W) = 71,582,595` is small
+  (`p − 1 = 2^7·3·5·7·53`, which also makes N_W fall to Pollard's p − 1 at once). A 166-qubit
+  `w_e = 2` circuit measured the same pair; Shor's order finding on the same g plus Miller's
+  reduction also factors it. Plain Shor with the random base itself would need ≈ 147 GB.
+- **43-bit N = 4,911,456,443,897 = 1,456,057 × 3,373,121** (the seeded generator's first balanced
+  43-bit semiprime): 181 qubits, 66 exponent bits, 1.89 M operations (470 k Toffolis), one run,
+  **190 s at load ≈ 30, 3.62 GB** — the largest N we know of factored by gate-level simulation of a
+  Shor-type circuit, **with its cost set by the support `ord(g) = 115,574,445 = λ_odd/83`** of the
+  seed-1 base (a random base is this lucky with probability ≈ 5 %; full odd order would need
+  ≈ 307 GB). The instance was chosen, from supports computed with the factors beforehand, as the only
+  generator N of 34–63 bits whose seed-1 run fits in RAM; it is classically trivial (`p − 1`, `q − 1`
+  are 243-smooth).
+- Every generator N of 22–33 bits factors with its seed-1 odd-order base (≤ 3.6 GB, ≤ 75 s); the
+  34-bit one would need 53 GB, so the contiguous generic frontier on this 31 GB machine is 33 bits.
+- Engine: an AVX-512 (`VPTERNLOGQ`) tier of the bit-sliced evaluator (kernel 1.5× AVX2 per thread;
+  gate evaluation 1.18–1.32× inside whole runs; 4–9 % end to end, where sorting dominates) and an
+  in-place window finish (peak RSS 16 B per branch in f32, was up to 33 B). The 31-bit record command
+  takes 76.4 s on this VM (load 23–29).
+- All timings above are from a shared machine whose load exceeded its 16 vCPUs throughout; checks:
+  an independent interpreter verified 11 full-size N_W window blocks on ≈ 2,000 random inputs each,
+  and the small-N distributions equal the textbook EH / Shor distributions to 1e-12.
 
 **Under circuit noise (`research/shor/shor-noise.md`).** Exact Pauli-noise trajectories of the same circuit,
 10–24-bit N (up to 104 qubits, 0.82 M gates), depolarizing faults after every gate on every qubit it

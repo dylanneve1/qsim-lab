@@ -18,6 +18,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [superopt.md](shor/superopt.md) | Superoptimising the gate-level Shor oracle (1.70 M → 1.04 M gates at 31 bits) |
 | [mbu-shor.md](shor/mbu-shor.md) | Measurement-based uncomputation in the exact gate-level simulation |
 | [ge-shor.md](shor/ge-shor.md) | Gidney–Ekerå techniques: windowing, Ekerå–Håstad, coset representation |
+| [shor-xl.md](shor/shor-xl.md) | Willsch et al.'s 39-bit N and a 43-bit generator N factored gate by gate on one VM (cost = support); generic-N frontier, memory model, AVX-512 slice evaluator |
 | [shor-noise.md](shor/shor-noise.md) | Gate-level Shor under circuit noise, measured at scale |
 | [ft-shor.md](shor/ft-shor.md) | Shor on error-corrected (concatenated Steane) qubits, simulated end to end at the gate level |
 | [noise-oracles.md](shor/noise-oracles.md) | Noise tolerance of the new (smaller) Shor oracles under circuit noise |

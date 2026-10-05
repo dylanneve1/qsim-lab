@@ -337,10 +337,7 @@ fn odd_order_bases_match_textbook() {
             let regs = ge::eh_regs(n_mod, g);
             let book = eh_textbook(n_mod, g);
             let full = shor::full_qft_distribution(n_mod, g);
-            for o in [
-                opts(1, 4, MbuOpts::LOOKUPS),
-                opts(2, 3, MbuOpts::LOOKUPS),
-            ] {
+            for o in [opts(1, 4, MbuOpts::LOOKUPS), opts(2, 3, MbuOpts::LOOKUPS)] {
                 let d0 = ge::distribution(n_mod, &regs, &o, 1e-15);
                 let mut d = vec![0.0; d0.len()];
                 for (idx, &p) in d0.iter().enumerate() {
