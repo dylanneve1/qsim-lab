@@ -347,7 +347,7 @@ fn emit_lookup(
 /// Emits one window (bits `start..start + w` of `x`, table
 /// `T[v] = v·base mod N` with `base = a·2^start mod N`).
 #[allow(clippy::too_many_arguments)]
-fn emit_window(
+pub(crate) fn emit_window(
     c: &mut Circuit,
     lay: &WindowLayout,
     n_mod: u64,
@@ -441,7 +441,7 @@ pub fn window_sizes(lay: &WindowLayout, a: u64, n_mod: u64, o: &Opts) -> Vec<usi
     v
 }
 
-fn madd_mask(lay: &WindowLayout) -> Vec<bool> {
+pub(crate) fn madd_mask(lay: &WindowLayout) -> Vec<bool> {
     // qubits the modular adder touches (for keep_chain)
     let mut madd = vec![false; lay.num_qubits()];
     for &q in lay.b.iter().chain(&lay.l).chain(&lay.k) {
