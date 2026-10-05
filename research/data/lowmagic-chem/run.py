@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the Rust driver over prepared programs with a small worker pool (Mac core budget: 2).
 
-  python run.py BIN DATA_DIR OUT.jsonl TASKS...     TASK = profile:GLOB | energy:GLOB:SWEEPS | check:GLOB
+  python run.py BIN DATA_DIR OUT.jsonl TASKS...     TASK = profile:GLOB[:RANKCAP] | energy:GLOB:SWEEPS[:NOPT] | check:GLOB
+(env LANCZOS=k is passed through to the driver)
 
 Each task line becomes one JSON line in OUT.jsonl (appended), with "task" and "wall" fields.
 Skips (task, file) pairs already present in OUT.jsonl.
@@ -32,6 +33,8 @@ def main():
                 cmd = [binp, "profile", p, rest[0] if rest else "1024"]
             elif kind == "energy":
                 cmd = [binp, "energy", fcidump_for(p), p, rest[0] if rest else "0", "26"]
+                if len(rest) > 1:
+                    cmd.append(rest[1])
             elif kind == "check":
                 cmd = [binp, "check", fcidump_for(p), p]
             else:
