@@ -45,8 +45,8 @@ default (16) unless stated.
 * **AVX-512.** A `VPTERNLOGQ` kernel makes the bit-sliced gate evaluation 1.5× faster per thread
   than AVX2 and 1.18–1.32× faster inside whole runs; end to end the 28- and 31-bit record runs gain
   only 4–9 % (load 22–38), because sorting and merging the branches now take most of the time. The
-  31-bit record run (`qsim run shor … windowed-mbu-lookup --f32`) takes 76.4 s here (89.3 s on the
-  M1 Pro of [mbu-shor.md](mbu-shor.md)).
+  31-bit record run (`qsim run shor … windowed-mbu-lookup --f32`) takes 76.4 s here at a load of
+  23–29 (89.3 s on the M1 Pro of [mbu-shor.md](mbu-shor.md)).
 * **Memory.** Peak RSS is 16.0–16.5 B per peak branch (f32: 8-byte key + 8-byte amplitude) after an
   in-place rewrite of the window finish; the old finish needed 32.8 B per branch whenever the support
   grew inside a window (N_W: 4.59 → 2.26 GB).
@@ -130,7 +130,9 @@ reasons.**
    is a list of steps `w[t] ^= w[a] & w[b]` on slice words of `64·L` branches (X and CNOT address an
    all-ones word, the measured-uncompute reset is `[q, q, q]`, phase fix-ups address a sign word).
    The new kernel does each step per 512-bit word with one `VPTERNLOGQ` (truth table `0x78` =
-   `t ^ (a & b)`), so a CNOT is effectively a `VPXORQ` with the all-ones word folded in. Runtime
+   `t ^ (a & b)`); for a CNOT the third operand is the all-ones word, so the instruction computes
+   `t ^ a` (a dedicated `VPXORQ` path that would skip loading the all-ones word was not
+   implemented). Runtime
    dispatch: AVX-512F and `L % 8 == 0` → AVX-512, else AVX2, else portable; `QSIM_NO_AVX512` /
    `QSIM_NO_AVX2` force a tier off. The per-thread slice buffers are now 64-byte aligned
    (`SliceBuf`), so a 512-bit load never straddles two cache lines. `QSIM_SLICE_LANES` also accepts 64.
@@ -196,9 +198,9 @@ measured `y = 56 421 831 118 435 002 971 950` (78 bits), the convergents gave
 
 **Support trajectory** (config B, `QSIM_GE_PROFILE`): the 20 rounds of the `m`-bit register double
 the support to 2^20 (`ord(y) = λ_odd/15 = 4.77·10^6 > 2^20`, so no wrap-around); the first rounds
-of the `2m`-bit register take it to 2^23, then 1.61·10^7, 1.88·10^7, 3.76·10^7, 7.09·10^7 and
-`ord(g) = 71 582 595` after 27 windows, where it stays for the last 33 windows (each evaluating
-1.43·10^8 branches). The final window's state is not materialised (the measured integers are
+of the `2m`-bit register take it to 2^21, 2^22, 2^23, then 1.61·10^7, 1.88·10^7, 3.76·10^7,
+7.09·10^7 and `ord(g) = 71 582 595` after 28 windows; the remaining 32 windows each evaluate
+1.43·10^8 branches. The final window's state is not materialised (the measured integers are
 complete).
 
 ### 3.2 Plain Shor with the random base h: not run
@@ -416,7 +418,9 @@ easy (trial division, and Pollard's `p − 1` in particular).
   evaluation inside 16-thread runs, 4–9 % end to end. Sorting the evaluated branches is now the
   largest cost (29–55 %); an in-place parallel radix sort is the obvious next lever and was not
   attempted. Larger slices help the AVX-512 kernel (L = 64: 0.106 ns vs 0.138 ns at the default 16)
-  — LANES_NOTE
+  in the kernel benchmark; in whole 31-bit EH runs at a load of 56–60 ([`lanes_31_eh.log`](../data/shor-xl/lanes_31_eh.log))
+  the gate evaluation took 17.9–23.1 s at L = 64, 21.7–30.1 s at L = 32 and 28.7 s at L = 16 — too
+  noisy to justify changing the default (16); `QSIM_SLICE_LANES=64` is available.
 * **No coset arithmetic** at these sizes (as in [ge-shor.md](ge-shor.md) §7: it multiplies the support
   by 2^{2c}); the circuits are exact.
 * **f32 amplitudes** (precision checked in [shor.md](shor.md): TV ≤ 1.5·10^−7 at small N); the
