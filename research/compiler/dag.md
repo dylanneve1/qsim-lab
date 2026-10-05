@@ -23,7 +23,7 @@ parent wrote it from the agent's code, tests and raw data
   re-examines wire predecessors after each rewrite, so nested cancellations go
   in one sweep, with an optional look-back.
 
-## Verification (`tests/dag.rs`)
+## Verification (`tests/compiler/dag.rs`)
 - Round trip and topological validity on random circuits with every op type.
 - The DAG light cone, components and peephole are A/B'd against `src/compile`
   (`light_cone`, `components`, `optimize`) and against the state vector:

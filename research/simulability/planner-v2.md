@@ -17,7 +17,7 @@ Code:
   (`explore_frac`, `AdaptiveReport::restarted`); `src/engines/pauli_frame.rs`: rotations with < 2048 live terms run on the
   calling thread.
 - `src/engines/mps_cost.rs`: `ReplayCost::final_bonds`; `src/simulability.rs`: `hsf_split_features`, `auto0` engine.
-- `tests/planner_v2.rs` (new), `tests/planner.rs`, `tests/pipeline.rs` (updated).
+- `tests/simulability/planner_v2.rs` (new), `tests/simulability/planner.rs`, `tests/compiler/pipeline.rs` (updated).
 - `examples/planner_v2.rs`: `req` (evolve once, time every read-out), `plan VARIANT REQ` (end to end), `feat`
   (features, per-tier timings, decisions for a range of `voi`), `cachedemo`.
 
@@ -364,7 +364,7 @@ arms.
 
 ## 6. Exactness
 
-`tests/planner_v2.rs`, all fixed seeds, so deterministic:
+`tests/simulability/planner_v2.rs`, all fixed seeds, so deterministic:
 - **Every sampling engine** (state vector, sparse, MPS, HSF, compressed sampler, tableau on Clifford circuits) on 44
   circuits:
   - families, plus random circuits with U/iSWAP/Sx/Toffoli/controlled phase;
@@ -381,7 +381,7 @@ arms.
 - **Tiering and the cache never change a result.** `voi = 0`, `voi = 8` and cached plans give the reference values. A
   cached plan for one angle set, executed on another, returns the new circuit's own value.
 - **`sorted_uniforms`**: sorted; Kolmogorov–Smirnov against U[0, total) at p ≈ 0.001; median order statistic.
-- `tests/planner.rs` passes with `PlannerConfig::v1()`:
+- `tests/simulability/planner.rs` passes with `PlannerConfig::v1()`:
   - v1 reproduced: top-1 88.2 %, geo 1.087, worst 12.9×;
   - the tiered v2 choice on the round-4 sweep: geo ε 1.074.
 - Also passing: adaptive (incl. the old-behaviour check with `explore_frac: 0`), pauli_frame, pipeline, compile,

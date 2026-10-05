@@ -1,7 +1,7 @@
 # A magic atlas of real quantum algorithms
 
 Branch `exp/magic-atlas`. Author: qsim-magic-atlas agent (round 4, 4 Oct 2026). Based on main 73fb9fb.
-Code: `src/magic_atlas/{mod.rs,families.rs}`, `examples/magic_atlas.rs`, `tests/magic_atlas.rs`
+Code: `src/magic_atlas/{mod.rs,families.rs}`, `examples/magic_atlas.rs`, `tests/simulability/magic_atlas.rs`
 (11 tests), two small changes in `src/engines/pauli_frame.rs` (support-only `map`, `post_conjugate`) and
 `src/engines/adaptive.rs` (frame internals made `pub(crate)`).
 Data: `research/data/magic-atlas/` (`atlas.csv` 367 instances, `recycle.csv`, `magic.csv` + `magic/`
@@ -159,7 +159,7 @@ compared with d_k, f_k and the recycled Σlive_k:
 
 ## 5. Exactness and the cost law (Mac M1 Pro)
 
-**Exactness.** `tests/magic_atlas.rs` (11 tests): for 19 small instances covering every family, the
+**Exactness.** `tests/simulability/magic_atlas.rs` (11 tests): for 19 small instances covering every family, the
 profile's d-profile equals `adaptive::active_dimension_profile` exactly; `CompressedState` matches the
 state vector (infidelity ≤ 1e-10); `FactoredState` (plain and recycling) matches 60 random Pauli
 expectations per instance to 1e-10 and its largest factor equals the profile's f; recycling never

@@ -65,7 +65,7 @@ reported; see `research/data/audit/` on branch `exp/audit`):
 | brickwork | 22 | f32 | 4.82× |
 | brickwork | 24 | f32 | 4.97× |
 
-Accuracy: `tests/blocked.rs` checks against the gate-by-gate path from random
+Accuracy: `tests/engines/blocked.rs` checks against the gate-by-gate path from random
 start states for every block configuration (f64 within 1e-12, f32 within 1e-5,
 proptest). The audit's independent-reference fuzz passed with worst
 |Δamp| = 1.0e-15 (f64) and 3.7e-7 (f32), including adversarial block

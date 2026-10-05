@@ -2,7 +2,7 @@
 
 Branch `exp/ooc-window` (on top of `exp/ooc`). Code: `src/engines/ooc.rs` (engine, old
 "swap" scheduler), `src/engines/ooc_window.rs` (new windowed scheduler), planner
-`examples/ooc_plan.rs`, bench `examples/ooc_bench.rs`, tests `tests/ooc.rs`.
+`examples/ooc_plan.rs`, bench `examples/ooc_bench.rs`, tests `tests/engines/ooc.rs`.
 
 ## Hypothesis
 Cost of the OOC engine is the number of full passes over the file. The old
@@ -43,7 +43,7 @@ f32; too big once I/O overlap double-buffers under the 1.2 GB cap). Planning
 takes a few ms. Odd n and c=18 are in `plan_passes.txt` / `ooc_plan` output.
 
 ## Exactness
-`tests/ooc.rs` (all passing): deterministic cases at n=16..22 with chunk sizes
+`tests/engines/ooc.rs` (all passing): deterministic cases at n=16..22 with chunk sizes
 c=3..9 (many swaps), all-gate-type random circuits (1q, 2q incl. iSWAP, CPhase,
 Swap, Toffoli), window sweep k=3,4,5,12, overlap on/off, restore_order on/off,
 degenerate shapes (n==c, n==c+1), and a proptest (24 cases, n 14..20, c 4..9,

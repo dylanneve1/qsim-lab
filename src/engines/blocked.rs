@@ -265,7 +265,7 @@ pub struct BlockConfig {
     /// **Off by default: known to give wrong amplitudes.** The audit found a
     /// 10-gate, 5-qubit circuit (`Y(0) CX(0,4) Rx(0,π/4) Z H X S Z T H` on
     /// qubit 0) where enabling it changes amplitudes by 0.26; see
-    /// `tests/blocked.rs::split_phases_regression` and `research/performance/sv.md`.
+    /// `tests/engines/blocked.rs::split_phases_regression` and `research/performance/sv.md`.
     /// Do not enable until that is fixed.
     pub split_phases: bool,
     /// Reorder diagonal terms within a stage (they commute with every op

@@ -6,7 +6,7 @@ Branch `exp/superopt`, based on main `ecb83ea`. Code: `src/shor/superopt.rs`
 `tools/superopt/` (SAT synthesiser `synth.py`, block certificates
 `blocks.py`, SAT peephole `peep.py`), `examples/superopt_counts.rs`
 (counts, ablations, window sweep, per-block counts, circuit dumps), tests in
-`src/shor/superopt.rs`, `tests/superopt.rs`, `tests/theory_shor_opt.rs`. Raw
+`src/shor/superopt.rs`, `tests/shor/superopt.rs`, `tests/theory/theory_shor_opt.rs`. Raw
 data: `research/data/superopt/`.
 
 **Machines.** All builds, SAT runs and timings ran on the Mac (Apple M1 Pro,
@@ -224,13 +224,13 @@ fraction of a percent.
   w = 1…4, 12 option sets incl. ALL, global passes and window DP: every x <
   N, both controls, all ancillas clean); `baseline_opts_reproduce_shor_window_exactly`
   (gate-for-gate); `sat_rules_parse_and_verify` (every rule exhaustively).
-* Differential (`tests/superopt.rs`): exact outcome distributions of the
+* Differential (`tests/shor/superopt.rs`): exact outcome distributions of the
   whole measurement tree, sliced engine and gate-by-gate sparse state vs the
   permutation oracle, < 1e-12 (N = 15, 21, 35; w = 1…4); same measured
   integers as the permutation and unoptimised windowed paths up to N =
   1 005 973; beyond 64 qubits (24-bit N, w = 3, 4, 5).
-* `tests/theory_shor_opt.rs` re-runs **all 12 theorem checks** of
-  `tests/theory_shor.rs` (support law on whole gate-level measurement
+* `tests/theory/theory_shor_opt.rs` re-runs **all 12 theorem checks** of
+  `tests/theory/theory_shor.rs` (support law on whole gate-level measurement
   trees, the work-counter identity `W = Σ 2 B_i G_i`, the noise-window
   theorems T3, …) on `Oracle::WindowedOpt(4)`. All pass. `shor_scale`
   regression tests also pass.

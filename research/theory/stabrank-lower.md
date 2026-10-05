@@ -1,7 +1,7 @@
 # Stabilizer-rank lower bounds: state of the art, exact small-n values, and a plateau lemma
 
 Branch `exp/stabrank-lower`. Code: `research/data/stabrank-lower/stabrank.rs`, a standalone
-std-only Rust program (build with `rustc -O stabrank.rs`). Checks: `tests/stabrank_lower.rs`.
+std-only Rust program (build with `rustc -O stabrank.rs`). Checks: `tests/theory/stabrank_lower.rs`.
 Raw outputs are in `research/data/stabrank-lower/*.out`.
 
 **Summary.** I did not prove a super-polynomial lower bound for χ(|T⟩^{⊗n}). That is still a famous
@@ -163,7 +163,7 @@ exists. So m ≤ d_max(n) − 1, where d_max(n) is the largest distance of a pur
 stabilizer code. In particular m ≤ ⌊n/2⌋, and asymptotically m ≤ n/3 + O(1) by Rains' shadow bound.
 Concretely:
 * There is no 2-uniform stabilizer state on 3 or 4 qubits (checked by enumeration in
-  `tests/stabrank_lower.rs`). Hence **χ(ψ^{⊗3}) ≥ 3 for every non-stabilizer single-qubit ψ**: a
+  `tests/theory/stabrank_lower.rs`). Hence **χ(ψ^{⊗3}) ≥ 3 for every non-stabilizer single-qubit ψ**: a
   plateau χ_3 = χ_1 = 2 would need one. By the same argument, χ_4 ≥ χ_2 + 1.
 * d_max(7) = 3, so χ_7 > χ_4. Likewise χ_n > χ_{n−d_max(n)} for every n.
 * Iterating, χ_n ≥ log_{3/2} n − O(1). Asymptotically this is **weaker than PSV's Ω(n)**; I state

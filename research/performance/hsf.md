@@ -44,7 +44,7 @@ A previous agent's version was reviewed and rejected:
 
 ## Verification
 
-`tests/hsf.rs` compares HSF amplitudes against `StateVectorF64` at
+`tests/engines/hsf.rs` compares HSF amplitudes against `StateVectorF64` at
 |Δ| ≤ 1e-12:
 - random circuits with random partitions, every option set;
 - medium circuits with all gate types, full output;

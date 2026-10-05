@@ -102,7 +102,7 @@ measurements.
 
 ## Accuracy gate
 
-`tests/stab_exact.rs` checks the new tableau against the frozen reference. The
+`tests/engines/stab_exact.rs` checks the new tableau against the frozen reference. The
 two must agree exactly, not just in distribution: both consume exactly one
 `random_bool(0.5)` per random outcome, and whether an outcome is random is a
 property of the state. So with equal seeds:
@@ -250,7 +250,7 @@ fault is not affine. Then each batch of 64 shots costs:
   the faults that actually happen;
 * one sparse GF(2) mat-vec, `nnz(A)` word XORs.
 
-*Accuracy* (`tests/symphase.rs`). Full outcome distributions are computed
+*Accuracy* (`tests/engines/symphase.rs`). Full outcome distributions are computed
 **exactly** on both sides and compared to a relative 1e-9 (the tableau side
 sums up to ~10^5 branch probabilities, so float rounding is ~1e-12). The
 tableau side branches over every noise outcome and every random measurement

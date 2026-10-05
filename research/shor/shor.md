@@ -101,7 +101,7 @@ per earlier bit, and recycles the control with `c_if(i−1, X(0))` (an
 would desynchronise seeded comparisons). That circuit (gate-level oracle)
 runs through the stock `Circuit::run` on any `Simulator`.
 
-Exactness (tests/shor_scale.rs):
+Exactness (tests/shor/shor_scale.rs):
 * `semiclassical_equals_full_qft_distribution`: the exact distribution of the
   measured integer, obtained by walking the whole measurement tree
   (`semiclassical_distribution`, no pruning), equals the marginal of the old

@@ -1,7 +1,7 @@
 #![allow(clippy::needless_range_loop)]
 //! Shared pieces of the audit differential fuzz harness: an independent
 //! naive reference state vector and edge-biased circuit generators.
-//! Used by `tests/differential_fuzz.rs` and by the per-branch adapters in
+//! Used by `tests/core/differential_fuzz.rs` and by the per-branch adapters in
 //! `tools/audit-adapters/`.
 #![allow(dead_code)]
 

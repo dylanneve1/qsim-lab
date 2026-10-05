@@ -2,7 +2,7 @@
 
 Branch `exp/magic-transition` (from main e7e102d). Author: qsim-magic-transition agent, 4 Oct 2026.
 Code: `src/engines/monitored/{mod.rs,circuit.rs,ent.rs}` (new engine), `examples/magic_transition.rs` (campaign
-driver), `tests/magic_transition.rs` (4 tests). Data: `research/data/magic-transition/` (`raw.csv` one row
+driver), `tests/simulability/magic_transition.rs` (4 tests). Data: `research/data/magic-transition/` (`raw.csv` one row
 per trajectory, `aggregate.csv`, `fss.json`, PNGs, `analyze.py`, `jobs*.txt`, `run*.sh`). All runs on the
 M1 Pro (statistical campaign, ≤ 4 single-threaded workers, paused while the bench lock was held).
 
@@ -99,7 +99,7 @@ So **d(t) = S(ρ_t)**, the von Neumann entropy (bits) of the *same* monitored Cl
 
 ## 2. Validation (exactness)
 
-`tests/magic_transition.rs` (dev profile with all `debug_assert`s on, and release):
+`tests/simulability/magic_transition.rs` (dev profile with all `debug_assert`s on, and release):
 
 * `clifford_group_has_11520_elements`: the BFS over {H, S, CNOT} words gives the whole two-qubit Clifford
   group mod phase (uniform sampling as in Li–Chen–Fisher / Bejan et al.).

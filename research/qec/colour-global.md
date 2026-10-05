@@ -132,7 +132,7 @@ The UNSAT itself is solver-independent, checked by drat-trim.
 
 | check | tool | K–F | new |
 |---|---|---|---|
-| collision-free, steps 1–6, deterministic detectors | `color_search collisions`, `tests/colour_global.rs` | yes | yes |
+| collision-free, steps 1–6, deterministic detectors | `color_search collisions`, `tests/qec/colour_global.rs` | yes | yes |
 | design-space diff of the exported 9-round circuits, both bases | `design_space_diff.py` (Stim): see below | — | identical except CNOT order |
 | Z memory, 1 round | Rust circuit DEM + exact B&B, certified | 7 (N = 36) | **8** (N = 10,119) |
 | Z memory, 3 rounds | same | 7 | **8** (19 s) |

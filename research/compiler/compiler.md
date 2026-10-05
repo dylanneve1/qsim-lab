@@ -37,7 +37,7 @@ exact outcome distribution.
   Clifford.
 
 ## Verification
-- `tests/compile.rs` checks every pass and plan with proptests (256 and 192
+- `tests/compiler/compile.rs` checks every pass and plan with proptests (256 and 192
   cases), against the state vector to 1e-12 or against exact outcome
   distributions.
   - Circuit families include mid-circuit measurement, reset, noise, classical
