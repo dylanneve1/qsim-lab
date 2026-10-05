@@ -61,8 +61,18 @@ started to use exactly the first two:
 | [[336,12,20]] | 2BGA over a quotient of Z84 ⋊ Z4 (order 168), n > 300 | Qian & Li, arXiv:2608.08996 | 14.29 |
 
 So the published weight-6 frontier now contains non-abelian codes, and "new" has to be judged against
-it. Lin & Pryadko's 2BGA paper (arXiv:2306.16400), the obvious earlier source, turned out to have no
-weight-6 table (all three of its tables are weight 8).
+it. Two public sources outside papers matter as much (both found only after the search had produced
+its first "new" codes, which they partly overturned — see §4):
+
+- **Lin & Pryadko's dataset** for arXiv:2306.16400 (github.com/QEC-pages/2BGA-codes, 2023): every
+  connected 2BGA code over every group of order ≤ 100 (abelian ≤ 50) with total weight ≤ 8, with
+  randomized distances. The paper itself has no weight-6 table; the dataset has 30 353 weight-6 rows.
+  Its best weight-6 code per (n, k) is in `lin_pryadko_2bga_w6.tsv`.
+- **The Unitary Foundation qLDPC challenge board** (github.com/unitaryfoundation/qldpc-challenge,
+  read at commit a101778, 2026-10-05): 460 CSS codes with check weight ≤ 6 and n ≤ 300, most with
+  randomized upper bounds on d, many posted in 2026 by search campaigns (`qldpc_challenge_w6.tsv`).
+
+All of these are part of the threshold T(n, k) below.
 
 **Reproduction of three of these codes.** The cover codes of Aydin, Tamo & Barg are given as indices
 into GAP's `Elements(G)`; `atb_codes.g` rebuilds them in our numbering and `group_codes params`
@@ -137,19 +147,25 @@ with brute force on random non-abelian codes.
 
 **Threshold.** A code is *new* only if no known weight-6 code dominates it. `known_codes.py` collects
 the published weight-6 frontier (the merged table of `literature.md` plus every weight-6 row of the
-two-block sections of its 2026 supplement, taking listed upper bounds at face value), the exact
-abelian frontier of the first study, and every direct sum of up to five of these, and writes
-T(n, k) = max d′ over known [[n′, k′, d′]] with n′ ≤ n and k′ ≥ k. A code [[n, k, d]] is beyond the
-known frontier iff d > T(n, k).
+two-block sections of its 2026 supplement, taking listed upper bounds at face value), the best
+weight-6 code per (n, k) of the Lin–Pryadko dataset, every weight-≤6 CSS code on the qLDPC challenge
+board, the exact abelian frontier of the first study, and every direct sum of up to five of these,
+and writes T(n, k) = max d′ over known [[n′, k′, d′]] with n′ ≤ n and k′ ≥ k. A code [[n, k, d]] is
+beyond the known frontier iff d > T(n, k). The search itself ran with the threshold from the papers
+and the first study only (the dataset and the board were found later); raising T can only turn a
+`new` class into a tie, so every class reported `new` was re-evaluated against the full threshold
+(`threshold.tsv` in the data folder is the full one).
 
 **Classification** (`group_codes search`). For each inequivalent connected class with k > 0 (k ≤ 128):
-a randomized information-set search in both sectors (10 iterations, then 90 more unless a logical of
+a randomized information-set search (10 iterations per sector, then 90 more unless a logical of
 weight < T was already found); if it finds a nontrivial logical of weight ≤ T the class is `below`
 (< T) or `le_T` (= T, an upper bound only). Otherwise one exhaustive DFS level at weight T in both
 sectors decides: a logical of weight ≤ T, or none, in which case the class is `new` and its distance is
-computed exactly from T + 1. `undecided` means the DFS hit its node limit (2·10⁸ per level).
-The first 300 groups (orders 6–150, smallest first within each worker) ran with an earlier, slower
-rule that also proved ties exactly (`tie` = exhaustive proof that d = T); its output is kept.
+computed exactly from T + 1. `undecided` means the DFS hit its node limit (2·10⁸ nodes per level, 2·10⁷
+in the last runs). The first 325 groups ran with an earlier, slower rule that also proved ties exactly
+(`tie` = exhaustive proof that d = T); its output is kept. The runs were restarted several times (to
+change the rule, the thread count or the niceness); a group is in the output exactly once, from the
+run that completed it (`done_*.txt` lists).
 
 ## 3. Coset codes over Z_m × K
 
@@ -260,6 +276,26 @@ a randomized distance; reposted to the qLDPC challenge on 2026-09-18). That data
 non-abelian group of order ≤ 100 at total weight ≤ 8; its best weight-6 code per (n, k) is now part of
 our threshold (`lin_pryadko_2bga_w6.tsv`), and with it [[192,16,12]] and [[200,16,12]] are not new
 either. The exact distances proved here are.
+
+## 5. Results of the search
+
+(final numbers pending: the search was still running when this was drafted)
+
+RESULTS_TABLES_PLACEHOLDER
+
+**Where the new and record codes live.** All codes beyond the 2023–2025 frontier come from groups of
+order 96–144 with a large abelian or direct-product part: C3 ⋊ (Q8 ⋊ C4) and C3 ⋊ ((C4 × C4) ⋊ C2)
+(order 96), D10 × D10 and C10 × D10 (100), C7 × ((C4 × C2) ⋊ C2) and C7 × (C4 ⋊ C4) (112), and for
+[[288,16,16]] ten groups of order 144, all of the form (C3 × C3) ⋊ (2-group) or C3 × (…) or
+C6 × (C3 ⋊ D8). Most non-abelian groups give nothing competitive: with small centre the
+two-sided-translation classes are few and the codes either have k = 0 or are disconnected (⟨A⟩⟨B⟩ ≠ G
+for three quarters of the k > 0 classes).
+
+**Rediscoveries** (the search finds the published non-abelian 2BGA codes in its space): the
+[[168,16,10]] cover code of Aydin–Tamo–Barg in SmallGroup(84,13) (as a class reaching T), the
+[[216,12,14]] lifts of Hirasaki & Lee in four groups of order 108, the [[112,12,8]] of the first study
+in two non-abelian groups of order 56, and Lin & Pryadko's dataset codes [[192,12,14]], [[192,16,12]]
+and [[200,16,12]] (their groups exactly: SmallGroup(96,17), (96,12), (100,13)).
 
 ## 6. Circuit level
 
