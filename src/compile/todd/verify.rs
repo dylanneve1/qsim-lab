@@ -475,16 +475,19 @@ pub fn basis_equivalent(
     b: &[VGate],
     inputs: &[u128],
 ) -> Result<u8, u128> {
-    let mut phase = None;
-    for &x in inputs {
-        let sa = simulate_basis(n, a, x);
-        let sb = simulate_basis(n, b, x);
-        match exact_phase_relation(&sa, &sb) {
-            Some(j) if phase.is_none() || phase == Some(j) => phase = Some(j),
-            _ => return Err(x),
-        }
+    use rayon::prelude::*;
+    let Some(&first) = inputs.first() else {
+        return Ok(0);
+    };
+    let j0 = exact_phase_relation(&simulate_basis(n, a, first), &simulate_basis(n, b, first))
+        .ok_or(first)?;
+    let bad = inputs.par_iter().find_first(|&&x| {
+        exact_phase_relation(&simulate_basis(n, a, x), &simulate_basis(n, b, x)) != Some(j0)
+    });
+    match bad {
+        Some(&x) => Err(x),
+        None => Ok(j0),
     }
-    Ok(phase.unwrap_or(0))
 }
 
 #[cfg(test)]

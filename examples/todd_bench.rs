@@ -3,14 +3,19 @@
 //!
 //! ```text
 //! cargo run --release --example todd_bench -- [--restarts R] [--seed S] [--passes P]
-//!     [--no-todd] [--out DIR] [--csv FILE] FILE.qc...
+//!     [--seconds S] [--hred] [--pauli] [--no-absorb] [--no-todd] [--out DIR]
+//!     [--csv FILE] FILE.qc...
 //! ```
 //!
 //! For every `.qc` file: parse, optimise, verify the output exactly
-//! against the input (path-sum canonical form), and print one row with the
-//! original T-count, the repo's `compile::phase_fold` on the 7-T expansion,
-//! slot phase folding, and the TODD result. `--out` writes each verified
-//! output circuit as `.qc`.
+//! against the input, and print one row with the original T-count, the
+//! repo's `compile::phase_fold` on the 7-T expansion, the folded/merged
+//! count, and the TODD result. Slot mode (default; `--hred` first applies
+//! the Hadamard rewrites, checked on basis inputs) is verified by the
+//! path-sum identity; `--pauli` (Pauli-frame mode) changes the Hadamard
+//! structure and is verified by exact simulation of every basis input
+//! (n ≤ 16) or 4096 random ones. `--out` writes each verified output
+//! circuit as `.qc`.
 
 use qsim_lab::compile::phase_fold;
 use qsim_lab::compile::todd::{self, PhaseCircuit, ToddOptions};
@@ -38,6 +43,7 @@ fn main() {
     let mut out_dir: Option<String> = None;
     let mut csv: Option<String> = None;
     let mut hred = false;
+    let mut pauli = false;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -47,6 +53,8 @@ fn main() {
             "--seconds" => opts.reassign_seconds = args.next().unwrap().parse().unwrap(),
             "--no-todd" => opts.todd = false,
             "--hred" => hred = true,
+            "--pauli" => pauli = true,
+            "--no-absorb" => opts.absorb_cliffords = false,
             "--out" => out_dir = Some(args.next().unwrap()),
             "--csv" => csv = Some(args.next().unwrap()),
             _ => files.push(a),
@@ -107,9 +115,44 @@ fn main() {
         let (expanded, _) = pc0.to_circuit();
         let repo_pf = t_gates(&phase_fold(&expanded).circuit);
         let t0 = Instant::now();
-        let (out, rep) = todd::optimize(&pc, &opts);
+        let (out, rep) = if pauli {
+            let (out, pr) = todd::pauli::optimize_pauli(&pc, &opts);
+            let rep = todd::ToddReport {
+                t_input: pr.t_input,
+                t_folded: pr.t_merged,
+                t_output: pr.t_output,
+                hadamards: pc.hadamard_count(),
+                cnots: out.gates().filter(|g| matches!(g, Gate::Cnot(..))).count(),
+                global_phase: pr.global_phase,
+                ..Default::default()
+            };
+            (out, rep)
+        } else {
+            todd::optimize(&pc, &opts)
+        };
         let secs = t0.elapsed().as_secs_f64();
-        let ver = todd::verify_output(&pc, &out);
+        let ver: Result<u8, String> = if pauli {
+            // Hadamard structure changes: exact basis-state simulation
+            let n = pc.num_qubits;
+            let inputs: Vec<u128> = if n <= 16 {
+                (0..(1u128 << n)).collect()
+            } else {
+                let mut x: u128 = 0x2545_F491_4F6C_DD1D;
+                (0..4096)
+                    .map(|_| {
+                        x ^= x << 13;
+                        x ^= x >> 7;
+                        x ^= x << 17;
+                        x & ((1u128 << n) - 1)
+                    })
+                    .collect()
+            };
+            let vo = todd::verify::vgates_from_circuit(&out).unwrap();
+            todd::verify::basis_equivalent(n, &pc0.to_vgates(), &vo, &inputs)
+                .map_err(|x| format!("basis input {x} differs ({} inputs)", inputs.len()))
+        } else {
+            todd::verify_output(&pc, &out).map_err(|e| e.to_string())
+        };
         let verified = match &ver {
             Ok(g) if *g == rep.global_phase => "yes".to_string(),
             Ok(g) => format!("PHASE-MISMATCH {g} vs {}", rep.global_phase),

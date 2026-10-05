@@ -31,6 +31,7 @@
 //! basis-state simulation over `Z[ω]` and the state-vector engine.
 
 pub mod gf2;
+pub mod pauli;
 pub mod tensor;
 pub mod verify;
 
@@ -735,6 +736,9 @@ pub struct ToddOptions {
     pub reassign_passes: usize,
     /// Wall-clock budget of the local search, in seconds.
     pub reassign_seconds: f64,
+    /// Pauli-frame mode only: push Clifford rotations created by merging
+    /// to the end (conjugating later rotations) and merge again.
+    pub absorb_cliffords: bool,
 }
 
 impl Default for ToddOptions {
@@ -745,6 +749,7 @@ impl Default for ToddOptions {
             seed: 1,
             reassign_passes: 0,
             reassign_seconds: 60.0,
+            absorb_cliffords: true,
         }
     }
 }

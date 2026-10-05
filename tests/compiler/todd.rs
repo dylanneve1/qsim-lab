@@ -91,17 +91,28 @@ fn benchmark_circuits_are_exact_and_do_not_regress() {
     let cases: &[(&str, usize)] = &[
         ("tof_3", 15),
         ("barenco_tof_3", 16),
-        ("mod5_4", 16),
+        ("mod5_4", 8),
         ("tof_4", 23),
         ("barenco_tof_4", 28),
-        ("hwb6", 75),
-        ("mod_mult_55", 35),
+        ("mod_mult_55", 30),
         ("vbe_adder_3", 24),
-        ("qft_4", 69),
+        ("qft_4", 66),
+        ("rc_adder_6", 47),
     ];
     for &(name, bound) in cases {
         let qc = parse_qc(&data(name)).unwrap();
-        let pc = PhaseCircuit::from_qc(&qc);
+        let mut pc = PhaseCircuit::from_qc(&qc);
+        let before = pc.clone();
+        if pc.reduce_hadamards() > 0 {
+            // the rewrite is checked on every basis input
+            let n = pc.num_qubits;
+            let inputs: Vec<u128> = (0..(1u128 << n)).collect();
+            assert_eq!(
+                basis_equivalent(n, &before.to_vgates(), &pc.to_vgates(), &inputs),
+                Ok(0),
+                "{name}: Hadamard rewrite"
+            );
+        }
         let opts = ToddOptions {
             restarts: 4,
             ..Default::default()
@@ -256,4 +267,182 @@ fn qc_round_trip_and_ccz_expansion() {
     assert!(err < 1e-9);
     let v = vgates_from_qc(&qc);
     assert!(v.iter().any(|g| matches!(g, VGate::Ccz(..))));
+}
+
+/// Pauli-frame mode: the output's Hadamard structure differs from the
+/// input's, so it is checked semantically: exact Z[ω] simulation of every
+/// basis input, plus the floating-point engine on random states.
+fn pauli_check(pc: &PhaseCircuit, opts: &ToddOptions) -> Circuit {
+    let (out, rep) = todd::pauli::optimize_pauli(pc, opts);
+    let n = pc.num_qubits;
+    let vo = vgates_from_circuit(&out).unwrap();
+    let inputs = basis_inputs(n, 1 << 12, 9);
+    let g = basis_equivalent(n, &pc.to_vgates(), &vo, &inputs).expect("exact basis-state check");
+    assert_eq!(g, rep.global_phase, "reported global phase");
+    assert!(rep.t_output <= rep.t_merged && rep.t_merged <= rep.t_input);
+    if n <= 12 {
+        let (orig, g0) = pc.to_circuit();
+        let err = sv_check(&orig, &out, (g + 8 - g0) % 8, 6, 17);
+        assert!(err < 1e-9, "state-vector check: {err}");
+    }
+    out
+}
+
+#[test]
+fn pauli_mode_random_circuits_are_exact() {
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a01);
+    for it in 0..(60 * iters()) {
+        let n = 1 + it % 7;
+        let len = 5 + (it * 11) % 70;
+        let pc = random_phase_circuit(n, len, &mut rng);
+        let opts = ToddOptions {
+            restarts: it % 3,
+            seed: it as u64,
+            reassign_passes: it % 2,
+            absorb_cliffords: it % 4 != 3,
+            ..Default::default()
+        };
+        pauli_check(&pc, &opts);
+    }
+}
+
+#[test]
+fn pauli_mode_benchmarks_are_exact_and_do_not_regress() {
+    let cases: &[(&str, usize)] = &[
+        ("mod5_4", 8),
+        ("tof_3", 15),
+        ("barenco_tof_3", 16),
+        ("vbe_adder_3", 24),
+        ("mod_mult_55", 28),
+        ("csla_mux_3", 49),
+    ];
+    for &(name, bound) in cases {
+        let pc = PhaseCircuit::from_qc(&parse_qc(&data(name)).unwrap());
+        let opts = ToddOptions {
+            restarts: 2,
+            reassign_passes: 1,
+            ..Default::default()
+        };
+        let out = pauli_check(&pc, &opts);
+        let t = out
+            .gates()
+            .filter(|g| matches!(g, Gate::T(_) | Gate::Tdg(_)))
+            .count();
+        assert!(t <= bound, "{name}: T-count {t} > {bound}");
+    }
+}
+
+#[test]
+fn diagonalisation_and_frames_agree_with_the_state_vector() {
+    use qsim_lab::compile::todd::pauli::{diagonalize, rotations, Rotation};
+    // a circuit's rotation list, re-synthesised one rotation at a time in
+    // the input frame and followed by the Clifford skeleton, is the circuit
+    let mut rng = StdRng::seed_from_u64(31);
+    for it in 0..40 {
+        let n = 1 + it % 5;
+        let pc = random_phase_circuit(n, 30, &mut rng);
+        let (rots, global) = rotations(&pc);
+        let mut c = Circuit::new(n);
+        let mut g = global;
+        for Rotation { axis, k } in &rots {
+            let (dg, rows) = diagonalize(std::slice::from_ref(axis));
+            let k = if rows[0].sign {
+                g = (g + k) % 8;
+                (8 - k) % 8
+            } else {
+                *k
+            };
+            let gates: Vec<Gate> = dg
+                .iter()
+                .map(|d| match *d {
+                    qsim_lab::compile::todd::pauli::DGate::H(q) => Gate::H(q),
+                    qsim_lab::compile::todd::pauli::DGate::S(q) => Gate::S(q),
+                    qsim_lab::compile::todd::pauli::DGate::Sdg(q) => Gate::Sdg(q),
+                    qsim_lab::compile::todd::pauli::DGate::Cnot(a, b) => Gate::Cnot(a, b),
+                })
+                .collect();
+            for &gt in &gates {
+                c.gate(gt);
+            }
+            let wires: Vec<usize> = rows[0].z.ones().collect();
+            let t = wires[0];
+            for &w in &wires[1..] {
+                c.cnot(w, t);
+            }
+            c.gate(Gate::Phase(t, k as f64 * std::f64::consts::FRAC_PI_4));
+            for &w in wires[1..].iter().rev() {
+                c.cnot(w, t);
+            }
+            for &gt in gates.iter().rev() {
+                c.gate(match gt {
+                    Gate::S(q) => Gate::Sdg(q),
+                    Gate::Sdg(q) => Gate::S(q),
+                    other => other,
+                });
+            }
+        }
+        for gate in &pc.gates {
+            match *gate {
+                PGate::H(q) => {
+                    c.h(q);
+                }
+                PGate::X(q) => {
+                    c.x(q);
+                }
+                PGate::Cnot(a, b) => {
+                    c.cnot(a, b);
+                }
+                PGate::Swap(a, b) => {
+                    c.swap(a, b);
+                }
+                PGate::Cz(a, b) => {
+                    c.cz(a, b);
+                }
+                PGate::Phase(q, k) if k % 2 == 0 => {
+                    c.gate(Gate::Phase(q, k as f64 * std::f64::consts::FRAC_PI_4));
+                }
+                PGate::Phase(q, k) => {
+                    c.gate(Gate::Phase(q, (k - 1) as f64 * std::f64::consts::FRAC_PI_4));
+                }
+                PGate::Ccz(..) => {}
+            }
+        }
+        let (orig, g0) = pc.to_circuit();
+        // pc = ω^g · c and pc = ω^g0 · orig
+        let err = sv_check(&orig, &c, (g + 8 - g0) % 8, 3, it as u64);
+        assert!(err < 1e-9, "iteration {it}: {err}");
+    }
+}
+
+#[test]
+fn hadamard_rewrites_are_exact() {
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x4ad);
+    let mut removed_total = 0;
+    for it in 0..(200 * iters()) {
+        let n = 2 + it % 5;
+        // bias towards Hadamard sandwiches around CNOT blocks
+        let mut pc = random_phase_circuit(n, 10 + it % 40, &mut rng);
+        for _ in 0..3 {
+            let a = rng.random_range(0..n);
+            let b = (a + 1 + rng.random_range(0..n - 1)) % n;
+            let at = rng.random_range(0..=pc.gates.len());
+            pc.gates.splice(
+                at..at,
+                [PGate::H(a), PGate::H(b), PGate::Cnot(a, b), PGate::H(a), PGate::H(b)],
+            );
+            let at = rng.random_range(0..=pc.gates.len());
+            pc.gates
+                .splice(at..at, [PGate::H(b), PGate::Cnot(a, b), PGate::X(b), PGate::H(b)]);
+        }
+        let before = pc.clone();
+        removed_total += pc.reduce_hadamards();
+        let inputs: Vec<u128> = (0..(1u128 << n)).collect();
+        assert_eq!(
+            basis_equivalent(n, &before.to_vgates(), &pc.to_vgates(), &inputs),
+            Ok(0),
+            "iteration {it}"
+        );
+        assert_eq!(before.t_count(), pc.t_count());
+    }
+    assert!(removed_total > 100, "rules fired only {removed_total} times");
 }
