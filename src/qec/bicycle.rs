@@ -31,7 +31,7 @@
 //! `R0`, and the `R0` search may exclude every `L` qubit (a logical touching
 //! `L` has a translate through `L0`, already explored at the same weight).
 //! Nontriviality is tested with `k` conjugate logical vectors packed into a
-//! `u64` mask per qubit. [`distance_upper_bound`] is a fast randomized
+//! `u128` mask per qubit. [`distance_upper_bound`] is a fast randomized
 //! information-set search (Leon / Lee–Brickell, `p <= 2`) giving an upper
 //! bound and a witness.
 #![allow(clippy::needless_range_loop)]
@@ -395,11 +395,11 @@ impl DistanceResult {
     }
 }
 
-/// For the pair `(hcheck, hother)` of a CSS code: per qubit, a `u64` mask of
+/// For the pair `(hcheck, hother)` of a CSS code: per qubit, a `u128` mask of
 /// which of `k` conjugate logicals it overlaps. A vector `e` in `ker hcheck`
 /// is a nontrivial logical iff the XOR of the masks over its support is
 /// non-zero. Returns `(masks, k)`; panics if `k > 64`.
-pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u64>, usize) {
+pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u128>, usize) {
     // conjugates: ker(hother) modulo rowspace(hcheck)
     let n = hcheck.cols;
     let w = hcheck.words;
@@ -436,11 +436,11 @@ pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u64>, usize) {
         }
     }
     let k = conj.len();
-    assert!(k <= 64, "k = {k} > 64 unsupported");
-    let mut masks = vec![0u64; n];
+    assert!(k <= 128, "k = {k} > 128 unsupported");
+    let mut masks = vec![0u128; n];
     for (j, l) in conj.iter().enumerate() {
         for q in bits_of(l) {
-            masks[q] |= 1 << j;
+            masks[q] |= 1u128 << j;
         }
     }
     (masks, k)
@@ -450,7 +450,7 @@ pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u64>, usize) {
 /// nontrivial logical in `ker hcheck`. Returns `(weight, support)`.
 pub fn distance_upper_bound<R: Rng>(
     hcheck: &Gf2Mat,
-    masks: &[u64],
+    masks: &[u128],
     iters: usize,
     rng: &mut R,
 ) -> (usize, Vec<usize>) {
@@ -466,7 +466,7 @@ pub fn distance_upper_bound<R: Rng>(
     for (r, v) in ker.iter().enumerate() {
         g.data[r * w..(r + 1) * w].copy_from_slice(v);
     }
-    let obs_of = |v: &[u64]| bits_of(v).iter().fold(0u64, |o, &q| o ^ masks[q]);
+    let obs_of = |v: &[u64]| bits_of(v).iter().fold(0u128, |o, &q| o ^ masks[q]);
     let mut order: Vec<usize> = (0..n).collect();
     let mut buf = vec![0u64; w];
     for _ in 0..iters {
@@ -475,7 +475,7 @@ pub fn distance_upper_bound<R: Rng>(
         let piv = m.rref(Some(&order));
         let rr = piv.len();
         let rows: Vec<&[u64]> = (0..rr).map(|r| m.row(r)).collect();
-        let obs: Vec<u64> = rows.iter().map(|r| obs_of(r)).collect();
+        let obs: Vec<u128> = rows.iter().map(|r| obs_of(r)).collect();
         let wt: Vec<u32> = rows
             .iter()
             .map(|r| r.iter().map(|x| x.count_ones()).sum())
@@ -517,7 +517,7 @@ pub enum SearchOutcome {
 struct Bb<'a> {
     qchecks: &'a [Vec<u32>],
     cqubits: &'a [Vec<u32>],
-    masks: &'a [u64],
+    masks: &'a [u128],
     nbr: Vec<Vec<u64>>,
     maxdeg: usize,
     cw: usize,
@@ -537,7 +537,7 @@ impl Bb<'_> {
     }
 
     /// Returns false on abort; sets `found` on success.
-    fn dfs(&mut self, f: &mut [u64], obs: u64, w: usize) -> bool {
+    fn dfs(&mut self, f: &mut [u64], obs: u128, w: usize) -> bool {
         self.nodes += 1;
         if self.nodes > self.limit {
             return false;
@@ -634,7 +634,7 @@ impl Bb<'_> {
 /// exhaustive search.
 pub fn min_weight_logical(
     hcheck: &Gf2Mat,
-    masks: &[u64],
+    masks: &[u128],
     roots: &[(usize, Vec<usize>)],
     start: usize,
     max_weight: usize,
@@ -767,13 +767,13 @@ pub fn code_distance(
 }
 
 /// Checks `e` (support) is a nontrivial logical of `(hcheck, masks)`.
-pub fn is_nontrivial_logical(hcheck: &Gf2Mat, masks: &[u64], support: &[usize]) -> bool {
+pub fn is_nontrivial_logical(hcheck: &Gf2Mat, masks: &[u128], support: &[usize]) -> bool {
     let mut v = vec![0u64; hcheck.words];
     for &q in support {
         v[q / 64] ^= 1 << (q % 64);
     }
     let syn_zero = (0..hcheck.rows).all(|r| !dot(hcheck.row(r), &v));
-    let obs = support.iter().fold(0u64, |o, &q| o ^ masks[q]);
+    let obs = support.iter().fold(0u128, |o, &q| o ^ masks[q]);
     syn_zero && obs != 0
 }
 
