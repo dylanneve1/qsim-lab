@@ -19,11 +19,12 @@ state-vector size.** The structure is simple and exact:
    system register) d equals n − k, where k is the number of independent Z₂ symmetries (N_α and N_β parity, plus the
    abelian point-group bits) — exactly the number of qubits removable by symmetry tapering (Bravyi et al. 2017,
    Setia et al. 2020). Measured on 14 molecules × 10 circuit families, n = 4–24, and from the GF(2) rank at
-   n = 24–100: n − d ∈ {2, 3, 4} always. d is identical in Jordan–Wigner and Bravyi–Kitaev (a theorem: both map
+   n = 24–100: n − d ∈ {2, …, 5} always. d is identical in Jordan–Wigner and Bravyi–Kitaev (a theorem: both map
    occupation vectors linearly), independent of the Trotter step dt (0.01, 0.1, 0.5 give the same d, W_d and
-   saturation point), and reached within the first 1–4 % of the first Trotter step. Pair (seniority-zero)
-   ansätze have d = n/2 − 1 (− point-group bits). The branching rank overflows (> 1024 terms) for every circuit
-   with n ≥ 8.
+   saturation point), and reached within the first 1–4 % of the first Trotter step for n ≥ 12 (JW; 7–11 % in BK,
+   whose term order differs). Pair (seniority-zero)
+   ansätze have d = n/2 − 1 (− point-group bits). The branching rank overflows (> 1024 terms) for every Trotter,
+   UCCSD, UpCCGSD and QPE circuit with n ≥ 8.
 2. **The only way to keep d ≪ n is to truncate the ansatz.** d is then a design parameter: we select CCSD
    excitations by |t| until the GF(2) span of their x-vectors reaches D dimensions, then add every other excitation
    whose x-vector is already in the span for free ("span-closed" selection; K ≫ D, e.g. 537 generators in a
@@ -32,19 +33,26 @@ state-vector size.** The structure is simple and exact:
    at D = 16.
 3. **Those registers are far too small to hold chemistry beyond 30–40 qubits.** We bound every circuit in a register
    by the lowest eigenvalue of H projected onto that register (Lanczos, `register_ground`; no circuit with the same
-   rotation span can go lower). At 40–100 qubits, the register optimum at D = 16–20 recovers **2–42 % of the
-   correlation energy** (H₅₀/STO-3G, 100 qubits: 7 % at D = 16; N₂/cc-pVDZ, 52 qubits: <!--N2D16-->; 4×4 H sheet,
-   32 qubits: 42 %), while CCSD recovers 97–99 % at equilibrium in seconds and DMRG is near-exact. The largest exact
-   simulation run is a **100-qubit, 537-generator UCC state of H₅₀ in a 24-qubit register** (<!--H50D24-->), exact
-   to ~1e-12 and chemically useless (error <!--H50D24ERR--> mEh).
-4. **Where CCSD fails (stretched bonds) the variational exact simulation wins over CCSD only at sizes where FCI
-   or DMRG is trivial.** Stretched H₆ (12 qubits): CCSD −126 mEh (overshoots), span-closed UCC with d = 8 and
-   Rotosolve +12 mEh. Stretched N₂/STO-3G (16 qubits): CCSD −102 mEh, UCC (d = 12) +14 mEh. At 32–100 qubits the
-   stretched sheets/chains need d ≈ n − k to get within 100 mEh, i.e. state-vector size again, and DMRG (M = 300–500)
-   solves them to µEh in minutes.
+   rotation span can go lower). At 32–100 qubits the register optimum at D ≤ 20 (and the D = 24 circuit energy)
+   recovers **4–72 % of the correlation energy** — H₅₀/STO-3G (100 qubits) 11 %, H₃₀ 27 %, H₂₀ 44 %,
+   N₂/cc-pVDZ (52 qubits) 49 %, H₂O/cc-pVDZ 52 %, 4×4 H sheet 69 % — i.e. errors of 78–740 mEh at equilibrium,
+   while CCSD is within 4–26 mEh, CCSD(T) within 3 mEh, and DMRG (our reference) is essentially exact. The largest
+   exact simulation is a **100-qubit, 537-generator (4,296 Pauli rotations) UCC state of H₅₀ in a 24-qubit register:
+   one exact energy in 229 s, error +723 mEh** (CCSD: +26 mEh in seconds). The largest *best* result is the 4×4 sheet
+   at D = 24 (32 qubits, 1,141 generators, 18 min): +78 mEh, still 5× CCSD's error.
+4. **Where CCSD fails (stretched bonds) the variational exact simulation beats CCSD only at sizes where FCI or DMRG
+   is trivial.** Stretched H₆ (12 qubits): CCSD −126 mEh (overshoots), span-closed UCC with d = 8 and Rotosolve
+   +12 mEh. Stretched N₂/STO-3G (16 qubits): CCSD −102 mEh, UCC (d = 12) +14 mEh. At 32–100 qubits the stretched
+   systems are out of reach: 4×4 sheet at 1.8 Å, register optimum +742 mEh (CCSD unconverged, CCSD(T) +297 mEh);
+   N₂/cc-pVDZ at 2.0 Å (52 qubits), +179 mEh vs CCSD +70 / CCSD(T) −33 mEh — and DMRG (M = 300–500) solves all of
+   them to sub-mEh in 1–15 minutes.
+5. **Exactness was checked independently at 32–100 qubits.** A separate sparse-determinant UCC simulator with a
+   Slater–Condon energy (`crosscheck.py`, shares only the integrals) reproduces the compressed-state energies of
+   H₂₀, 4×4 H, N₂/cc-pVDZ, H₂O/cc-pVDZ and H₅₀ (d = 12) to ≤ 4e-11 Eh with identical determinant counts — and runs in
+   0.1–1.2 s, which is the honest classical comparator for this kind of state.
 
 So: low magic in chemistry exists only as "few rotations" (truncated ansätze, d = number of independent excitation
-patterns) or as symmetry (tapering, k ≤ 4 qubits); neither gives a chemically meaningful number beyond SV size, and
+patterns) or as symmetry (tapering, k ≤ 5 qubits); neither gives a chemically meaningful number beyond SV size, and
 for every system we ran the classical method (CCSD/CCSD(T) at equilibrium, DMRG everywhere) is better and cheaper.
 This is a negative result with a precise reason (§2) and a quantitative ceiling (§4).
 
@@ -80,7 +88,7 @@ flips/phases qubits, e.g. a determinant reference: other terms have zero expecta
 of 12,257,500 monomials and builds in 1.2 s. Angles are optimised by Rotosolve (each excitation enters the energy
 as a degree-2 trigonometric polynomial, fixed exactly by 5 evaluations).
 
-**Correctness.** `check` (30 programs, n ≤ 20): compressed-state energy vs state vector |ΔE| ≤ 9e-11, infidelity
+**Correctness.** `check` (33 runs, n ≤ 20): compressed-state energy vs state vector |ΔE| ≤ 9e-11, infidelity
 ≤ 1e-12, filtered = unfiltered Hamiltonian; HF energies equal PySCF RHF to 1e-10 (Slater–Condon and Pauli);
 Rotosolve on H₂ reaches FCI to 1e-10; the H₄ selected-UCC energy equals an independent OpenFermion evaluation
 (expm of the fermionic generators, OpenFermion's own JW Hamiltonian) to 1e-12, and OpenFermion's sector ground state
@@ -91,7 +99,7 @@ equals PySCF FCI. All in `tests/lowmagic_chem.rs` (8 tests) or `runs/check.jsonl
 **Lemma 1 (encoding invariance).** JW, BK and parity encodings map a determinant with occupation vector o to the
 basis state |B o⟩ for an invertible GF(2) matrix B, and every fermionic operator that changes occupations by v
 to Pauli strings with x-part B v. A circuit of fermionic rotations on a determinant therefore has rotation x-vectors
-B·{v_j}, and d = rank{v_j} in every such encoding. *Measured:* JW and BK give identical d for all 92 (molecule,
+B·{v_j}, and d = rank{v_j} in every such encoding. *Measured:* JW and BK give identical d for all 56 (molecule,
 circuit) pairs; only the position where d saturates moves (BK: later, because the term order differs).
 
 **Lemma 2 (symmetry bound).** If every generator conserves N_α, N_β and the irreducible representation of an
@@ -102,7 +110,7 @@ step, UCCSD, and generalized ansätze (which break point-group symmetry: d = n �
 
 | circuit family | measured d | n − d |
 |---|---|---|
-| Trotter (any dt, JW or BK), UCCSD | n − 2 (no symmetry) … n − 4 (D₂h-like) | 2–4 |
+| Trotter (any dt, JW or BK), UCCSD | n − 2 (no symmetry) … n − 5 (BeH₂, D₂h) | 2–5 |
 | UCCD | n − k − 1 (no singles: one more parity) | 3–5 |
 | k-UpCCGSD (k = 1, 2) | n − 2 | 2 |
 | pUCCD (pairs) | n/2 − 1 (− point group) | ≈ n/2 |
@@ -114,12 +122,15 @@ step, UCCSD, and generalized ansätze (which break point-group symmetry: d = n �
 (Full table: `tables.md` §"Structure map"; the GF(2)-rank table covers n = 24–100, e.g. H₅₀: d(UCCSD) = 97,
 d(pUCCD) = 49.)
 
+(Equality needs the MO basis to exhibit the symmetry: N₂ in STO-3G has D₂h, k = 5, but the canonical degenerate π
+orbitals come out mixed, so only k = 4 is visible to d; with symmetry-adapted orbitals tapering and d agree.)
+
 So the compressed state is, for chemistry, automatic qubit tapering: 2–4 qubits, never the 10–60 that "beyond SV"
 needs.
 
 **Angle blindness and saturation.** d, W_d and the saturation point are identical for dt = 0.01, 0.1 and 0.5. d
-saturates after 21 of 1,330 rotations (BeH₂, JW, 1.6 % of the first step), 83 of 7,150 (H₁₀, 1.2 %), 29 of 2,352
-(N₂). The magic atlas (§6.4) already noted that Trotter step size is invisible to d except at exact Clifford angles;
+saturates after 21 of the 665 rotations of the first step (BeH₂, JW, 3 %), 83 of 7,150 (H₁₀, 1.2 %), 29 of 1,176
+(N₂, 2.5 %). The magic atlas (§6.4) already noted that Trotter step size is invisible to d except at exact Clifford angles;
 for molecules there are no Clifford points (the coefficients are incommensurate). Exact frame simulation of a
 molecular Trotter circuit therefore costs `2^{n−k}` per rotation from the first percent of the first step on,
 regardless of dt — there is no time-step/error trade-off to exploit. (The *state* magic of e^{−iHt}|HF⟩ is
@@ -149,35 +160,65 @@ For a UCC product on HF, d = rank{x(excitation)}: each single/double adds at mos
 whose x-vector is a sum of chosen ones adds none (spin-flipped partners, same-spin combinations, chains of
 excitations sharing orbitals). Consequences, measured:
 
-- `selK` (top-K amplitudes): d ≈ K/2 (H₅₀: d = 13 at K = 28; N₂/cc-pVDZ: 11).
+- `selK` (top-K amplitudes): d ≈ K/2 (H₅₀: d = 13 at K = 28; N₂/cc-pVDZ: 11 at K = 24–28).
 - `spanD` (span-closed): K grows fast at fixed D. H₅₀: D = 8 → 22 generators, 12 → 48, 16 → 107, 20 → 248, 24 → 537;
   3×4 stretched sheet: 1,818 at D = 24.
-- The register is wasteful for number-conserving states: `nnz/2^d` = 106/256, 1,132/4,096, 14,688/65,536 (H chains,
-  D = 8, 12, 16): about 25 % of the register is physical, because d only knows the two parities, not N.
+- The register is wasteful for number-conserving states: `nnz/2^d` = 106/256, 1,132/4,096, 14,688/65,536,
+  187,353/1,048,576, 2,565,141/16,777,216 (H chains, D = 8 … 24): 15–40 % of the register is physical, because d only
+  knows the two parities, not N (N₂/cc-pVDZ at D = 20: 3 %).
 
 This is the regime the brief asked about (Clifford + few rotations / HF + few excitations). Exact simulation cost
 is ~2^d per rotation and the energy evaluation is fast with the span-filtered Hamiltonian (H₅₀, d = 16, 107
-generators: 0.2 s per energy; d = 20: <!--T20--> s; d = 24: <!--T24--> s).
+generators: 0.2 s per energy; d = 20, 248 generators: 6 s; d = 24, 537 generators: 229 s; 1 thread on a loaded
+laptop).
 
 ## 4. Energies: what these registers can hold
 
 Errors in mEh against FCI (n ≤ 24) or DMRG (larger); `E_reg` is the best any circuit in the same register can do.
 Selected rows (all rows: `tables.md` §"Energies"):
 
-<!--ENERGY_TABLE-->
+Beyond state-vector size (D = register size; `E_opt` after Rotosolve of the 20 largest amplitudes, `E_reg` the
+register optimum, `—` not run; † CCSD not converged; * CCSD(T) reference, DMRG still running — see caveats):
+
+| system | n | ref | CCSD | CCSD(T) | D=8 E_reg | D=16 E_opt / E_reg | D=20 E_opt / E_reg | D=24 E (CCSD angles) | % corr, best register |
+|---|---|---|---|---|---|---|---|---|---|
+| h4x4 | 32 | DMRG 500 | +15 | +3 | +212 | +149 / +146 | +133 / +128 | +78 | 69 % |
+| h4x4_s | 32 | DMRG 500 | +415† | +297 | +928 | +832 / +815 | +806 / +742 | — | 27 % |
+| h20 | 40 | DMRG 300 | +8 | +1 | +276 | +230 / +228 | +204 / +200 | +185 | 44 % |
+| h4x5_s | 40 | DMRG 500 | +418† | +164 | +1226 | +1146 / +1096 | +1087 / +891 | — | 31 % |
+| h2o_dz | 46 | DMRG 400 | +4 | +1 | +175 | +127 / +127 | +102 / +102 | — | 52 % |
+| n2_dz | 52 | DMRG 400 | +12 | +1 | +244 | +179 / +178 | +164 / +163 | — | 49 % |
+| n2_dz_s | 52 | DMRG 400 | +70 | -33 | +236 | +217 / +201 | +209 / +179 | — | 72 % |
+| h30 | 60 | DMRG 300 | +16 | +3 | +454 | +414 / +411 | +391 / +386 | +363 | 27 % |
+| h50 | 100 | CCSD(T)* | +26 | +0 | +794 | +763 / +759 | +746 / +740 | +723 | 11 % |
+| h50_s | 100 | CCSD(T)* | +211† | +0 | +4098 | +4138 / +4054 | +4171 / +3958 | +4142 | 4 % |
+
+At and below SV size (FCI reference; all rows in `tables.md`):
+
+| system | n | CCSD | span-closed UCC: D → (d, K, nnz) | E_opt | E_reg |
+|---|---|---|---|---|---|
+| LiH | 12 | +0.0 | 8 → (8, 34, 69) | +0.0 | — |
+| H₂O | 14 | +0.1 | 8 → (8, 30, 65) | +0.2 | +0.1 |
+| H₈ | 16 | +1.1 | 8 → (8, 22, 106) / 12 → (12, 168, 1252) | +48.1 / +1.8 | +48.0 / +1.7 |
+| N₂ | 16 | +3.9 | 8 → (8, 26, 84) / 12 → (12 = n − 4, 85, 780) | +26.1 / +2.2 | +25.7 / 0.0 |
+| H₁₀ | 20 | +2.0 | 12 → (12, 75, 1132) / 16 → (16, 417, 15912) | +56.3 / +3.0 | +55.8 / +2.9 |
+| H₆ 2.0 Å | 12 | −125.7 | 8 → (8, 51, 104) | +12.4 | — |
+| N₂ 2.0 Å | 16 | −101.8 | 8 → (8, 47, 104) / 12 → (12, 85, 738) | +27.8 / +13.6 | +18.1 / 0.0 |
+
 
 Reading the table:
 
 - **Small molecules (n ≤ 16, equilibrium):** a span-closed UCC with d = n − k is UCCSD and is as good as CCSD
   (LiH +0.01, H₂O +0.10, BeH₂ +0.38 mEh) — but this *is* state-vector size. At d = 8 below the symmetry bound the
   errors are 0.2–27 mEh (H₂O, BeH₂ fine; N₂ 26 mEh; H₈ 48 mEh).
-- **Beyond SV size (n = 32–100):** the register optimum at D = 16 recovers 7 % (H₅₀), 17 % (H₃₀), 31 % (H₂₀),
-  42 % (4×4 sheet) of the correlation energy; D = 20 adds a few percent. CCSD errors are 8–26 mEh at equilibrium,
-  DMRG ~0. The fraction falls with system size at fixed D because correlation energy is extensive and 2^D
-  determinants are not.
+- **Beyond SV size (n = 32–100):** the register optimum at D = 16 recovers 7 % (H₅₀), 16 % (H₃₀), 31 % (H₂₀),
+  41 % (4×4 sheet), 41–44 % (H₂O, N₂ cc-pVDZ) of the correlation energy; each +4 in D adds 2–9 points (D = 24: H₅₀
+  11 %, H₂₀ 44 %, 4×4 69 %). CCSD errors are 4–26 mEh at equilibrium, CCSD(T) ≤ 3 mEh. The fraction falls with
+  system size at fixed D because correlation energy is extensive and 2^D determinants are not.
 - **Stretched (strong correlation):** CCSD diverges or fails to converge (3×4: −307 mEh at the last iterate,
   4×4 / 4×5 / H₅₀ at 1.8 Å: not converged). The variational UCC beats CCSD for n ≤ 16 (H₆: +12 vs −126 mEh; N₂: +14 vs
-  −102 mEh), where FCI costs milliseconds. Beyond SV size the register optimum is 0.5–4 Ha above the DMRG energy.
+  −102 mEh), where FCI costs milliseconds. Beyond SV size the register optimum is 0.18–0.9 Ha above DMRG
+  (H₅₀ at 1.8 Å: ~4 Ha above the CCSD(T) number, itself unreliable there).
 - **Rotosolve vs CCSD angles:** at equilibrium, CCSD amplitudes are already within 0.1–1 mEh of the optimum in
   the same register; stretched, they are useless (H₆: +388 → +12 mEh after optimisation).
 
@@ -194,7 +235,11 @@ in §1):
 
 | simulation | qubits | generators / rotations | d | time per energy | error vs best reference | CCSD error |
 |---|---|---|---|---|---|---|
-<!--LARGEST-->
+| H₅₀ chain, span24 (STO-3G, 1.0 Å) | 100 | 537 / 4,296 | 24 | 229 s | +723 mEh (vs CCSD(T)) | +26 mEh |
+| H₃₀ chain, span24 | 60 | 537 / 4,296 | 24 | 282 s | +363 mEh (DMRG) | +16 mEh |
+| 4×4 H sheet, span24 (1.0 Å) | 32 | 1,141 / 9,128 | 24 | 1,107 s | +78 mEh (DMRG) | +15 mEh |
+| H₂₀ chain, span24 | 40 | 300 / 2,400 | 24 | 136 s | +185 mEh (DMRG) | +8 mEh |
+| N₂/cc-pVDZ 2.0 Å, span20 + Lanczos | 52 | 185 / 1,480 | 20 | 15 s | +179 mEh (register optimum, DMRG) | +70 mEh |
 
 None of these is chemically meaningful (chemical accuracy 1.6 mEh); each is worse than CCSD at equilibrium by one to
 two orders of magnitude, and DMRG gives the exact answer for every system in this study. Variants that would make
@@ -222,7 +267,7 @@ are exactly the cases classical chemistry already treats as trivial (fragment me
 **New here (as far as I found).**
 1. The identification d = n − (number of Z₂ symmetries) for every molecular circuit family on a determinant, with the
    proof via encoding linearity (JW = BK) and the measurement across 14 molecules and 10 families, including the
-   saturation point (first 1–4 % of the first Trotter step) and the dt-independence.
+   saturation point (first 1–4 % of the first Trotter step, JW, n ≥ 12) and the dt-independence.
 2. Span-closed excitation selection: at fixed register size D, all excitations in the GF(2) span are free; the
    Rust Hamiltonian builder that restricts the Jordan–Wigner Hamiltonian to span monomials (12 M → 19 k for H₅₀).
 3. The register-optimum bound (Lanczos on H projected onto the 2^d frame register): a cheap certificate of what
