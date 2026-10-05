@@ -54,6 +54,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [planner-v2.md](simulability/planner-v2.md) | Planner v2: samples, amplitudes, cheaper planning |
 | [adaptive.md](simulability/adaptive.md) | Adaptive representation switching (`src/engines/adaptive.rs`) |
 | [spoof-utility.md](simulability/spoof-utility.md) | Classical (laptop) reproduction of IBM's 127-qubit kicked-Ising utility experiment with sparse Pauli dynamics; 433/1121-qubit lattices |
+| [peaked-circuits.md](simulability/peaked-circuits.md) | Classical, blind solution of the 98-qubit Quantum Advantage Tracker peaked circuits P11 and P12 (89 s / 182 s on one VM; peaks equal the Helios-1 results) |
 
 ## Engine performance — [`performance/`](performance/)
 
