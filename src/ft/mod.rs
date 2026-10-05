@@ -3,7 +3,7 @@
 //! [[49,1,9]]) with circuit-level depolarizing noise on every physical
 //! location, Steane error correction with verified ancillas, transversal
 //! Cliffords, T gates by magic-state injection + teleportation, and
-//! hierarchical hard-decision decoding. See `research/ft-shor.md`.
+//! hierarchical hard-decision decoding. See `research/shor/ft-shor.md`.
 //!
 //! Simulation method (exact for stochastic Pauli noise): every physical
 //! operation is a Clifford gate, a Pauli measurement, a preparation of
