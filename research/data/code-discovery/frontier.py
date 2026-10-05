@@ -134,20 +134,25 @@ def sum_closure(base, nmax):
                         reach[m] = {x for x in reach[m] if not (item[0] >= x[0] and item[1] >= x[1])}
                         reach[m].add(item)
                         changed = True
-    return reach
+    # sums of >= 2 codes: (a Pareto item at n) + (one more base code)
+    multi = defaultdict(list)
+    for n in list(reach):
+        for k, d, parts in reach[n]:
+            for n2, k2, d2 in base:
+                if n + n2 <= nmax:
+                    multi[n + n2].append((k + k2, min(d, d2), parts + ((n2, k2, d2),)))
+    return multi
 
 
 def dominated_by_sums(code, reach):
-    """A sum of >= 2 codes with n' <= n, k' >= k, d' >= d (one strict or n' < n)."""
+    """Sums of >= 2 codes with n' <= n, k' >= k, d' >= d (equal parameters count)."""
     n, k, d = code
     out = []
     for n2, v in reach.items():
         if n2 > n:
             continue
         for k2, d2, parts in v:
-            if len(parts) >= 2 and k2 >= k and d2 >= d and (n2, k2, d2) != (n, k, d) or (
-                len(parts) >= 2 and (n2, k2, d2) == (n, k, d)
-            ):
+            if k2 >= k and d2 >= d:
                 out.append((n2, k2, d2, parts))
     return out
 
