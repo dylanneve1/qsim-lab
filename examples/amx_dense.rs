@@ -301,10 +301,12 @@ fn apply_scalar(x: &mut [f32], ur: &[f32], ui: &[f32], d: usize) {
 
 // ----- x86_64 kernels ----------------------------------------------------------
 
-/// `PAD`: 16 NOPs after every TDPBF16PS / TILELOADD of the kernel: issued back to
-/// back, AMX instructions run at about half rate on this machine (`micro`
-/// shows 13.6-14.8 ns per TDPBF16PS back to back, 7.2-7.5 ns with 16 NOPs
-/// between); padding made the bf16x3 kernel 1.2-1.6x faster.
+/// `PAD`: 16 NOPs after every TDPBF16PS / TILELOADD of the kernel. Issued
+/// back to back, AMX instructions ran at about half rate in most of our runs
+/// (`micro`: 11.9-15.7 ns per TDPBF16PS back to back, 8.1-8.3 ns with 16
+/// NOPs between, at load 10-28; 5.5 vs 5.8 ns in the one quiet run). Padding
+/// made the bf16x3 kernel 1.2-1.4x faster at load 11 and 1.2-1.6x at load 22
+/// (`research/data/avx512/amx/pad-quiet.md`, `pad-ab.md`).
 macro_rules! PAD {
     () => {
         ".rept 16\nnop\n.endr"
