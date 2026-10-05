@@ -1908,6 +1908,27 @@ fn new_buf<T: Real>(l: usize) -> Buf<T> {
     }
 }
 
+thread_local! {
+    /// Per-thread block buffer and diagonal scratch, reused across chunks
+    /// and stages instead of being allocated (and zeroed and page-faulted)
+    /// once per rayon split of every stage.
+    static SCRATCH: std::cell::RefCell<Option<Box<dyn std::any::Any>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with this thread's cached `2^l` block buffer and scratch.
+fn with_scratch<T: Real, R>(l: usize, f: impl FnOnce(&mut Buf<T>, &mut DiagScratch<T>) -> R) -> R {
+    type Pair<T> = (Buf<T>, DiagScratch<T>);
+    let cached = SCRATCH.with(|s| s.borrow_mut().take());
+    let mut b: Box<Pair<T>> = match cached.and_then(|b| b.downcast::<Pair<T>>().ok()) {
+        Some(b) if b.0.re.len() == 1 << l => b,
+        _ => Box::new((new_buf::<T>(l), DiagScratch::default())),
+    };
+    let r = f(&mut b.0, &mut b.1);
+    SCRATCH.with(|s| *s.borrow_mut() = Some(b));
+    r
+}
+
 fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: bool) {
     let l = p.l;
     if l >= n {
@@ -1920,23 +1941,24 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: 
     }
     let full = (1usize << n) - 1;
     let outer_phys = full & !p.inner_mask;
-    let init = || (new_buf::<T>(l), DiagScratch::default());
     if p.inner_mask == (1usize << l) - 1 {
         // Inner qubits are the low ones: chunks are contiguous.
         amps.par_chunks_mut(1 << l)
             .enumerate()
-            .for_each_init(init, |(buf, sc), (c, chunk)| {
-                let t0 = std::time::Instant::now();
-                load_run(buf, 0, chunk);
-                if prof::on() {
-                    prof::add(6, t0);
-                }
-                run_ops(p, buf, c << l, sc, simd);
-                let t0 = std::time::Instant::now();
-                store_run(buf, 0, chunk);
-                if prof::on() {
-                    prof::add(7, t0);
-                }
+            .for_each(|(c, chunk)| {
+                with_scratch::<T, _>(l, |buf, sc| {
+                    let t0 = std::time::Instant::now();
+                    load_run(buf, 0, chunk);
+                    if prof::on() {
+                        prof::add(6, t0);
+                    }
+                    run_ops(p, buf, c << l, sc, simd);
+                    let t0 = std::time::Instant::now();
+                    store_run(buf, 0, chunk);
+                    if prof::on() {
+                        prof::add(7, t0);
+                    }
+                })
             });
         return;
     }
@@ -1957,24 +1979,26 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: 
     }
     ord.par_chunks_mut(1 << ns)
         .enumerate()
-        .for_each_init(init, |(buf, sc), (c, runs)| {
-            let t0 = std::time::Instant::now();
-            for (r, run) in runs.iter().enumerate() {
-                let run = run.as_ref().expect("every run is assigned");
-                load_run(buf, r << bc, run);
-            }
-            if prof::on() {
-                prof::add(6, t0);
-            }
-            run_ops(p, buf, deposit(c, outer_phys), sc, simd);
-            let t0 = std::time::Instant::now();
-            for (r, run) in runs.iter_mut().enumerate() {
-                let run = run.as_mut().expect("every run is assigned");
-                store_run(buf, r << bc, run);
-            }
-            if prof::on() {
-                prof::add(7, t0);
-            }
+        .for_each(|(c, runs)| {
+            with_scratch::<T, _>(l, |buf, sc| {
+                let t0 = std::time::Instant::now();
+                for (r, run) in runs.iter().enumerate() {
+                    let run = run.as_ref().expect("every run is assigned");
+                    load_run(buf, r << bc, run);
+                }
+                if prof::on() {
+                    prof::add(6, t0);
+                }
+                run_ops(p, buf, deposit(c, outer_phys), sc, simd);
+                let t0 = std::time::Instant::now();
+                for (r, run) in runs.iter_mut().enumerate() {
+                    let run = run.as_mut().expect("every run is assigned");
+                    store_run(buf, r << bc, run);
+                }
+                if prof::on() {
+                    prof::add(7, t0);
+                }
+            })
         });
 }
 
