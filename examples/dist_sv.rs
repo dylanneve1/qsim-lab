@@ -15,7 +15,8 @@
 //! dist_sv ram  --workload qft --n 26 --prec f32 [--reps 3]
 //! ```
 //!
-//! Workloads: `qft`, `brick` (4 layers), `brick16`, `ghz`. Output: one
+//! Workloads: `qft`, `brick` (4 layers), `brick16`, `brickd` (`--depth`
+//! layers, default 2n), `ghz`. Output: one
 //! `key=value` line per node on stdout.
 
 use num_complex::{Complex, Complex64};
@@ -31,7 +32,6 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
 
@@ -55,9 +55,10 @@ fn get<T: std::str::FromStr>(kv: &HashMap<String, String>, k: &str, d: T) -> T {
         .unwrap_or(d)
 }
 
-fn workload(name: &str, n: usize) -> Circuit {
+fn workload(name: &str, n: usize, depth: usize) -> Circuit {
     let mut rng = StdRng::seed_from_u64(42 + n as u64);
     match name {
+        "brickd" => algorithms::random_brickwork(n, depth, &mut rng),
         "ghz" => algorithms::ghz(n),
         "qft" => algorithms::qft(n),
         "brick" => algorithms::random_brickwork(n, 4, &mut rng),
@@ -223,7 +224,7 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
         block: BlockConfig::default(),
         msg_amps: (get::<usize>(kv, "msg-kib", 4096) << 10) / std::mem::size_of::<Complex<T>>(),
     };
-    let circ = workload(&wl, n);
+    let circ = workload(&wl, n, get(kv, "depth", 2 * n));
     let t = Instant::now();
     let o = opts(kv);
     let plan = plan_circuit(&circ, l, &o).expect("plan");
@@ -303,7 +304,7 @@ fn plan_only(kv: &HashMap<String, String>) {
     let n: usize = get(kv, "n", 20);
     let o = opts(kv);
     for l in (n.saturating_sub(4).max(3)..n).rev() {
-        let plan = plan_circuit(&workload(&wl, n), l, &o).unwrap();
+        let plan = plan_circuit(&workload(&wl, n, get(kv, "depth", 2 * n)), l, &o).unwrap();
         println!(
             "plan workload={wl} n={n} L={l} G={} swaps={} runs={} folded={} restore={}",
             n - l,
@@ -319,7 +320,7 @@ fn ram<T: Real>(kv: &HashMap<String, String>, prec: &str) {
     let wl: String = get(kv, "workload", "qft".to_string());
     let n: usize = get(kv, "n", 20);
     let reps: usize = get(kv, "reps", 3);
-    let c = workload(&wl, n);
+    let c = workload(&wl, n, get(kv, "depth", 2 * n));
     let cfg = BlockConfig::default();
     let mut best = f64::INFINITY;
     for _ in 0..reps {
