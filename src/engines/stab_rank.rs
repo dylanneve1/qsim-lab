@@ -77,19 +77,25 @@ fn first_one(a: &[u64]) -> Option<usize> {
 // ---------------------------------------------------------------------------
 // exact scalars eps · 2^{p/2} · e^{iπe/4}
 
+/// An exact scalar `2^{p/2} · e^{iπe/4}`, or zero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scalar {
+    /// The scalar is exactly zero (`p` and `e` are then meaningless).
     pub zero: bool,
+    /// Magnitude exponent: the modulus is `2^{p/2}`.
     pub p: i32,
+    /// Phase exponent in `0..8`: the phase is `e^{iπe/4}`.
     pub e: u8,
 }
 
 impl Scalar {
+    /// The scalar 1.
     pub const ONE: Scalar = Scalar {
         zero: false,
         p: 0,
         e: 0,
     };
+    /// The value as a floating-point complex number.
     pub fn to_c64(self) -> C64 {
         if self.zero {
             return C64::new(0.0, 0.0);
@@ -116,12 +122,16 @@ impl Scalar {
 /// `i^e X^x Z^z` on `n` qubits.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Pauli {
+    /// X bits (bit `q` = qubit `q`).
     pub x: Vec<u64>,
+    /// Z bits (bit `q` = qubit `q`).
     pub z: Vec<u64>,
+    /// Phase exponent of `i^e`, in `0..4`.
     pub e: u8,
 }
 
 impl Pauli {
+    /// The identity on `n` qubits (`e = 0`).
     pub fn identity(n: usize) -> Pauli {
         let w = n.div_ceil(64).max(1);
         Pauli {
@@ -137,6 +147,7 @@ impl Pauli {
         p.e = if neg { 2 } else { 0 };
         p
     }
+    /// `sign · X_q` (sign = +1 or −1).
     pub fn xp(n: usize, q: usize, neg: bool) -> Pauli {
         let mut p = Pauli::identity(n);
         flip(&mut p.x, q);
@@ -161,6 +172,7 @@ impl Pauli {
 /// `(F, M, γ)` gives `U_C^{-1} X_p U_C = i^{γ_p} X^{F_p} Z^{M_p}`.
 #[derive(Clone, Debug)]
 pub struct ChState {
+    /// Number of qubits.
     pub n: usize,
     w: usize,
     f: Vec<u64>,
@@ -170,6 +182,7 @@ pub struct ChState {
     g2: Vec<u64>,
     v: Vec<u64>,
     s: Vec<u64>,
+    /// The global scalar `ω`.
     pub omega: Scalar,
 }
 
@@ -249,6 +262,7 @@ impl ChState {
     }
 
     // ---- left multiplication (gates)
+    /// Left-multiplies by `S` on qubit `q`.
     pub fn s_gate(&mut self, q: usize) {
         let w = self.w;
         for p in 0..self.n {
@@ -261,6 +275,7 @@ impl ChState {
             flip(&mut self.g2, q);
         }
     }
+    /// Left-multiplies by `S†` on qubit `q`.
     pub fn sdg_gate(&mut self, q: usize) {
         let w = self.w;
         for p in 0..self.n {
@@ -273,9 +288,11 @@ impl ChState {
         }
         flip(&mut self.g1, q);
     }
+    /// Left-multiplies by `Z` on qubit `q`.
     pub fn z_gate(&mut self, q: usize) {
         flip(&mut self.g2, q);
     }
+    /// Left-multiplies by `X` on qubit `q`.
     pub fn x_gate(&mut self, q: usize) {
         let xs = self.row(&self.f, q);
         let zs = self.row(&self.m, q);
@@ -299,11 +316,13 @@ impl ChState {
         phase += 4 * (par & 1);
         self.omega.e = ((self.omega.e as u32 + phase) % 8) as u8;
     }
+    /// Left-multiplies by `Y` on qubit `q`.
     pub fn y_gate(&mut self, q: usize) {
         self.z_gate(q);
         self.x_gate(q);
         self.omega.e = (self.omega.e + 2) % 8;
     }
+    /// Left-multiplies by CNOT with control `q` and target `r`.
     pub fn cx_gate(&mut self, q: usize, r: usize) {
         let w = self.w;
         let mut b = false;
@@ -334,6 +353,7 @@ impl ChState {
             flip(&mut self.g2, q);
         }
     }
+    /// Left-multiplies by CZ on qubits `q` and `r`.
     pub fn cz_gate(&mut self, q: usize, r: usize) {
         let w = self.w;
         for p in 0..self.n {
@@ -348,6 +368,7 @@ impl ChState {
             }
         }
     }
+    /// Left-multiplies by `H` on qubit `q`.
     pub fn h_gate(&mut self, q: usize) {
         let rf = self.row(&self.f, q);
         let rg = self.row(&self.g, q);
@@ -556,6 +577,7 @@ impl ChState {
         let t = self.s.clone();
         self.update_svector(&t, &u, b);
     }
+    /// `φ ← (I + i^c P) φ / √2` for a Hermitian Pauli `P`.
     pub fn combo(&mut self, p: &Pauli, c: u32) {
         let r = self.conj_to_s(p);
         self.combo_r(&r, c);
@@ -604,6 +626,8 @@ impl ChState {
         }
         amp.conj().mul(self.omega)
     }
+    /// `⟨idx|φ⟩` for a basis index that fits in one word (bit `q` = qubit `q`,
+    /// so only qubits below 64 can be set).
     pub fn amplitude_index(&self, idx: usize) -> C64 {
         let mut x = vec![0u64; self.w];
         x[0] = idx as u64;
@@ -1086,9 +1110,12 @@ fn try_pair(
 // ---------------------------------------------------------------------------
 // the sum
 
+/// One term `c · |φ⟩` of the sum (the full coefficient is `c · ω`).
 #[derive(Clone, Debug)]
 pub struct Term {
+    /// Floating-point coefficient (multiplies the CH-form's own `ω`).
     pub c: C64,
+    /// The stabilizer state in CH-form.
     pub st: ChState,
     /// changed individually since the last pair-merge pass
     pub dirty: bool,
@@ -1111,29 +1138,44 @@ pub enum Action {
     Branch,
 }
 
+/// Counters of a [`RankState`] run.
 #[derive(Clone, Debug, Default)]
 pub struct RankStats {
     /// number of terms after every original gate
     pub r: Vec<usize>,
+    /// Largest number of terms after any gate.
     pub max_r: usize,
+    /// Term updates where a projector gate branched the term in two.
     pub branch_events: usize,
+    /// Term updates where a projector gate acted as a Clifford.
     pub clifford_events: usize,
+    /// Term updates where a projector gate acted diagonally (`Πφ = 0` or `φ`).
     pub diag_events: usize,
+    /// Terms folded into another term of the same ray.
     pub merges: usize,
+    /// Pairs of terms merged into one (or cancelled) by the pair merge.
     pub pair_merges: usize,
-    /// seconds in the proportional merge, the pair merge, and pair tests
+    /// seconds in the proportional (same-ray) merge
     pub t_merge: f64,
+    /// seconds in the pair merge
     pub t_pair: f64,
+    /// Pairs of terms tested for a pair merge.
     pub pair_tests: usize,
+    /// Terms dropped because their merged weight cancelled to below
+    /// `zero_tol` (relative to the largest contribution).
     pub cancellations: usize,
     /// set when `max_terms` was exceeded (simulation stopped)
     pub overflow: bool,
 }
 
+/// The state as a sum of CH-form stabilizer states (see the module docs).
 #[derive(Clone, Debug)]
 pub struct RankState {
+    /// Number of qubits.
     pub n: usize,
+    /// The terms `Σ_j c_j |φ_j⟩` (zero terms are dropped after merges).
     pub terms: Vec<Term>,
+    /// Counters so far.
     pub stats: RankStats,
     /// stop (overflow) when the number of terms would exceed this
     pub max_terms: usize,
@@ -1162,6 +1204,8 @@ fn snap(l: C64) -> C64 {
 }
 
 impl RankState {
+    /// `|0^n⟩` as one term, with the default limits (`max_terms = 2^16`,
+    /// `zero_tol = 1e-12`, pair merges at `s ≤ 6` while `r ≤ 256`).
     pub fn new(n: usize) -> RankState {
         RankState {
             n,
@@ -1178,6 +1222,7 @@ impl RankState {
         }
     }
 
+    /// Current number of terms (the branching rank `r`).
     pub fn rank(&self) -> usize {
         self.terms.len()
     }

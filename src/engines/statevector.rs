@@ -25,7 +25,9 @@ use std::iter::Sum;
 
 /// Floating-point type usable for amplitudes (`f32` or `f64`).
 pub trait Real: Float + Send + Sync + Default + Debug + Sum + 'static {
+    /// Rounds (for `f32`) or copies an `f64`.
     fn from_f64(x: f64) -> Self;
+    /// Widens to `f64` (exact for both implementations).
     fn to_f64(self) -> f64;
 }
 
@@ -235,10 +237,12 @@ impl<T: Real> StateVector<T> {
         self.amps[0] = Complex::one();
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
 
+    /// The `2^n` amplitudes, indexed so that bit `q` of the index is qubit `q`.
     pub fn amplitudes(&self) -> &[Complex<T>] {
         &self.amps
     }
@@ -249,6 +253,8 @@ impl<T: Real> StateVector<T> {
         &mut self.amps
     }
 
+    /// Amplitude of basis state `index` (bit `q` = qubit `q`), widened to `f64`.
+    /// Panics if `index >= 2^n`.
     pub fn amplitude(&self, index: usize) -> Complex64 {
         let a = self.amps[index];
         Complex64::new(a.re.to_f64(), a.im.to_f64())
