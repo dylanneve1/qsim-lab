@@ -173,12 +173,12 @@ def write_program(path, n, occ_qubits, gens, params, meta, enc="jw"):
         for k, v in meta.items():
             f.write(f"# {k} {v}\n")
         for k, p in enumerate(params):
-            f.write(f"param {k} {p!r}\n")
+            f.write(f"param {k} {float(p)!r}\n")
         for q in occ_qubits:
             f.write(f"x {q}\n")
         for k, (o, v) in enumerate(gens):
             for mult, ps in generator_paulis(o, v, n, enc):
-                f.write(f"prot {k} {mult!r} {ps}\n")
+                f.write(f"prot {k} {float(mult)!r} {ps}\n")
 
 
 def hf_qubits(nel, enc, n):
