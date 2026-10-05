@@ -1,0 +1,1 @@
+paper's verifier: N=3127 m=22 |P|=8 ell=11 32 trajectories clean (verify_clean_finish passed); max |acc·2^t − f(e)|/N over them 0.3297 (includes the mask offset s); precompute 0.2s, simulate 0.2s

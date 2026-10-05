@@ -1,0 +1,4 @@
+factors of N among the candidate primes: [4001, 4003]
+pair (2213,4003): pruned candidate 55 < N>>gap=61; true L mod N deviation 3024811; pruned factors of N: [4003]
+pair (2221,4003): pruned candidate 10 < N>>gap=61; true L mod N deviation 7493883; pruned factors of N: [4003]
+pair (2539,3361): pruned candidate 23 < N>>gap=61; true L mod N deviation 23; pruned factors of N: []

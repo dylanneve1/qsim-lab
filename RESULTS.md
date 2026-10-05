@@ -279,6 +279,52 @@ the Unitary Foundation qLDPC challenge board, and all direct sums of these.
   nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent Python
   script; codes are also rebuilt from presentations or permutation representations and re-proved.
   Novelty is relative to the 40+ papers, the dataset and the challenge board we read, not proved.
+## 9. Gidney 2025's approximate modular exponentiation, simulated on every branch (`research/shor/approx-modexp.md`)
+
+**What.** The reference `approx_modexp` of Gidney 2025 (arXiv:2505.15917; code CC-BY-4.0,
+doi:10.5281/zenodo.15347487) — approximate residue arithmetic (Chevignard–Fouque–Schrottenloher),
+masking, measurement-based uncomputation with deferred "vent" phase corrections — simulated exactly
+on every branch of the exponent register and the mask, followed by the exact frequency-basis
+measurement. The paper's own verifier follows a few random classical trajectories and, in its words,
+cannot verify interference or masking. Scaled-down instances (n = 8–24 bits), not the paper's
+2048-bit regime.
+
+- **Correct on every branch.** All 2^m · 2^mask branches (up to 1.07·10⁹ per run; n = 8–14,
+  Shor-style and Ekerå–Håstad; all-0, all-1 and 8 random measurement-outcome streams each):
+  every ancilla returns to 0, every residue is exact, every branch ends with sign +1 (all
+  kickback from 1.4–4.6 k X-basis measurements per run cancelled, including the corrections
+  deferred from loop3 to unloop3). MOON_CORRECTNESS
+- **Independently checked.** The paper's own `approx_modexp`, run unchanged on a genuinely quantum
+  backend (full superposition, real X-basis measurements; no branches ever merge), agrees with the
+  simulator branch by branch and to 7·10⁻¹⁸ (Shor) / 3.5·10⁻¹⁸ (EH) in the output distribution
+  (n = 8); every table equals the paper's precomputation code (5 configurations); one loop4 step
+  and one loop3/unloop3 step pair compiled to X/CNOT/Toffoli (+ X-measurements, Z/CZ fix-ups)
+  equal the quint-level semantics on every input, also on the repo's dense reference state vector.
+- **Masking is necessary and, with it, the approximation is benign (interference).** At N = 899
+  (m = 14, f = 8) the unmasked approximate circuit's frequency distribution is at TV 0.78 from
+  exact arithmetic and loses 2.6× in success probability; with a mask of W values the distance
+  falls as 1/W (TV ≈ 0.65·(1 − F), far below the trace-distance bound √(1 − F)).
+  With the paper's own mask rule the approximate circuit's frequency distribution is within TV
+  0.021 (N = 899, S = 0.57), 0.0070 (N = 3127, Shor, S = 0.33) and 0.0062 (N = 3127,
+  Ekerå–Håstad) of exact arithmetic with the same mask (trace-distance bounds 0.17, 0.10,
+  0.10); the frequency-peak structure, including the zero-peak enhancement predicted by the
+  paper's Eq. 42, matches exact arithmetic (N = 899: P(peak 0) = 0.5717 vs 0.5717, Eq. 42:
+  0.5695).
+- **The paper's success model holds where it should.** For its Figure 4 instance (N = 3127,
+  g = 3122) at the mask the paper's rule picks, the success suppression due to masking is 0.680 in
+  the paper's model, 0.678 (exact arithmetic) and 0.671 (approximate circuit) in the exact
+  simulation (1 − S = 0.673); absolute success values differ (0.478 model vs 0.406 circuit) because
+  the model's QFT is idealised modulo the period. The exact evaluation of the paper's model
+  reproduces its released Monte-Carlo data (24 cells, ≤ 0.0009).
+- **The paper's error analysis is pessimistic at these sizes, with one slip.** The deviation is a
+  constant bias plus a random walk of rounding errors (σ ≈ 0.3·√A for A accumulator additions;
+  E|δ − c| = 1.2–1.9 units against a worst case of 51–190 units in the paper's model). Eq. 28 omits
+  a factor 2 (`1 − |⟨ψ1|ψ̃1⟩|² ≤ 2ε/S`); the effect on the paper's 2048-bit estimate is negligible
+  (9.21 → 9.25–9.27 expected shots).
+- Caveats: scaled-down instances, not the paper's regime; exact QFT instead of the paper's
+  phase-gradient frequency measurement; finite sets of outcome streams; only two subroutine steps
+  compiled to gates. A toy-size corner case of the paper's prime search (pruning a prime that
+  divides N) is documented in the notebook.
 
 ## Honest notes
 

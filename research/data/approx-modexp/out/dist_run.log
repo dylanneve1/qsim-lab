@@ -1,0 +1,33 @@
++ /dev/shm/qsim/target-approx-modexp/release/examples/approx_modexp dist N=899 g=2 m=20 f=8 mask=paper peaks_out=/dev/shm/qsim/wt/approx-modexp/research/data/approx-modexp/out/peaks_n10.csv
+N=899 n=10 g=2 regs=[(20, 2)] m=20 w=(2,2,2,2) f=8 mask=7 gap=8 ell=11 |P|=12 L_bits=131 LmodN=2 dropped=2 T=224 nw1=10 nw3a=6 nw3b=6 nw4=6 len_dlog=16 additions=72
+paper_model eps=8.4375e-1 S=5.0000e-1 P_deviant_bound=2.1875e0
+periods=[1039, 1709, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039]
+verify branches=134217728 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=21 mean_dev=10.4224 max_mod_dev=9.1212e-2 secs=79.38
+dev_hist -1:1,0:3,1:56,2:193,3:1351,4:4270,5:13221,6:31369,7:63758,8:105331,9:148239,10:173015,11:169015,12:138891,13:96379,14:57382,15:28109,16:12097,17:4334,18:1235,19:271,20:44,21:12
+dev_stats mean=10.4224 std=2.3908 min=-1 max=21 (units of 2^t; spread max-min=22)
+fidelity |<ideal|actual>|=0.9185751528 infidelity(1-|.|^2)=1.562197e-1 tv_bound(sqrt(1-F))=3.952464e-1 max_dev/W=1.640625e-1 mean_dev/W=8.142485e-2
+conditional exponent-state fidelity sum_V P(V)|<psi_V|psi~_V>|^2=0.8438900925 P(V outside ideal support)=0.000e0
+best constant shift c=10: |<ideal+c|actual>|=0.9850933254 infidelity=2.959114e-2 tv_bound=1.720208e-1 cond_fidelity=0.9704497238 P(outside)=0.000e0
+tv(actual,ideal_masked)=2.050207e-2 tv_V(actual,ideal)=8.204989e-3 dist_secs=13.5
+order r=140
+success[paper] actual=0.1786723075 ideal_masked=0.1864426634 unmasked=0.4209721739
+success[repo] actual=1.0000000000 ideal_masked=1.0000000000 unmasked=1.0000000000
+tv(actual,unmasked)=5.841455e-1 tv(ideal_masked,unmasked)=5.645408e-1
+peaks k0: actual=0.571723 ideal=0.571684 unmasked=0.007143 (Eq.42 random-R model w/P = 0.569522)
+peaks tv(actual,ideal)=1.768245e-3 tv(actual,unmasked)=5.645795e-1 tv(ideal,unmasked)=5.645407e-1
+total_secs=109.3
++ /dev/shm/qsim/target-approx-modexp/release/examples/approx_modexp dist N=3127 g=3122 m=22 f=10 mask=paper w1=4 w3a=2 w3b=3 w4=4 peaks_out=/dev/shm/qsim/wt/approx-modexp/research/data/approx-modexp/out/peaks_n12.csv
+N=3127 n=12 g=3122 regs=[(22, 3122)] m=22 w=(4,2,3,4) f=10 mask=8 gap=10 ell=11 |P|=8 L_bits=87 LmodN=1 dropped=2 T=781 nw1=6 nw3a=6 nw3b=4 nw4=3 len_dlog=16 additions=24
+paper_model eps=7.0312e-2 S=2.5000e-1 P_deviant_bound=5.3125e-1
+periods=[1033, 1511, 1999, 2003, 2011, 2017, 2029, 2039]
+verify branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=151.01
+dev_hist -6:1,-5:62,-4:769,-3:6512,-2:38724,-1:150324,0:405017,1:756147,2:985273,3:902452,4:582420,5:262789,6:82988,7:17985,8:2581,9:251,10:9
+dev_stats mean=2.2587 std=1.6732 min=-6 max=10 (units of 2^t; spread max-min=16)
+fidelity |<ideal|actual>|=0.9907098766 infidelity(1-|.|^2)=1.849394e-2 tv_bound(sqrt(1-F))=1.359924e-1 max_dev/W=3.906250e-2 mean_dev/W=9.290123e-3
+conditional exponent-state fidelity sum_V P(V)|<psi_V|psi~_V>|^2=0.9815128307 P(V outside ideal support)=0.000e0
+best constant shift c=2: |<ideal+c|actual>|=0.9948735200 infidelity=1.022668e-2 tv_bound=1.011270e-1 cond_fidelity=0.9897754229 P(outside)=0.000e0
+tv(actual,ideal_masked)=7.005800e-3 tv_V(actual,ideal)=1.524510e-3 dist_secs=114.5
+order r=1508
+success[paper] actual=0.4057418323 ideal_masked=0.4097969361 unmasked=0.6048430223
+Terminated
+EXIT 143 13:32

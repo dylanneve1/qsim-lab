@@ -1,0 +1,3 @@
+gate_loop4 w4=2 f=6 T=61 qubits=22 trials=64 inputs_checked=15616 bad=0 counts(trial0): toffoli=20 cnot=122 x=16 fixup=11 meas=31
+gate_loop4 w4=3 f=8 T=211 qubits=30 trials=32 inputs_checked=54016 bad=0 counts(trial0): toffoli=35 cnot=198 x=23 fixup=22 meas=50
+gate_loop4 w4=4 f=10 T=781 qubits=38 trials=16 inputs_checked=199936 bad=0 counts(trial0): toffoli=59 cnot=321 x=26 fixup=32 meas=78
