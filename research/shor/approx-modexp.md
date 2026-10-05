@@ -300,7 +300,50 @@ shift of the output only relabels the measured value).
 
 ### 3.3 Interference: exact output distributions against the ideal ones
 
-TODO_INTERFERENCE
+Three distributions of the frequency-basis outcome are computed exactly
+for each instance (`out/dist.txt`): the **approximate circuit** (this
+simulation), **exact arithmetic with the same mask and truncation**
+(`F = ⌊f/2^t⌋ mod T`), and the **textbook unmasked** distribution
+(`f` measured exactly: Shor's / Ekerå–Håstad's ideal). TV(approx., exact
+arith.) isolates the residue-arithmetic approximation, TV(exact arith.,
+unmasked) the mask plus truncation, TV(approx., unmasked) the total.
+
+| instance | mask (S) | 1 − F (best shift) | TV(approx., exact arith.) | TV(exact arith., unmasked) | TV(approx., unmasked) | P(success): approx. / exact arith. / unmasked | P(peak 0): approx. / exact arith. / Eq. 42 (w/P) |
+|---|---|---|---|---|---|---|---|
+| N = 899, Shor, m = 20, f = 8 | 2^7 (0.57) | 0.030 | **0.021** | 0.565 | 0.584 | 0.179 / 0.186 / 0.421 | 0.5717 / 0.5717 / 0.5695 |
+| N = 3127, Shor (Fig. 4 instance), m = 22, f = 10 | 2^8 (0.33) | 0.010 | **0.0070** | TVEU3127 | TVAU3127 | 0.406 / 0.410 / 0.605 | PEAK3127 |
+INTERFERENCE_ROWS
+
+(Masks from the paper's rule `S = √ε` (capped at f − 1 bits); success with
+the paper's model's test; for Ekerå–Håstad (s = 1) with the repo's lattice
+post-processing. The repo's order-finding post-processing, which also tries
+multiples of the convergent denominators, succeeds on every outcome at these
+sizes and is not informative.)
+
+What the numbers say:
+
+* **The approximation is invisible at the level of the frequency peaks.**
+  With the paper's mask, the approximate circuit's distribution is within
+  TV INTERF_TV_RANGE of exact arithmetic with the same mask — one to two
+  orders of magnitude below the rigorous trace-distance bound
+  `√(1 − F)` — and its success probability is within INTERF_SUCC_RANGE of
+  exact arithmetic's. The per-peak structure (probability of each
+  frequency peak k ≈ j r/2^m) matches exact arithmetic to TV ≤ 0.002, and
+  the paper's randomised-remainder prediction for the zero peak (Eq. 42:
+  `E|β_0|² = w/P`, with `w/P ≈ S`) holds to within 0.4 % (N = 899: 0.5717
+  measured, 0.5695 predicted); the other peaks fluctuate between 0.04× and
+  1.4× their mean, the "dips" visible in the paper's Figure 4.
+* **What costs success is the mask itself**, as the paper's Assumption 2
+  says: masked and unmasked distributions are far apart (TV ≈ 0.56 at
+  S = 0.57) and the success factor is ≈ 1 − S (N = 899: 0.186 / 0.421 =
+  0.44 at 1 − S = 0.43).
+* **No information leaks through the measurements.** No branches merge in
+  any X-basis measurement (§3.1), so every outcome is uniform and
+  independent of the exponent; the exponent register's post-measurement
+  state given the measured output has average fidelity INTERF_CF_RANGE
+  with the exact-arithmetic one (after the constant output shift), and
+  every measured output value of the approximate circuit is also a possible
+  output of exact arithmetic (P(V outside the ideal support) = 0).
 
 ### 3.4 Masking hides what it should
 
@@ -343,9 +386,65 @@ is below 2n, so absolute success values are low.)
   because its ε is the worst case (≈ 142 accumulator units against an
   actual max |δ| of 14 and spread σ = 1.8).
 
+The same sweep for **Ekerå–Håstad** (s = 1), N = 3127, g = 3122, f = 10,
+windows (3, 2, 3, 4), 12 + 6 exponent qubits, A = 24 additions
+(`out/sweep_mask_f10.csv`):
+
+| mask bits | S = W·2^t/N | paper ε/S | 1 − F (no shift) | 1 − F (best shift) | TV(approx., exact arith.) | P(success) approx. / exact arith. |
+|---|---|---|---|---|---|---|
+| 0 | 0.001 | 72.00 | 0.978 | 0.9444 | 0.7200 | 0.211 / 0.907 |
+| 1 | 0.003 | 36.00 | 0.914 | 0.8116 | 0.5809 | 0.346 / 0.907 |
+| 2 | 0.005 | 18.00 | 0.710 | 0.5434 | 0.3752 | 0.545 / 0.908 |
+| 3 | 0.010 | 9.00 | 0.417 | 0.2994 | 0.1947 | 0.720 / 0.908 |
+| 4 | 0.020 | 4.50 | 0.223 | 0.1564 | 0.0974 | 0.815 / 0.909 |
+| 5 | 0.041 | 2.25 | 0.115 | 0.0798 | 0.0488 | 0.864 / 0.911 |
+| 6 | 0.082 | 1.12 | 0.058 | 0.0403 | 0.0245 | 0.891 / 0.915 |
+| 7 | 0.164 | 0.56 | 0.029 | 0.0203 | 0.0123 | 0.911 / 0.922 |
+| 8 | 0.327 | 0.28 | 0.015 | 0.0102 | 0.0062 | 0.932 / 0.937 |
+| 9 | 0.655 | 0.14 | 0.007 | 0.0051 | 0.0031 | 0.965 / 0.968 |
+
+TV again halves per mask bit (≈ 0.61 (1 − F)), from 0.72 without a mask to
+0.006 at the paper's mask (2^8). The success column uses the repo's EH
+lattice post-processing with its default candidate budget (4096); at these
+toy sizes that budget can enumerate every `d < 2^m` for outcomes near
+`j = 0`, which is why exact-arithmetic success *rises* with the mask (the
+mask enhances the zero peak, which fails in Shor-style post-processing and
+in EH at real sizes). The scale-free comparison is the TV column and the
+α statistics of §3.3; the approximate circuit's success approaches exact
+arithmetic's (0.932 vs 0.937 at 2^8) as TV → 0.
+
+MASK_SHOR_TEXT
+
 ### 3.5 Against the paper's success model
 
-TODO_MODEL
+The paper's Figure 5 / Assumption 2 rest on `main1`'s model: exact
+`g^e mod N`, a mask of width `W` in units of N, and a QFT taken modulo the
+period. The table compares it, evaluated exactly (§3.0), with the exact
+circuit at the same mask width (`W = 2^{mask}·2^t` in units of N; the
+circuit's frequency measurement is the full `2^m`-point QFT with m = 2n − 2
+= 22 ≥ 2·log2(r)), for the paper's own Figure 4 instance N = 3127,
+g = 3122, f = 10, windows (4, 2, 3, 4) (`model_compare.py`,
+`out/sweep_mask_f10_shor.csv`, `out/model_n12.txt`):
+
+MODEL_TABLE
+
+At the paper's own mask choice for this instance (2^8, S = 0.33):
+
+| | P(success), unmasked | P(success), masked | suppression | 1 − S |
+|---|---|---|---|---|
+| paper's model (mod-P QFT, exact `f`) | 0.7029 | 0.4782 | 0.680 | 0.673 |
+| circuit, exact arithmetic (2^22-point QFT) | 0.6048 | 0.4098 | 0.678 | |
+| circuit, approximate (this simulation) | — | 0.4057 | 0.671 | |
+
+The **suppression factor caused by masking agrees with the paper's model to
+0.4 % (exact arithmetic) and 1.4 % (approximate arithmetic)**, and both
+circuit values are within 1 % of the paper's Assumption 2 (`1 − S`). The absolute values differ
+by the model's idealisation, not by the approximation: the model's QFT is
+taken modulo the period, the circuit's over 2^22 exponent values
+(2^22 ≈ 1.8 r²), whose finite resolution costs 14 % of the unmasked success
+under the paper's success test (0.605 against 0.703).
+
+MODEL_SWEEP_TEXT
 
 ### 3.6 Approximation error against parameters and the paper's bounds
 
@@ -359,9 +458,12 @@ the stated bound 0.01, 0.05, 0.10, 0.25; `eq28_check.py`). Carried through
 Eq. 43–45 this gives `P_deviant ≤ S + 2ε/S`, `S = √(2ε)`,
 `P_deviant ≤ 2√(2ε)`; at the paper's n = 2048 point (P_deviant = 1.25 %)
 the expected number of shots would move from 9.21 to 9.25–9.27 — negligible
-for the paper's conclusions. In every configuration simulated here the
-exact infidelity is far below even the stated bound (next paragraphs),
-because the deviation is far below the worst case.
+for the paper's conclusions. The simulated circuits do not come near the
+bound: their deviations are neither uniform nor worst-case (next
+paragraphs), so the exact infidelity is far below `ε/S` with the paper's
+ε (at the paper's own mask choice: 1 − |⟨ψ1|ψ̃1⟩|² = 0.156 against
+ε/S = 1.69 for N = 899; 0.018 against 0.28 for N = 3127 Shor-style; 0.015
+against 0.28 for N = 3127 Ekerå–Håstad).
 
 **The deviation: a constant bias plus a random walk of rounding errors.**
 From the every-branch runs (§3.2), with `A` = number of accumulator

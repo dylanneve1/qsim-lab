@@ -255,7 +255,18 @@ cannot verify interference or masking. Scaled-down instances (n = 8–24 bits), 
   (m = 14, f = 8) the unmasked approximate circuit's frequency distribution is at TV 0.78 from
   exact arithmetic and loses 2.6× in success probability; with a mask of W values the distance
   falls as 1/W (TV ≈ 0.65·(1 − F), far below the trace-distance bound √(1 − F)).
-  INTERFERENCE_RESULTS
+  With the paper's own mask rule the approximate circuit's frequency distribution is within TV
+  0.021 (N = 899, S = 0.57), 0.0070 (N = 3127, Shor, S = 0.33) and 0.0062 (N = 3127,
+  Ekerå–Håstad) of exact arithmetic with the same mask (trace-distance bounds 0.17, 0.10,
+  0.10); the frequency-peak structure, including the zero-peak enhancement predicted by the
+  paper's Eq. 42, matches exact arithmetic (N = 899: P(peak 0) = 0.5717 vs 0.5717, Eq. 42:
+  0.5695).
+- **The paper's success model holds where it should.** For its Figure 4 instance (N = 3127,
+  g = 3122) at the mask the paper's rule picks, the success suppression due to masking is 0.680 in
+  the paper's model, 0.678 (exact arithmetic) and 0.671 (approximate circuit) in the exact
+  simulation (1 − S = 0.673); absolute success values differ (0.478 model vs 0.406 circuit) because
+  the model's QFT is idealised modulo the period. The exact evaluation of the paper's model
+  reproduces its released Monte-Carlo data (24 cells, ≤ 0.0009).
 - **The paper's error analysis is pessimistic at these sizes, with one slip.** The deviation is a
   constant bias plus a random walk of rounding errors (σ ≈ 0.3·√A for A accumulator additions;
   E|δ − c| = 1.2–1.9 units against a worst case of 51–190 units in the paper's model). Eq. 28 omits
