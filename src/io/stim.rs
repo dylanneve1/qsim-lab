@@ -284,7 +284,11 @@ fn is_noise(name: &str) -> bool {
     name.starts_with("DEPOLARIZE") || name.contains("_ERROR")
 }
 
-// ---------------------------------------------------------------- parser
+// ------------------------------------------------- reference parser (old)
+//
+// The original line-by-line parser: it re-parses every line of a REPEAT body
+// on every iteration. Kept (hidden) as the reference the fast parser below is
+// tested against.
 
 struct Parser {
     ops: Vec<Op>,
@@ -579,8 +583,10 @@ impl Parser {
     }
 }
 
-/// Parses a `.stim` circuit (see the module docs for the supported subset).
-pub fn parse_stim(text: &str) -> Result<StimProgram, StimError> {
+/// The original `.stim` parser (same subset and result as [`parse_stim`]),
+/// kept as the reference in tests.
+#[doc(hidden)]
+pub fn parse_stim_reference(text: &str) -> Result<StimProgram, StimError> {
     let mut p = Parser {
         ops: Vec::new(),
         max_qubit: None,
@@ -605,6 +611,792 @@ pub fn parse_stim(text: &str) -> Result<StimProgram, StimError> {
         detectors: p.detectors,
         observables: p.observables,
     })
+}
+
+// ------------------------------------------------------------ fast parser
+//
+// Each line is parsed once; REPEAT blocks are kept as blocks (not unrolled),
+// and [`StimCircuit::for_each_op`] / [`StimCircuit::for_each_op_rev`] unroll
+// them on the fly. Same subset and same semantics as the reference parser
+// (`tests/core/stim_io.rs` checks `parse_stim == parse_stim_reference` on
+// Stim's circuit zoo and on random programs).
+
+/// Single-qubit gates of the subset, after aliasing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum G1 {
+    H,
+    S,
+    Sdg,
+    X,
+    Y,
+    Z,
+}
+
+/// Two-qubit gates of the subset, after aliasing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum G2 {
+    Cx,
+    Cz,
+    Swap,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Kind {
+    Gate1(G1),
+    Gate2(G2),
+    /// `R`/`RZ` (`x = false`) or `RX`.
+    Reset {
+        x: bool,
+    },
+    /// `M`/`MZ`, `MX`, `MR`/`MRZ`, `MRX`.
+    Measure {
+        x: bool,
+        reset: bool,
+    },
+    XErr,
+    YErr,
+    ZErr,
+    Depol1,
+    Depol2,
+    Detector,
+    Observable(u32),
+    Repeat {
+        count: u64,
+        block: u32,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Inst {
+    kind: Kind,
+    /// Probability argument (noise channels, measurement flips).
+    p: f64,
+    /// Targets are `targets[start..end]`: qubits, or `k` of `rec[-k]`.
+    start: u32,
+    end: u32,
+}
+
+/// A parsed `.stim` program (the subset in the module docs) with `REPEAT`
+/// blocks kept as blocks: every line is parsed once, and the walkers
+/// [`Self::for_each_op`] / [`Self::for_each_op_rev`] unroll the blocks on
+/// the fly. [`parse_stim`] is `parse_stim_circuit(text)?.to_program()`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StimCircuit {
+    /// `blocks[0]` is the top level; `Kind::Repeat` refers to a body block.
+    blocks: Vec<Vec<Inst>>,
+    targets: Vec<u32>,
+    num_qubits: usize,
+    num_measurements: usize,
+    num_detectors: usize,
+    num_observables: usize,
+    max_lookback: usize,
+}
+
+/// One primitive operation of a [`StimCircuit`], in program order (or in
+/// reverse for [`StimCircuit::for_each_op_rev`]). Multi-target instructions
+/// are split per target, X-basis measurements and resets become `H`
+/// conjugations, `MR` becomes `M` then `R`: exactly the [`Op`] sequence
+/// [`parse_stim`] produces.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum StimOp<'a> {
+    /// A Clifford gate (`H S S_DAG X Y Z CX CZ SWAP` and their aliases).
+    Gate(Gate),
+    /// Z-basis measurement number `index` (in program order) of `qubit`,
+    /// with readout flip probability `p`.
+    Measure {
+        /// Measured qubit.
+        qubit: usize,
+        /// Position of this outcome in the measurement record.
+        index: usize,
+        /// Probability of reporting the flipped outcome (`M(p)`).
+        p: f64,
+    },
+    /// Reset to |0>.
+    Reset(usize),
+    /// `X_ERROR(p)` on one qubit.
+    XFlip(usize, f64),
+    /// `Y_ERROR(p)` on one qubit.
+    YFlip(usize, f64),
+    /// `Z_ERROR(p)` on one qubit.
+    ZFlip(usize, f64),
+    /// `DEPOLARIZE1(p)` on one qubit.
+    Depolarize1(usize, f64),
+    /// `DEPOLARIZE2(p)` on one pair.
+    Depolarize2(usize, usize, f64),
+    /// Detector number `row`: the parity of measurements `base - k` for
+    /// every `k` in `lookbacks` (`rec[-k]`).
+    Detector {
+        /// Detector index (program order).
+        row: usize,
+        /// Number of measurements before this instruction.
+        base: usize,
+        /// The `k` of each `rec[-k]` target.
+        lookbacks: &'a [u32],
+    },
+    /// `OBSERVABLE_INCLUDE(index)` of measurements `base - k`.
+    Observable {
+        /// Observable index.
+        index: usize,
+        /// Number of measurements before this instruction.
+        base: usize,
+        /// The `k` of each `rec[-k]` target.
+        lookbacks: &'a [u32],
+    },
+}
+
+/// Walker state: measurements and detectors so far.
+struct Walk {
+    m: usize,
+    det: usize,
+}
+
+fn gate1(g: G1, q: usize) -> Gate {
+    match g {
+        G1::H => Gate::H(q),
+        G1::S => Gate::S(q),
+        G1::Sdg => Gate::Sdg(q),
+        G1::X => Gate::X(q),
+        G1::Y => Gate::Y(q),
+        G1::Z => Gate::Z(q),
+    }
+}
+
+fn gate2(g: G2, a: usize, b: usize) -> Gate {
+    match g {
+        G2::Cx => Gate::Cnot(a, b),
+        G2::Cz => Gate::Cz(a, b),
+        G2::Swap => Gate::Swap(a, b),
+    }
+}
+
+impl StimCircuit {
+    /// Number of qubits (largest qubit target + 1; `QUBIT_COORDS` targets
+    /// are not counted).
+    pub fn num_qubits(&self) -> usize {
+        self.num_qubits
+    }
+
+    /// Number of measurements (with `REPEAT` blocks unrolled).
+    pub fn num_measurements(&self) -> usize {
+        self.num_measurements
+    }
+
+    /// Number of `DETECTOR`s (with `REPEAT` blocks unrolled).
+    pub fn num_detectors(&self) -> usize {
+        self.num_detectors
+    }
+
+    /// Number of observables (largest `OBSERVABLE_INCLUDE` index + 1).
+    pub fn num_observables(&self) -> usize {
+        self.num_observables
+    }
+
+    /// Largest `k` of any `rec[-k]` target (0 if there is none): a
+    /// detector or observable never reads further back than this.
+    pub fn max_lookback(&self) -> usize {
+        self.max_lookback
+    }
+
+    /// Calls `f` on every primitive operation in program order.
+    pub fn for_each_op<F: FnMut(StimOp<'_>)>(&self, mut f: F) {
+        let mut w = Walk { m: 0, det: 0 };
+        self.walk(0, &mut w, &mut f);
+    }
+
+    /// Calls `f` on every primitive operation in reverse program order
+    /// (`Measure::index` and `Detector::row` count down from the totals).
+    pub fn for_each_op_rev<F: FnMut(StimOp<'_>)>(&self, mut f: F) {
+        let mut w = Walk {
+            m: self.num_measurements,
+            det: self.num_detectors,
+        };
+        self.walk_rev(0, &mut w, &mut f);
+    }
+
+    fn walk<F: FnMut(StimOp<'_>)>(&self, b: usize, w: &mut Walk, f: &mut F) {
+        for inst in &self.blocks[b] {
+            let ts = &self.targets[inst.start as usize..inst.end as usize];
+            let p = inst.p;
+            match inst.kind {
+                Kind::Repeat { count, block } => {
+                    for _ in 0..count {
+                        self.walk(block as usize, w, f);
+                    }
+                }
+                Kind::Gate1(g) => ts.iter().for_each(|&q| f(StimOp::Gate(gate1(g, q as usize)))),
+                Kind::Gate2(g) => ts
+                    .chunks_exact(2)
+                    .for_each(|t| f(StimOp::Gate(gate2(g, t[0] as usize, t[1] as usize)))),
+                Kind::Reset { x } => {
+                    for &q in ts {
+                        f(StimOp::Reset(q as usize));
+                        if x {
+                            f(StimOp::Gate(Gate::H(q as usize)));
+                        }
+                    }
+                }
+                Kind::Measure { x, reset } => {
+                    for &q in ts {
+                        let q = q as usize;
+                        if x {
+                            f(StimOp::Gate(Gate::H(q)));
+                        }
+                        f(StimOp::Measure {
+                            qubit: q,
+                            index: w.m,
+                            p,
+                        });
+                        w.m += 1;
+                        if reset {
+                            f(StimOp::Reset(q));
+                        }
+                        if x {
+                            f(StimOp::Gate(Gate::H(q)));
+                        }
+                    }
+                }
+                Kind::XErr => ts.iter().for_each(|&q| f(StimOp::XFlip(q as usize, p))),
+                Kind::YErr => ts.iter().for_each(|&q| f(StimOp::YFlip(q as usize, p))),
+                Kind::ZErr => ts.iter().for_each(|&q| f(StimOp::ZFlip(q as usize, p))),
+                Kind::Depol1 => ts.iter().for_each(|&q| f(StimOp::Depolarize1(q as usize, p))),
+                Kind::Depol2 => ts
+                    .chunks_exact(2)
+                    .for_each(|t| f(StimOp::Depolarize2(t[0] as usize, t[1] as usize, p))),
+                Kind::Detector => {
+                    f(StimOp::Detector {
+                        row: w.det,
+                        base: w.m,
+                        lookbacks: ts,
+                    });
+                    w.det += 1;
+                }
+                Kind::Observable(k) => f(StimOp::Observable {
+                    index: k as usize,
+                    base: w.m,
+                    lookbacks: ts,
+                }),
+            }
+        }
+    }
+
+    fn walk_rev<F: FnMut(StimOp<'_>)>(&self, b: usize, w: &mut Walk, f: &mut F) {
+        for inst in self.blocks[b].iter().rev() {
+            let ts = &self.targets[inst.start as usize..inst.end as usize];
+            let p = inst.p;
+            match inst.kind {
+                Kind::Repeat { count, block } => {
+                    for _ in 0..count {
+                        self.walk_rev(block as usize, w, f);
+                    }
+                }
+                Kind::Gate1(g) => ts
+                    .iter()
+                    .rev()
+                    .for_each(|&q| f(StimOp::Gate(gate1(g, q as usize)))),
+                Kind::Gate2(g) => ts
+                    .chunks_exact(2)
+                    .rev()
+                    .for_each(|t| f(StimOp::Gate(gate2(g, t[0] as usize, t[1] as usize)))),
+                Kind::Reset { x } => {
+                    for &q in ts.iter().rev() {
+                        if x {
+                            f(StimOp::Gate(Gate::H(q as usize)));
+                        }
+                        f(StimOp::Reset(q as usize));
+                    }
+                }
+                Kind::Measure { x, reset } => {
+                    for &q in ts.iter().rev() {
+                        let q = q as usize;
+                        if x {
+                            f(StimOp::Gate(Gate::H(q)));
+                        }
+                        if reset {
+                            f(StimOp::Reset(q));
+                        }
+                        w.m -= 1;
+                        f(StimOp::Measure {
+                            qubit: q,
+                            index: w.m,
+                            p,
+                        });
+                        if x {
+                            f(StimOp::Gate(Gate::H(q)));
+                        }
+                    }
+                }
+                Kind::XErr => ts
+                    .iter()
+                    .rev()
+                    .for_each(|&q| f(StimOp::XFlip(q as usize, p))),
+                Kind::YErr => ts
+                    .iter()
+                    .rev()
+                    .for_each(|&q| f(StimOp::YFlip(q as usize, p))),
+                Kind::ZErr => ts
+                    .iter()
+                    .rev()
+                    .for_each(|&q| f(StimOp::ZFlip(q as usize, p))),
+                Kind::Depol1 => ts
+                    .iter()
+                    .rev()
+                    .for_each(|&q| f(StimOp::Depolarize1(q as usize, p))),
+                Kind::Depol2 => ts
+                    .chunks_exact(2)
+                    .rev()
+                    .for_each(|t| f(StimOp::Depolarize2(t[0] as usize, t[1] as usize, p))),
+                Kind::Detector => {
+                    w.det -= 1;
+                    f(StimOp::Detector {
+                        row: w.det,
+                        base: w.m,
+                        lookbacks: ts,
+                    });
+                }
+                Kind::Observable(k) => f(StimOp::Observable {
+                    index: k as usize,
+                    base: w.m,
+                    lookbacks: ts,
+                }),
+            }
+        }
+    }
+
+    /// Unrolls the program into a [`StimProgram`] (`Circuit` ops plus
+    /// absolute detector and observable record sets). Errors if the
+    /// measurement flip probabilities differ, since a [`NoiseModel`] has one
+    /// `p_meas`.
+    pub fn to_program(&self) -> Result<StimProgram, StimError> {
+        let mut ops = Vec::new();
+        let mut detectors = Vec::with_capacity(self.num_detectors);
+        let mut observables: Vec<Vec<usize>> = vec![Vec::new(); self.num_observables];
+        let mut meas_p: Option<f64> = None;
+        let mut bad: Option<StimError> = None;
+        self.for_each_op(|op| match op {
+            StimOp::Gate(g) => ops.push(Op::Gate(g)),
+            StimOp::Measure { qubit, p, .. } => {
+                match meas_p {
+                    None => meas_p = Some(p),
+                    Some(prev) if prev == p => {}
+                    Some(prev) => {
+                        if bad.is_none() {
+                            bad = Some(StimError(format!(
+                                "measurement flip probabilities differ ({prev} vs {p}); \
+                                 qsim-lab's NoiseModel has one p_meas"
+                            )));
+                        }
+                    }
+                }
+                ops.push(Op::Measure(qubit));
+            }
+            StimOp::Reset(q) => ops.push(Op::Reset(q)),
+            StimOp::XFlip(q, p) => ops.push(Op::XFlip(q, p)),
+            StimOp::YFlip(q, p) => ops.push(Op::YFlip(q, p)),
+            StimOp::ZFlip(q, p) => ops.push(Op::ZFlip(q, p)),
+            StimOp::Depolarize1(q, p) => ops.push(Op::Depolarize1q(q, p)),
+            StimOp::Depolarize2(a, b, p) => ops.push(Op::Depolarize2q(a, b, p)),
+            StimOp::Detector {
+                base, lookbacks, ..
+            } => detectors.push(lookbacks.iter().map(|&k| base - k as usize).collect()),
+            StimOp::Observable {
+                index,
+                base,
+                lookbacks,
+            } => observables[index].extend(lookbacks.iter().map(|&k| base - k as usize)),
+        });
+        if let Some(e) = bad {
+            return Err(e);
+        }
+        Ok(StimProgram {
+            circuit: Circuit {
+                num_qubits: self.num_qubits,
+                ops,
+            },
+            noise: NoiseModel {
+                p_meas: meas_p.unwrap_or(0.0),
+                ..NoiseModel::none()
+            },
+            detectors,
+            observables,
+        })
+    }
+}
+
+/// Parser state for [`parse_stim_circuit`].
+struct Builder {
+    blocks: Vec<Vec<Inst>>,
+    targets: Vec<u32>,
+    /// Open blocks (innermost last) with their REPEAT count and the
+    /// measurement count at the start of their first iteration.
+    stack: Vec<(usize, u64, u64)>,
+    /// Measurements per iteration of each block, and detectors.
+    block_meas: Vec<u64>,
+    block_dets: Vec<u64>,
+    /// Measurements so far on the first pass through every open block (the
+    /// smallest record a `rec[-k]` inside can see).
+    meas_first: u64,
+    max_qubit: Option<usize>,
+    num_observables: usize,
+    max_lookback: u32,
+    args: Vec<f64>,
+}
+
+/// Parses a non-negative decimal integer (an optional leading `+`, as
+/// `str::parse::<usize>` accepts).
+fn parse_uint(t: &str) -> Option<usize> {
+    let b = t.as_bytes();
+    let b = b.strip_prefix(b"+").unwrap_or(b);
+    if b.is_empty() || b.len() > 19 {
+        return t.parse().ok();
+    }
+    let mut v: usize = 0;
+    for &c in b {
+        if !c.is_ascii_digit() {
+            return None;
+        }
+        v = v * 10 + (c - b'0') as usize;
+    }
+    Some(v)
+}
+
+impl Builder {
+    fn cur(&mut self) -> usize {
+        self.stack.last().map_or(0, |s| s.0)
+    }
+
+    fn qubit(&mut self, t: &str) -> Result<u32, StimError> {
+        let q = parse_uint(t).ok_or_else(|| StimError(format!("unsupported target {t:?}")))?;
+        if q > u32::MAX as usize / 2 {
+            return err(format!("qubit target {t:?} too large"));
+        }
+        self.max_qubit = Some(self.max_qubit.map_or(q, |m| m.max(q)));
+        Ok(q as u32)
+    }
+
+    fn rec(&mut self, t: &str) -> Result<u32, StimError> {
+        let inner = t
+            .strip_prefix("rec[")
+            .and_then(|r| r.strip_suffix(']'))
+            .ok_or_else(|| StimError(format!("expected rec[-k], got {t:?}")))?;
+        let k: isize = inner
+            .parse()
+            .map_err(|_| StimError(format!("bad record target {t:?}")))?;
+        if k >= 0 || (-k) as u64 > self.meas_first {
+            return err(format!(
+                "record {t} out of range ({} so far)",
+                self.meas_first
+            ));
+        }
+        self.max_lookback = self.max_lookback.max((-k) as u32);
+        Ok((-k) as u32)
+    }
+
+    fn push(&mut self, kind: Kind, p: f64, start: usize) {
+        let b = self.cur();
+        let end = self.targets.len();
+        self.blocks[b].push(Inst {
+            kind,
+            p,
+            start: start as u32,
+            end: end as u32,
+        });
+    }
+
+    fn prob(&self, name: &str) -> Result<f64, StimError> {
+        match self.args.as_slice() {
+            [p] if (0.0..=1.0).contains(p) => Ok(*p),
+            _ => err(format!("{name} needs one probability")),
+        }
+    }
+
+    fn add_meas(&mut self, n: u64) -> Result<(), StimError> {
+        let b = self.cur();
+        self.block_meas[b] += n;
+        self.meas_first = self
+            .meas_first
+            .checked_add(n)
+            .ok_or_else(|| StimError("too many measurements".into()))?;
+        Ok(())
+    }
+
+    fn instruction(&mut self, raw: &str, s: &str) -> Result<(), StimError> {
+        // name, optional [tag], optional (args), targets
+        let name_end = s
+            .find(|c: char| c == '(' || c == '[' || c.is_whitespace())
+            .unwrap_or(s.len());
+        let mut buf = [0u8; 24];
+        let name_raw = &s[..name_end];
+        if name_raw.len() > buf.len() {
+            return err(format!(
+                "unsupported instruction {}",
+                name_raw.to_ascii_uppercase()
+            ));
+        }
+        let nb = &mut buf[..name_raw.len()];
+        nb.copy_from_slice(name_raw.as_bytes());
+        nb.make_ascii_uppercase();
+        let name = std::str::from_utf8(nb).unwrap_or("");
+        let mut rest = &s[name_end..];
+        if rest.starts_with('[') {
+            let close = rest
+                .find(']')
+                .ok_or_else(|| StimError(format!("bad tag: {raw}")))?;
+            rest = &rest[close + 1..];
+        }
+        self.args.clear();
+        if rest.starts_with('(') {
+            let close = rest
+                .find(')')
+                .ok_or_else(|| StimError(format!("bad args: {raw}")))?;
+            for a in rest[1..close].split(',') {
+                let a = a.trim();
+                if !a.is_empty() {
+                    self.args.push(
+                        a.parse::<f64>()
+                            .map_err(|_| StimError(format!("bad argument {a:?} in {raw:?}")))?,
+                    );
+                }
+            }
+            rest = &rest[close + 1..];
+        }
+        let targets = rest.split_whitespace();
+        let start = self.targets.len();
+        let g1 = match name {
+            "I" => Some(None),
+            "H" | "H_XZ" => Some(Some(G1::H)),
+            "X" => Some(Some(G1::X)),
+            "Y" => Some(Some(G1::Y)),
+            "Z" => Some(Some(G1::Z)),
+            "S" | "SQRT_Z" => Some(Some(G1::S)),
+            "S_DAG" | "SQRT_Z_DAG" => Some(Some(G1::Sdg)),
+            _ => None,
+        };
+        if let Some(g) = g1 {
+            if !self.args.is_empty() {
+                return err(format!("{name} takes no arguments"));
+            }
+            for t in targets {
+                let q = self.qubit(t)?;
+                if g.is_some() {
+                    self.targets.push(q);
+                }
+            }
+            if let Some(g) = g {
+                self.push(Kind::Gate1(g), 0.0, start);
+            }
+            return Ok(());
+        }
+        let g2 = match name {
+            "CX" | "CNOT" | "ZCX" => Some(G2::Cx),
+            "CZ" | "ZCZ" => Some(G2::Cz),
+            "SWAP" => Some(G2::Swap),
+            _ => None,
+        };
+        if let Some(g) = g2 {
+            let ts: Vec<&str> = targets.collect();
+            if ts.len() % 2 != 0 || !self.args.is_empty() {
+                return err(format!("bad {name} line"));
+            }
+            for pair in ts.chunks(2) {
+                let a = self.qubit(pair[0])?;
+                let b = self.qubit(pair[1])?;
+                if a == b {
+                    return err(format!("{name} on a repeated qubit {a}"));
+                }
+                self.targets.push(a);
+                self.targets.push(b);
+            }
+            self.push(Kind::Gate2(g), 0.0, start);
+            return Ok(());
+        }
+        match name {
+            "TICK" | "QUBIT_COORDS" | "SHIFT_COORDS" => Ok(()),
+            "R" | "RZ" | "RX" => {
+                for t in targets {
+                    let q = self.qubit(t)?;
+                    self.targets.push(q);
+                }
+                self.push(Kind::Reset { x: name == "RX" }, 0.0, start);
+                Ok(())
+            }
+            "M" | "MZ" | "MX" | "MR" | "MRZ" | "MRX" => {
+                let p = match self.args.as_slice() {
+                    [] => 0.0,
+                    [p] if (0.0..=1.0).contains(p) => *p,
+                    _ => return err(format!("bad {name} arguments")),
+                };
+                let mut n = 0u64;
+                for t in targets {
+                    if t.starts_with('!') {
+                        return err("inverted measurement targets are not supported");
+                    }
+                    let q = self.qubit(t)?;
+                    self.targets.push(q);
+                    n += 1;
+                }
+                self.add_meas(n)?;
+                let kind = Kind::Measure {
+                    x: name.ends_with('X'),
+                    reset: name.starts_with("MR"),
+                };
+                self.push(kind, p, start);
+                Ok(())
+            }
+            "X_ERROR" | "Y_ERROR" | "Z_ERROR" | "DEPOLARIZE1" => {
+                let p = self.prob(name)?;
+                for t in targets {
+                    let q = self.qubit(t)?;
+                    self.targets.push(q);
+                }
+                let kind = match name {
+                    "X_ERROR" => Kind::XErr,
+                    "Y_ERROR" => Kind::YErr,
+                    "Z_ERROR" => Kind::ZErr,
+                    _ => Kind::Depol1,
+                };
+                self.push(kind, p, start);
+                Ok(())
+            }
+            "DEPOLARIZE2" => {
+                let p = self.prob(name)?;
+                let ts: Vec<&str> = targets.collect();
+                if ts.len() % 2 != 0 {
+                    return err("DEPOLARIZE2 needs pairs");
+                }
+                for t in ts {
+                    let q = self.qubit(t)?;
+                    self.targets.push(q);
+                }
+                self.push(Kind::Depol2, p, start);
+                Ok(())
+            }
+            "DETECTOR" => {
+                for t in targets {
+                    let k = self.rec(t)?;
+                    self.targets.push(k);
+                }
+                let b = self.cur();
+                self.block_dets[b] += 1;
+                self.push(Kind::Detector, 0.0, start);
+                Ok(())
+            }
+            "OBSERVABLE_INCLUDE" => {
+                let k = match self.args.as_slice() {
+                    [k] if *k >= 0.0 && k.fract() == 0.0 && *k < 1e9 => *k as u32,
+                    _ => return err("OBSERVABLE_INCLUDE needs an index"),
+                };
+                for t in targets {
+                    let r = self.rec(t)?;
+                    self.targets.push(r);
+                }
+                self.num_observables = self.num_observables.max(k as usize + 1);
+                self.push(Kind::Observable(k), 0.0, start);
+                Ok(())
+            }
+            _ => err(format!("unsupported instruction {name}")),
+        }
+    }
+}
+
+/// Parses a `.stim` circuit (see the module docs for the supported subset)
+/// without unrolling `REPEAT` blocks.
+pub fn parse_stim_circuit(text: &str) -> Result<StimCircuit, StimError> {
+    let mut b = Builder {
+        blocks: vec![Vec::new()],
+        targets: Vec::new(),
+        stack: Vec::new(),
+        block_meas: vec![0],
+        block_dets: vec![0],
+        meas_first: 0,
+        max_qubit: None,
+        num_observables: 0,
+        max_lookback: 0,
+        args: Vec::new(),
+    };
+    for raw in text.lines() {
+        let s = raw.split('#').next().unwrap_or("").trim();
+        if s.is_empty() {
+            continue;
+        }
+        if s == "}" {
+            let Some((body, count, first)) = b.stack.pop() else {
+                return err("unbalanced }");
+            };
+            // the remaining iterations of the body
+            let more = b.block_meas[body]
+                .checked_mul(count - 1)
+                .ok_or_else(|| StimError("too many measurements".into()))?;
+            b.meas_first = first
+                .checked_add(b.block_meas[body])
+                .and_then(|x| x.checked_add(more))
+                .ok_or_else(|| StimError("too many measurements".into()))?;
+            let parent = b.cur();
+            let (m, d) = (
+                b.block_meas[body].checked_mul(count),
+                b.block_dets[body].checked_mul(count),
+            );
+            let (Some(m), Some(d)) = (m, d) else {
+                return err("REPEAT count too large");
+            };
+            b.block_meas[parent] = b.block_meas[parent]
+                .checked_add(m)
+                .ok_or_else(|| StimError("too many measurements".into()))?;
+            b.block_dets[parent] = b.block_dets[parent]
+                .checked_add(d)
+                .ok_or_else(|| StimError("too many detectors".into()))?;
+            b.blocks[parent].push(Inst {
+                kind: Kind::Repeat {
+                    count,
+                    block: body as u32,
+                },
+                p: 0.0,
+                start: 0,
+                end: 0,
+            });
+            continue;
+        }
+        if s.len() >= 6 && s[..6].eq_ignore_ascii_case("REPEAT") && s.ends_with('{') {
+            let count: u64 = s[6..s.len() - 1]
+                .trim()
+                .rsplit(' ')
+                .next()
+                .unwrap_or("")
+                .parse()
+                .map_err(|_| StimError(format!("bad REPEAT line {raw:?}")))?;
+            if count == 0 {
+                return err(format!("REPEAT 0 is not supported: {raw:?}"));
+            }
+            let body = b.blocks.len();
+            b.blocks.push(Vec::new());
+            b.block_meas.push(0);
+            b.block_dets.push(0);
+            b.stack.push((body, count, b.meas_first));
+            continue;
+        }
+        b.instruction(raw, s)?;
+    }
+    if !b.stack.is_empty() {
+        return err("unterminated REPEAT block");
+    }
+    let lim = u32::MAX as u64;
+    if b.block_meas[0] > lim || b.block_dets[0] > lim || b.targets.len() as u64 > lim {
+        return err("program too large (more than 2^32 measurements, detectors or targets)");
+    }
+    Ok(StimCircuit {
+        blocks: b.blocks,
+        targets: b.targets,
+        num_qubits: b.max_qubit.map_or(0, |m| m + 1),
+        num_measurements: b.block_meas[0] as usize,
+        num_detectors: b.block_dets[0] as usize,
+        num_observables: b.num_observables,
+        max_lookback: b.max_lookback as usize,
+    })
+}
+
+/// Parses a `.stim` circuit (see the module docs for the supported subset)
+/// into a [`StimProgram`] with `REPEAT` blocks unrolled.
+pub fn parse_stim(text: &str) -> Result<StimProgram, StimError> {
+    parse_stim_circuit(text)?.to_program()
 }
 
 #[cfg(test)]

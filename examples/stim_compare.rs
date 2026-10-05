@@ -19,10 +19,32 @@
 //!     rng = wy (wyrand, default) | xo (Xoshiro256++).
 //! stim_compare bench-fast <in.stim> <shots> [reps] [words]
 //!     FastSampler only (Xoshiro256++ and wyrand), ptb64 to /dev/null.
+//! stim_compare sample-x <in.stim> <shots> <out.ptb64> [seed] [threads] [tables]
+//!     the sampler-x pipeline (research/qec/sampler-x.md): fast parse with
+//!     REPEAT blocks kept, backward detector compiler, FastSampler with
+//!     per-batch wyrand streams (output identical for any thread count);
+//!     mode = auto (default: Pauli-frame simulation up to FRAMES_UP_TO shots;
+//!     above, the compiled sampler, building the hit tables only when the run
+//!     is long enough to pay for them) | on | off (compiled, with / without
+//!     tables) | simd (tables + the AVX-512 gather/scatter hit kernel) |
+//!     frames | frames-simd (frame simulation, AVX-512 word loops).
+//! stim_compare bench-x <in.stim> <shots> [reps] [threads] [words]
+//!     internal timers of every phase of sample-x (read, parse, compile,
+//!     table build) and sampling throughput with and without hit tables,
+//!     ptb64 to /dev/null.
+//! stim_compare check-x <in.stim>
+//!     old compiler (SymPhase + FastSampler::new) == new compiler
+//!     (compile_stim + FastSampler::from_columns), hit tables included.
+//! stim_compare dem-support-x <in.stim>
+//!     dem-support-fast with the new compiler.
 //! ```
+use qsim_lab::engines::stabilizer::detector_compiler::{
+    compile_stim, compile_stim_timed, tables_pay_off, tables_pay_off_with,
+};
 use qsim_lab::engines::stabilizer::fast_sampler::{FastSampler, WyRand};
+use qsim_lab::engines::stabilizer::frame_sampler::FrameSampler;
 use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
-use qsim_lab::io::stim::{parse_stim, to_stim};
+use qsim_lab::io::stim::{parse_stim, parse_stim_circuit, to_stim};
 use qsim_lab::qec::surface::SurfaceCode;
 use qsim_lab::{Circuit, NoiseModel};
 use rand::rngs::StdRng;
@@ -88,6 +110,13 @@ fn sample_to_sparse<W: Write, R: rand::Rng>(
 }
 
 const FAST_WORDS: usize = 16;
+
+/// `sample-x auto` uses the frame sampler up to this many shots (calibrated
+/// in research/qec/sampler-x.md §2.3), the compiled FastSampler above.
+const FRAMES_UP_TO: usize = 2048;
+
+/// Largest frame-sampler batch (64-shot words).
+const FRAME_WORDS: usize = 64;
 
 /// Poisson-hit FastSampler, `words` 64-shot groups per batch, ptb64 out.
 fn sample_to_fast<W: Write, R: rand::RngCore>(
@@ -277,6 +306,189 @@ fn main() {
                 f.hit_stats().1,
                 f.table_bytes()
             );
+        }
+        "sample-x" => {
+            let text = std::fs::read_to_string(&a[2]).expect("read");
+            let shots: usize = a[3].parse().unwrap();
+            let seed: u64 = a.get(5).map_or(1, |s| s.parse().unwrap());
+            let threads: usize = a.get(6).map_or(1, |s| s.parse().unwrap());
+            let prog = parse_stim_circuit(&text).expect("parse");
+            let mode = a.get(7).map_or("auto", |s| s.as_str());
+            let file = std::fs::File::create(&a[4]).unwrap();
+            // small buffer: a batch of large blocks goes out as one writev
+            let mut w = BufWriter::with_capacity(1 << 16, file);
+            // the auto thresholds can be overridden for calibration
+            let frames_up_to: usize = std::env::var("SAMPLER_X_FRAMES_UP_TO")
+                .ok()
+                .map_or(FRAMES_UP_TO, |v| v.parse().unwrap());
+            if mode.starts_with("frames") || (mode == "auto" && shots <= frames_up_to) {
+                // short run: Pauli-frame simulation, no compile
+                let mut f = FrameSampler::new(&prog);
+                if mode == "frames-simd" {
+                    assert!(f.set_simd(true), "AVX-512 not available");
+                }
+                let words = shots.div_ceil(64).next_power_of_two().min(FRAME_WORDS);
+                f.write_ptb64(shots, seed, words, &mut w).unwrap();
+                w.flush().unwrap();
+                return;
+            }
+            let cols = compile_stim(&prog);
+            let tables = match mode {
+                "on" | "simd" => true,
+                "off" => false,
+                "auto" => match std::env::var("SAMPLER_X_KAPPA") {
+                    Ok(k) => tables_pay_off_with(&cols, shots, k.parse().unwrap()),
+                    Err(_) => tables_pay_off(&cols, shots),
+                },
+                t => panic!("mode must be auto, on, off, simd, frames or frames-simd, not {t}"),
+            };
+            let mut f = FastSampler::from_columns(cols, tables);
+            if mode == "simd" {
+                assert!(f.set_simd(true), "AVX-512F/VL not available");
+            }
+            f.write_ptb64(shots, seed, threads, &mut w).unwrap();
+            w.flush().unwrap();
+        }
+        "bench-x" => {
+            let t0 = Instant::now();
+            let text = std::fs::read_to_string(&a[2]).unwrap();
+            let t_read = t0.elapsed().as_secs_f64();
+            let shots: usize = a[3].parse().unwrap();
+            let reps: usize = a.get(4).map_or(3, |s| s.parse().unwrap());
+            let threads: usize = a.get(5).map_or(1, |s| s.parse().unwrap());
+            let words: usize = a
+                .get(6)
+                .map_or(FastSampler::batch_words(shots), |s| s.parse().unwrap());
+            let (mut t_parse, mut t_compile, mut t_tab, mut t_notab) =
+                (f64::INFINITY, f64::INFINITY, f64::INFINITY, f64::INFINITY);
+            let (mut t_sweep, mut t_finish) = (f64::INFINITY, f64::INFINITY);
+            let mut first = String::new();
+            let mut keep = None;
+            for rep in 0..reps {
+                let t = Instant::now();
+                let prog = parse_stim_circuit(&text).unwrap();
+                let tp = t.elapsed().as_secs_f64();
+                t_parse = t_parse.min(tp);
+                let t = Instant::now();
+                let (cols, ts, tf) = compile_stim_timed(&prog);
+                let tc = t.elapsed().as_secs_f64();
+                t_compile = t_compile.min(tc);
+                t_sweep = t_sweep.min(ts);
+                t_finish = t_finish.min(tf);
+                if rep == 0 {
+                    // the first repetition runs on fresh (cold) memory, as a
+                    // one-shot process does
+                    first = format!(
+                        "cold_parse={tp:.6} cold_compile={tc:.6} cold_sweep={ts:.6} cold_finish={tf:.6}"
+                    );
+                }
+                let (c2, c3) = (cols.clone(), cols.clone());
+                let t = Instant::now();
+                let f = FastSampler::from_columns(cols, true);
+                let tt = t.elapsed().as_secs_f64();
+                t_tab = t_tab.min(tt);
+                let t = Instant::now();
+                let g = FastSampler::from_columns(c2, false);
+                let tn = t.elapsed().as_secs_f64();
+                t_notab = t_notab.min(tn);
+                if rep == 0 {
+                    first += &format!(" cold_tables={tt:.6} cold_notables={tn:.6}");
+                }
+                keep = Some((f, g, c3));
+            }
+            let (f, g, cols) = keep.unwrap();
+            let prog = parse_stim_circuit(&text).unwrap();
+            let fr = FrameSampler::new(&prog);
+            let mut frs = FrameSampler::new(&prog);
+            let fr_simd = frs.set_simd(true);
+            let fwords = shots.div_ceil(64).next_power_of_two().min(FRAME_WORDS);
+            let (mut s_fr, mut s_frs) = (f64::INFINITY, f64::INFINITY);
+            // frame timings only for runs where frames are a candidate
+            let freps = if shots <= 1 << 22 { reps } else { 0 };
+            for r in 0..freps {
+                let mut w = devnull();
+                let t = Instant::now();
+                fr.write_ptb64(shots, 400 + r as u64, fwords, &mut w).unwrap();
+                w.flush().unwrap();
+                s_fr = s_fr.min(t.elapsed().as_secs_f64());
+                if fr_simd {
+                    let mut w = devnull();
+                    let t = Instant::now();
+                    frs.write_ptb64(shots, 500 + r as u64, fwords, &mut w).unwrap();
+                    w.flush().unwrap();
+                    s_frs = s_frs.min(t.elapsed().as_secs_f64());
+                }
+            }
+            let mut fs = f.clone();
+            let simd = fs.set_simd(true);
+            let (mut s_tab, mut s_notab, mut s_simd) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
+            let small = || {
+                BufWriter::with_capacity(
+                    1 << 16,
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .open("/dev/null")
+                        .unwrap(),
+                )
+            };
+            for r in 0..reps {
+                let mut w = small();
+                let t = Instant::now();
+                f.write_ptb64_with(shots, 100 + r as u64, threads, words, 4 << 20, &mut w)
+                    .unwrap();
+                w.flush().unwrap();
+                s_tab = s_tab.min(t.elapsed().as_secs_f64());
+                let mut w = small();
+                let t = Instant::now();
+                g.write_ptb64_with(shots, 200 + r as u64, threads, words, 4 << 20, &mut w)
+                    .unwrap();
+                w.flush().unwrap();
+                s_notab = s_notab.min(t.elapsed().as_secs_f64());
+                if simd {
+                    let mut w = small();
+                    let t = Instant::now();
+                    fs.write_ptb64_with(shots, 300 + r as u64, threads, words, 4 << 20, &mut w)
+                        .unwrap();
+                    w.flush().unwrap();
+                    s_simd = s_simd.min(t.elapsed().as_secs_f64());
+                }
+            }
+            println!(
+                "read={t_read:.6} parse={t_parse:.6} compile={t_compile:.6} sweep={t_sweep:.6} finish={t_finish:.6} {first} tables={t_tab:.6} notables={t_notab:.6} sample_tables={s_tab:.6} sample_notables={s_notab:.6} sample_simd={s_simd:.6} sample_frames={s_fr:.6} sample_frames_simd={s_frs:.6} frame_words={fwords} auto_tables={} threads={threads} words={words} shots={} rows={} groups={} vars={} hits_per_shot={:.2} table_bytes={}",
+                tables_pay_off(&cols, shots),
+                shots.div_ceil(64) * 64,
+                f.rows(),
+                cols.groups.len(),
+                cols.num_vars(),
+                f.hit_stats().0,
+                f.table_bytes()
+            );
+        }
+        "check-x" => {
+            let text = std::fs::read_to_string(&a[2]).unwrap();
+            let prog = parse_stim(&text).unwrap();
+            let old = FastSampler::new(&compile(
+                &prog.circuit,
+                &prog.noise,
+                &prog.detectors,
+                &prog.observables,
+            ));
+            let new = FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
+            println!("{}", if old == new { "equal" } else { "DIFFER" });
+            assert!(old == new);
+        }
+        "dem-support-x" => {
+            let text = std::fs::read_to_string(&a[2]).unwrap();
+            let f = FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
+            for sig in f.hit_signatures() {
+                println!(
+                    "{}",
+                    sig.iter()
+                        .map(|r| r.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
+            }
         }
         "probe-bitsliced" => {
             // Lower bound for a bit-sliced Bernoulli sampler: time to draw one

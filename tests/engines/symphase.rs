@@ -333,6 +333,54 @@ fn exact_distribution_matches_tableau_on_random_small_circuits() {
     }
 }
 
+/// Every Clifford the tableau accepts must also work in the symbolic frame.
+/// Regression (sampler-x branch): `I`, `Sx`, `Sxdg`, `ISwap` and `ISwapdg`
+/// passed the tableau's reference run but hit `unreachable!` in the frame,
+/// so `SymPhaseSampler::new` panicked on valid circuits.
+#[test]
+fn exact_distribution_with_every_tableau_clifford() {
+    let mut rng = StdRng::seed_from_u64(9);
+    let mut checked = 0;
+    let mut tries = 0;
+    while checked < 150 {
+        tries += 1;
+        assert!(tries < 8000);
+        let n = rng.random_range(1..4);
+        let mut c = Circuit::new(n);
+        for _ in 0..rng.random_range(3..12) {
+            let a = rng.random_range(0..n);
+            let b = (a + rng.random_range(1..n.max(2))) % n;
+            match rng.random_range(0..9) {
+                0 => c.gate(Gate::I(a)),
+                1 => c.gate(Gate::Sx(a)),
+                2 => c.gate(Gate::Sxdg(a)),
+                3 if n > 1 => c.gate(Gate::ISwap(a, b)),
+                4 if n > 1 => c.gate(Gate::ISwapdg(a, b)),
+                5 if n > 1 => c.gate(Gate::CPhase(a, b, std::f64::consts::PI)),
+                6 => c.measure(a),
+                7 => c.x_flip(a, 0.2),
+                _ => c.gate(Gate::H(a)),
+            };
+        }
+        c.measure_all();
+        let noise = match rng.random_range(0..3) {
+            0 => NoiseModel::none(),
+            1 => NoiseModel::none().with_p1(0.1),
+            _ => NoiseModel::gate_depolarizing(0.05, 0.1),
+        };
+        let s = SymPhaseSampler::new(&c, &noise).unwrap();
+        if enum_size(&s) > 2e4 {
+            continue;
+        }
+        assert_dist_eq(
+            &tableau_dist(&c, &noise),
+            &sampler_dist(&s),
+            &format!("circuit {c:?} noise {noise:?}"),
+        );
+        checked += 1;
+    }
+}
+
 #[test]
 fn exact_distribution_with_two_qubit_gate_noise() {
     // Bell pair, parity check onto an ancilla, mid-circuit reset and re-use
