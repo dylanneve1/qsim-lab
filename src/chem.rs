@@ -693,13 +693,15 @@ pub fn trig2_min(t0: f64, vals: &[f64; 5]) -> (f64, f64) {
 /// Rotosolve-style exact coordinate descent: each parameter of an
 /// excitation generator `exp(θ G)` (`G³ = −G`) enters the energy as a
 /// degree-2 trigonometric polynomial, fixed by 5 evaluations. Returns the
-/// optimised parameters and the energy after each sweep.
+/// optimised parameters and the energy after each sweep. Only parameters
+/// `0..nopt` are optimised (the rest keep their initial values).
 pub fn rotosolve(
     prog: &Program,
     h: &PauliSum,
     sweeps: usize,
     tol: f64,
     max_d: usize,
+    nopt: usize,
 ) -> Result<(Vec<f64>, Vec<f64>, usize), SimError> {
     let mut th = prog.params.clone();
     let step = 2.0 * std::f64::consts::PI / 5.0;
@@ -709,7 +711,7 @@ pub fn rotosolve(
     evals += 1;
     hist.push(cur);
     for _ in 0..sweeps {
-        for k in 0..th.len() {
+        for k in 0..th.len().min(nopt) {
             let t0 = th[k];
             let mut vals = [0.0f64; 5];
             vals[0] = cur;

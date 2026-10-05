@@ -396,6 +396,31 @@ def prep(name, out, small_only=False):
             [t for *_, t in sel],
             {"mol": name, "ansatz": f"sel{k}", "enc": "jw"},
         )
+    # span-budget selection: walk the CCSD excitations by |t|; keep one if the GF(2)
+    # span stays within D dimensions (excitations already in the span are free)
+    for dmax in (8, 12, 16, 20, 24):
+        rows, sel = [], []
+        for o, v, t in allx:
+            x = xvec(o, v)
+            r = x
+            for b in rows:
+                r = min(r, r ^ b)
+            if r == 0:
+                sel.append((o, v, t))
+            elif len(rows) < dmax:
+                rows.append(r)
+                sel.append((o, v, t))
+        refs[f"span{dmax}_k"] = len(sel)
+        write_program(
+            os.path.join(out, f"{name}.span{dmax}.jw.prog"),
+            n,
+            occ_q,
+            [(o, v) for o, v, _ in sel],
+            [t for *_, t in sel],
+            {"mol": name, "ansatz": f"span{dmax}", "enc": "jw", "k": len(sel)},
+        )
+        if len(rows) < dmax:
+            break
     small = n <= 24
     if small:
         # full ansaetze (CCSD amplitudes as angles), JW and BK
