@@ -1159,6 +1159,9 @@ pub fn lift_degenerate(
                             (0..m).map(|q| term(tops[q], &opts[q][ch[q]])).collect();
                         terms.push(term(tau, &topt[ot]));
                         if verify_terms(&terms, &cx.target).is_some() {
+                            if std::env::var("SHOW_IIIB").is_ok() {
+                                eprintln!("    IIIb hit (tau #{})", ix);
+                            }
                             out.push(terms);
                         }
                     }
@@ -1223,15 +1226,35 @@ fn write_sets(path: &str, lv: &Level, sets: &[Vec<u32>], header: &str) {
     }
 }
 
+/// Write orbit representatives (sorted index sets, all < 65536) as little-endian u16 k-tuples.
+pub fn write_reps_u16(path: &str, reps: &[Vec<u32>]) {
+    let mut b: Vec<u8> = Vec::with_capacity(reps.len() * reps.first().map_or(0, |r| r.len()) * 2);
+    for r in reps {
+        for &x in r {
+            assert!(x < 65536);
+            b.extend_from_slice(&(x as u16).to_le_bytes());
+        }
+    }
+    std::fs::write(path, b).unwrap();
+}
+/// Read representatives written by `write_reps_u16`.
+pub fn read_reps_u16(path: &str, k: usize) -> Vec<Vec<u32>> {
+    let b = std::fs::read(path).expect("reps file");
+    assert_eq!(b.len() % (2 * k), 0);
+    b.chunks(2 * k)
+        .map(|c| c.chunks(2).map(|w| u16::from_le_bytes([w[0], w[1]]) as u32).collect())
+        .collect()
+}
+
 /// All optimal / minimal k-term decompositions at level lv, as G-orbit representatives, plus the
 /// total number of decompositions.  k = 3 uses the older projective-hash search of stabrank.rs,
 /// k = 4, 5 the Galois search.
 pub fn decs(lv: &Level, k: usize) -> (Vec<Vec<u32>>, usize, f64) {
     let t0 = std::time::Instant::now();
-    let found: Vec<Vec<u32>> = if k == 3 {
+    let found: Vec<Vec<u32>> = if k <= 3 {
         let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
         let g16 = lv.group.clone();
-        search(&lv.t, &lv.psi, 3, &lv.orbit, Some(&g16), &mut st)
+        search(&lv.t, &lv.psi, k, &lv.orbit, Some(&g16), &mut st)
             .into_iter()
             .map(|d| d.idx)
             .collect()
@@ -1433,6 +1456,7 @@ fn main() {
                 &reps,
                 &format!("{}^{} k={}: {} decompositions, {} orbit reps", kind, n, k, total, reps.len()),
             );
+            write_reps_u16(&format!("min_{}{}_k{}_reps.u16", kind, n, k), &reps);
         }
         // pipeline <kind> <n> <k>: all k-term decompositions of psi^{⊗n}, k = chi(n-1)+1
         "pipeline" => {
@@ -1467,7 +1491,7 @@ fn main() {
                 k - 1, kind, n - 1, ototal, orep.len(), osecs
             );
             // chi(n-1) = k-1: no (k-2)-term decomposition (k-2 = 2 or 3 via the old search)
-            {
+            if k >= 4 {
                 let mut st = SearchStats { w_count: 0, cand_count: 0, verified: 0 };
                 let g16 = lv.group.clone();
                 let lower = search(&lv.t, &lv.psi, k - 2, &lv.orbit, Some(&g16), &mut st);
@@ -1789,6 +1813,87 @@ fn main() {
                 println!();
             }
         }
+        // suborbits <kind> <n> <k>: number of orbits of the optimal/minimal k-term decompositions
+        // under subgroups of the symmetry group (for comparison with lists in the literature)
+        "suborbits" => {
+            let kind = args[2].clone();
+            let n: usize = args[3].parse().unwrap();
+            let k: usize = args[4].parse().unwrap();
+            let lv = Level::new(&kind, n);
+            let (reps, total, _) = decs(&lv, k);
+            let ds: Vec<Dec> = reps.iter().map(|s| check_set(&lv.t, &lv.psi, s).unwrap()).collect();
+            let all = expand(&lv.t, &lv.psi, &ds, &lv.gens);
+            let p = psi1(&kind);
+            let perm_map = |perm: Vec<usize>| -> Vec<u32> {
+                lv.t.states
+                    .iter()
+                    .map(|v| {
+                        let mut o = vec![C::default(); v.len()];
+                        for x in 0..v.len() {
+                            let mut y = 0;
+                            for j in 0..n {
+                                if x >> j & 1 == 1 {
+                                    y |= 1 << perm[j];
+                                }
+                            }
+                            o[y] = v[x];
+                        }
+                        lv.t.lookup(&o).unwrap()
+                    })
+                    .collect()
+            };
+            let mut sw: Vec<usize> = (0..n).collect();
+            sw.swap(0, 1);
+            let cyc: Vec<usize> = (0..n).map(|j| (j + 1) % n).collect();
+            let perms = vec![perm_map(sw), perm_map(cyc)];
+            let conj: Vec<u32> = lv.t.states.iter().map(|v| lv.t.lookup(&v.iter().map(|&z| cj(z)).collect::<Vec<C>>()).unwrap()).collect();
+            let mut local = vec![];
+            for m in cliffords1() {
+                if parallel(&apply1(&m, &p), &p) && (m[1].abs() > 1e-9 || (m[3] - m[0]).abs() > 1e-9) {
+                    local.push(lv.t.states.iter().map(|v| lv.t.lookup(&apply_local(&m, 0, v)).unwrap()).collect::<Vec<u32>>());
+                }
+            }
+            let count = |gens: &[Vec<u32>]| -> usize {
+                if gens.is_empty() {
+                    return all.len();
+                }
+                orbit_reps(&lv.t, &lv.psi, &all, gens).len()
+            };
+            let mut g_pc = perms.clone();
+            g_pc.push(conj.clone());
+            let mut g_u = perms.clone();
+            g_u.extend(local.iter().cloned());
+            let mut g_lc = local.clone();
+            g_lc.push(conj.clone());
+            println!(
+                "{}^{} k={}: {} decompositions; orbits under: full G {} | unitary (local x S_n) {} | S_n x conj {} | S_n {} | local x conj {} | none {}",
+                kind, n, k, total, count(&lv.gens), count(&g_u), count(&g_pc), count(&perms), count(&g_lc), count(&[])
+            );
+            // unitary symmetries acting on qubits 1..n-1 only (qubit 0 fixed): local Hadamard-type
+            // Cliffords on those qubits and permutations of them
+            let mut g_fix = vec![];
+            if n >= 3 {
+                let mut sw: Vec<usize> = (0..n).collect();
+                sw.swap(1, 2);
+                g_fix.push(perm_map(sw));
+                let mut cyc: Vec<usize> = (0..n).collect();
+                for j in 1..n {
+                    cyc[j] = if j + 1 < n { j + 1 } else { 1 };
+                }
+                g_fix.push(perm_map(cyc));
+            }
+            for m in cliffords1() {
+                if parallel(&apply1(&m, &p), &p) && (m[1].abs() > 1e-9 || (m[3] - m[0]).abs() > 1e-9) {
+                    g_fix.push(lv.t.states.iter().map(|v| lv.t.lookup(&apply_local(&m, 1, v)).unwrap()).collect::<Vec<u32>>());
+                }
+            }
+            let mut g_fix_c = g_fix.clone();
+            g_fix_c.push(conj.clone());
+            println!(
+                "  orbits under the unitary symmetry of psi^(n-1) on qubits 1..n-1 (qubit 0 fixed): {}; with conj: {}",
+                count(&g_fix), count(&g_fix_c)
+            );
+        }
         // liftfile <kind> <n> <k> <reps file> [deg|type1|all]: lifts from a saved list of minimal
         // k-term decompositions of psi^{⊗(n-1)} (orbit reps, as written by `gsearch`), with the
         // restriction bra BRA (default 0); the optimal (k-1)-term list is recomputed.
@@ -1813,7 +1918,15 @@ fn main() {
             );
             let (orep, ototal, _) = decs(&lv, k - 1);
             println!("  optimal ({}-term) decompositions: {} in {} orbits", k - 1, ototal, orep.len());
-            let txt = std::fs::read_to_string(path).expect("reps file");
+            let txt = if path.ends_with(".u16") {
+                read_reps_u16(path, k)
+                    .iter()
+                    .map(|r| r.iter().map(|x| format!("{}:0,0", x)).collect::<Vec<_>>().join(" "))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else {
+                std::fs::read_to_string(path).expect("reps file")
+            };
             let mut header = String::new();
             let mut mrep: Vec<Vec<u32>> = vec![];
             for l in txt.lines() {
