@@ -1,0 +1,2 @@
+QPG: T^6 = sum of 6 stabilizer states, residual 4.88e-16, coefficients |c| = [0.353553 0.5      0.5      0.353553 0.5      0.5     ]
+all 36 restrictions (6 qubits x 6 stabilizer bras): 6 non-zero independent terms spanning T^5; min term norm 0.7071, min relative singular value 0.2868

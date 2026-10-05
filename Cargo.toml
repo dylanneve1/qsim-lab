@@ -248,6 +248,10 @@ name = "stabrank_lower"
 path = "tests/theory/stabrank_lower.rs"
 
 [[test]]
+name = "stabrank5"
+path = "tests/theory/stabrank5.rs"
+
+[[test]]
 name = "theory_colour"
 path = "tests/theory/theory_colour.rs"
 
