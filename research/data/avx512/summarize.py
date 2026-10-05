@@ -1,66 +1,73 @@
 #!/usr/bin/env python3
 """Summarises baselines_raw.csv: min seconds per framework per (workload, n, prec, threads),
-the best baseline, qsim-lab, and the load during the cell.
+the best baseline, qsim-lab, and the load during the runs.
 
-usage: summarize.py <raw.csv> [more.csv ...] [--md out.md]
-A framework's entry is the min over all its configs and file variants (the chosen one
-is printed); "loaded" marks cells whose load1 before the cell exceeded 16 or where other
-processes used > 4 cores on average during the cell.
+usage: summarize.py <raw.csv> [more.csv ...] [--md out.md] [--others-max 4] [--load-max 16]
+
+A row is "clean" when the 1-min load before its run was <= 16 (MACHINE.md) and other
+processes used <= --others-max cores on average during the run. A framework's entry is the
+min over its clean rows (all configs and file variants; the chosen one is printed); if it
+has no clean row, the min over all rows is shown with a "*" (loaded).
 """
 import csv
 import sys
 from collections import defaultdict
 
-FWS = ["qsim", "qulacs", "aer", "lightning", "qsimlab"]
+FWS = ["qsim", "qulacs_src", "qulacs", "aer", "lightning", "qsimlab"]
 
 
 def main():
     args = sys.argv[1:]
-    md = None
-    if "--md" in args:
-        md = args[args.index("--md") + 1]
-        args = args[:args.index("--md")]
+    opt = {}
+    for k in ("--md", "--others-max", "--load-max"):
+        if k in args:
+            i = args.index(k)
+            opt[k] = args[i + 1]
+            del args[i:i + 2]
+    others_max = float(opt.get("--others-max", 4))
+    load_max = float(opt.get("--load-max", 16))
     rows = []
     for p in args:
         rows += list(csv.DictReader(open(p)))
     best = {}
-    load = defaultdict(lambda: [0.0, 0.0, 0.0])
     for r in rows:
         cell = (r["workload"], int(r["n"]), r["prec"], int(r["threads"]))
         t = float(r["seconds"])
+        clean = float(r["load1_before"]) <= load_max and float(r["others_cores"]) <= others_max
         k = cell + (r["framework"],)
-        variant = "dense" if r["file"].endswith(".dense.txt") else "kak" if r["workload"] in ("qv", "brick_su4") else ""
-        if k not in best or t < best[k][0]:
-            best[k] = (t, r["config"] + (f" {variant}" if variant else ""))
-        L = load[cell]
-        L[0] = max(L[0], float(r["load1_before"]))
-        L[1] = max(L[1], float(r["others_cores"]))
-        L[2] = max(L[2], float(r.get("others_idle") or 0.0))
+        su4 = r["workload"] in ("qv", "brick_su4")
+        variant = ("dense" if r["file"].endswith(".dense.txt") else "kak") if su4 else ""
+        cand = (not clean, t, r["config"] + (f" {variant}" if variant else ""),
+                float(r["load1_before"]), float(r["others_cores"]))
+        if k not in best or cand < best[k]:
+            best[k] = cand
     cells = sorted({k[:4] for k in best}, key=lambda c: (c[1], c[2], c[3], c[0]))
-    out = ["| workload | n | prec | thr | " + " | ".join(FWS) + " | best baseline | qsim-lab / best | load1 max | others cores max |",
-           "|---|---|---|---|" + "---|" * len(FWS) + "---|---|---|---|"]
+    head = ("| workload | n | prec | thr | " + " | ".join(FWS) +
+            " | best baseline | best / qsim-lab | load1 / others (best baseline run) | load1 / others (qsim-lab run) |")
+    out = [head, "|---|---|---|---|" + "---|" * len(FWS) + "---|---|---|---|"]
     for c in cells:
-        vals = []
-        bb = None
+        vals, bb = [], None
         for fw in FWS:
             v = best.get(c + (fw,))
             if v is None:
                 vals.append("—")
                 continue
-            vals.append(f"{v[0]:.3f} ({v[1]})")
-            if fw != "qsimlab" and (bb is None or v[0] < bb[0]):
-                bb = (v[0], fw)
+            vals.append(f"{v[1]:.3f}{'*' if v[0] else ''} ({v[2]})")
+            if fw != "qsimlab" and (bb is None or (v[0], v[1]) < (bb[1][0], bb[1][1])):
+                bb = (fw, v)
         ql = best.get(c + ("qsimlab",))
-        ratio = f"{bb[0] / ql[0]:.2f}x" if (bb and ql) else "—"
-        L = load[c]
-        flag = " loaded" if (L[0] > 16 or L[1] > 4) else ""
-        bbs = f"{bb[1]} {bb[0]:.3f}" if bb else "—"
+        ratio = f"{bb[1][1] / ql[1]:.2f}x" if (bb and ql) else "—"
+        bbs = f"{bb[0]} {bb[1][1]:.3f}{'*' if bb[1][0] else ''}" if bb else "—"
+        lb = f"{bb[1][3]:.1f} / {bb[1][4]:.1f}" if bb else "—"
+        lq = f"{ql[3]:.1f} / {ql[4]:.1f}" if ql else "—"
         out.append(f"| {c[0]} | {c[1]} | {c[2]} | {c[3]} | " + " | ".join(vals) +
-                   f" | {bbs} | {ratio} | {L[0]:.1f} | {L[1]:.1f}{flag} |")
-    text = "\n".join(out) + "\n"
+                   f" | {bbs} | {ratio} | {lb} | {lq} |")
+    text = ("\n".join(out) + "\n\n* = no clean run (load1 > %g or other processes > %g cores during "
+            "every run of that framework in that cell); ratio > 1 means qsim-lab is faster.\n"
+            % (load_max, others_max))
     print(text)
-    if md:
-        open(md, "w").write(text)
+    if "--md" in opt:
+        open(opt["--md"], "w").write(text)
 
 
 if __name__ == "__main__":
