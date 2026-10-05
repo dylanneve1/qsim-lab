@@ -44,6 +44,7 @@ ap.add_argument("--eval-every", type=int, default=1000)
 ap.add_argument("--dev-shots", type=int, default=5120)
 ap.add_argument("--dev-max", type=int, default=0, help="evaluate model selection on the first N dev shots per experiment")
 ap.add_argument("--max-minutes", type=float, default=45.0)
+ap.add_argument("--eval-at-start", action="store_true")
 ap.add_argument("--max-peak-mb", type=float, default=1750.0, help="stop if MLX peak + cache limit would pass ~2 GB")
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
@@ -315,6 +316,8 @@ def evaluate(it):
     log.write(json.dumps(rec) + "\n"); log.flush()
 
 
+if a.eval_at_start:
+    evaluate(0)
 for it in range(1, a.steps + 1):
     paused += wait_lock()
     if it % 50 == 0:
