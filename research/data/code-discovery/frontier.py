@@ -42,7 +42,42 @@ for f in files:
         elif r["d_lo"] > 0:
             inexact.append(r)
 
-# best d per (n, k), with one representative (prefer non-cyclic? keep first)
+def mono(t):
+    a = b = 0
+    t = t.replace("*", " ").strip()
+    if t == "1":
+        return (0, 0)
+    for f in t.split():
+        v, _, e = f.partition("^")
+        e = int(e) if e else 1
+        if v == "x":
+            a += e
+        else:
+            b += e
+    return (a, b)
+
+
+def connected(r):
+    """True if A and B (both containing 1) generate the whole group;
+    otherwise the code is |G/H| disjoint copies of a code over H."""
+    l, m = r["l"], r["m"]
+    gens = [mono(t) for t in r["A"].split("+") + r["B"].split("+")]
+    seen = {(0, 0)}
+    stack = [(0, 0)]
+    while stack:
+        i, j = stack.pop()
+        for a, b in gens:
+            for s in (1, -1):
+                v = ((i + s * a) % l, (j + s * b) % m)
+                if v not in seen:
+                    seen.add(v)
+                    stack.append(v)
+    return len(seen) == l * m
+
+
+ndec = sum(1 for r in codes if not connected(r))
+codes = [r for r in codes if connected(r)]
+# best d per (n, k) over indecomposable codes
 best = {}
 for r in codes:
     key = (r["n"], r["k"])
@@ -85,7 +120,7 @@ for n in sorted(front):
         rows.append((n, k, d, r, lit_dom, beats))
 
 with open(out + ".md", "w") as fo:
-    fo.write(f"codes with exact d: {len(codes)}; bounded only: {len(inexact)}; k>128 skipped: {skipped}\n\n")
+    fo.write(f"indecomposable codes with exact d: {len(codes)}; decomposable (copies of a smaller code, dropped): {ndec}; bounded only: {len(inexact)}; k>128 skipped: {skipped}\n\n")
     fo.write("| n | k | d | kd^2/n | group | A | B | literature status |\n|---|---|---|---|---|---|---|---|\n")
     for n, k, d, r, lit_dom, beats in rows:
         same = [x for x in lit_dom if x[:3] == (n, k, d)]
