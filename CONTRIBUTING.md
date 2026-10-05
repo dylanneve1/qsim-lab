@@ -40,6 +40,23 @@ On shared machines keep builds polite: `nice -n 15 cargo ... -j 2`, one
 `CARGO_TARGET_DIR` per worktree, `RAYON_NUM_THREADS<=2` for tests, and delete
 target directories you are done with.
 
+## Code conventions
+
+* **Where code goes** (see the README's Architecture section): simulators in
+  `src/engines/`, file formats in `src/io/`, gate-level Shor in `src/shor/`,
+  QEC in `src/qec/`, timing harnesses in `src/bench/`. Use the canonical paths
+  (`qsim_lab::engines::statevector`, `qsim_lab::shor::ge`, `qsim_lab::io::qasm`);
+  the old flat paths are hidden compatibility re-exports only.
+* **Errors**: a fallible public function returns its subsystem's error type
+  (`SimError`, `DagError`, `DemError`, `StimError`, ...), which implements
+  `std::error::Error` and converts into the crate-wide `qsim_lab::Error` (use
+  `qsim_lab::Result` when mixing subsystems). Don't add new `Result<_, String>`
+  APIs.
+* **Docs**: every new public item gets a doc comment; module files start with a
+  `//!` summary that says what the module is for and links its notebook.
+* Names: `snake_case` modules named after what they contain, no `_v2`-style
+  suffixes in `src/` (keep experiments on branches or behind options).
+
 ## Correctness discipline
 
 * **Every engine change is differentially tested** against the reference state
