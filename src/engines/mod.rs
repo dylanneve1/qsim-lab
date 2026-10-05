@@ -7,6 +7,8 @@
 //! * [`blocked`] — cache-blocked, fused executor for the state vector (the default dense path).
 //! * [`dense_fusion`] — dense k-qubit gate fusion for the blocked executor.
 //! * [`ooc`], [`ooc_window`] — out-of-core (disk-backed) state vector and its pass scheduler.
+//! * [`dist`] — two-node distributed state vector (MPI-style global-qubit swaps over a
+//!   byte-stream link: TCP, an SSH session, or in-process channels).
 //! * `metal_sv` — Apple-GPU (Metal) f32 state vector (`--features metal`, macOS only).
 //!
 //! Structured / low-rank representations:
@@ -24,6 +26,7 @@ pub mod adaptive;
 pub mod blocked;
 pub mod dense_fusion;
 pub(crate) mod dense_kernels;
+pub mod dist;
 pub mod hsf;
 #[cfg(all(feature = "metal", target_os = "macos"))]
 pub mod metal_sv;

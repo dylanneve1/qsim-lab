@@ -56,6 +56,7 @@ All engines share one circuit representation (`Circuit`, OpenQASM 2 and
 |---|---|---|
 | cache-blocked state vector (AVX2 / NEON FMA, diagonal batching, dense 2-qubit fusion) | `engines::{statevector, blocked, dense_fusion}` | any circuit up to RAM |
 | out-of-core state vector | `engines::{ooc, ooc_window}` | states larger than RAM |
+| two-node distributed state vector (experimental; TCP or SSH-session link) | `engines::dist` | splitting one state across two machines ([notes](research/performance/distributed-sv.md)) |
 | Metal GPU state vector (f32, macOS, `--features metal`) | `engines::metal_sv` | 20–29 qubits on Apple silicon |
 | stabilizer tableau, SymPhase and FastSampler | `engines::stabilizer` | Clifford circuits, QEC sampling |
 | rotation frame / compressed state / magic recycling | `engines::{adaptive, pauli_frame, pauli_path}`, `magic_atlas` | Clifford+T with low active dimension |
@@ -77,7 +78,7 @@ src/
   lib.rs            crate root: re-exports Circuit, Gate, Simulator and the main engine types
   circuit.rs gate.rs noise.rs algorithms.rs       circuit IR, gate set, noise channels, textbook circuits
   io/               qasm (OpenQASM 2.0), stim (.stim import/export)
-  engines/          exact simulators: statevector, blocked (+ dense_fusion), ooc, metal_sv,
+  engines/          exact simulators: statevector, blocked (+ dense_fusion), ooc, dist, metal_sv,
                     sparse, stabilizer/, pauli_path, pauli_frame, adaptive, stab_rank,
                     mps (+ mps_cost), hsf, spd, monitored/
   compile/ dag.rs graph/                          circuit passes, DAG IR, compile-once graph compiler
@@ -167,7 +168,7 @@ All notebooks with one-line summaries: [research/README.md](research/README.md).
 - **Shor:** [shor.md](research/shor/shor.md) · [shor-r4-audit.md](research/shor/shor-r4-audit.md) · [superopt.md](research/shor/superopt.md) · [mbu-shor.md](research/shor/mbu-shor.md) · [ge-shor.md](research/shor/ge-shor.md) · [shor-noise.md](research/shor/shor-noise.md) · [noise-oracles.md](research/shor/noise-oracles.md) · [ft-shor.md](research/shor/ft-shor.md) · [theory-shor.md](research/theory/theory-shor.md) · [theory-coset.md](research/theory/theory-coset.md)
 - **QEC:** [qec.md](research/qec/qec.md) · [qec-r4.md](research/qec/qec-r4.md) · [schedules.md](research/qec/schedules.md) · [colour-global.md](research/qec/colour-global.md) · [colour-flags.md](research/qec/colour-flags.md) · [theory-colour.md](research/theory/theory-colour.md) · [fast-sampler.md](research/qec/fast-sampler.md) · [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) · [neural-decoder.md](research/qec/neural-decoder.md) · [alphaqubit-lite.md](research/qec/alphaqubit-lite.md) · [code-discovery.md](research/qec/code-discovery.md) · [stab.md](research/performance/stab.md)
 - **Simulability, magic and physics:** [simulability.md](research/simulability/simulability.md) · [planner.md](research/simulability/planner.md) · [planner-v2.md](research/simulability/planner-v2.md) · [magic-atlas.md](research/simulability/magic-atlas.md) · [magic-transition.md](research/simulability/magic-transition.md) · [lowmagic-chem.md](research/simulability/lowmagic-chem.md) · [transition-theory.md](research/theory/transition-theory.md) · [theory-rank.md](research/theory/theory-rank.md) · [stabrank-lower.md](research/theory/stabrank-lower.md) · [adaptive.md](research/simulability/adaptive.md) · [pauli.md](research/performance/pauli.md) · [spoof-utility.md](research/simulability/spoof-utility.md)
-- **Performance:** [sv.md](research/performance/sv.md) · [mac-m1.md](research/performance/mac-m1.md) · [metal.md](research/performance/metal.md) · [ooc.md](research/performance/ooc.md) · [hsf.md](research/performance/hsf.md) · [mps.md](research/performance/mps.md) · [sv-monomial.md](research/performance/sv-monomial.md) · [autoimprove.md](research/performance/autoimprove.md) · [dense-fusion.md](research/performance/dense-fusion.md)
+- **Performance:** [sv.md](research/performance/sv.md) · [mac-m1.md](research/performance/mac-m1.md) · [metal.md](research/performance/metal.md) · [ooc.md](research/performance/ooc.md) · [distributed-sv.md](research/performance/distributed-sv.md) · [hsf.md](research/performance/hsf.md) · [mps.md](research/performance/mps.md) · [sv-monomial.md](research/performance/sv-monomial.md) · [autoimprove.md](research/performance/autoimprove.md) · [dense-fusion.md](research/performance/dense-fusion.md)
 - **Compiler:** [compiler.md](research/compiler/compiler.md) · [dag.md](research/compiler/dag.md) · [pipeline.md](research/performance/pipeline.md) · [repeat.md](research/compiler/repeat.md) · [phasepoly.md](research/compiler/phasepoly.md) · [graph-compiler.md](research/compiler/graph-compiler.md)
 - **Process:** [audit.md](research/process/audit.md) · [literature.md](research/process/literature.md) · [ARCHITECTURE.md](research/ARCHITECTURE.md) · [ARCHIVE.md](research/process/ARCHIVE.md) (archived branches)
 
