@@ -78,6 +78,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [compiler.md](compiler/compiler.md) | Exact circuit-level passes and plans (`src/compile/`) |
 | [dag.md](compiler/dag.md) | Circuit DAG IR (`src/dag.rs`) |
 | [phasepoly.md](compiler/phasepoly.md) | Phase folding: graph-based T-count reduction |
+| [todd.md](compiler/todd.md) | T-count optimisation with TODD on Hadamard-delimited slots, exact path-sum verification, against the best published counts |
 | [repeat.md](compiler/repeat.md) | Exact exploitation of repeated blocks (`compile::repeat`) |
 | [graph-compiler.md](compiler/graph-compiler.md) | Graph compiler: compile-once/bind, subgraph dedup, rewrites, basis folding, engine partitioning (`src/graph/`) |
 
