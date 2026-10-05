@@ -3,7 +3,8 @@
 Branch `exp/alphaqubit-lite`. Code: `research/data/alphaqubit-lite/` (`aq_data.py` loaders + metrics,
 `aq_model.py` model, `aq_gen.py` FastSampler pretraining data, `aq_train.py` pretrain / fine-tune /
 eval, `baselines_real.py` decoders on real data, `remote_zip.py` partial Zenodo downloads,
-`test_aq.py` tests). Data is downloaded, never committed (see §6).
+`test_aq.py` tests). Data is downloaded, never committed (see §7). Result files (per-run logs, held-out
+evaluations, paired comparisons) are in `research/data/alphaqubit-lite/results/`.
 
 **Question.** AlphaQubit (Bausch et al., *Nature* 635, 834 (2024)) is the strongest published decoder
 on Google's Sycamore surface-code data, but neither its code nor its weights are public. How much of
@@ -64,18 +65,18 @@ Extended Data Figs 4 (architecture) and 8 (hyperparameters).
 | StabilizerEmbedder | sum of linear projections of each input + learned index embedding → 2-layer ResNet; separate final-round projections for on-basis computed stabilizers, one learned embedding for undefined off-basis ones | same, plus a learned context (area, basis) embedding |
 | state update | X ← (X + S_n)/√2 | same |
 | syndrome transformer layers per round | 3 | 3 |
-| dims per stabilizer | 320 | **96** |
-| heads × key size | 4 × 32 | 4 × **24** |
+| dims per stabilizer | 320 | **64** |
+| heads × key size | 4 × 32 | 4 × **16** |
 | gated dense block widening | 5 | **4** |
-| dilated 3×3 convs per layer, channels, dilations | 3 × 160; d=3: 1,1,1; d=5: 1,1,2 | 3 × **48**; same dilations |
+| dilated 3×3 convs per layer, channels, dilations | 3 × 160; d=3: 1,1,1; d=5: 1,1,2 | 3 × **32**; same dilations |
 | attention bias | 48-dim embedding of (coords i, coords j, signed offset, Manhattan distance, same-type bit) → 8-layer ResNet; + 7 event-indicator features per round; projected per head and layer | **24**-dim, **2**-layer ResNet (we add an i = j bit); 7 indicator features; per head and layer |
 | readout | scatter → 2×2 conv to data qubits → project → mean-pool data-qubit lines → + round embedding → 16-layer ResNet (64 dims) → logit | same structure, **4** layers × **32** dims; one logit per line parallel to the observable, line 0 is the measured observable |
 | auxiliary loss | next-stabilizer prediction, weight 0.02 | same |
-| parameters | ≈ 5.4 M (all distances, scaling model); Sycamore model larger | ≈ 0.80 M (d = 3) |
+| parameters | ≈ 5.4 M (all distances, scaling model); Sycamore model larger | **0.37 M** (d = 3 and d = 5; the code default D = 96 gives 0.80 M but trained at ~2/3 the speed) |
 | optimiser | Lamb, wd 1e-5, b2 0.95, batch 256 → 1024, piecewise-constant LR (2.45–3.46e-4) after 10k warm-up | AdamW (no Lamb in MLX), b2 0.95, wd 1e-5, linear warm-up + cosine, grad-norm clip 1 |
-| pretraining | ≤ 2 × 10⁹ samples of the pij DEM of the training half, R uniform in {1, 3, …, 25}, noise curriculum f = 0.5 → 1 | FastSampler samples of the same pij DEMs (DEM → equivalent circuit, §3), R uniform in {3, …, 25}; size limited by the 45-min runs (§4) |
-| fine-tuning | training half: 19,880 shots per experiment train, 5,120 dev; wd 0.08 towards the pretrained weights; ≤ 30k steps (~120 epochs) | same split; decoupled wd towards the pretrained weights |
-| model selection | EMA parameters (1e-4); lowest dev LER fitted over R = 3…25 | EMA (1e-3, shorter runs); lowest dev LER, same fit |
+| pretraining | ≤ 2 × 10⁹ samples of the pij DEM of the training half, R uniform in {1, 3, …, 25}, noise curriculum f = 0.5 → 1 | FastSampler samples of the same pij DEMs (DEM → equivalent circuit, §3), same noise curriculum (eq. 6–7, f ∈ {0.5, …, 1.0}) plus a rounds curriculum (R_max 7 → 25), R ∈ {3, …, 25}; 1.25 M samples (§4) |
+| fine-tuning | training half: 19,880 shots per experiment train, 5,120 dev; wd 0.08 towards the pretrained weights; ≤ 30k steps (~120 epochs) | same split; decoupled wd 0.02 towards the pretrained weights; 0.5 epoch (§4) |
+| model selection | EMA parameters (1e-4); lowest dev LER fitted over R = 3…25 | EMA (1e-3, warmed up) or raw weights, whichever has the lower dev LER (same fit, first 512 dev shots per experiment) |
 | ensembling | 20 seeds (−0.03 / −0.08 ×10⁻² LER at d = 3 / 5) | none by default |
 
 Implementation notes. MLX has no Lamb; we use AdamW. The recurrence is a Python loop over rounds with
@@ -86,7 +87,7 @@ O(R · layers · …)) and the whole training step is `mx.compile`d (one trace p
 MLX's `mx.checkpoint` only differentiates with respect to the function's explicit inputs: gradients
 with respect to the module parameters the closure captures are silently dropped. The loss and
 forward pass were exactly right, but the bulk-round embedding got **zero** gradient and the transformer
-layers learned only from the final round. Three 42-minute GPU runs (≈ 4 M samples) trained like this
+layers learned only from the final round. Three GPU runs (≈ 3.3 M samples) trained like this
 and stalled at the level of a trivial decoder (dev LER 6–11 % against 11.5 % for "always predict no
 flip"). A finite-gradient comparison (checkpointed vs plain vs compiled autodiff) exposed it; the fix
 is `nn.utils.checkpoint(self, self._step)`, which passes the parameters explicitly. `test_aq.py` now
@@ -270,7 +271,7 @@ decoder in the archive).
 | BeliefMatching (SI1000), arXiv:2609.04557 | 0.815 % | | | | | |
 
 - **Zero-shot transfer works.** The d = 3 model trained only on Sycamore 2022 (DEM samples + real
-  Sycamore shots, a different chip with 4× higher error rates and a different circuit variant), with
+  Sycamore shots: a different chip with ≈ 4× higher logical error per round and a different circuit variant), with
   10 of the 18 Willow context embeddings untrained, already beats PyMatching by 19 % and edges out
   Google's correlated matching with the SI1000 prior. The canonical layout (§1) is what makes this
   possible.
@@ -321,10 +322,26 @@ unzip syc.zip 'surface_code*' -d syc
 # Willow d3/d5 subset (112 MB of the 5.7 GB archive, by HTTP range requests)
 python remote_zip.py https://zenodo.org/api/records/13273331/files/google_105Q_surface_code_d3_d5_d7.zip/content \
    get 'd[35]_at_[^/]+/[XZ]/r(01|10|13|30|50)/(detection_events|obs_flips_actual|circuit_ideal|circuit_noisy_si1000|metadata|decoding_results/.*(obs_flips_predicted|error_model))' willow
-python test_aq.py syc <nd_tool>
-python baselines_real.py syc out/bl            # shipped + PyMatching (+ tess:15)
-python aq_gen.py syc data/d3 --d 3             # FastSampler pretraining samples + packed real shots
-python aq_train.py data/d3 syc runs/d3pre --mode pretrain --d 3 ...
-python aq_train.py data/d3 syc runs/d3ft  --mode finetune --init runs/d3pre --wd-anchor 0.08 ...
-python aq_train.py data/d3 syc runs/d3ft  --mode eval --init runs/d3ft
+python test_aq.py syc <nd_tool>                 # layout, gradient and sampler-equivalence tests
+python baselines_real.py syc out/bl --folds odd --decoders shipped:pymatching,shipped:correlated_matching,shipped:belief_matching,shipped:tensor_network_contraction,pm,pmcorr
+python baselines_real.py syc out/bl --folds odd --decoders tess:15 --tess-shots 5000     # and bposd:10 (needs nd_tool)
+python baselines_real.py willow out/blw --folds odd --rounds 10,13,30,50 --decoders shipped:...,pm,pmcorr
+# pretraining data (FastSampler, pij DEMs of the even half) + packed real shots
+python aq_gen.py syc data/d3 --d 3 --shots 102400
+python aq_gen.py syc data/d3 --d 3 --shots 51200 --scales 0.5,0.6,0.7,0.8,0.9 --no-real
+# d = 3 (MLX GPU; AQ_MEM_GB=1.2)
+python aq_train.py data/d3 syc runs/d3pre --mode pretrain --d 3 --D 64 --conv 32 --key 16 \
+    --scales 0.5,0.6,0.7,0.8,0.9,1.0 --curr-tc 400000 --curr-sc 2 --rmax0 7 --rcurr 800000 \
+    --steps 6400 --warmup 400 --lr 5e-4 --batch 256 --eval-every 1000 --dev-max 512 --max-minutes 42
+python aq_train.py data/d3 syc runs/d3ft --mode finetune --d 3 --init runs/d3pre --wd-anchor 0.02 \
+    --steps 5000 --warmup 200 --lr 2e-4 --batch 256 --eval-every 1250 --dev-max 512 --max-minutes 42
+python aq_train.py data/d3 syc runs/d3ft_test --mode eval --d 3 --init runs/d3ft --eval-bs 1024
+# d = 5: --init-partial runs/d3ft, batch 80, --curr-tc 120000 --rcurr 250000; fine-tune lr 5e-5
+# Willow d = 3: aq_gen.py willow data/w3 --d 3 --shots 0 --rounds 10,13,30,50, then
+python aq_train.py data/w3 willow runs/w3ft --mode finetune --d 3 --init runs/d3ft --rounds 10,13 \
+    --eval-rounds 10,13 --steps 4000 --lr 2e-4 --batch 256 --eval-at-start --max-minutes 42
+python aq_train.py data/w3 willow runs/w3ft_test --mode eval --d 3 --init runs/w3ft --weights last.safetensors \
+    --rounds 10,13 --eval-rounds 10,13,30,50 --test-max 10000
+python compare.py syc 3 odd shipped_tensor_network_contraction <decoders>,nn out/bl runs/d3ft_test
+python compare.py willow 3 odd shipped_harmony_decoder_with_rl_optimized_prior <decoders>,nn out/blw runs/w3ft_test --mean-rounds 10,13,30
 ```
