@@ -133,7 +133,7 @@ fail pattern; ratio = LER / tensor-network LER on the same bootstrap draws).**
 | correlated matching (shipped) | 3.492 % | [3.464, 3.525] | 1.141 [1.129, 1.154] | 2.95 % | 3.43 % |
 | **AlphaQubit-lite (this work)** | **3.512 %** | **[3.482, 3.542]** | **1.148 [1.137, 1.158]** | **2.64 %** | **3.38 %** |
 | PyMatching 2.4 correlated, pij DEM (ours) | 3.434 % | [3.409, 3.464] | 1.122 [1.112, 1.133] | 2.82 % | 3.33 % |
-| BP+OSD-CS order 10, pij DEM (ours, nd_tool) | 3.358 % | [3.331, 3.390] | 1.097 [1.089, 1.106] | 2.74 % | 3.27 % |
+| BP+OSD-CS order 10, pij DEM (ours, nd_tool) | 3.358 % | [3.331, 3.390] | 1.097 [1.089, 1.106] | 2.74 % | 3.25 % |
 | belief matching (shipped) | 3.122 % | [3.098, 3.149] | 1.020 [1.012, 1.029] | 2.71 % | 3.06 % |
 | tensor network (shipped) | 3.060 % | [3.038, 3.087] | 1.000 | 2.61 % | 2.98 % |
 | AlphaQubit, paper (both folds, 20-model ensemble) | 2.901 ± 0.023 % | | 0.958 (vs paper's TN) | | |
@@ -145,7 +145,7 @@ Reading the table:
   15 % above the tensor network, where the paper's AlphaQubit is 4 % below it. We recover about
   half of the PyMatching → AlphaQubit gap (PM 1.269 → lite 1.148 → paper 0.958 in TN units).
 - The model is strong on short experiments and weaker on long ones: at R = 3 its per-round error
-  (2.64 %) is within 1.5 % of the tensor network's and below belief matching's, but at R = 25 it is 13 %
+  (2.64 %) is within 1.5 % of the tensor network's and below belief matching's, but at R = 25 it is 14 %
   above TN. The fitted intercepts F₀ are 1.06–1.15 (the paper requires F₀ ≈ 1 for a good fit), i.e.
   the fidelity decays faster than exponentially-in-R would predict from the short runs. This is the
   signature of an under-trained recurrent state: our curriculum spent most early samples on short
