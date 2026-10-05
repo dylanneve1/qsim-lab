@@ -111,7 +111,7 @@ inactive ≥ 5.3 GB). Lite model: D = 64, key 16, conv 32, 0.37 M parameters.
 
 Total for the reported d = 3 model: 2.2 M training samples, 84 GPU-minutes. AlphaQubit's Sycamore
 models: up to 2 × 10⁹ pretraining samples + ~120 fine-tuning epochs per model, ×20 ensemble members,
-a ~3–15× larger model, on TPUs. We are ~10³ below the paper in samples and ~10⁴–10⁵ below it in
+a model ≥ 15× larger (the 256-dim scaling model alone has 5.4 M parameters; the Sycamore model is 320-dim), on TPUs. We are ~10³ below the paper in samples and ~10⁴–10⁵ below it in
 FLOPs.
 
 **What went wrong first (and is worth knowing).** (i) The gradient-checkpointing bug of §2 cost three
