@@ -51,10 +51,10 @@ the support at `ord(g)`, a divisor of the odd part of λ(N), so the cost depends
   reduction also factors it. Plain Shor with the random base itself would need ≈ 147 GB.
 - **43-bit N = 4,911,456,443,897 = 1,456,057 × 3,373,121** (the seeded generator's first balanced
   43-bit semiprime): 181 qubits, 66 exponent bits, 1.89 M operations (470 k Toffolis), one run,
-  **190 s at load ≈ 30, 3.62 GB** — the largest N we know of factored by gate-level simulation of a
-  Shor-type circuit, **with its cost set by the support `ord(g) = 115,574,445 = λ_odd/83`** of the
-  seed-1 base (a random base is this lucky with probability ≈ 5 %; full odd order would need
-  ≈ 307 GB). The instance was chosen, from supports computed with the factors beforehand, as the only
+  **190 s at load ≈ 30, 3.62 GB** — the largest N not constructed to be easy (the 52-bit runs above
+  use N = p(2p − 1)) that we know to have been factored by gate-level simulation of a Shor-type
+  circuit, **with its cost set by the support `ord(g) = 115,574,445 = λ_odd/83`** of the seed-1 base
+  (a random base is this lucky with probability ≈ 5 %; full odd order would need ≈ 307 GB). The instance was chosen, from supports computed with the factors beforehand, as the only
   generator N of 34–63 bits whose seed-1 run fits in RAM; it is classically trivial (`p − 1`, `q − 1`
   are 243-smooth).
 - Every generator N of 22–33 bits factors with its seed-1 odd-order base (≤ 3.6 GB, ≤ 75 s); the
