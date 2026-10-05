@@ -223,7 +223,7 @@ reachable; it does not need the factors.
 * **Run-time assertions**: in every window of every run, on every branch, the exponent qubits came
   back unchanged, every ancilla was 0 and every branch carried the program's global sign; no two
   outputs collided (`run`/`window` assertions in `src/shor/ge.rs`).
-* **Small N** (`odd_order_bases_match_textbook`, [`tests_small_n.log`](../data/shor-xl/tests_small_n.log)):
+* **Small N** (`odd_order_bases_match_textbook`):
   SMALLN_RESULT. The exact probability that Shor-on-`g` plus Miller's reduction factors N is 1 or 0
   per base at these sizes (0 exactly when `ν₂(ord_p h) = ν₂(ord_q h)`, as the reduction predicts).
 * This test first **failed** on the sparse reference: an X-measurement had `P(m) = 0.4999999986`

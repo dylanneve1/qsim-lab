@@ -52,7 +52,10 @@ fn parse(path: &str) -> (usize, Vec<Gate>) {
                 gates.push(Gate::Phase(b, t));
                 gates.push(Gate::CPhase(a, b, -2.0 * t));
             }
-            g => panic!("{path}:{}: unsupported gate {g} (use the decomposed file)", ln + 1),
+            g => panic!(
+                "{path}:{}: unsupported gate {g} (use the decomposed file)",
+                ln + 1
+            ),
         }
     }
     assert!(n > 0, "{path}: missing `n` line");

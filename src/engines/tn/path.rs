@@ -334,27 +334,28 @@ fn greedy_nodes(
     let mut slot_inds: Vec<Option<Vec<(u32, u32)>>> = Vec::new();
     let mut idx_slots: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
     let size = |c: &[(u32, u32)]| -> f64 { c.iter().map(|&(i, _)| hg.log2dim[i as usize]).sum() };
-    let merge_list = |x: &[(u32, u32)], y: &[(u32, u32)], t: &std::collections::HashMap<u32, u32>| {
-        let mut out = Vec::with_capacity(x.len() + y.len());
-        let (mut a, mut c) = (0, 0);
-        while a < x.len() || c < y.len() {
-            let e = if c >= y.len() || (a < x.len() && x[a].0 < y[c].0) {
-                a += 1;
-                x[a - 1]
-            } else if a >= x.len() || y[c].0 < x[a].0 {
-                c += 1;
-                y[c - 1]
-            } else {
-                a += 1;
-                c += 1;
-                (x[a - 1].0, x[a - 1].1 + y[c - 1].1)
-            };
-            if ext(e.0, t) || e.1 < t[&e.0] {
-                out.push(e);
+    let merge_list =
+        |x: &[(u32, u32)], y: &[(u32, u32)], t: &std::collections::HashMap<u32, u32>| {
+            let mut out = Vec::with_capacity(x.len() + y.len());
+            let (mut a, mut c) = (0, 0);
+            while a < x.len() || c < y.len() {
+                let e = if c >= y.len() || (a < x.len() && x[a].0 < y[c].0) {
+                    a += 1;
+                    x[a - 1]
+                } else if a >= x.len() || y[c].0 < x[a].0 {
+                    c += 1;
+                    y[c - 1]
+                } else {
+                    a += 1;
+                    c += 1;
+                    (x[a - 1].0, x[a - 1].1 + y[c - 1].1)
+                };
+                if ext(e.0, t) || e.1 < t[&e.0] {
+                    out.push(e);
+                }
             }
-        }
-        out
-    };
+            out
+        };
     for (node, c) in start {
         let s = slot_node.len() as u32;
         for &(i, _) in &c {
@@ -1154,12 +1155,15 @@ pub fn slice_tree(
             // how many of the largest tensors it touches (tie-break)
             let touch: f64 = (0..tc.inds.len())
                 .filter(|&v| {
-                    tc.log2size[v] > target_log2 + 1e-9 && tc.inds[v].binary_search(&(i as u32)).is_ok()
+                    tc.log2size[v] > target_log2 + 1e-9
+                        && tc.inds[v].binary_search(&(i as u32)).is_ok()
                 })
                 .map(|v| tc.log2size[v])
                 .sum();
             let key = (new_total, -touch, i);
-            if best.is_none_or(|b| key.0 < b.0 * (1.0 - 1e-12) || (key.0 <= b.0 * (1.0 + 1e-12) && key.1 < b.1)) {
+            if best.is_none_or(|b| {
+                key.0 < b.0 * (1.0 - 1e-12) || (key.0 <= b.0 * (1.0 + 1e-12) && key.1 < b.1)
+            }) {
                 best = Some(key);
             }
         }
@@ -1311,7 +1315,9 @@ impl TrialParams {
     }
 
     fn perturb(&self, rng: &mut StdRng) -> Self {
-        let mut j = |x: f64, lo: f64, hi: f64| (x * rng.random_range(0.8..1.25) + rng.random_range(-0.02..0.02)).clamp(lo, hi);
+        let mut j = |x: f64, lo: f64, hi: f64| {
+            (x * rng.random_range(0.8..1.25) + rng.random_range(-0.02..0.02)).clamp(lo, hi)
+        };
         let greedy = GreedyParams {
             alpha: j(self.greedy.alpha, 0.0, 2.0),
             temperature: j(self.greedy.temperature, 0.0, 1.0),
@@ -1320,7 +1326,9 @@ impl TrialParams {
             imbalance: j(b.imbalance, 0.005, 0.9),
             imbalance_decay: j(b.imbalance_decay, -5.0, 5.0),
             jitter: j(b.jitter, 0.0, 1.0),
-            cutoff: ((b.cutoff as f64) * j(1.0, 0.5, 2.0)).round().clamp(2.0, 40.0) as usize,
+            cutoff: ((b.cutoff as f64) * j(1.0, 0.5, 2.0))
+                .round()
+                .clamp(2.0, 40.0) as usize,
             greedy: GreedyParams {
                 alpha: j(b.greedy.alpha, 0.0, 2.0),
                 temperature: j(b.greedy.temperature, 0.0, 1.0),
@@ -1383,7 +1391,11 @@ pub fn search(hg: &Hypergraph, opts: &PathOptions) -> Path {
             children: vec![],
         };
         let tc = tree_cost(hg, &tree, &[]);
-        let l10 = if n == 0 { 0.0 } else { 0.0f64.max(tc.log2_total) };
+        let l10 = if n == 0 {
+            0.0
+        } else {
+            0.0f64.max(tc.log2_total)
+        };
         return Path {
             sliced: vec![false; hg.log2dim.len()],
             stats: PathStats {
@@ -1433,8 +1445,9 @@ pub fn search(hg: &Hypergraph, opts: &PathOptions) -> Path {
                 if t > 0 && t0.elapsed().as_secs_f64() > opts.max_secs {
                     return None;
                 }
-                let mut rng =
-                    StdRng::seed_from_u64(opts.seed ^ (t as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15));
+                let mut rng = StdRng::seed_from_u64(
+                    opts.seed ^ (t as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15),
+                );
                 let params = if !elite.is_empty() && t % 2 == 0 {
                     elite[(t / 2) % elite.len()].perturb(&mut rng)
                 } else if t == 0 {
@@ -1481,7 +1494,11 @@ pub fn search(hg: &Hypergraph, opts: &PathOptions) -> Path {
             let tc = tree_cost(hg, &tree, &sliced);
             // unsliced numbers of the final tree
             let un = tree_cost(hg, &tree, &[]);
-            let un = if opts.target_log2_size.is_some() { un } else { unsliced };
+            let un = if opts.target_log2_size.is_some() {
+                un
+            } else {
+                unsliced
+            };
             let l2 = std::f64::consts::LOG10_2;
             let stats = PathStats {
                 log10_flops: un.log2_total * l2,
@@ -1495,7 +1512,14 @@ pub fn search(hg: &Hypergraph, opts: &PathOptions) -> Path {
                 method: tr.method,
             };
             let score = tc.log2_total + tc.log2_slices + 1e-3 * tc.log2_max;
-            (score, Path { tree, sliced, stats })
+            (
+                score,
+                Path {
+                    tree,
+                    sliced,
+                    stats,
+                },
+            )
         })
         .collect();
     let mut best = refined

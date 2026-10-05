@@ -179,7 +179,10 @@ pub fn default_target_log2(opts: &TnOptions) -> f64 {
 /// Simplifies `nw`, searches a tree and contracts it: the result laid out
 /// over `nw.output` (row-major), and the report (with `qubits` and `gates`
 /// zero; the circuit-level functions fill them in).
-pub fn run_network(mut nw: Network, opts: &TnOptions) -> Result<(Vec<Complex64>, TnReport), SimError> {
+pub fn run_network(
+    mut nw: Network,
+    opts: &TnOptions,
+) -> Result<(Vec<Complex64>, TnReport), SimError> {
     let t0 = Instant::now();
     let simplify = nw.simplify(&opts.simplify);
     let build_secs = t0.elapsed().as_secs_f64();
@@ -209,7 +212,9 @@ pub fn run_network(mut nw: Network, opts: &TnOptions) -> Result<(Vec<Complex64>,
     let (path, value, exec) = loop {
         match run(&popts) {
             Ok(x) => break x,
-            Err(SimError::TooLarge { .. }) if attempt < 6 && opts.path.target_log2_size.is_none() => {
+            Err(SimError::TooLarge { .. })
+                if attempt < 6 && opts.path.target_log2_size.is_none() =>
+            {
                 attempt += 1;
                 popts.target_log2_size = popts.target_log2_size.map(|t| t - 2.0);
             }
@@ -233,7 +238,11 @@ pub fn run_network(mut nw: Network, opts: &TnOptions) -> Result<(Vec<Complex64>,
 
 /// The amplitude `<x|C|0^n>` (global phase included); `bits[q]` is bit `q`
 /// of `x`.
-pub fn amplitude(c: &Circuit, bits: &[bool], opts: &TnOptions) -> Result<(Complex64, TnReport), SimError> {
+pub fn amplitude(
+    c: &Circuit,
+    bits: &[bool],
+    opts: &TnOptions,
+) -> Result<(Complex64, TnReport), SimError> {
     let (v, r) = amplitudes(c, bits, &[], opts)?;
     Ok((v[0], r))
 }
@@ -349,7 +358,10 @@ fn is_diagonal_gate(g: &Gate) -> bool {
 /// observable stays a product of its original `Z`/`I` factors on every
 /// qubit no kept gate has touched, so the test is exact.) Returns the kept
 /// gates relabelled onto the cone and the cone.
-pub fn pauli_light_cone(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Circuit, Vec<usize>), SimError> {
+pub fn pauli_light_cone(
+    c: &Circuit,
+    pauli: &[(usize, Pauli)],
+) -> Result<(Circuit, Vec<usize>), SimError> {
     require_unitary(c)?;
     let n = c.num_qubits;
     let mut live = vec![false; n];
@@ -396,7 +408,10 @@ pub fn pauli_light_cone(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Circui
 
 /// The doubled circuit `C_cone · P · C_cone†` of `<0|C† P C|0>` after the
 /// light-cone reduction ([`pauli_light_cone`]), and the cone.
-pub fn expectation_circuit(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Circuit, Vec<usize>), SimError> {
+pub fn expectation_circuit(
+    c: &Circuit,
+    pauli: &[(usize, Pauli)],
+) -> Result<(Circuit, Vec<usize>), SimError> {
     let mut seen = vec![false; c.num_qubits];
     for &q in pauli.iter().map(|(q, _)| q) {
         if q < seen.len() && seen[q] {
@@ -411,7 +426,10 @@ pub fn expectation_circuit(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Cir
     let (cone_c, cone) = pauli_light_cone(c, pauli)?;
     let mut d = cone_c.clone();
     for &(q, p) in pauli {
-        let local = cone.iter().position(|&x| x == q).expect("support is in the cone");
+        let local = cone
+            .iter()
+            .position(|&x| x == q)
+            .expect("support is in the cone");
         d.gate(p.gate(local));
     }
     d.append(&cone_c.inverse());
@@ -440,7 +458,10 @@ pub fn expectation(
 
 /// Contraction cost of one amplitude of `c` from a quick tree search (no
 /// contraction): used by the planner's cost model.
-pub fn estimate_amplitude(c: &Circuit, opts: &TnOptions) -> Result<(PathStats, SimplifyStats), SimError> {
+pub fn estimate_amplitude(
+    c: &Circuit,
+    opts: &TnOptions,
+) -> Result<(PathStats, SimplifyStats), SimError> {
     require_unitary(c)?;
     let bits = vec![false; c.num_qubits];
     let mut nw = Network::amplitude(c, &bits, &[])?;

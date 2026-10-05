@@ -161,7 +161,11 @@ fn controlled_u1_case<T: Real>(n: usize) {
                 let mut want = init.clone();
                 want.apply_multi_controlled_1q(ctrl, t, &m);
                 let mask = ctrl.iter().map(|&c| 1usize << c).sum();
-                let ops = [KOp::U1 { q: t, m, ctrl: mask }];
+                let ops = [KOp::U1 {
+                    q: t,
+                    m,
+                    ctrl: mask,
+                }];
                 for g in GEOMS {
                     for (simd, avx512, isa) in ISAS {
                         let mut got = init.clone();

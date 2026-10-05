@@ -218,9 +218,19 @@ enum FastPlan {
     Reduce1 { sx: usize },
     /// `B[x, y]`, both kept: `out = A · B[x, y]` (layout unchanged);
     /// `bx`, `by` are B's strides of `x` and `y`.
-    Diag2 { sx: usize, sy: usize, bx: usize, by: usize },
+    Diag2 {
+        sx: usize,
+        sy: usize,
+        bx: usize,
+        by: usize,
+    },
     /// `B[x, y]`, `x` summed, `y` kept and in A: axis `x` removed.
-    Reduce2 { sx: usize, sy: usize, bx: usize, by: usize },
+    Reduce2 {
+        sx: usize,
+        sy: usize,
+        bx: usize,
+        by: usize,
+    },
     /// `B[x, y]`, `x` summed, `y` new: `y` replaces `x` in place (a gate).
     Gate { sx: usize, bx: usize, by: usize },
     /// `B[x, y]`, `x` kept, `y` new: `y` appended as the fastest axis.
@@ -229,7 +239,12 @@ enum FastPlan {
 
 /// Classifies a big-times-small contraction for [`FastPlan`]; returns the
 /// plan and the output layout.
-fn fast_plan(la: &[Ix], lb: &[Ix], keep: &[Ix], dim: &dyn Fn(Ix) -> usize) -> Option<(FastPlan, Vec<Ix>)> {
+fn fast_plan(
+    la: &[Ix],
+    lb: &[Ix],
+    keep: &[Ix],
+    dim: &dyn Fn(Ix) -> usize,
+) -> Option<(FastPlan, Vec<Ix>)> {
     if lb.is_empty() || lb.len() > 2 || lb.iter().any(|&i| dim(i) != 2) {
         return None;
     }
@@ -252,11 +267,24 @@ fn fast_plan(la: &[Ix], lb: &[Ix], keep: &[Ix], dim: &dyn Fn(Ix) -> usize) -> Op
         match (pos(x), pos(y)) {
             (Some(px), Some(py)) => {
                 if kept(x) && kept(y) {
-                    return Some((FastPlan::Diag2 { sx: sa[px], sy: sa[py], bx, by }, la.to_vec()));
+                    return Some((
+                        FastPlan::Diag2 {
+                            sx: sa[px],
+                            sy: sa[py],
+                            bx,
+                            by,
+                        },
+                        la.to_vec(),
+                    ));
                 }
                 if !kept(x) && kept(y) {
                     return Some((
-                        FastPlan::Reduce2 { sx: sa[px], sy: sa[py], bx, by },
+                        FastPlan::Reduce2 {
+                            sx: sa[px],
+                            sy: sa[py],
+                            bx,
+                            by,
+                        },
                         without(x),
                     ));
                 }
@@ -281,14 +309,17 @@ fn run_fast<T: Scalar>(f: &FastPlan, a: &[T], b: &[T], out: &mut [T], par: bool)
     let threads = rayon::current_num_threads();
     let len = a.len();
     // splits [0, n) into chunks aligned to `align` for the closure
-    let chunked = |n: usize, align: usize, out: &mut [T], per: &(dyn Fn(usize, &mut [T]) + Sync)| {
-        if par && n >= PAR_MIN {
-            let c = (n / (4 * threads)).max(align).div_ceil(align) * align;
-            out.par_chunks_mut(c).enumerate().for_each(|(k, o)| per(k * c, o));
-        } else {
-            per(0, out);
-        }
-    };
+    let chunked =
+        |n: usize, align: usize, out: &mut [T], per: &(dyn Fn(usize, &mut [T]) + Sync)| {
+            if par && n >= PAR_MIN {
+                let c = (n / (4 * threads)).max(align).div_ceil(align) * align;
+                out.par_chunks_mut(c)
+                    .enumerate()
+                    .for_each(|(k, o)| per(k * c, o));
+            } else {
+                per(0, out);
+            }
+        };
     match *f {
         FastPlan::Diag1 { sx } => {
             let per = |st: usize, o: &mut [T]| {
@@ -340,7 +371,11 @@ fn run_fast<T: Scalar>(f: &FastPlan, a: &[T], b: &[T], out: &mut [T], par: bool)
                     let i0 = i - y * sx;
                     let (a0, a1) = (a[i0], a[i0 + sx]);
                     // B[x=0, y] a0 + B[x=1, y] a1
-                    *z = if y == 0 { b00 * a0 + b10 * a1 } else { b01 * a0 + b11 * a1 };
+                    *z = if y == 0 {
+                        b00 * a0 + b10 * a1
+                    } else {
+                        b01 * a0 + b11 * a1
+                    };
                 }
             };
             chunked(len, 1, out, &per);
@@ -511,7 +546,11 @@ fn loop_plan(la: &[Ix], lb: &[Ix], keep: &[Ix], dim: &dyn Fn(Ix) -> usize) -> (L
         None => (1, 0),
     };
     let (inner, ks_a, ks_b) = match kr {
-        Some((a, b)) => (dims_a[a..b].iter().product(), sa[b - 1], sb[pos_b(la[b - 1])]),
+        Some((a, b)) => (
+            dims_a[a..b].iter().product(),
+            sa[b - 1],
+            sb[pos_b(la[b - 1])],
+        ),
         None => (1, 0, 0),
     };
     let (cols, cs_b) = match n_run {
@@ -570,7 +609,13 @@ fn same_set(a: &[Ix], b: &[Ix]) -> bool {
 /// `Some(kfirst)` when `lay` is `[batch (exactly in that order), then the
 /// two blocks `ms` and `ks` contiguous in either order]` and, when `korder`
 /// is given, the `ks` block is in exactly that order.
-fn gemm_form(lay: &[Ix], batch: &[Ix], ms: &[Ix], ks: &[Ix], korder: Option<&[Ix]>) -> Option<bool> {
+fn gemm_form(
+    lay: &[Ix],
+    batch: &[Ix],
+    ms: &[Ix],
+    ks: &[Ix],
+    korder: Option<&[Ix]>,
+) -> Option<bool> {
     let nb = batch.len();
     if lay.len() != nb + ms.len() + ks.len() || lay[..nb] != *batch {
         return None;
@@ -656,7 +701,10 @@ impl ExecPlan {
                 .collect();
             if strategy == PairStrategy::Auto && a_sum.is_empty() && len[a as usize] >= FAST_MIN {
                 if let Some((fp, out)) = fast_plan(&la, &lb, &keep, &dim) {
-                    debug_assert!(same_set(&out, &keep), "fast layout {out:?} vs keep {keep:?}");
+                    debug_assert!(
+                        same_set(&out, &keep),
+                        "fast layout {out:?} vs keep {keep:?}"
+                    );
                     len[v as usize] = out.iter().map(|&i| dim(i)).product();
                     layout[v as usize] = out;
                     pair[v as usize] = Some(PairPlan {
@@ -689,7 +737,10 @@ impl ExecPlan {
                     || lp.calls() <= 16
                     || (work >= 256 && lp.rows * lp.cols >= 8);
                 if use_loops {
-                    debug_assert!(same_set(&out, &keep), "loop layout {out:?} vs keep {keep:?}");
+                    debug_assert!(
+                        same_set(&out, &keep),
+                        "loop layout {out:?} vs keep {keep:?}"
+                    );
                     len[v as usize] = out.iter().map(|&i| dim(i)).product();
                     layout[v as usize] = out;
                     pair[v as usize] = Some(PairPlan {
@@ -716,19 +767,34 @@ impl ExecPlan {
                 }
             }
             let shared: Vec<Ix> = la.iter().copied().filter(|i| lb.contains(i)).collect();
-            let batch_set: Vec<Ix> = shared.iter().copied().filter(|i| keep.contains(i)).collect();
-            let ks: Vec<Ix> = shared.iter().copied().filter(|i| !keep.contains(i)).collect();
+            let batch_set: Vec<Ix> = shared
+                .iter()
+                .copied()
+                .filter(|i| keep.contains(i))
+                .collect();
+            let ks: Vec<Ix> = shared
+                .iter()
+                .copied()
+                .filter(|i| !keep.contains(i))
+                .collect();
             let ms: Vec<Ix> = la.iter().copied().filter(|i| !lb.contains(i)).collect();
             let ns: Vec<Ix> = lb.iter().copied().filter(|i| !la.contains(i)).collect();
             // A's form: batch first in A's order
-            let a_batch: Vec<Ix> = la.iter().copied().filter(|i| batch_set.contains(i)).collect();
+            let a_batch: Vec<Ix> = la
+                .iter()
+                .copied()
+                .filter(|i| batch_set.contains(i))
+                .collect();
             let (a_target, a_kfirst, a_perm) = match gemm_form(&la, &a_batch, &ms, &ks, None) {
                 Some(kf) => (la.clone(), kf, None),
                 None => {
                     let mut t = a_batch.clone();
                     t.extend(&ms);
                     t.extend(&ks);
-                    let perm = t.iter().map(|i| la.iter().position(|x| x == i).unwrap()).collect();
+                    let perm = t
+                        .iter()
+                        .map(|i| la.iter().position(|x| x == i).unwrap())
+                        .collect();
                     (t, false, Some(perm))
                 }
             };
@@ -743,18 +809,21 @@ impl ExecPlan {
             } else {
                 a_target[nb..nb + ms.len()].to_vec()
             };
-            let (b_target, b_kfirst, b_perm) =
-                match gemm_form(&lb, &a_batch, &ns, &ks, Some(&a_k)) {
-                    // gemm_form's bool is "k block first"
-                    Some(kf) => (lb.clone(), kf, None),
-                    None => {
-                        let mut t = a_batch.clone();
-                        t.extend(&a_k);
-                        t.extend(&ns);
-                        let perm = t.iter().map(|i| lb.iter().position(|x| x == i).unwrap()).collect();
-                        (t, true, Some(perm))
-                    }
-                };
+            let (b_target, b_kfirst, b_perm) = match gemm_form(&lb, &a_batch, &ns, &ks, Some(&a_k))
+            {
+                // gemm_form's bool is "k block first"
+                Some(kf) => (lb.clone(), kf, None),
+                None => {
+                    let mut t = a_batch.clone();
+                    t.extend(&a_k);
+                    t.extend(&ns);
+                    let perm = t
+                        .iter()
+                        .map(|i| lb.iter().position(|x| x == i).unwrap())
+                        .collect();
+                    (t, true, Some(perm))
+                }
+            };
             let b_n: Vec<Ix> = if b_kfirst {
                 b_target[nb + ks.len()..].to_vec()
             } else {
@@ -807,7 +876,11 @@ impl ExecPlan {
         let out_perm: Vec<usize> = nw
             .output
             .iter()
-            .map(|i| rl.iter().position(|x| x == i).expect("output index at the root"))
+            .map(|i| {
+                rl.iter()
+                    .position(|x| x == i)
+                    .expect("output index at the root")
+            })
             .collect();
         let out_dims = nw.output.iter().map(|&i| dim(i)).collect();
         let sl: Vec<(Ix, usize)> = (0..nw.dims.len())
@@ -958,7 +1031,16 @@ fn sum_out<T: Scalar>(src: &[T], dims: &[usize], sum: &[usize]) -> Vec<T> {
 
 /// One strided GEMM block `c (+)= A[oa..] · B[ob..]` of a loop plan.
 #[allow(clippy::too_many_arguments)]
-fn gemm_block<T: Scalar>(lp: &LoopPlan, a: &[T], oa: usize, b: &[T], ob: usize, c: &mut [T], first: bool, par: Par) {
+fn gemm_block<T: Scalar>(
+    lp: &LoopPlan,
+    a: &[T],
+    oa: usize,
+    b: &[T],
+    ob: usize,
+    c: &mut [T],
+    first: bool,
+    par: Par,
+) {
     let (m, k, n) = (lp.rows, lp.inner, lp.cols);
     if m * k * n <= 64 {
         for r in 0..m {
@@ -976,8 +1058,12 @@ fn gemm_block<T: Scalar>(lp: &LoopPlan, a: &[T], oa: usize, b: &[T], ob: usize, 
     let par = if m * k * n >= PAR_MIN { par } else { Par::Seq };
     // SAFETY: every element addressed below lies inside `a`, `b` and `c`
     // (the strides and extents come from the row-major layouts of the inputs).
-    let am = unsafe { MatRef::from_raw_parts(a.as_ptr().add(oa), m, k, lp.rs_a as isize, lp.ks_a as isize) };
-    let bm = unsafe { MatRef::from_raw_parts(b.as_ptr().add(ob), k, n, lp.ks_b as isize, lp.cs_b as isize) };
+    let am = unsafe {
+        MatRef::from_raw_parts(a.as_ptr().add(oa), m, k, lp.rs_a as isize, lp.ks_a as isize)
+    };
+    let bm = unsafe {
+        MatRef::from_raw_parts(b.as_ptr().add(ob), k, n, lp.ks_b as isize, lp.cs_b as isize)
+    };
     let cm = unsafe { MatMut::from_raw_parts_mut(c.as_mut_ptr(), m, n, n as isize, 1) };
     let acc = if first { Accum::Replace } else { Accum::Add };
     matmul(cm, acc, am, bm, one, par);
@@ -1029,7 +1115,14 @@ struct Worker<T> {
 
 impl ExecPlan {
     /// Leaf `l`'s entries for slice values `vals` (one per sliced index).
-    fn leaf_slice<T: Scalar>(&self, nw: &Network, leaf_full: &[Vec<T>], l: usize, vals: &[usize], out: &mut [T]) {
+    fn leaf_slice<T: Scalar>(
+        &self,
+        nw: &Network,
+        leaf_full: &[Vec<T>],
+        l: usize,
+        vals: &[usize],
+        out: &mut [T],
+    ) {
         let t = &nw.tensors[l];
         let dims: Vec<usize> = t.inds.iter().map(|&i| nw.dims[i as usize]).collect();
         let ss = row_major_strides(&dims);
@@ -1112,8 +1205,16 @@ impl ExecPlan {
             let cb = &mut out[bi * m * n..(bi + 1) * m * n];
             // SAFETY: the slices hold exactly m*k, k*n and m*n entries and
             // the strides below address only those.
-            let (ars, acs) = if p.a_kfirst { (1, m as isize) } else { (k as isize, 1) };
-            let (brs, bcs) = if p.b_kfirst { (n as isize, 1) } else { (1, k as isize) };
+            let (ars, acs) = if p.a_kfirst {
+                (1, m as isize)
+            } else {
+                (k as isize, 1)
+            };
+            let (brs, bcs) = if p.b_kfirst {
+                (n as isize, 1)
+            } else {
+                (1, k as isize)
+            };
             let am = unsafe { MatRef::from_raw_parts(ab.as_ptr(), m, k, ars, acs) };
             let bm = unsafe { MatRef::from_raw_parts(bb.as_ptr(), k, n, brs, bcs) };
             let cm = unsafe { MatMut::from_raw_parts_mut(cb.as_mut_ptr(), m, n, n as isize, 1) };
@@ -1160,7 +1261,10 @@ impl ExecPlan {
                 continue;
             }
             let p = self.pair[v as usize].as_ref().unwrap();
-            let fetch = |c: u32, res: &mut Vec<Option<Vec<T>>>, w: &mut Worker<T>| -> (Option<Vec<T>>, bool) {
+            let fetch = |c: u32,
+                         res: &mut Vec<Option<Vec<T>>>,
+                         w: &mut Worker<T>|
+             -> (Option<Vec<T>>, bool) {
                 let c = c as usize;
                 if c < self.n_leaves {
                     if self.variant[c] {
@@ -1342,7 +1446,11 @@ pub fn contract<T: Scalar>(
                     scratch_b: Vec::new(),
                 };
                 let mut acc = vec![T::zero(); root_len];
-                let par = if per_gemm > 1 { Par::rayon(per_gemm) } else { Par::Seq };
+                let par = if per_gemm > 1 {
+                    Par::rayon(per_gemm)
+                } else {
+                    Par::Seq
+                };
                 let mut s = c;
                 while s < n_slices {
                     let r = plan.run_slice(nw, tree, &leaf_full, &cache, s, &mut w, par, false);
@@ -1371,7 +1479,16 @@ pub fn contract<T: Scalar>(
         };
         let mut acc = vec![T::zero(); root_len];
         for s in 0..n_slices {
-            let r = plan.run_slice(nw, tree, &leaf_full, &cache, s, &mut w, Par::rayon(threads), true);
+            let r = plan.run_slice(
+                nw,
+                tree,
+                &leaf_full,
+                &cache,
+                s,
+                &mut w,
+                Par::rayon(threads),
+                true,
+            );
             if n_slices == 1 {
                 acc = r;
             } else {

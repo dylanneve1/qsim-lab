@@ -226,13 +226,18 @@ fn corrupted_outputs_fail_verification() {
         let vb = vgates_from_circuit(&bad).unwrap();
         // a mutant can be equal to the original by accident (e.g. a CNOT
         // reversed between equal wire values); only count real changes
-        let changed = basis_equivalent(n, &vgates_from_circuit(&out).unwrap(), &vb, &inputs) != Ok(0);
+        let changed =
+            basis_equivalent(n, &vgates_from_circuit(&out).unwrap(), &vb, &inputs) != Ok(0);
         if !changed {
             continue;
         }
         mutants += 1;
         let ps = path_sum(n, &vb, None);
-        assert_eq!(equivalent(&reference, &ps), None, "path sum missed mutant {i}");
+        assert_eq!(
+            equivalent(&reference, &ps),
+            None,
+            "path sum missed mutant {i}"
+        );
         assert!(
             basis_equivalent(n, &pc.to_vgates(), &vb, &inputs).is_err(),
             "basis check missed mutant {i}"
@@ -428,11 +433,19 @@ fn hadamard_rewrites_are_exact() {
             let at = rng.random_range(0..=pc.gates.len());
             pc.gates.splice(
                 at..at,
-                [PGate::H(a), PGate::H(b), PGate::Cnot(a, b), PGate::H(a), PGate::H(b)],
+                [
+                    PGate::H(a),
+                    PGate::H(b),
+                    PGate::Cnot(a, b),
+                    PGate::H(a),
+                    PGate::H(b),
+                ],
             );
             let at = rng.random_range(0..=pc.gates.len());
-            pc.gates
-                .splice(at..at, [PGate::H(b), PGate::Cnot(a, b), PGate::X(b), PGate::H(b)]);
+            pc.gates.splice(
+                at..at,
+                [PGate::H(b), PGate::Cnot(a, b), PGate::X(b), PGate::H(b)],
+            );
         }
         let before = pc.clone();
         removed_total += pc.reduce_hadamards();
@@ -444,7 +457,10 @@ fn hadamard_rewrites_are_exact() {
         );
         assert_eq!(before.t_count(), pc.t_count());
     }
-    assert!(removed_total > 100, "rules fired only {removed_total} times");
+    assert!(
+        removed_total > 100,
+        "rules fired only {removed_total} times"
+    );
 }
 
 /// The record circuits committed in `research/data/todd/outputs/` are
@@ -459,13 +475,20 @@ fn committed_record_circuits_verify() {
         panic!("{dir}/records.txt missing");
     };
     let mut checked = 0;
-    for line in listing.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+    for line in listing
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+    {
         let f: Vec<&str> = line.split_whitespace().collect();
         let (name, t_claim) = (f[0], f[1].parse::<usize>().unwrap());
         let orig = PhaseCircuit::from_qc(&parse_qc(&data(name)).unwrap());
         let text = std::fs::read_to_string(format!("{dir}/{name}.qc")).unwrap();
         let out_qc = parse_qc(&text).unwrap();
-        assert_eq!(out_qc.num_qubits(), orig.num_qubits, "{name}: no ancillas added");
+        assert_eq!(
+            out_qc.num_qubits(),
+            orig.num_qubits,
+            "{name}: no ancillas added"
+        );
         assert_eq!(out_qc.t_count(), t_claim, "{name}: T-count");
         let out = out_qc.to_circuit();
         let n = orig.num_qubits;

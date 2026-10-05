@@ -290,7 +290,13 @@ impl System {
 
 /// From a family spanning the admissible `y`s, one with `y_a ≠ y_b`,
 /// preferring even weight.
-fn pick<R: Rng>(family: &[&Bits], a: usize, b: usize, randomize: bool, rng: &mut R) -> Option<Bits> {
+fn pick<R: Rng>(
+    family: &[&Bits],
+    a: usize,
+    b: usize,
+    randomize: bool,
+    rng: &mut R,
+) -> Option<Bits> {
     let split: Vec<&Bits> = family
         .iter()
         .copied()

@@ -182,7 +182,9 @@ fn nl<S: Simd>() -> usize {
 /// Lane mask with bit `i` set where `f(i)`.
 #[inline(always)]
 fn lane_mask<S: Simd>(f: impl Fn(usize) -> bool) -> u16 {
-    (0..nl::<S>()).filter(|&i| f(i)).fold(0u16, |k, i| k | (1 << i))
+    (0..nl::<S>())
+        .filter(|&i| f(i))
+        .fold(0u16, |k, i| k | (1 << i))
 }
 
 /// Complex coefficients `A` (applied to the amplitude itself) and `B`
@@ -221,8 +223,16 @@ unsafe fn cmac<S: Simd, const REAL: bool>(
             S::fma(c.ar, xi, S::vmul(c.br, pi)),
         )
     } else {
-        let r = S::fma(c.ar, xr, S::fnma(c.ai, xi, S::fnma(c.bi, pi, S::vmul(c.br, pr))));
-        let i = S::fma(c.ar, xi, S::fma(c.ai, xr, S::fma(c.bi, pr, S::vmul(c.br, pi))));
+        let r = S::fma(
+            c.ar,
+            xr,
+            S::fnma(c.ai, xi, S::fnma(c.bi, pi, S::vmul(c.br, pr))),
+        );
+        let i = S::fma(
+            c.ar,
+            xi,
+            S::fma(c.ai, xr, S::fma(c.bi, pr, S::vmul(c.br, pi))),
+        );
         (r, i)
     }
 }
@@ -286,8 +296,13 @@ unsafe fn u1<S: Simd>(
                             for v in (b | cvec)..(b | cvec) + run {
                                 let o = v << lb;
                                 let (xr, xi) = (S::ld(pr.add(o)), S::ld(pi.add(o)));
-                                let (yr, yi) =
-                                    cmac::<S, $real>(&c, xr, xi, S::perm(idx, xr), S::perm(idx, xi));
+                                let (yr, yi) = cmac::<S, $real>(
+                                    &c,
+                                    xr,
+                                    xi,
+                                    S::perm(idx, xr),
+                                    S::perm(idx, xi),
+                                );
                                 S::st(pr.add(o), yr);
                                 S::st(pi.add(o), yi);
                             }
@@ -1036,7 +1051,11 @@ unsafe fn store_f64(re: &[f64], im: &[f64], run: &mut [C64]) {
 /// # Safety
 /// As [`run_ops`]: the CPU must support AVX-512 F/DQ/VL/BW, AVX2 and FMA.
 #[inline]
-pub(super) unsafe fn load_run<T: Real>(buf: &mut Buf<T>, off: usize, run: &[num_complex::Complex<T>]) {
+pub(super) unsafe fn load_run<T: Real>(
+    buf: &mut Buf<T>,
+    off: usize,
+    run: &[num_complex::Complex<T>],
+) {
     use std::any::TypeId;
     let end = off + run.len();
     if TypeId::of::<T>() == TypeId::of::<f32>() {
@@ -1059,7 +1078,11 @@ pub(super) unsafe fn load_run<T: Real>(buf: &mut Buf<T>, off: usize, run: &[num_
 /// # Safety
 /// As [`run_ops`].
 #[inline]
-pub(super) unsafe fn store_run<T: Real>(buf: &Buf<T>, off: usize, run: &mut [num_complex::Complex<T>]) {
+pub(super) unsafe fn store_run<T: Real>(
+    buf: &Buf<T>,
+    off: usize,
+    run: &mut [num_complex::Complex<T>],
+) {
     use std::any::TypeId;
     let end = off + run.len();
     if TypeId::of::<T>() == TypeId::of::<f32>() {

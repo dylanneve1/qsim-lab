@@ -97,7 +97,12 @@ fn random_any(rng: &mut StdRng, n: usize, depth: usize) -> Circuit {
         let g = match rng.random_range(0..6) {
             0 => Gate::Sx(q),
             1 => Gate::Sxdg(q),
-            2 => Gate::U(q, rng.random_range(-PI..PI), rng.random_range(-PI..PI), rng.random_range(-PI..PI)),
+            2 => Gate::U(
+                q,
+                rng.random_range(-PI..PI),
+                rng.random_range(-PI..PI),
+                rng.random_range(-PI..PI),
+            ),
             3 => Gate::I(q),
             4 if n >= 2 => {
                 let b = (q + 1 + rng.random_range(0..n - 1)) % n;
@@ -119,7 +124,12 @@ fn brickwork(rng: &mut StdRng, n: usize, layers: usize, cz: bool) -> Circuit {
     let mut circ = Circuit::new(n);
     for l in 0..layers {
         for q in 0..n {
-            circ.u(q, rng.random_range(0.0..PI), rng.random_range(-PI..PI), rng.random_range(-PI..PI));
+            circ.u(
+                q,
+                rng.random_range(0.0..PI),
+                rng.random_range(-PI..PI),
+                rng.random_range(-PI..PI),
+            );
         }
         let mut q = l % 2;
         while q + 1 < n {
@@ -186,7 +196,11 @@ fn single_amplitudes_and_batches() {
         for _ in 0..4 {
             let x: u64 = rng.random_range(0..1u64 << n);
             let (a, rep) = amplitude(&circ, &bits_of(x as u128, n), &o).unwrap();
-            assert!((a - r.a[x as usize]).norm() <= TOL, "n={n} x={x}: {a} vs {}", r.a[x as usize]);
+            assert!(
+                (a - r.a[x as usize]).norm() <= TOL,
+                "n={n} x={x}: {a} vs {}",
+                r.a[x as usize]
+            );
             assert_eq!(rep.qubits, n);
         }
         // batches over random open sets, in random order
@@ -228,14 +242,24 @@ fn brickwork_qft_and_wide_circuits() {
         let open = [0usize, n / 3, n / 2, n - 1];
         let (v, _) = amplitudes(&circ, &vec![false; n], &open, &o).unwrap();
         for (j, a) in v.iter().enumerate() {
-            let idx: usize = open.iter().enumerate().map(|(t, &q)| ((j >> t) & 1) << q).sum();
+            let idx: usize = open
+                .iter()
+                .enumerate()
+                .map(|(t, &q)| ((j >> t) & 1) << q)
+                .sum();
             assert!((a - r.a[idx]).norm() <= TOL);
         }
     }
     for n in [5usize, 9, 14] {
         let circ = qft_circuit(n, 0b1011);
         let r = reference(&circ);
-        let (v, _) = amplitudes(&circ, &vec![false; n], &(0..n.min(8)).collect::<Vec<_>>(), &o).unwrap();
+        let (v, _) = amplitudes(
+            &circ,
+            &vec![false; n],
+            &(0..n.min(8)).collect::<Vec<_>>(),
+            &o,
+        )
+        .unwrap();
         for (j, a) in v.iter().enumerate() {
             assert!((a - r.a[j]).norm() <= TOL, "qft n={n} j={j}");
         }
@@ -309,7 +333,9 @@ fn every_single_gate_alone() {
     for g in gates {
         // prepare a generic state first so every matrix entry matters
         let mut circ = Circuit::new(3);
-        circ.u(0, 0.7, 0.2, -0.4).u(1, 1.9, -1.0, 0.3).u(2, 0.4, 0.8, 1.1);
+        circ.u(0, 0.7, 0.2, -0.4)
+            .u(1, 1.9, -1.0, 0.3)
+            .u(2, 0.4, 0.8, 1.1);
         circ.gate(g);
         check_all_amplitudes(&circ, &o, TOL);
         // and the bare gate on |000>
@@ -344,7 +370,11 @@ fn pauli_expectations_with_light_cones() {
     // a wide brickwork whose local observable has a small light cone
     let circ = brickwork(&mut rng, 20, 3, true);
     let r = reference(&circ);
-    for ps in ["IIIIIIIIIZZIIIIIIIII", "XIIIIIIIIIIIIIIIIIIY", "IIIIIIIIIIYIIIIIIIII"] {
+    for ps in [
+        "IIIIIIIIIZZIIIIIIIII",
+        "XIIIIIIIIIIIIIIIIIIY",
+        "IIIIIIIIIIYIIIIIIIII",
+    ] {
         let (v, rep) = expectation(&circ, &parse_pauli(ps).unwrap(), &o).unwrap();
         assert!((v - r.pauli_expectation(ps)).abs() <= TOL, "{ps}");
         assert!(rep.qubits < 20, "light cone not used for {ps}");
@@ -384,7 +414,10 @@ fn slicing_on_and_off_agree() {
         let r = reference(&circ);
         // targets below the unsliced width (the root holds the 2 open qubits)
         let w = r0.path.log2_max_size;
-        assert!(w >= 4.0, "n={n}: unsliced width {w} too small for this test");
+        assert!(
+            w >= 4.0,
+            "n={n}: unsliced width {w} too small for this test"
+        );
         for target in [w - 1.0, w - 2.0, (w - 3.0).max(2.0)] {
             let sliced = TnOptions {
                 path: PathOptions {
@@ -397,7 +430,10 @@ fn slicing_on_and_off_agree() {
             assert!(r1.exec.slices > 1, "n={n} target={target}: nothing sliced");
             assert!(r1.path.log2_sliced_max_size <= target + 1e-9);
             for (j, (a, b)) in v0.iter().zip(&v1).enumerate() {
-                assert!((a - b).norm() <= TOL, "n={n} target={target} j={j}: {a} vs {b}");
+                assert!(
+                    (a - b).norm() <= TOL,
+                    "n={n} target={target} j={j}: {a} vs {b}"
+                );
                 let mut idx = x as usize;
                 for (t, &q) in open.iter().enumerate() {
                     idx = (idx & !(1 << q)) | (((j >> t) & 1) << q);
@@ -451,7 +487,11 @@ fn every_configuration_knob_is_exact() {
     ];
     for circ in &circs {
         for simp in simps {
-            for (greedy, bisect, reconf) in [(true, false, false), (false, true, true), (true, true, true)] {
+            for (greedy, bisect, reconf) in [
+                (true, false, false),
+                (false, true, true),
+                (true, true, true),
+            ] {
                 let o = TnOptions {
                     simplify: simp,
                     path: PathOptions {
@@ -584,11 +624,12 @@ fn big_tensor_kernels_match_the_reference() {
         let circ = random_any(&mut rng, n, 6 * n);
         let brick = brickwork(&mut rng, n, 6, n % 2 == 0);
         for c in [&circ, &brick] {
-            for strategy in [PairStrategy::Auto, PairStrategy::Permute, PairStrategy::Loops] {
-                let o = TnOptions {
-                    strategy,
-                    ..opts()
-                };
+            for strategy in [
+                PairStrategy::Auto,
+                PairStrategy::Permute,
+                PairStrategy::Loops,
+            ] {
+                let o = TnOptions { strategy, ..opts() };
                 check_all_amplitudes(c, &o, TOL);
             }
             let o = TnOptions {
@@ -615,7 +656,9 @@ fn light_cone_drops_diagonal_gates_that_commute_with_z() {
     // of the non-diagonal part (qubits 0..=3)
     let (cone_c, cone) = tn::pauli_light_cone(&c, &[(3, Pauli::Z)]).unwrap();
     assert_eq!(cone, vec![0, 1, 2, 3]);
-    assert!(cone_c.gates().all(|g| !matches!(g, Gate::Cz(..) | Gate::CPhase(..) | Gate::Rz(..))));
+    assert!(cone_c
+        .gates()
+        .all(|g| !matches!(g, Gate::Cz(..) | Gate::CPhase(..) | Gate::Rz(..))));
     let (v, rep) = expectation(&c, &[(3, Pauli::Z)], &o).unwrap();
     assert!((v - r.pauli_expectation("IIIZII")).abs() <= TOL);
     assert_eq!(rep.qubits, 4);

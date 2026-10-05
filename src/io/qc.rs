@@ -130,10 +130,9 @@ impl QcCircuit {
                 QcGate::Cz(a, b) => c.gate(Gate::Cz(a, b)),
                 QcGate::Swap(a, b) => c.gate(Gate::Swap(a, b)),
                 QcGate::Toffoli(a, b, t) => c.gate(Gate::Ccx(a, b, t)),
-                QcGate::Ccz(a, b, t) => c
-                    .gate(Gate::H(t))
-                    .gate(Gate::Ccx(a, b, t))
-                    .gate(Gate::H(t)),
+                QcGate::Ccz(a, b, t) => {
+                    c.gate(Gate::H(t)).gate(Gate::Ccx(a, b, t)).gate(Gate::H(t))
+                }
             };
         }
         c

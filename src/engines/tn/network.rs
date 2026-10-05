@@ -586,8 +586,7 @@ impl Simp {
         let kept = union
             .into_iter()
             .filter(|&i| {
-                self.is_out[i as usize]
-                    || self.occ[i as usize].iter().any(|&x| x != a && x != b)
+                self.is_out[i as usize] || self.occ[i as usize].iter().any(|&x| x != a && x != b)
             })
             .collect();
         (kept, bits.ceil() as u32)
@@ -793,7 +792,9 @@ impl Simp {
                 let Ok(svd) = m.thin_svd() else {
                     continue;
                 };
-                let sv: Vec<f64> = (0..dl.min(dr)).map(|q| svd.S().column_vector()[q].re).collect();
+                let sv: Vec<f64> = (0..dl.min(dr))
+                    .map(|q| svd.S().column_vector()[q].re)
+                    .collect();
                 let smax = sv.iter().cloned().fold(0.0, f64::max);
                 if smax == 0.0 {
                     continue;
@@ -836,8 +837,14 @@ impl Simp {
             };
             let (lf, rf) = best_svd.unwrap();
             let t = self.remove(k);
-            let left: Vec<Ix> = (0..r).filter(|&p| mask >> p & 1 == 1).map(|p| t.inds[p]).collect();
-            let right: Vec<Ix> = (0..r).filter(|&p| mask >> p & 1 == 0).map(|p| t.inds[p]).collect();
+            let left: Vec<Ix> = (0..r)
+                .filter(|&p| mask >> p & 1 == 1)
+                .map(|p| t.inds[p])
+                .collect();
+            let right: Vec<Ix> = (0..r)
+                .filter(|&p| mask >> p & 1 == 0)
+                .map(|p| t.inds[p])
+                .collect();
             let (mut li, mut ri) = (left.clone(), right.clone());
             if rank > 1 {
                 let bond = self.dims.len() as Ix;
@@ -863,9 +870,10 @@ impl Simp {
         for k in self.live() {
             loop {
                 let t = self.t[k].as_ref().unwrap();
-                let p = t.inds.iter().position(|&i| {
-                    !self.is_out[i as usize] && self.occ[i as usize].len() == 1
-                });
+                let p = t
+                    .inds
+                    .iter()
+                    .position(|&i| !self.is_out[i as usize] && self.occ[i as usize].len() == 1);
                 let Some(p) = p else {
                     break;
                 };

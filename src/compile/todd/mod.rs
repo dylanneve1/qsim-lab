@@ -828,7 +828,13 @@ fn group_cost(ids: &[usize], sc: &Scan, snap: &(Vec<Bits>, Vec<bool>), n: usize)
         return 0;
     }
     let (cols, _, _) = slot_columns(ids, sc, &snap.0, &snap.1);
-    todd(cols, n, &ToddParams::default(), &mut StdRng::seed_from_u64(0)).len()
+    todd(
+        cols,
+        n,
+        &ToddParams::default(),
+        &mut StdRng::seed_from_u64(0),
+    )
+    .len()
 }
 
 /// First-improvement local search over the assignment of odd terms to
@@ -931,14 +937,20 @@ fn best_todd(cols: &[Bits], d: usize, restarts: usize, lns_rounds: usize, seed: 
 
 /// Best of one deterministic TODD run and `restarts` randomised ones.
 fn best_of_restarts(cols: &[Bits], d: usize, restarts: usize, seed: u64) -> Vec<Bits> {
-    let det = todd(cols.to_vec(), d, &ToddParams::default(), &mut StdRng::seed_from_u64(seed));
+    let det = todd(
+        cols.to_vec(),
+        d,
+        &ToddParams::default(),
+        &mut StdRng::seed_from_u64(seed),
+    );
     if restarts == 0 {
         return det;
     }
     let best = (0..restarts)
         .into_par_iter()
         .map(|r| {
-            let mut rng = StdRng::seed_from_u64(seed ^ (0x9E37_79B9_7F4A_7C15u64.wrapping_mul(r as u64 + 1)));
+            let mut rng =
+                StdRng::seed_from_u64(seed ^ (0x9E37_79B9_7F4A_7C15u64.wrapping_mul(r as u64 + 1)));
             let p = ToddParams {
                 randomize: true,
                 ..Default::default()
@@ -954,7 +966,12 @@ fn best_of_restarts(cols: &[Bits], d: usize, restarts: usize, seed: u64) -> Vec<
     }
 }
 
-fn group_terms(cols: &[Bits], new: Vec<Bits>, extra: Vec<(Bits, u8)>, d: usize) -> (Vec<(Bits, u8)>, usize) {
+fn group_terms(
+    cols: &[Bits],
+    new: Vec<Bits>,
+    extra: Vec<(Bits, u8)>,
+    d: usize,
+) -> (Vec<(Bits, u8)>, usize) {
     let corr = clifford_correction(cols, &new, d).expect("TODD keeps the signature tensor");
     let mut map: HashMap<Bits, u8> = HashMap::new();
     let t_out = new.len();
@@ -1025,7 +1042,8 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
     };
     let mut snapshots: HashMap<usize, (Vec<Bits>, Vec<bool>)> = HashMap::new();
     {
-        let wanted: HashMap<usize, usize> = cut_slots.iter().map(|&s| (pos_of_slot(s), s)).collect();
+        let wanted: HashMap<usize, usize> =
+            cut_slots.iter().map(|&s| (pos_of_slot(s), s)).collect();
         let mut lin: Vec<Bits> = (0..n).map(|q| Bits::unit(sc.nvars, q)).collect();
         let mut cst = vec![false; n];
         let mut hcount = 0;
@@ -1068,13 +1086,22 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
                 tensor::clean(cols.clone())
             };
             let (terms, t_out) = group_terms(&cols, new, extra, n);
-            (s, ids.len(), GroupOut { terms, global, t_out })
+            (
+                s,
+                ids.len(),
+                GroupOut {
+                    terms,
+                    global,
+                    t_out,
+                },
+            )
         })
         .collect();
 
     // Emission.
     let mut at_pos: HashMap<usize, Vec<(Bits, u8)>> = HashMap::new();
-    let mut global = (sc.global + outs.iter().map(|o| o.2.global as usize).sum::<usize>() as u8 % 8) % 8;
+    let mut global =
+        (sc.global + outs.iter().map(|o| o.2.global as usize).sum::<usize>() as u8 % 8) % 8;
     let mut report = ToddReport {
         t_input: c.t_count(),
         t_folded: odd.len(),
@@ -1098,7 +1125,9 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
             let solver = SpanSolver::new(&lin);
             for &i in ids {
                 let t = &sc.terms[i];
-                let co = solver.solve(&t.parity).expect("term available at its first gate");
+                let co = solver
+                    .solve(&t.parity)
+                    .expect("term available at its first gate");
                 let k1 = co.ones().fold(false, |a, q| a ^ cst[q]);
                 let k = if k1 {
                     global = (global + t.coef) % 8;
@@ -1137,7 +1166,10 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
         }
         step_wires(g, n, &mut lin, &mut cst, &mut hcount);
     }
-    report.t_output = out.gates().filter(|g| matches!(g, Gate::T(_) | Gate::Tdg(_))).count();
+    report.t_output = out
+        .gates()
+        .filter(|g| matches!(g, Gate::T(_) | Gate::Tdg(_)))
+        .count();
     report.cnots = out.gates().filter(|g| matches!(g, Gate::Cnot(..))).count();
     report.global_phase = global;
     report.groups.sort_unstable();

@@ -48,7 +48,11 @@ pub struct UnsupportedGate(pub String);
 
 impl std::fmt::Display for UnsupportedGate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "gate not supported by the Clifford+T checker: {}", self.0)
+        write!(
+            f,
+            "gate not supported by the Clifford+T checker: {}",
+            self.0
+        )
     }
 }
 
@@ -435,7 +439,10 @@ pub fn simulate_basis(n: usize, gates: &[VGate], input: u128) -> ExactState {
             VGate::Global(kk) => global = (global + kk) % 8,
         }
     }
-    let mut v: Vec<(u128, ZOmega)> = amps.into_iter().map(|(x, a)| (x, a.mul_omega(global))).collect();
+    let mut v: Vec<(u128, ZOmega)> = amps
+        .into_iter()
+        .map(|(x, a)| (x, a.mul_omega(global)))
+        .collect();
     v.sort_unstable_by_key(|e| e.0);
     let _ = n;
     ExactState { k, amps: v }
@@ -469,12 +476,7 @@ pub fn exact_phase_relation(a: &ExactState, b: &ExactState) -> Option<u8> {
 
 /// Checks `A|x> = ω^j B|x>` with one common `j` for every basis input in
 /// `inputs`; returns `j`, or the first failing input.
-pub fn basis_equivalent(
-    n: usize,
-    a: &[VGate],
-    b: &[VGate],
-    inputs: &[u128],
-) -> Result<u8, u128> {
+pub fn basis_equivalent(n: usize, a: &[VGate], b: &[VGate], inputs: &[u128]) -> Result<u8, u128> {
     use rayon::prelude::*;
     let Some(&first) = inputs.first() else {
         return Ok(0);

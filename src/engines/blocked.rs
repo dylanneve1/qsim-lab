@@ -790,7 +790,9 @@ fn diag_pass<T: Real>(d: &DiagBlock, l: usize) -> Option<DiagPass<T>> {
             }
         } else {
             let lomask = (1usize << lo_bits) - 1;
-            if t.imask & lomask != 0 && t.imask >> lo_bits != 0 && (t.imask & lomask).count_ones() > 1
+            if t.imask & lomask != 0
+                && t.imask >> lo_bits != 0
+                && (t.imask & lomask).count_ones() > 1
             {
                 return None;
             }
@@ -1943,7 +1945,13 @@ fn diag_pass_tables<'a, T: Real>(
     d: &'a DiagPass<T>,
     base: usize,
     sc: &'a mut DiagScratch<T>,
-) -> (&'a [T], &'a [T], &'a [Complex64], &'a [Complex64], &'a [Cross]) {
+) -> (
+    &'a [T],
+    &'a [T],
+    &'a [Complex64],
+    &'a [Complex64],
+    &'a [Cross],
+) {
     let active = |t: &&FlatTerm| base & t.omask == t.opat;
     if !d.dynamic.iter().any(|t| active(&t)) {
         return (&d.lor, &d.loi, &d.lo, &d.hi, &d.cross);

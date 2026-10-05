@@ -26,8 +26,8 @@ use num_complex::Complex64;
 use qsim_lab::circuit::Circuit;
 use qsim_lab::engines::spd::{KickedIsing, Lattice, PauliObs};
 use qsim_lab::engines::tn::{
-    self, contract, network_json, ExecOptions, Hypergraph, Network, PairStrategy, PathOptions, Pauli,
-    Precision, SimplifyOptions, TnOptions,
+    self, contract, network_json, ExecOptions, Hypergraph, Network, PairStrategy, PathOptions,
+    Pauli, Precision, SimplifyOptions, TnOptions,
 };
 use qsim_lab::gate::Gate;
 use rand::rngs::StdRng;
@@ -69,7 +69,10 @@ fn parse_circuit(src: &str) -> Circuit {
             // fSim(pi/2, phi) = CPhase(-phi) iSWAP^dagger
             "fsim" => {
                 let (th, ph) = (f(3), f(4));
-                assert!((th - FRAC_PI_2).abs() < 1e-12, "only fSim(pi/2, phi) is supported");
+                assert!(
+                    (th - FRAC_PI_2).abs() < 1e-12,
+                    "only fSim(pi/2, phi) is supported"
+                );
                 c.iswapdg(q(1), q(2)).cphase(q(1), q(2), -ph);
             }
             "h" => {
@@ -105,7 +108,10 @@ fn parse_circuit(src: &str) -> Circuit {
 struct Args(Vec<String>);
 impl Args {
     fn get(&self, k: &str) -> Option<String> {
-        self.0.iter().position(|a| a == k).map(|i| self.0[i + 1].clone())
+        self.0
+            .iter()
+            .position(|a| a == k)
+            .map(|i| self.0[i + 1].clone())
     }
     fn has(&self, k: &str) -> bool {
         self.0.iter().any(|a| a == k)
@@ -118,7 +124,11 @@ impl Args {
 fn options(a: &Args) -> TnOptions {
     let mem_gb: f64 = a.num("--mem-gb", 2.0);
     TnOptions {
-        precision: if a.has("--f32") { Precision::F32 } else { Precision::F64 },
+        precision: if a.has("--f32") {
+            Precision::F32
+        } else {
+            Precision::F64
+        },
         max_bytes: (mem_gb * (1u64 << 30) as f64) as u128,
         simplify: if a.has("--no-simplify") {
             SimplifyOptions::none()
@@ -205,7 +215,9 @@ fn run(label: &str, mut nw: Network, a: &Args) -> Option<Vec<Complex64>> {
         let l0 = load();
         let res = match o.precision {
             Precision::F64 => contract::<Complex64>(&nw, &path.tree, &path.sliced, &eo),
-            Precision::F32 => contract::<num_complex::Complex<f32>>(&nw, &path.tree, &path.sliced, &eo),
+            Precision::F32 => {
+                contract::<num_complex::Complex<f32>>(&nw, &path.tree, &path.sliced, &eo)
+            }
         };
         match res {
             Ok((v, es)) => {
@@ -232,7 +244,6 @@ fn run(label: &str, mut nw: Network, a: &Args) -> Option<Vec<Complex64>> {
     }
     out
 }
-
 
 /// Minimal JSON values (enough for the network files of
 /// research/data/tn/cotengra_on_network.py).
@@ -317,7 +328,12 @@ fn parse_json(s: &[u8], i: &mut usize) -> J {
             while *i < s.len() && matches!(s[*i], b'-' | b'+' | b'.' | b'e' | b'E' | b'0'..=b'9') {
                 *i += 1;
             }
-            J::Num(std::str::from_utf8(&s[st..*i]).unwrap().parse().expect("number"))
+            J::Num(
+                std::str::from_utf8(&s[st..*i])
+                    .unwrap()
+                    .parse()
+                    .expect("number"),
+            )
         }
     }
 }
@@ -355,7 +371,13 @@ fn json_network(file: &str) -> Network {
         .iter()
         .map(|t| t.arr().iter().map(|x| x.num() as u32).collect())
         .collect();
-    let output: Vec<u32> = j.get("output").unwrap().arr().iter().map(|x| x.num() as u32).collect();
+    let output: Vec<u32> = j
+        .get("output")
+        .unwrap()
+        .arr()
+        .iter()
+        .map(|x| x.num() as u32)
+        .collect();
     let mut dims: Vec<usize> = Vec::new();
     if let Some(J::Obj(sd)) = j.get("size_dict") {
         for (k, v) in sd {
@@ -381,7 +403,10 @@ fn json_network(file: &str) -> Network {
                 .map(|t| {
                     let re = t.get("re").unwrap().arr();
                     let im = t.get("im").unwrap().arr();
-                    re.iter().zip(im).map(|(r, i)| Complex64::new(r.num(), i.num())).collect()
+                    re.iter()
+                        .zip(im)
+                        .map(|(r, i)| Complex64::new(r.num(), i.num()))
+                        .collect()
                 })
                 .collect()
         }
@@ -391,7 +416,9 @@ fn json_network(file: &str) -> Network {
                 .iter()
                 .map(|t| {
                     let n: usize = t.iter().map(|&i| dims[i as usize]).product();
-                    (0..n).map(|_| Complex64::new(rng.random(), rng.random())).collect()
+                    (0..n)
+                        .map(|_| Complex64::new(rng.random(), rng.random()))
+                        .collect()
                 })
                 .collect()
         }
@@ -427,7 +454,9 @@ fn syc(a: &Args) {
     let src = std::fs::read_to_string(file).expect("circuit file");
     let c = parse_circuit(&src);
     let n = c.num_qubits;
-    let x = a.get("--bits").map_or(0u128, |s| u128::from_str_radix(&s, 16).expect("hex"));
+    let x = a
+        .get("--bits")
+        .map_or(0u128, |s| u128::from_str_radix(&s, 16).expect("hex"));
     let bits = tn::bits_of(x, n);
     let nopen: usize = a.num("--open", 0);
     let open: Vec<usize> = (0..nopen).collect();
@@ -445,7 +474,11 @@ fn ising(a: &Args) {
     let theta: f64 = a.0[2].parse().expect("theta");
     let lat = Lattice::eagle127();
     let (obs, mut steps, final_rx) = match fig {
-        "3a" | "mz" => (PauliObs::magnetisation(&(0..lat.n).collect::<Vec<_>>()), 5, false),
+        "3a" | "mz" => (
+            PauliObs::magnetisation(&(0..lat.n).collect::<Vec<_>>()),
+            5,
+            false,
+        ),
         "3b" => (PauliObs::parse(W10), 5, false),
         "3c" => (PauliObs::parse(W17), 5, false),
         "4a" => (PauliObs::parse(W17B), 5, true),
@@ -516,7 +549,12 @@ fn build_family(fam: &str, n: usize, depth: usize, seed: u64) -> (Circuit, u128)
         "brick" => {
             for l in 0..depth {
                 for q in 0..n {
-                    c.u(q, rng.random_range(0.0..PI), rng.random_range(-PI..PI), rng.random_range(-PI..PI));
+                    c.u(
+                        q,
+                        rng.random_range(0.0..PI),
+                        rng.random_range(-PI..PI),
+                        rng.random_range(-PI..PI),
+                    );
                 }
                 let mut q = l % 2;
                 while q + 1 < n {
@@ -600,7 +638,12 @@ fn build_family(fam: &str, n: usize, depth: usize, seed: u64) -> (Circuit, u128)
             }
         }
     }
-    let x: u128 = rng.random::<u128>() & if n >= 128 { u128::MAX } else { (1u128 << n) - 1 };
+    let x: u128 = rng.random::<u128>()
+        & if n >= 128 {
+            u128::MAX
+        } else {
+            (1u128 << n) - 1
+        };
     (c, x)
 }
 
