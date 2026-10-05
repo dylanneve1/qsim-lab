@@ -633,7 +633,8 @@ fn pipeline_graph_option_matches_reference() {
     };
     for case in 0..80 * iters() {
         let n = 1 + case % 7;
-        let pc = region_heavy(&mut rng, n, 0, rng.random_range(0..40));
+        let len = rng.random_range(0..40);
+        let pc = region_heavy(&mut rng, n, 0, len);
         let c = pc.bind(&[]).unwrap();
         let r = ref_run(&c);
         let xs: Vec<u128> = (0..1u128 << n).collect();
