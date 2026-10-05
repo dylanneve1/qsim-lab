@@ -1,12 +1,15 @@
-"""Summarise `group_codes search` output against the known frontier.
+"""Summarise `group_codes search` / `csearch` output against the known frontier.
 
-usage: python analyze.py <search.jsonl> <search.log> [--out prefix]
+usage: python analyze.py [--out prefix] <file.jsonl> <file.log> [<file.jsonl> <file.log> ...]
 
-search.jsonl: one line per connected class with k > 0 (status below / tie /
-new / undecided, see examples/group_codes.rs). search.log: the per-group
-summary lines on stderr (group names, class counts, timings).
-Writes <prefix>.md (summary tables) and <prefix>_ties.jsonl (every class
-with d >= T, i.e. tie or new, with its group name).
+Each .jsonl has one line per connected class with k > 0, the matching .log
+the per-group (or per (K, H, m)) summary lines on stderr. Statuses (see
+examples/group_codes.rs): below (a logical of weight < T exists), le_T (one
+of weight T exists: d <= T), tie (exhaustive proof that d = T; first,
+slower search rule only), new / new_bounds (no logical of weight <= T:
+d > T), undecided (node limit).
+Writes <prefix>.md (tables) and <prefix>_top.jsonl (every class with
+d_up >= T, i.e. le_T, tie, new, undecided).
 """
 import json
 import re
@@ -14,65 +17,77 @@ import sys
 from collections import Counter, defaultdict
 
 args = sys.argv[1:]
-out = "nonabelian_w6"
+out = "summary"
 if "--out" in args:
     i = args.index("--out")
     out = args[i + 1]
     args = args[:i] + args[i + 2:]
-jsonl, log = args[0], args[1]
+pairs = list(zip(args[0::2], args[1::2]))
 
 names = {}
-groups = []
-for line in open(log):
-    m = re.match(r"N=(\d+) id=(\d+) SmallGroup\(\d+,\d+\) (\S+) \|Z\|=(\d+) tclasses=(\d+) orbits=(\d+) "
-                 r"k>0=(\d+) disconnected=(\d+) k>128=(\d+) below=(\d+) tie=(\d+) new=(\d+) undecided=(\d+) t=([\d.]+)s", line)
-    if m:
-        N, gid = int(m.group(1)), int(m.group(2))
-        names[(N, gid)] = m.group(3)
-        groups.append(dict(N=N, id=gid, name=m.group(3), Z=int(m.group(4)), tclasses=int(m.group(5)),
-                           orbits=int(m.group(6)), kpos=int(m.group(7)), disc=int(m.group(8)),
-                           bigk=int(m.group(9)), below=int(m.group(10)), tie=int(m.group(11)),
-                           new=int(m.group(12)), und=int(m.group(13)), t=float(m.group(14))))
+summ = []
+rows = []
+for jl, lg in pairs:
+    for line in open(lg):
+        m = re.match(r"N=(\d+) id=(\d+) SmallGroup\(\d+,\d+\) (\S+) .* t=([\d.]+)s", line)
+        if m:
+            names[(int(m.group(1)), int(m.group(2)))] = m.group(3)
+            summ.append(("2bga", float(m.group(4)), line))
+        m = re.match(r"K=(\S+) \|H\|=(\d+) .* t=([\d.]+)s", line)
+        if m:
+            summ.append(("coset", float(m.group(3)), line))
+    for line in open(jl):
+        r = json.loads(line)
+        if "K" in r:
+            r["family"] = "coset"
+            r["group"] = f"Z{r['m']} x {r['K']} / H(|H|={len(r['H'].split(','))})"
+        else:
+            r["family"] = "2bga"
+            r["group"] = f"SmallGroup({r['N']},{r['id']}) {names.get((r['N'], r['id']), '?')}"
+        rows.append(r)
 
-rows = [json.loads(l) for l in open(jsonl)]
-status = Counter(r["status"] for r in rows)
-by_nk = defaultdict(list)
-for r in rows:
-    by_nk[(r["n"], r["k"])].append(r)
-
-ties = [r for r in rows if r["status"] in ("tie", "new")]
-for r in ties:
-    r["group"] = names.get((r["N"], r["id"]), "?")
-und = [r for r in rows if r["status"] == "undecided"]
-
-with open(out + "_ties.jsonl", "w") as f:
-    for r in sorted(ties, key=lambda r: (r["n"], -r["k"], -r["d_up"])):
+status = Counter((r["family"], r["status"]) for r in rows)
+top = [r for r in rows if r["status"] != "below"]
+with open(out + "_top.jsonl", "w") as f:
+    for r in sorted(top, key=lambda r: (r["n"], -r["k"], -r["d_up"])):
         f.write(json.dumps(r) + "\n")
 
+
+def kd2n(r, d=None):
+    d = r["d_up"] if d is None else d
+    return r["k"] * d * d / r["n"]
+
+
 with open(out + ".md", "w") as f:
-    f.write(f"groups searched: {len(groups)}; orbits (inequivalent codes) {sum(g['orbits'] for g in groups)}; "
-            f"connected k>0 classes: {len(rows)}; disconnected k>0: {sum(g['disc'] for g in groups)}; "
-            f"k>128 skipped: {sum(g['bigk'] for g in groups)}; CPU {sum(g['t'] for g in groups):.0f} s\n\n")
-    f.write("status counts: " + ", ".join(f"{k} {v}" for k, v in sorted(status.items())) + "\n\n")
-    f.write("## Classes reaching the known threshold (d >= T(n, k))\n\n")
-    f.write("| n | k | d | T | kd²/n | status | group | A | B | d_Z / d_X | roots |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
-    for r in sorted(ties, key=lambda r: (r["n"], -r["k"])):
-        d = r["d_up"]
-        f.write(f"| {r['n']} | {r['k']} | {d} | {r['T']} | {r['k']*d*d/r['n']:.2f} | {r['status']} | "
-                f"SmallGroup({r['N']},{r['id']}) {r['group']} | {r['A']} | {r['B']} | {r['dz']} / {r['dx']} | {r['roots']} |\n")
-    f.write("\n## Undecided (node limit)\n\n")
-    for r in und:
-        f.write(f"- [[{r['n']},{r['k']},{r['d_lo']}..{r['d_up']}]] T={r['T']} SmallGroup({r['N']},{r['id']}) "
-                f"{names.get((r['N'], r['id']), '?')} A={r['A']} B={r['B']}\n")
-    f.write("\n## Per n: largest k with a class at the threshold, and how close the rest came\n\n")
-    f.write("| n | classes | k with d >= T | best d_up below T, per k (k:d_up/T) |\n|---|---|---|---|\n")
-    for n in sorted({r["n"] for r in rows}):
-        ks = sorted({r["k"] for r in rows if r["n"] == n})
-        at = sorted({r["k"] for r in ties if r["n"] == n})
-        near = []
-        for k in ks:
-            v = [r for r in by_nk[(n, k)] if r["status"] == "below"]
-            if v:
-                near.append(f"{k}:{max(r['d_up'] for r in v)}/{v[0]['T']}")
-        f.write(f"| {n} | {sum(len(by_nk[(n, k)]) for k in ks)} | {at} | {' '.join(near)} |\n")
-print(f"wrote {out}.md, {out}_ties.jsonl; status {dict(status)}")
+    cpu = sum(t for _, t, _ in summ)
+    f.write(f"jobs (groups or (K,H,m)): {len(summ)}; classes with k>0, connected: {len(rows)}; CPU {cpu:.0f} s\n\n")
+    f.write("| family | status | classes |\n|---|---|---|\n")
+    for (fam, st), v in sorted(status.items()):
+        f.write(f"| {fam} | {st} | {v} |\n")
+    for title, sel in (("New (d > T)", ("new", "new_bounds")), ("Undecided", ("undecided",)),
+                       ("Exact ties (d = T proven)", ("tie",))):
+        v = [r for r in rows if r["status"] in sel]
+        f.write(f"\n## {title}: {len(v)}\n\n")
+        if not v:
+            continue
+        f.write("| n | k | d | T | kd²/n | group | A | B | d_Z / d_X | roots |\n|---|---|---|---|---|---|---|---|---|---|\n")
+        best = {}
+        for r in v:
+            key = (r["n"], r["k"], r["family"])
+            if key not in best or r["d_up"] > best[key]["d_up"]:
+                best[key] = r
+        for r in sorted(best.values(), key=lambda r: (r["n"], -r["k"])):
+            d = f"{r['d_lo']}..{r['d_up']}" if r["d_lo"] != r["d_up"] else str(r["d_up"])
+            f.write(f"| {r['n']} | {r['k']} | {d} | {r['T']} | {kd2n(r):.2f} | {r['group']} | {r['A']} | {r['B']} | {r['dz']} / {r['dx']} | {r['roots']} |\n")
+    # per (n, k): how close the space comes to the threshold
+    f.write("\n## Per (n, k): best upper bound found vs T (all classes)\n\n")
+    f.write("| n | k | T | best d_up | classes | at T (le_T/tie) | family |\n|---|---|---|---|---|---|---|\n")
+    by = defaultdict(list)
+    for r in rows:
+        by[(r["n"], r["k"], r["family"])].append(r)
+    for (n, k, fam), v in sorted(by.items()):
+        bu = max(r["d_up"] for r in v)
+        at = sum(1 for r in v if r["status"] in ("le_T", "tie"))
+        if bu >= v[0]["T"] - 1 and v[0]["T"] >= 6:
+            f.write(f"| {n} | {k} | {v[0]['T']} | {bu} | {len(v)} | {at} | {fam} |\n")
+print(f"wrote {out}.md, {out}_top.jsonl; {dict(status)}")
