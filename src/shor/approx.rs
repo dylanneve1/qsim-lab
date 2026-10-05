@@ -693,6 +693,9 @@ fn check_rns(
         if mults.iter().flatten().any(|&f| f % q == 0) {
             return Err(ApproxError::NoRns(format!("{q} divides a multiplier")));
         }
+        if p.n_mod % q == 0 {
+            return Err(ApproxError::NoRns(format!("{q} divides N")));
+        }
     }
     let mut l = Big::one();
     let mut need = Big::one();
@@ -740,10 +743,13 @@ fn find_rns(
             max_product_bits + ell * 100
         )));
     }
+    // the paper's rule (no prime divides a multiplier), plus: no prime divides N
+    // (only possible at toy sizes, n ≤ 2ℓ; such a prime would put a factor of N
+    // into the tables, and the paper's pruning step is invalid for it)
     let mut acceptable: Vec<u64> = available
         .iter()
         .copied()
-        .filter(|&q| mults.iter().flatten().all(|&f| f % q != 0))
+        .filter(|&q| n_mod % q != 0 && mults.iter().flatten().all(|&f| f % q != 0))
         .collect();
     if acceptable.len() < 4 {
         return Err(ApproxError::NoRns("too few acceptable primes".into()));
@@ -793,11 +799,18 @@ fn find_rns(
                 }
             }
             if cand < shifted {
+                // the paper's final check (`_verify_rns_solution`): size and the
+                // deviation of the *pruned* set. Pruning `q | (L mod N)` divides
+                // `L mod N` by `q` only when `gcd(q, N) = 1`; at toy sizes
+                // (n ≤ 2ℓ) a factor of N can be an ℓ-bit prime, so the
+                // pruned set must be re-checked (the paper's code asserts here).
                 let mut l = Big::one();
+                let mut lm = 1u64;
                 for &q in &kept {
                     l.mul_u64(q);
+                    lm = crate::shor::mul_mod(lm, q, n_mod);
                 }
-                if l.ge(&need) {
+                if l.ge(&need) && lm.min(n_mod - lm) < shifted {
                     kept.sort_unstable();
                     return Ok(kept);
                 }

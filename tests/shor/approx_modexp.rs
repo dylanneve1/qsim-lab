@@ -435,3 +435,62 @@ fn tv_is_bounded_by_the_exact_fidelity() {
         let _ = paper_success(1, c.m, p.n_mod, p.generator);
     }
 }
+
+/// Regression: at toy sizes a factor of N can be an ℓ-bit prime (here
+/// N = 4001·4003 with 12-bit primes). The paper's pruning step is invalid for
+/// such a prime; the first port returned a prime set whose `L mod N` violated
+/// the deviation constraint (3 024 811 ≥ N >> 18). The search must re-verify
+/// the pruned set (as the paper's `_verify_rns_solution` does) and never use a
+/// factor of N.
+#[test]
+fn prime_search_rejects_invalid_pruning() {
+    let mut p = ApproxParams::eh_s(16_016_003, 2, 3, [4, 2, 3, 4], 18, 12);
+    p.prime_bits = Some(12);
+    let c = ApproxConfig::new(&p).unwrap();
+    let n = 16_016_003u64;
+    let dev = c.l_mod_n.min(n - c.l_mod_n);
+    assert!(dev < n >> 18, "L mod N deviation {dev}");
+    assert!(c.periods.iter().all(|&q| n % q != 0));
+    // a forced set containing a factor of N is refused
+    let mut q = p.clone();
+    q.forced_periods = Some(vec![4001, 4013, 4019]);
+    assert!(ApproxConfig::new(&q).is_err());
+}
+
+/// Masking is what makes approximate arithmetic usable (N = 899, Shor-style,
+/// m = 14, f = 8, |P| = 9; `research/shor/approx-modexp.md` §3.4): without a
+/// mask the approximate circuit's frequency distribution is far from the
+/// exact-arithmetic one and loses most of its success probability; the
+/// distance then halves with every mask bit (TV ∝ 1/W, not the √ of the
+/// trace-distance bound) and with a 2^5 mask the success probability is
+/// within 10 % of exact arithmetic with the same mask.
+#[test]
+fn masking_restores_interference() {
+    let mut tvs = Vec::new();
+    let mut succ = Vec::new();
+    for mask in 0..=5usize {
+        let p = ApproxParams::shor(899, 2, 14, [2, 2, 2, 2], 8, mask);
+        let c = ApproxConfig::new(&p).unwrap();
+        let ft = clean(&c, &mut RandomOutcomes(1));
+        let fi: Vec<u32> = (0..1u64 << c.m).map(|e| c.ideal_trunc(e) as u32).collect();
+        let w = 1u64 << mask;
+        let (pa, _) = distribution(&ft, c.trunc, w, c.m, 0);
+        let (pi, _) = distribution(&fi, c.trunc, w, c.m, 0);
+        let s = |d: &[f64]| -> f64 {
+            d.iter()
+                .enumerate()
+                .filter(|(j, _)| paper_success(*j as u64, c.m, 899, 2))
+                .map(|(_, p)| p)
+                .sum()
+        };
+        tvs.push(tv(&pa, &pi));
+        succ.push((s(&pa), s(&pi)));
+    }
+    assert!(tvs[0] > 0.5, "no mask: TV {}", tvs[0]);
+    assert!(succ[0].0 < 0.6 * succ[0].1, "no mask: success {:?}", succ[0]);
+    for m in 3..=5 {
+        assert!(tvs[m] < 0.6 * tvs[m - 1], "TV does not halve: {tvs:?}");
+    }
+    assert!(tvs[5] < 0.1, "{tvs:?}");
+    assert!(succ[5].0 > 0.9 * succ[5].1, "mask 2^5: success {:?}", succ[5]);
+}
