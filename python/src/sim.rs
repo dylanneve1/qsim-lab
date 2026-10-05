@@ -279,6 +279,7 @@ fn repeat_opts(d: &CircuitData, o: &Opts) -> SimOptions {
     SimOptions {
         repeat: on.then(RepeatOptions::default),
         planner_debug: false,
+        ..Default::default()
     }
 }
 

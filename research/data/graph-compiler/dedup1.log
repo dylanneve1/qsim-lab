@@ -1,0 +1,23 @@
+# 2026-10-05T01:29:02Z load { 10.41 12.62 14.66 } :: /Users/dylan/qsim-gc-target/release/examples/graph_bench dedup
+# load None
+trotter   n= 12 ops=  1150 | k=2 blocks 952 classes 4 cov 100.0% shape 100.0% reuse 99.6% (0.57ms) | k=3 blocks 481 classes 7 cov 100.0% shape 100.0% reuse 98.5% (0.48ms) | k=4 blocks 322 classes 9 cov 100.0% shape 100.0% reuse 97.2% (0.45ms) | k=5 blocks 222 classes 9 cov 99.4% shape 99.4% reuse 95.9% (0.44ms)
+  block unitaries (k=4): per instance 322 in 1.89ms, per class 9 in 0.07ms (28.6x)
+  bind: recipes evaluated per op 73.7us, once per class 38.4us (1.92x)
+qaoa      n= 16 ops=   216 | k=2 blocks 159 classes 31 cov 89.4% shape 98.6% reuse 80.5% (0.12ms) | k=3 blocks 99 classes 52 cov 45.8% shape 91.2% reuse 47.5% (0.10ms) | k=4 blocks 66 classes 52 cov 15.7% shape 64.4% reuse 21.2% (0.09ms) | k=5 blocks 60 classes 44 cov 10.6% shape 85.2% reuse 26.7% (0.09ms)
+  block unitaries (k=4): per instance 66 in 0.35ms, per class 52 in 0.35ms (1.0x)
+  bind: recipes evaluated per op 12.3us, once per class 5.2us (2.34x)
+hea       n= 12 ops=   210 | k=2 blocks 116 classes 62 cov 26.2% shape 100.0% reuse 46.6% (0.10ms) | k=3 blocks 59 classes 55 cov 4.3% shape 100.0% reuse 6.8% (0.07ms) | k=4 blocks 39 classes 36 cov 4.3% shape 89.0% reuse 7.7% (0.07ms) | k=5 blocks 27 classes 26 cov 3.8% shape 84.8% reuse 3.7% (0.06ms)
+  block unitaries (k=4): per instance 39 in 0.19ms, per class 36 in 0.19ms (1.0x)
+  bind: recipes evaluated per op 6.4us, once per class 6.4us (1.00x)
+pauli     n= 12 ops=  1204 | k=2 blocks 405 classes 60 cov 96.5% shape 97.2% reuse 85.2% (0.35ms) | k=3 blocks 178 classes 48 cov 93.4% shape 93.7% reuse 73.0% (0.30ms) | k=4 blocks 100 classes 34 cov 90.6% shape 90.9% reuse 66.0% (0.28ms) | k=5 blocks 72 classes 25 cov 89.7% shape 89.7% reuse 65.3% (0.28ms)
+  block unitaries (k=4): per instance 100 in 0.71ms, per class 34 in 0.25ms (2.9x)
+  bind: recipes evaluated per op 27.8us, once per class 21.9us (1.27x)
+adder     n= 28 ops=  4746 | k=2 blocks 4485 classes 7 cov 100.0% shape 100.0% reuse 99.8% (1.57ms) | k=3 blocks 2205 classes 22 cov 100.0% shape 100.0% reuse 99.0% (1.47ms) | k=4 blocks 1865 classes 39 cov 99.5% shape 99.5% reuse 97.9% (1.47ms) | k=5 blocks 1047 classes 77 cov 98.3% shape 98.3% reuse 92.6% (1.53ms)
+  block unitaries (k=4): per instance 1865 in 3.33ms, per class 39 in 0.14ms (23.7x)
+window    n= 31 ops=  1410 | k=2 blocks 1347 classes 8 cov 99.9% shape 99.9% reuse 99.4% (0.48ms) | k=3 blocks 742 classes 25 cov 99.7% shape 99.7% reuse 96.6% (0.46ms) | k=4 blocks 625 classes 38 cov 99.6% shape 99.6% reuse 93.9% (0.47ms) | k=5 blocks 325 classes 53 cov 98.2% shape 98.2% reuse 83.7% (0.47ms)
+  block unitaries (k=4): per instance 625 in 1.02ms, per class 38 in 0.11ms (8.9x)
+qft       n= 16 ops=   144 | k=2 blocks 129 classes 18 cov 97.2% shape 97.9% reuse 86.0% (0.06ms) | k=3 blocks 78 classes 23 cov 89.6% shape 95.8% reuse 70.5% (0.06ms) | k=4 blocks 52 classes 24 cov 64.6% shape 89.6% reuse 53.8% (0.05ms) | k=5 blocks 44 classes 23 cov 59.0% shape 84.7% reuse 47.7% (0.05ms)
+  block unitaries (k=4): per instance 52 in 0.12ms, per class 24 in 0.05ms (2.2x)
+brickwork n= 16 ops=   790 | k=2 blocks 159 classes 153 cov 0.9% shape 100.0% reuse 3.8% (0.22ms) | k=3 blocks 131 classes 129 cov 0.4% shape 100.0% reuse 1.5% (0.22ms) | k=4 blocks 80 classes 78 cov 0.4% shape 90.1% reuse 2.5% (0.21ms) | k=5 blocks 60 classes 59 cov 0.3% shape 79.6% reuse 1.7% (0.21ms)
+  block unitaries (k=4): per instance 80 in 0.62ms, per class 78 in 0.63ms (1.0x)
+# exit 0 2026-10-05T01:29:02Z

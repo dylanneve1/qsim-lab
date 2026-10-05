@@ -153,6 +153,14 @@ pub struct SimOptions {
     /// with at most 20 qubits is also run on the reference state vector,
     /// and a disagreement panics (research/simulability/planner.md).
     pub planner_debug: bool,
+    /// Amplitudes and Z-product expectations of unitary circuits through the
+    /// graph compiler's dense path (`crate::graph`: basis-state folding,
+    /// phase-region rewrite priced by plan cost, light cone, components,
+    /// compiled blocked executor). `None` (default): the ordinary passes.
+    /// The ordinary path also has the stabilizer/Pauli-path/compressed
+    /// engines, so this is only worth it for dense workloads; it is the
+    /// fixed-angle special case of `graph::CompiledCircuit`.
+    pub graph: Option<crate::graph::GraphOptions>,
 }
 
 /// Options of the repeat pass (see `research/compiler/repeat.md`).
@@ -211,12 +219,57 @@ pub fn simulate_with(
     budget: &Budget,
     opts: &SimOptions,
 ) -> Result<Simulation, SimError> {
+    if let Some(go) = &opts.graph {
+        if let Some(r) = graph_path(circuit, request, budget, go) {
+            return r;
+        }
+    }
     if let Some(ro) = &opts.repeat {
         if let Some(r) = repeat_path(circuit, request, budget, ro, opts.planner_debug) {
             return r;
         }
     }
     simulate_plain(circuit, request, budget, opts.planner_debug)
+}
+
+/// `None`: not a unitary amplitude / expectation request.
+fn graph_path(
+    circuit: &Circuit,
+    request: &Request,
+    budget: &Budget,
+    go: &crate::graph::GraphOptions,
+) -> Option<Result<Simulation, SimError>> {
+    use crate::graph::{CompiledCircuit, Observable, ParamCircuit};
+    if !matches!(request, Request::Amplitudes(_) | Request::Expectation(_)) {
+        return None;
+    }
+    let pc = ParamCircuit::from_circuit(circuit).ok()?;
+    let mut go = go.clone();
+    go.mem_bytes = go.mem_bytes.min(budget.mem_bytes);
+    let run = || -> Result<Simulation, SimError> {
+        let (output, cc) = match request {
+            Request::Expectation(qs) => {
+                let mut o = Observable::new();
+                let s: Vec<String> = qs.iter().map(|q| format!("Z{q}")).collect();
+                o.add(1.0, &s.join(" "))?;
+                let cc = CompiledCircuit::compile(&pc, Some(&o), &go)?;
+                (Output::Expectation(cc.expectation_at(&[])?), cc)
+            }
+            Request::Amplitudes(xs) => {
+                let cc = CompiledCircuit::compile(&pc, None, &go)?;
+                (Output::Amplitudes(cc.amplitudes_at(&[], xs)?), cc)
+            }
+            Request::Samples { .. } => unreachable!(),
+        };
+        let engines = cc
+            .stats()
+            .parts
+            .iter()
+            .map(|&(n, kops, _, _)| (n, kops, Backend::StateVector))
+            .collect();
+        Ok(Simulation { output, engines })
+    };
+    Some(run())
 }
 
 fn is_terminal_unitary(c: &Circuit) -> bool {
