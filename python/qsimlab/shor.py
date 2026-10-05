@@ -5,7 +5,7 @@
 Every run simulates the semiclassical order-finding circuit exactly (one recycled
 control qubit, Griffiths–Niu phase corrections) with a gate-level oracle built
 from X/CNOT/Toffoli gates, on the bit-sliced branch engine of
-``research/shor.md`` (or the dense/sparse engines for the permutation and
+``research/shor/shor.md`` (or the dense/sparse engines for the permutation and
 Beauregard oracles)::
 
     >>> import qsimlab.shor as shor
@@ -18,7 +18,7 @@ Beauregard oracles)::
     True
 
 The cost of a run is set by the multiplicative order ``r`` of the base, not by
-``N`` (the support law, ``research/theory-shor.md`` T1): before round ``i`` the
+``N`` (the support law, ``research/theory/theory-shor.md`` T1): before round ``i`` the
 state holds at most ``B_i = min(2^i, r / gcd(r, 2^(t-i)))`` branches.
 :func:`factor` predicts the peak memory from it **before** running and refuses
 runs over ``budget`` with :class:`~qsimlab.ResourceLimitError`. The order used
@@ -30,9 +30,9 @@ grows like ``N · n³``.
 Oracles (``oracle=``, see :data:`ORACLES`):
 
 * ``"windowed-opt"`` (default): Gidney's windowed table-lookup multiplier with
-  the superoptimised blocks of ``research/superopt.md``; ``4n + 4 + w`` qubits;
+  the superoptimised blocks of ``research/shor/superopt.md``; ``4n + 4 + w`` qubits;
 * ``"windowed-mbu-lookup"`` / ``"windowed-mbu"``: measurement-based
-  uncomputation (``research/mbu-shor.md``): fewer Toffolis, X-basis
+  uncomputation (``research/shor/mbu-shor.md``): fewer Toffolis, X-basis
   measurements with classical fix-ups;
 * ``"windowed"``, ``"ripple"``: the round-4 windowed oracle and the Cuccaro
   ripple-carry oracle (``3n + 4`` qubits);
@@ -40,7 +40,7 @@ Oracles (``oracle=``, see :data:`ORACLES`):
   state (≈ 10-bit N);
 * ``"permutation"``: a classical lookup table as the oracle, ``n + 1`` qubits
   (measurement statistics only, not a compilable circuit);
-* ``"ge"`` / ``"eh"``: Gidney–Ekerå exponent windowing (``research/ge-shor.md``)
+* ``"ge"`` / ``"eh"``: Gidney–Ekerå exponent windowing (``research/shor/ge-shor.md``)
   for Shor's order finding, or the Ekerå–Håstad short-discrete-log schedule
   (``1.5n`` exponent bits, lattice post-processing; balanced semiprimes).
 """
@@ -127,7 +127,7 @@ def _int(x: Any, name: str) -> int:
 
 
 def support_bounds(order: int, rounds: int) -> np.ndarray:
-    """The support law (``research/theory-shor.md`` T1): ``B_i = min(2^i, r / gcd(r, 2^(t-i)))``
+    """The support law (``research/theory/theory-shor.md`` T1): ``B_i = min(2^i, r / gcd(r, 2^(t-i)))``
     for ``i = 0 … t-1`` — an upper bound on the number of branches before round ``i``,
     attained except with probability ≤ 4/r_odd per round.
 
@@ -275,7 +275,7 @@ def factor(
       the multiplicand window ``w_m`` of ``"ge"``/``"eh"`` (default 3);
       ``exponent_window``: ``w_e`` of ``"ge"``/``"eh"`` (default 2).
     * ``precision``: amplitudes in ``"f64"`` or ``"f32"`` (≈ 35 % less memory;
-      distributions within 1e-7 of f64, ``research/shor.md``).
+      distributions within 1e-7 of f64, ``research/shor/shor.md``).
     * ``budget``: refuse (``ResourceLimitError``, with ``needed``/``limit``)
       any run whose predicted peak memory exceeds it. Default:
       ``min(32 GiB, half the physical memory)``.
@@ -498,7 +498,8 @@ def exact_distribution(
     threads: Optional[int] = None,
 ) -> np.ndarray:
     """Exact probabilities of the ``2n``-bit measured integer (``float64[2**(2n)]``),
-    by walking the whole measurement tree of the semiclassical circuit (``n ≤ 11``).
+    by walking the whole measurement tree of the semiclassical circuit (``n ≤ 8`` bits;
+    10 for ``"permutation"``, 6 for ``"beauregard"``).
 
     >>> p = exact_distribution(15, 7)
     >>> [int(y) for y in np.flatnonzero(p > 1e-12)], round(float(p[64]), 6)
@@ -602,7 +603,7 @@ class NoisySuccess(Result):
       factor, with ``ci`` its Wilson 95 % interval;
     * ``order_rate``: the true order was recovered; ``peak_rate``: the measured
       ``y`` is a "good" outcome, ``|y/2^t − s/r| < 1/(2r²)`` (the metric of
-      ``research/shor-noise.md``);
+      ``research/shor/shor-noise.md``);
     * ``locations``: fault locations ``L`` of the circuit, ``mean_faults``;
     * ``capped``: trajectories abandoned because their support exceeded ``cap``
       (counted as failures);
@@ -646,7 +647,7 @@ def noisy_success(
 ) -> NoisySuccess:
     """Success probability of the gate-level circuit under circuit-level Pauli noise.
 
-    Exact Monte-Carlo trajectories (``research/shor-noise.md``): a Pauli fault
+    Exact Monte-Carlo trajectories (``research/shor/shor-noise.md``): a Pauli fault
     at rate ``p`` after every oracle gate on each of its qubits, and on the
     control (preparation, after each H and the phase correction, readout
     flip). ``noise``: ``"depolarizing"``, ``"bitflip"`` or ``"phaseflip"``.

@@ -5,8 +5,8 @@
 //!
 //! * [`factor`]: semiclassical order finding / Ekerå–Håstad runs with random
 //!   (or given) bases, the same random stream as `qsim run shor --seed s`,
-//!   with a memory guard predicted from the support law (research/shor.md,
-//!   research/theory-shor.md T1) *before* anything is allocated;
+//!   with a memory guard predicted from the support law (research/shor/shor.md,
+//!   research/theory/theory-shor.md T1) *before* anything is allocated;
 //! * [`resource_counts`], [`oracle_circuit`], [`shor_circuit`]: circuits and
 //!   whole-run gate counts without simulating;
 //! * [`predict_support`]: the T1 support bounds `B_i` and the cost law;
@@ -168,7 +168,7 @@ pub fn order(a: u64, n: u64) -> u64 {
     r
 }
 
-/// T1 (research/theory-shor.md): the support of the work register before
+/// T1 (research/theory/theory-shor.md): the support of the work register before
 /// round `i` is at most `B_i = min(2^i, r / gcd(r, 2^(t−i)))`.
 pub fn support_bounds(r: u64, t: usize) -> Vec<u64> {
     let nu = r.trailing_zeros() as usize;
@@ -188,7 +188,10 @@ pub fn support_bounds(r: u64, t: usize) -> Vec<u64> {
 enum Kind {
     Shor(Oracle),
     /// Gidney–Ekerå exponent-windowed engine; `eh` = Ekerå–Håstad schedule.
-    Ge { eh: bool, o: GeOpts },
+    Ge {
+        eh: bool,
+        o: GeOpts,
+    },
 }
 
 pub const KINDS: &[&str] = &[
@@ -341,7 +344,7 @@ fn peak_support(r: u64, t: usize) -> u64 {
 }
 
 /// Bytes per stored support element, measured peak RSS / peak support in
-/// research/shor.md ("≈ 33 B (f32) and ≈ 51 B (f64)").
+/// research/shor/shor.md ("≈ 33 B (f32) and ≈ 51 B (f64)").
 fn sliced_bytes_per_elem(f32: bool) -> u128 {
     if f32 {
         33
@@ -359,8 +362,15 @@ fn predict_bytes(kind: &Kind, eng: Eng, m: usize, r: u64, f32: bool) -> u128 {
         Eng::Sliced => peak * sliced_bytes_per_elem(f32),
         // ψ plus the buffer for Uψ, 2^m amplitudes each
         Eng::FusedDense => 2 * (1u128 << m.min(100)) * elem,
-        // hash-map entries (key, amplitude, slack)
-        Eng::FusedSparse | Eng::Sparse => peak * 64,
+        // hash-map entries (key, amplitude, slack); the Beauregard
+        // accumulator lives in Fourier space, so its sparse state is dense
+        // (research/shor/shor.md, lever 3), and a ripple round holds both
+        // control branches
+        Eng::FusedSparse => peak * 64,
+        Eng::Sparse => match kind {
+            Kind::Shor(Oracle::Beauregard) => (1u128 << (2 * m + 3).min(120)) * 64,
+            _ => 2 * peak * 64,
+        },
         Eng::Dense => {
             let qubits = match kind {
                 Kind::Shor(Oracle::Beauregard) => 2 * m + 3,
@@ -368,7 +378,7 @@ fn predict_bytes(kind: &Kind, eng: Eng, m: usize, r: u64, f32: bool) -> u128 {
             };
             (1u128 << qubits.min(120)) * elem
         }
-        // research/ge-shor.md §5: a `w_e` window holds 2^{w_e} (key,
+        // research/shor/ge-shor.md §5: a `w_e` window holds 2^{w_e} (key,
         // amplitude) branches per stored value, the stored support is at most
         // `r`, and the input and output arrays coexist (factor 2).
         Eng::Ge => {
@@ -411,7 +421,16 @@ fn choose_engine(kind: &Kind, engine: &str, m: usize, r: u64, f32: bool) -> PyRe
         ("dense" | "statevector", Oracle::Permutation) => Eng::FusedDense,
         ("sparse", Oracle::Permutation) => Eng::FusedSparse,
         ("dense" | "statevector", Oracle::Beauregard) => Eng::Dense,
-        ("sparse", Oracle::Beauregard | Oracle::Ripple) => Eng::Sparse,
+        ("sparse", Oracle::Beauregard | Oracle::Ripple) => {
+            if 3 * m + 4 > 64 {
+                return Err(value_err(format!(
+                    "the sparse state keys basis states in 64 bits; the {} circuit for an \
+                     {m}-bit N needs more qubits (use engine='auto')",
+                    kind_name(kind)
+                )));
+            }
+            Eng::Sparse
+        }
         _ => {
             return Err(value_err(format!(
                 "engine '{engine}' cannot run the {} oracle; use 'auto' \
@@ -652,6 +671,9 @@ fn attempt_dict<'py>(py: Python<'py>, at: &Attempt) -> PyResult<Bound<'py, PyDic
     Ok(d)
 }
 
+/// Every attempt and the factors found, if any.
+type Attempts = (Vec<Attempt>, Option<(u64, u64)>);
+
 enum FactorErr {
     Budget {
         a: u64,
@@ -712,7 +734,7 @@ fn factor<'py>(
     choose_engine(&kind, engine, m, 2, f32)?;
     let engine = engine.to_string();
     let t0 = Instant::now();
-    let res: Result<(Vec<Attempt>, Option<(u64, u64)>), FactorErr> = heavy(py, threads, move || {
+    let res: Result<Attempts, FactorErr> = heavy(py, threads, move || {
         let mut rng = StdRng::seed_from_u64(seed);
         let mut runs = Vec::new();
         for _ in 0..tries {
@@ -766,7 +788,7 @@ fn factor<'py>(
                     "refusing to run: N = {n} with base a = {a} has multiplicative order r = {r} \
                      (ν₂(r) = {}), so the {engine} engine's peak support is ≈ {peak} branches and \
                      it would need ≈ {:.3} GB, over the budget of {:.3} GB (prediction from the \
-                     support law, research/theory-shor.md T1; the order was computed classically \
+                     support law, research/theory/theory-shor.md T1; the order was computed classically \
                      for this check only). Raise budget=, pass another base=, use f32 precision, \
                      or a smaller N.",
                     r.trailing_zeros(),
@@ -838,12 +860,8 @@ fn resource_counts<'py>(
                         match o {
                             Oracle::Permutation => MbuCounts::default(),
                             Oracle::Beauregard => {
-                                let c = qsim_lab::shor_arith::controlled_ua(
-                                    &inst.layout(),
-                                    0,
-                                    mult,
-                                    n,
-                                );
+                                let c =
+                                    qsim_lab::shor_arith::controlled_ua(&inst.layout(), 0, mult, n);
                                 let mut k = MbuCounts::default();
                                 for g in c.gates() {
                                     k.total += 1;
@@ -1040,9 +1058,16 @@ fn exact_distribution<'py>(
         ));
     };
     let m = shor::work_bits(n);
-    if 2 * m > 22 {
+    // the tree has 2^(2n) leaves and every node holds a copy of the state
+    let max_m = match o {
+        Oracle::Permutation => 10,
+        Oracle::Beauregard => 6,
+        _ => 8,
+    };
+    if m > max_m {
         return Err(value_err(format!(
-            "exact_distribution walks all 2^(2n) outcomes; N = {n} has n = {m} (> 11 bits)"
+            "exact_distribution walks all 2^(2n) measurement outcomes; N = {n} has n = {m} bits, \
+             the limit for this oracle is {max_m}"
         )));
     }
     let inst = Instance::new(n, a, o);
@@ -1091,9 +1116,12 @@ fn predict_support<'py>(
     Ok(d)
 }
 
+/// `(order of a, λ(n), [(prime, exponent)])`.
+type NumberTheory = (Option<u64>, u64, Vec<(u64, u32)>);
+
 /// Classical helpers: `(order, carmichael, factorisation)`.
 #[pyfunction]
-fn number_theory(n: u64, a: Option<u64>) -> PyResult<(Option<u64>, u64, Vec<(u64, u32)>)> {
+fn number_theory(n: u64, a: Option<u64>) -> PyResult<NumberTheory> {
     if n < 2 {
         return Err(value_err("n must be ≥ 2"));
     }
@@ -1125,7 +1153,7 @@ fn peak_ok(y: u128, r: u64, t: usize) -> bool {
     let big = 1u128 << t;
     let s = (y * r + big / 2) / big;
     let num = (y * r).abs_diff(s * big); // |y r − s 2^t|
-    // |y/2^t − s/r| = num / (r 2^t) < 1/(2r²)  ⇔  2 r num < 2^t
+                                         // |y/2^t − s/r| = num / (r 2^t) < 1/(2r²)  ⇔  2 r num < 2^t
     2 * r * num < big
 }
 
@@ -1164,7 +1192,10 @@ fn noisy_trajectories<'py>(
     let Kind::Shor(o) = parse_kind(kind, window, None)? else {
         return Err(unsupported("noisy trajectories run the Shor oracles"));
     };
-    if !matches!(o, Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)) {
+    if !matches!(
+        o,
+        Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_)
+    ) {
         return Err(unsupported(format!(
             "the noisy engine supports the reversible oracles 'ripple', 'windowed' and \
              'windowed-opt', not {}",
@@ -1192,13 +1223,8 @@ fn noisy_trajectories<'py>(
                     Some(k) => nc.sample_k(k, &mut rng),
                     None => nc.sample_p(p, &mut rng),
                 };
-                let mut tr = noisy::run_trajectory_opts::<f64, _>(
-                    &nc,
-                    &fs,
-                    cap,
-                    reset_ancillas,
-                    &mut rng,
-                );
+                let mut tr =
+                    noisy::run_trajectory_opts::<f64, _>(&nc, &fs, cap, reset_ancillas, &mut rng);
                 tr.support_trace = Vec::new();
                 (tr, fs.len())
             })
@@ -1274,7 +1300,10 @@ mod tests {
             }
         }
         assert_eq!(factorize(1_537_596_787), vec![(29_287, 1), (52_501, 1)]);
-        assert_eq!(factorize(3_384_163_410_217_561), vec![(41_134_921, 1), (82_269_841, 1)]);
+        assert_eq!(
+            factorize(3_384_163_410_217_561),
+            vec![(41_134_921, 1), (82_269_841, 1)]
+        );
         assert!(is_prime(4_294_967_291) && !is_prime(4_294_967_297));
         assert_eq!(carmichael(1_537_596_787), 256_252_500);
     }

@@ -195,7 +195,7 @@ def test_magic_profile_bounds_hold_on_dense_states(rng):
 
 
 def test_magic_profile_families():
-    # research/magic-atlas.md: QFT of a basis state has d = n - 1 and f = 1
+    # research/simulability/magic-atlas.md: QFT of a basis state has d = n - 1 and f = 1
     n = 10
     qft = qs.Circuit(n)
     for q in (0, 3, 4, 8):

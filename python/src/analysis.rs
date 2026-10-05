@@ -125,7 +125,9 @@ fn state_magic(
     }
     let norm: f64 = v.iter().map(|a| a.norm_sqr()).sum();
     if (norm - 1.0).abs() > 1e-8 {
-        return Err(value_err(format!("the state is not normalised (‖ψ‖² = {norm})")));
+        return Err(value_err(format!(
+            "the state is not normalised (‖ψ‖² = {norm})"
+        )));
     }
     let m = heavy(py, threads, move || magic_atlas::state_magic(&v));
     Ok((m.nullity, m.m2))
@@ -371,11 +373,14 @@ impl MonRun {
     }
 }
 
+/// `(lower, upper, s2)` per cut, at one op index.
+type CutEntropies = (usize, Vec<(f64, f64, Option<f64>)>);
+
 struct MonOut {
     d: Vec<u32>,
     records: Vec<(usize, bool, f64, u8)>,
     /// (op index, per cut (lower, upper, s2))
-    ent: Vec<(usize, Vec<(f64, f64, Option<f64>)>)>,
+    ent: Vec<CutEntropies>,
     stats: qsim_lab::monitored::MonStats,
     state: Option<Vec<Complex64>>,
     final_d: usize,
@@ -428,7 +433,11 @@ fn monitored<'py>(
         })
         .collect::<PyResult<_>>()?;
     let res: Result<MonOut, MonErr> = heavy(py, threads, move || {
-        let mode = if exact { Mode::Exact } else { Mode::DimensionOnly };
+        let mode = if exact {
+            Mode::Exact
+        } else {
+            Mode::DimensionOnly
+        };
         let mut sim = Monitored::new(n, mode, max_d);
         if state {
             sim = sim.with_log();
@@ -505,7 +514,10 @@ fn monitored<'py>(
     )?;
     d.set_item(
         "outcomes",
-        PyArray1::from_vec(py, out.records.iter().map(|r| r.1 as u8).collect::<Vec<u8>>()),
+        PyArray1::from_vec(
+            py,
+            out.records.iter().map(|r| r.1 as u8).collect::<Vec<u8>>(),
+        ),
     )?;
     d.set_item(
         "probabilities",
