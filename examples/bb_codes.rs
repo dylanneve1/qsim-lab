@@ -283,9 +283,10 @@ fn search(a: &[String]) {
                 let (hx, hz) = (code.hx(), code.hz());
                 let (masks, k) = logical_masks(&hx, &hz);
                 assert_eq!(k, c.k);
-                let (ub, _) = distance_upper_bound(&hx, &masks, 12, &mut rng);
+                let (ub, _) = distance_upper_bound(&hx, &masks, 30, &mut rng);
                 let b = best.get(&k).copied().unwrap_or(0);
-                let (lo, up) = if ub < b {
+                // only a strictly better d can change the frontier
+                let (lo, up) = if ub <= b {
                     pruned += 1;
                     (0, ub)
                 } else {
