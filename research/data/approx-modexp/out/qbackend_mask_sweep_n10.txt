@@ -1,0 +1,7 @@
+N=899 m=10 f=8 mask=0 |P|=7 merges=0 succ_actual=0.0151 succ_ideal=0.0036 TV=0.5848 secs=8
+N=899 m=10 f=8 mask=1 |P|=7 merges=0 succ_actual=0.0130 succ_ideal=0.0036 TV=0.4833 secs=15
+N=899 m=10 f=8 mask=2 |P|=7 merges=0 succ_actual=0.0098 succ_ideal=0.0036 TV=0.3274 secs=35
+N=899 m=10 f=8 mask=3 |P|=7 merges=0 succ_actual=0.0070 succ_ideal=0.0035 TV=0.1752 secs=84
+N=899 m=10 f=8 mask=4 |P|=7 merges=0 succ_actual=0.0054 succ_ideal=0.0037 TV=0.0880 secs=203
+
+[exited with code 0]

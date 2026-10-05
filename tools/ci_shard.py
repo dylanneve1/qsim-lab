@@ -24,6 +24,7 @@ WEIGHTS = {
     "shor_r4_audit": 18.5, "mbu_shor": 14, "superopt": 13.7, "theory_coset": 13.3, "symphase": 7,
     "stabrank5": 45, "identities": 6.9, "hsf": 3.8, "colour_global": 3.1, "stabrank_lower": 3.1, "planner": 3,
     "pauli_frame": 2.8, "audit_repeat": 2.5, "dense_fusion": 2.3, "l1_tiling": 1.7, "simulability": 1.7,
+    "approx_modexp": 60,  # estimate (release, loaded VM: 58 s); refresh from a CI log
 }
 DEFAULT_SECS = 1.0
 # Each extra test binary also costs ~17 s to compile and link on the runner

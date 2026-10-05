@@ -1,0 +1,2 @@
+N=899 mode=eh ma=10 mb=5 T=224 W=8: max|P_rust - P_numpy| = 6.072e-18 (sum 1.000000000000)
+N=899 mode=shor ma=14 mb=0 T=224 W=16: max|P_rust - P_numpy| = 8.674e-18 (sum 1.000000000000)
