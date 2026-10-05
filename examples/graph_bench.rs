@@ -616,12 +616,16 @@ fn partition_bench(na: usize, nb: usize, da: usize, db: usize, cuts: usize, dead
         best
     );
     // every single engine, with a deadline
+    let only = std::env::var("SINGLE").unwrap_or_default();
     for e in [
         Engine::StateVector,
         Engine::Mps,
         Engine::Hsf,
         Engine::Sparse,
     ] {
+        if !only.is_empty() && !only.split(',').any(|x| x == e.name()) {
+            continue;
+        }
         let (t, r) = time(|| planner::prepare(e, &c, &cfg, Some(deadline)));
         let what = match r {
             Ok(Some(mut p)) => match p.amplitudes(&xs) {
