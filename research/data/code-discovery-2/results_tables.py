@@ -1,6 +1,6 @@
 """Markdown tables for code-discovery-2.md §5 from the search outputs.
 
-usage: python results_tables.py <search.jsonl.xz or .jsonl> <search.log>
+usage: python results_tables.py <search.jsonl.xz or .jsonl> <search.log> [final_threshold.tsv]
 
 Expects the concatenated outputs of all search runs (see README in this
 folder): one JSON line per connected class with k > 0, and the per-group
@@ -14,6 +14,11 @@ import sys
 from collections import Counter, defaultdict
 
 jpath, lpath = sys.argv[1], sys.argv[2]
+tfinal = {}
+if len(sys.argv) > 3:
+    for line in open(sys.argv[3]):
+        n, k, t = map(int, line.split())
+        tfinal[(n, k)] = t
 opener = lzma.open if jpath.endswith(".xz") else open
 rows = [json.loads(l) for l in opener(jpath, "rt")]
 groups = {}
@@ -54,14 +59,16 @@ for lo, hi in bands:
 print()
 print("New codes (d > T(n, k)):")
 print()
-print("| [[n,k,d]] | k·d²/n | T(n,k) | groups (GAP id: A ; B) |")
-print("|---|---|---|---|")
+print("| [[n,k,d]] | k·d²/n | T at search time | final T (all sources) | status | groups (GAP id: A ; B) |")
+print("|---|---|---|---|---|---|")
 new = defaultdict(list)
 for r in rows:
     if r["status"] in ("new", "new_bounds"):
         new[(r["n"], r["k"], r["d_up"], r["T"])].append(f"({r['N']},{r['id']}) {groups[(r['N'], r['id'])]['name']}: {r['A']} ; {r['B']}")
 for (n, k, d, t), v in sorted(new.items()):
-    print(f"| [[{n},{k},{d}]] | {k * d * d / n:.2f} | {t} | {'<br>'.join(v)} |")
+    tf = tfinal.get((n, k), t)
+    st = "new" if d > tf else ("tie with a public code" if d == tf else "dominated")
+    print(f"| [[{n},{k},{d}]] | {k * d * d / n:.2f} | {t} | {tf} | {st} | {'<br>'.join(v)} |")
 print()
 print("Undecided:")
 for r in rows:
