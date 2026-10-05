@@ -117,6 +117,28 @@ impl Link for TcpLink {
     }
 }
 
+/// [`Link`] over any pair of byte streams: a child process's stdout/stdin
+/// (the parent side of `ssh host cmd`), or this process's own stdin/stdout
+/// (the remote side). This is how the two machines talk when the only path
+/// between them is an SSH session without port forwarding.
+pub struct PipeLink<R, W> {
+    r: R,
+    w: W,
+}
+
+impl<R: Read + Send, W: Write + Send> PipeLink<R, W> {
+    /// Reads from `r`, writes to `w`.
+    pub fn new(r: R, w: W) -> Self {
+        PipeLink { r, w }
+    }
+}
+
+impl<R: Read + Send, W: Write + Send> Link for PipeLink<R, W> {
+    fn split(&mut self) -> (&mut (dyn Write + Send), &mut (dyn Read + Send)) {
+        (&mut self.w, &mut self.r)
+    }
+}
+
 struct ChanWriter(SyncSender<Vec<u8>>);
 
 impl Write for ChanWriter {
