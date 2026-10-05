@@ -29,15 +29,27 @@ use super::core::*;
 
 /// Physical backend: a Pauli frame or a dense state.
 pub trait Phys {
+    /// Makes physical qubits `0..n` addressable (the frame backend grows; the
+    /// dense backend panics beyond its capacity).
     fn ensure(&mut self, n: usize);
+    /// Resets qubit `q` to |0⟩.
     fn prep0(&mut self, q: usize);
+    /// Resets qubit `q` to |+⟩.
     fn prep_plus(&mut self, q: usize);
+    /// Resets qubit `q` to |T⟩ = T|+⟩.
     fn prep_t(&mut self, q: usize);
+    /// Hadamard on qubit `q`.
     fn h(&mut self, q: usize);
+    /// S on qubit `q`.
     fn s(&mut self, q: usize);
+    /// S† on qubit `q`.
     fn sdg(&mut self, q: usize);
+    /// CNOT with control `c`, target `t`.
     fn cnot(&mut self, c: usize, t: usize);
+    /// Z-basis measurement of qubit `q`: the outcome on a dense backend, the flip
+    /// relative to the ideal outcome on a frame backend.
     fn meas_z(&mut self, q: usize) -> bool;
+    /// X-basis measurement of qubit `q` (same convention as [`Phys::meas_z`]).
     fn meas_x(&mut self, q: usize) -> bool;
     /// Apply a Pauli (code: bit0 X, bit1 Z).
     fn pauli(&mut self, q: usize, code: u8);
@@ -47,6 +59,7 @@ pub trait Phys {
     }
 }
 
+/// Fault-tolerance protocol switches.
 #[derive(Clone, Copy, Debug)]
 pub struct FtConfig {
     /// Steane EC after every gate / data preparation (always on in the
@@ -65,29 +78,46 @@ impl Default for FtConfig {
     }
 }
 
+/// Operation counters accumulated over a run.
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
+    /// Rejected verified preparations (checker-block failures), at every level.
     pub prep_rejects: u64,
+    /// Top-level magic-state injections rejected by post-selection.
     pub inject_rejects: u64,
+    /// Top-level magic-state injection attempts (including rejected ones).
     pub inject_attempts: u64,
+    /// Physical preparations (|0⟩, |+⟩ and |T⟩).
     pub phys_prep: u64,
+    /// Physical single-qubit gates (H, S, S† and identity slots).
     pub phys_1q: u64,
+    /// Physical CNOTs.
     pub phys_2q: u64,
+    /// Physical measurements.
     pub phys_meas: u64,
+    /// Steane EC rounds, at every level.
     pub ec_calls: u64,
 }
 
+/// Powers of 7: `POW7[k]` is the number of physical qubits in a level-`k`
+/// block (supports levels 0–4).
 pub const POW7: [usize; 5] = [1, 7, 49, 343, 2401];
 
+/// Concatenated Steane-code machine over a physical backend (see the module
+/// docs for the gadget constructions).
 pub struct Machine<B: Phys> {
+    /// Physical backend.
     pub b: B,
+    /// Circuit-level noise source shared by every physical location.
     pub noise: Noise,
+    /// Protocol switches.
     pub cfg: FtConfig,
     /// The top (logical) level: component tags are only set by operations at
     /// this level.
     pub top: usize,
     free: Vec<Vec<usize>>,
     next: usize,
+    /// Operation counters.
     pub stats: Stats,
 }
 
@@ -97,6 +127,7 @@ fn sub(k: usize, q: usize, j: usize) -> usize {
 }
 
 impl<B: Phys> Machine<B> {
+    /// Machine on backend `b` with top level `top`; no qubits are allocated yet.
     pub fn new(b: B, noise: Noise, cfg: FtConfig, top: usize) -> Self {
         Machine {
             b,
@@ -112,6 +143,9 @@ impl<B: Phys> Machine<B> {
     pub fn phys_qubits(&self) -> usize {
         self.next
     }
+    /// Allocates a level-`k` block (`POW7[k]` consecutive physical qubits) and
+    /// returns its first index, reusing a released block of the same level when
+    /// available. The block's state is whatever was left in it.
     pub fn alloc(&mut self, k: usize) -> usize {
         if let Some(q) = self.free[k].pop() {
             return q;
@@ -121,6 +155,7 @@ impl<B: Phys> Machine<B> {
         self.b.ensure(self.next);
         q
     }
+    /// Returns the level-`k` block starting at `q` to the free list.
     pub fn release(&mut self, k: usize, q: usize) {
         self.free[k].push(q);
     }
@@ -159,6 +194,9 @@ impl<B: Phys> Machine<B> {
     }
 
     // ------------------------------------------------------------ preparation
+    /// Prepares |0⟩ at level `k` on the block starting at `q`: a noisy physical
+    /// reset (followed by a flip location) at `k = 0`, otherwise a verified
+    /// encoding followed by Steane EC when `cfg.ec` is set.
     pub fn prep0(&mut self, k: usize, q: usize) {
         if k == 0 {
             self.stats.phys_prep += 1;
@@ -175,6 +213,7 @@ impl<B: Phys> Machine<B> {
             }
         }
     }
+    /// Prepares |+⟩ at level `k`; same structure as [`Machine::prep0`].
     pub fn prep_plus(&mut self, k: usize, q: usize) {
         if k == 0 {
             self.stats.phys_prep += 1;
@@ -294,6 +333,7 @@ impl<B: Phys> Machine<B> {
     }
 
     // ------------------------------------------------------------------ gates
+    /// Logical Hadamard at level `k`: transversal H, then EC.
     pub fn h(&mut self, k: usize, q: usize) {
         if k == 0 {
             self.stats.phys_1q += 1;
@@ -321,6 +361,7 @@ impl<B: Phys> Machine<B> {
             self.trailing_ec(k, q);
         }
     }
+    /// Logical S† at level `k`: transversal S on the level below, then EC.
     pub fn sdg(&mut self, k: usize, q: usize) {
         if k == 0 {
             self.stats.phys_1q += 1;
@@ -349,6 +390,8 @@ impl<B: Phys> Machine<B> {
             self.trailing_ec(k, q);
         }
     }
+    /// Logical CNOT at level `k` between blocks `c` and `t`: transversal CNOT,
+    /// then EC on both blocks.
     pub fn cnot(&mut self, k: usize, c: usize, t: usize) {
         if k == 0 {
             self.stats.phys_2q += 1;
@@ -374,6 +417,8 @@ impl<B: Phys> Machine<B> {
     }
 
     // ----------------------------------------------------------- measurement
+    /// Z measurement of the level-`k` block at `q` with hierarchical hard-decision
+    /// decoding (backend convention: value on dense, flip on frame).
     pub fn meas_z(&mut self, k: usize, q: usize) -> bool {
         if k == 0 {
             self.stats.phys_meas += 1;
@@ -390,6 +435,8 @@ impl<B: Phys> Machine<B> {
             steane_decode(f)
         }
     }
+    /// X measurement of the level-`k` block at `q`; same decoding as
+    /// [`Machine::meas_z`].
     pub fn meas_x(&mut self, k: usize, q: usize) -> bool {
         if k == 0 {
             self.stats.phys_meas += 1;

@@ -32,7 +32,10 @@ pub const OFFSETS: [(i32, i32); 6] = [(-2, 1), (2, 1), (4, 0), (2, -1), (-2, -1)
 /// One plaquette (stabilizer face).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Plaquette {
+    /// Column of the plaquette's auxiliary site on the layout grid.
     pub x: i32,
+    /// Row of the plaquette's auxiliary site (`0..=L`, `y = 0` is the red
+    /// boundary).
     pub y: i32,
     /// 0 = red, 1 = green, 2 = blue.
     pub color: u8,
@@ -41,6 +44,8 @@ pub struct Plaquette {
 }
 
 impl Plaquette {
+    /// Number of data qubits the plaquette acts on (6 in the bulk, fewer on the
+    /// boundary).
     pub fn weight(&self) -> usize {
         self.data.iter().filter(|d| d.is_some()).count()
     }
@@ -49,9 +54,13 @@ impl Plaquette {
 /// Triangular colour code of odd distance `d`.
 #[derive(Clone, Debug)]
 pub struct ColorCode {
+    /// Code distance (odd, ≥ 3).
     pub d: usize,
     /// `(x, y)` of each data qubit.
     pub data: Vec<(i32, i32)>,
+    /// All plaquettes with at least one data qubit, in row-major site order
+    /// (`y`, then `x`); plaquette `i` uses auxiliary qubit `num_data() + i` in
+    /// the memory circuits.
     pub plaquettes: Vec<Plaquette>,
 }
 
@@ -78,9 +87,16 @@ pub enum ColorNoise {
 /// A built memory experiment.
 #[derive(Clone, Debug)]
 pub struct ColorMemory {
+    /// The noisy memory circuit: data qubits `0..nd`, plaquette auxiliaries
+    /// `nd..nd + np`, then any flag qubits.
     pub circuit: Circuit,
+    /// Readout-flip noise only (`p_meas`; 0 for [`ColorNoise::Cnot`]); every other
+    /// noise channel is an explicit op in `circuit`.
     pub noise: NoiseModel,
+    /// Detectors as lists of measurement-record indices whose parity is
+    /// deterministic without noise.
     pub detectors: Vec<Vec<usize>>,
+    /// The single logical observable: final data measurements on the `y = 0` row.
     pub observables: Vec<Vec<usize>>,
     /// Per detector: (plaquette, is_x_type, round).
     pub detector_info: Vec<(usize, bool, usize)>,
@@ -91,6 +107,8 @@ pub struct ColorMemory {
 }
 
 impl ColorCode {
+    /// Builds the layout for odd distance `d ≥ 3` (panics otherwise). Data
+    /// qubits are indexed in row-major site order (`y`, then `x`).
     pub fn new(d: usize) -> Self {
         assert!(d % 2 == 1 && d >= 3, "odd d >= 3");
         let l = (3 * (d - 1) / 2) as i32;
@@ -136,6 +154,7 @@ impl ColorCode {
         }
     }
 
+    /// Number of data qubits.
     pub fn num_data(&self) -> usize {
         self.data.len()
     }
@@ -635,8 +654,12 @@ pub const TRI_OPTIMAL: [u8; 6] = [2, 3, 6, 5, 4, 1];
 /// signature). Named after the default Z-basis memory.
 #[derive(Clone, Debug)]
 pub struct ZSector {
+    /// Number of memory-type detectors.
     pub num_detectors: usize,
+    /// Per merged mechanism: memory-type detectors it flips (indices into this
+    /// sector, `0..num_detectors`).
     pub dets: Vec<Vec<u32>>,
+    /// Per merged mechanism: whether it flips the observable.
     pub obs: Vec<bool>,
     /// Whether some fault with exactly this Z-sector signature flips no
     /// X-type detector (needed to certify that a Z-sector logical is a
@@ -647,6 +670,10 @@ pub struct ZSector {
 }
 
 impl ColorMemory {
+    /// Projects the circuit's DEM onto the memory-basis sector: drops the other
+    /// type's detectors, discards mechanisms that then do nothing, and merges
+    /// mechanisms with the same `(detectors, observable)` signature (their
+    /// probabilities are not kept).
     pub fn z_sector(&self) -> ZSector {
         let dem = circuit_dem(
             &self.circuit,
@@ -757,8 +784,11 @@ pub fn parse_schedule_spec(cc: &ColorCode, spec: &str) -> (ColorSchedule, Vec<bo
 /// Resource count of a (possibly flagged) memory circuit, per round.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ColorResources {
+    /// Number of data qubits.
     pub data: usize,
+    /// Number of plaquette auxiliary qubits.
     pub aux: usize,
+    /// Number of flag qubits.
     pub flags: usize,
     /// CNOT layers per round (both halves).
     pub cnot_layers: usize,
