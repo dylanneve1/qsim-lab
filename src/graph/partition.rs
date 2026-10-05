@@ -75,8 +75,8 @@ pub fn cut_size(c: &Circuit, in_a: &[bool]) -> Option<usize> {
 fn side_circuit(c: &Circuit, in_a: &[bool], side_a: bool, pat: usize) -> Circuit {
     let mut local = vec![usize::MAX; c.num_qubits];
     let mut m = 0;
-    for q in 0..c.num_qubits {
-        if in_a[q] == side_a {
+    for (q, &a) in in_a.iter().enumerate() {
+        if a == side_a {
             local[q] = m;
             m += 1;
         }
@@ -166,11 +166,7 @@ pub fn candidates(c: &Circuit, seeds: usize, max_b: usize) -> Vec<Vec<bool>> {
         in_b[seed] = true;
         let mut size = 1;
         loop {
-            let mut a = vec![true; n];
-            for q in 0..n {
-                a[q] = !in_b[q];
-            }
-            out.push(a);
+            out.push(in_b.iter().map(|&b| !b).collect());
             if size >= max_b.min(n - 1) {
                 break;
             }
@@ -226,7 +222,7 @@ pub fn plan_cut(
             continue;
         };
         let t = reps * (pa.1 + pb.1);
-        if best.as_ref().is_none_or(|b| t < b.predicted_secs) {
+        if best.as_ref().map_or(true, |b| t < b.predicted_secs) {
             best = Some(CutPlan {
                 in_a,
                 cut: k,

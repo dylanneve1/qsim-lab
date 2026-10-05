@@ -419,8 +419,8 @@ impl DenseProgram {
                 _ => unreachable!("single-qubit ops handled above"),
             }
         }
-        for q in 0..n {
-            let mut run = std::mem::take(&mut pending[q]);
+        for (q, p) in pending.iter_mut().enumerate() {
+            let mut run = std::mem::take(p);
             flush(q, &mut run, &mut kops, &mut rec, &mut global);
         }
         let mut recipes = Vec::new();
@@ -797,8 +797,8 @@ impl CompiledCircuit {
         }
         let mut groups: Vec<Vec<usize>> = Vec::new();
         let mut gid = vec![usize::MAX; n];
-        for q in 0..n {
-            if !used[q] {
+        for (q, &u) in used.iter().enumerate() {
+            if !u {
                 continue;
             }
             let r = find(&mut parent, q);

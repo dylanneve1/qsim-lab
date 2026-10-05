@@ -162,8 +162,8 @@ fn reorder(pc: &ParamCircuit) -> Vec<POp> {
     }
     let mut ready_r: std::collections::BinaryHeap<std::cmp::Reverse<usize>> = Default::default();
     let mut ready_o: Vec<usize> = Vec::new();
-    for i in 0..m {
-        if indeg[i] == 0 {
+    for (i, &d) in indeg.iter().enumerate() {
+        if d == 0 {
             if is_region(&pc.ops[i]) {
                 ready_r.push(std::cmp::Reverse(i));
             } else {
@@ -312,8 +312,8 @@ fn rewrite_region(
             }
         }
         src.clear();
-        for w in 0..n {
-            if c[w] {
+        for (w, &cw) in c.iter().enumerate() {
+            if cw {
                 net.push(POp::Fixed(Gate::X(w)));
             }
         }
