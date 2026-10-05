@@ -76,6 +76,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [theory-shor.md](theory/theory-shor.md) | Theorems behind the round-4 Shor observations (support law, borrowed magic, noise windows) |
 | [theory-coset.md](theory/theory-coset.md) | Coset-representation error in the Gidney–Ekerå Shor circuit |
 | [theory-rank.md](theory/theory-rank.md) | Low stabilizer rank in algorithm circuits: branching-rank invariant and an exact engine |
+| [stabrank-lower.md](theory/stabrank-lower.md) | Stabilizer-rank lower bounds: state of the art, exact small-n values, a plateau lemma |
 | [theory-colour.md](theory/theory-colour.md) | Single-auxiliary syndrome extraction for the triangular colour code |
 | [transition-theory.md](theory/transition-theory.md) | Why ν_eff ≈ 2.5: the transition as the Clifford MIPT in a noise field |
 

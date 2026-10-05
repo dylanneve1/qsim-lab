@@ -40,6 +40,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`simd/`](simd/) | [sv-monomial.md](../performance/sv-monomial.md) |
 | [`simulability/`](simulability/) | [simulability.md](../simulability/simulability.md) |
 | [`stab/`](stab/) | [stab.md](../performance/stab.md) |
+| [`stabrank-lower/`](stabrank-lower/) | [stabrank-lower.md](../theory/stabrank-lower.md) |
 | [`superopt/`](superopt/) | [superopt.md](../shor/superopt.md) |
 | [`theory-colour/`](theory-colour/) | [theory-colour.md](../theory/theory-colour.md) |
 | [`theory-coset/`](theory-coset/) | [theory-coset.md](../theory/theory-coset.md) |
