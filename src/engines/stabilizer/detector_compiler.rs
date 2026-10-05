@@ -657,8 +657,10 @@ pub fn compile_stim_timed(prog: &StimCircuit) -> (Columns, f64, f64) {
 }
 
 /// Expected hits drawn per table entry at which building the padded hit
-/// tables starts to pay off (see [`tables_pay_off`]).
-pub const TABLE_PAYOFF_HITS_PER_ENTRY: f64 = 1.0;
+/// tables starts to pay off (see [`tables_pay_off`]): building costs about
+/// 40 ns per entry on fresh memory, a hit through the table saves about
+/// 12 ns over the columns (d = 15, `research/qec/sampler-x.md` §2.2).
+pub const TABLE_PAYOFF_HITS_PER_ENTRY: f64 = 3.0;
 
 /// Whether a run of `shots` shots should build the padded hit tables
 /// (`FastSampler::from_columns(c, true)`) rather than sample through the

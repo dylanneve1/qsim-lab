@@ -8,6 +8,7 @@ Interleaved (order rotates per rep), min over reps, ptb64 with observables appen
               sample_write(shots, os.devnull, "ptb64", append_observables=True)
   stim_net    native `stim detect` wall time at N shots minus at 64 shots (start-up, parse and
               compile removed; favours Stim, as in fast-sampler.md)
+  stim_b8_net the same with --out_format b8 (faster than Stim's ptb64 writer at large d)
   x_net       `stim_compare sample-x F N /dev/null 1 1 on` minus the same at 64 shots
   x_int       `stim_compare bench-x F N 1 1`: internal timer of write_ptb64 with hit tables
   fast_net    `stim_compare sample-fast` (previous pipeline) at N minus at 64 shots; with env QSIM_OLD_BIN set,
@@ -35,6 +36,11 @@ def stim_cli(n):
                  "--append_observables"])
 
 
+def stim_cli_b8(n):
+    return wall([S, "detect", "--shots", str(n), "--in", F, "--out", DN, "--out_format", "b8",
+                 "--append_observables"])
+
+
 def x(n):
     return wall([B, "sample-x", F, str(n), DN, "1", "1", "on"])
 
@@ -49,7 +55,7 @@ def kv(out):
 
 rs = {}
 info = {}
-who = ["stim_pip", "stim_net", "x_net", "x_int", "fast_net"]
+who = ["stim_pip", "stim_net", "stim_b8_net", "x_net", "x_int", "fast_net"]
 load0 = os.getloadavg()[0]
 for r in range(reps):
     for w in who[r % len(who):] + who[:r % len(who)]:
@@ -59,6 +65,8 @@ for r in range(reps):
             v = time.perf_counter() - t
         elif w == "stim_net":
             v = stim_cli(shots) - stim_cli(64)
+        elif w == "stim_b8_net":
+            v = stim_cli_b8(shots) - stim_cli_b8(64)
         elif w == "x_net":
             v = x(shots) - x(64)
         elif w == "fast_net":
@@ -72,7 +80,7 @@ for r in range(reps):
                         table_bytes=int(m["table_bytes"]), rows=int(m["rows"]))
         rs.setdefault(w, []).append(v)
 m = {w: min(v) for w, v in rs.items()}
-best_stim = min(m["stim_pip"], m["stim_net"])
+best_stim = min(m["stim_pip"], m["stim_net"], m["stim_b8_net"])
 res = dict(d=d, p=p, shots=shots, node=platform.node(), stim_pip_version=stim.__version__,
            load1_before=load0, load1_after=os.getloadavg()[0], **info,
            **{f"{w}_min_s": m[w] for w in who}, **{f"{w}_all_s": rs[w] for w in who},

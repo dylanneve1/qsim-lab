@@ -158,7 +158,11 @@ struct BlockArgs<'a> {
 /// [`uniform_below`] slots. Both paths consume the random stream
 /// identically, so their outputs are bit-identical for the same stream.
 #[inline(always)]
-fn for_each_blocked_slot<R: RngCore + ?Sized>(a: &BlockArgs, rng: &mut R, mut hit: impl FnMut(u64)) {
+fn for_each_blocked_slot<R: RngCore + ?Sized>(
+    a: &BlockArgs,
+    rng: &mut R,
+    mut hit: impl FnMut(u64),
+) {
     let lb = a.lb;
     let full = a.range >> lb;
     for b in 0..full {
@@ -463,7 +467,9 @@ fn build_table_reference(c: &mut Class, col_start: &[u32], col_rows: &[u32], sin
             for k in 0..4 {
                 if mask >> k & 1 == 1 {
                     let v = f as usize + k;
-                    e.extend_from_slice(&col_rows[col_start[v] as usize..col_start[v + 1] as usize]);
+                    e.extend_from_slice(
+                        &col_rows[col_start[v] as usize..col_start[v + 1] as usize],
+                    );
                 }
             }
             e.sort_unstable();
@@ -589,11 +595,29 @@ fn build_table_fast(c: &mut Class, col_start: &[u32], col_rows: &[u32], sink: u3
     let n_ent = c.firsts.len() * m;
     c.stride = stride;
     if sink < u16::MAX as u32 {
-        c.table16 = write_entries(n_ent, stride, sink as u16, m, &u_end, &u_rows, &u_inc, inpat, |r| {
-            r as u16
-        });
+        c.table16 = write_entries(
+            n_ent,
+            stride,
+            sink as u16,
+            m,
+            &u_end,
+            &u_rows,
+            &u_inc,
+            inpat,
+            |r| r as u16,
+        );
     } else {
-        c.table = write_entries(n_ent, stride, sink, m, &u_end, &u_rows, &u_inc, inpat, |r| r);
+        c.table = write_entries(
+            n_ent,
+            stride,
+            sink,
+            m,
+            &u_end,
+            &u_rows,
+            &u_inc,
+            inpat,
+            |r| r,
+        );
     }
 }
 
@@ -940,10 +964,7 @@ impl FastSampler {
     /// covers a smaller run. It depends on `shots` only, so the output does
     /// not depend on the thread count.
     pub fn batch_words(shots: usize) -> usize {
-        shots
-            .div_ceil(64)
-            .next_power_of_two()
-            .clamp(1, BATCH_WORDS)
+        shots.div_ceil(64).next_power_of_two().clamp(1, BATCH_WORDS)
     }
 
     /// Writes the rows of the first `blocks` 64-shot blocks of `out` (as

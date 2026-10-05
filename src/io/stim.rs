@@ -823,7 +823,9 @@ impl StimCircuit {
                         self.walk(block as usize, w, f);
                     }
                 }
-                Kind::Gate1(g) => ts.iter().for_each(|&q| f(StimOp::Gate(gate1(g, q as usize)))),
+                Kind::Gate1(g) => ts
+                    .iter()
+                    .for_each(|&q| f(StimOp::Gate(gate1(g, q as usize)))),
                 Kind::Gate2(g) => ts
                     .chunks_exact(2)
                     .for_each(|t| f(StimOp::Gate(gate2(g, t[0] as usize, t[1] as usize)))),
@@ -858,7 +860,9 @@ impl StimCircuit {
                 Kind::XErr => ts.iter().for_each(|&q| f(StimOp::XFlip(q as usize, p))),
                 Kind::YErr => ts.iter().for_each(|&q| f(StimOp::YFlip(q as usize, p))),
                 Kind::ZErr => ts.iter().for_each(|&q| f(StimOp::ZFlip(q as usize, p))),
-                Kind::Depol1 => ts.iter().for_each(|&q| f(StimOp::Depolarize1(q as usize, p))),
+                Kind::Depol1 => ts
+                    .iter()
+                    .for_each(|&q| f(StimOp::Depolarize1(q as usize, p))),
                 Kind::Depol2 => ts
                     .chunks_exact(2)
                     .for_each(|t| f(StimOp::Depolarize2(t[0] as usize, t[1] as usize, p))),

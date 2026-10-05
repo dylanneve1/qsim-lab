@@ -233,7 +233,13 @@ impl<'a> FrameSampler<'a> {
     /// Samples `64 * words` shots (`words` a power of two): `out` (at least
     /// `words * rows()` words) gets `out[w * rows() + r]` bit `s` = row `r`
     /// of shot `64 w + s`, i.e. Stim's ptb64 layout block by block.
-    pub fn sample_batch(&self, words: usize, rng: &mut WyRand, st: &mut FrameState, out: &mut [u64]) {
+    pub fn sample_batch(
+        &self,
+        words: usize,
+        rng: &mut WyRand,
+        st: &mut FrameState,
+        out: &mut [u64],
+    ) {
         #[cfg(target_arch = "x86_64")]
         if self.simd {
             // SAFETY: `simd` is only set when the CPU has these features
@@ -245,7 +251,13 @@ impl<'a> FrameSampler<'a> {
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2,avx512f,avx512bw,avx512vl")]
-    unsafe fn batch_avx512(&self, words: usize, rng: &mut WyRand, st: &mut FrameState, out: &mut [u64]) {
+    unsafe fn batch_avx512(
+        &self,
+        words: usize,
+        rng: &mut WyRand,
+        st: &mut FrameState,
+        out: &mut [u64],
+    ) {
         self.batch_impl(words, rng, st, out);
     }
 
@@ -255,7 +267,10 @@ impl<'a> FrameSampler<'a> {
         let rows = self.rows();
         let nd = self.prog.num_detectors();
         let cells = 64 * w as u64;
-        assert!(w.is_power_of_two(), "words per batch must be a power of two");
+        assert!(
+            w.is_power_of_two(),
+            "words per batch must be a power of two"
+        );
         assert!(out.len() >= w * rows);
         out[..w * rows].fill(0);
         st.x.clear();

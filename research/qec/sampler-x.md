@@ -3,10 +3,11 @@
 Branch `exp/sampler-x` (base `main` 6b21728), 5 October 2026. Machine: Intel Xeon Gold 6548Y+
 (Emerald Rapids), Hyper-V VM, 16 vCPU = 8 cores × 2 HT, L1d 48 KB / L2 2 MB per core, L3 60 MB,
 AVX-512 (F, VL, VPOPCNTDQ, ...), shared with six other agents and other users.
-Code: `src/engines/stabilizer/detector_compiler.rs` (new), `src/engines/stabilizer/fast_sampler.rs`,
-`src/io/stim.rs` (new parser), `examples/stim_compare.rs` (`sample-x`, `bench-x`, `check-x`,
-`dem-support-x`). Tests: `tests/engines/detector_compiler.rs` (new), `tests/engines/symphase.rs`.
-Data and scripts: `research/data/sampler-x/`.
+Code: `src/engines/stabilizer/detector_compiler.rs` and `frame_sampler.rs` (new),
+`src/engines/stabilizer/fast_sampler.rs`, `src/io/stim.rs` (new parser), `src/engines/stabilizer/symphase.rs`
+(bug fix), `examples/stim_compare.rs` (`sample-x`, `bench-x`, `check-x`, `dem-support-x`). Tests:
+`tests/engines/detector_compiler.rs` and `frame_sampler.rs` (new), `tests/engines/symphase.rs`. Data and
+scripts: `research/data/sampler-x/`.
 
 **Question.** `FastSampler` ([fast-sampler.md](fast-sampler.md)) samples 8–18× faster than AVX2 Stim
 once compiled, but its compile step (55–80 ms at d = 15) made it lose to Stim below about 3·10⁴ shots.
@@ -62,7 +63,10 @@ multi-threaded jobs), so these are loaded numbers; the ratios are interleaved mi
 | 11 | 0.003 | 256,000 | 0.48 | 0.57 | 3.4 | **6.0×** | 4.74× | 19.1 ms | 28 |
 | 15 | 0.003 | 128,000 | 0.19 | 0.22 | 1.3 | **5.9×** | 3.19× | 80.3 ms | 19 |
 
-(Mshot/s. "net" = wall time at N shots minus at 64 shots.) The per-shot lead of the old FastSampler
+(Mshot/s. "net" = wall time at N shots minus at 64 shots.) Stim's DEM sampler, timed in the same runs, is
+not the stronger baseline: native `sample_dem` (net of a 64-shot run, DEM given for free) reaches 30.9 /
+1.48 / 0.33 / 0.12 Mshot/s at d = 3 / 7 / 11 / 15 (p = 0.1 %), against 29.0 / 3.65 / 0.91 / 0.36 for
+`stim detect`; only at d = 3 is it marginally ahead. The per-shot lead of the old FastSampler
 reproduces in kind (6–16× against native Stim, 8–18× on the idle EPYC), lower at p = 0.3 %, where the
 sampler does 3× more random memory work per shot and shares the cores' caches with the load. Its
 compile was 80–94 ms at d = 15 here (load 19–33), against 2.1–2.6 ms for Stim's whole 64-shot process.
@@ -198,6 +202,19 @@ accesses they replace, and the scatter serialises the stores. The kernel stays i
 (`set_simd`, `sample-x … simd`) for the record, off by default. Bit-identity with the scalar kernel is
 tested.
 
+### 3.2 Batch width on this cache hierarchy
+
+_(wsweep.jsonl: W = 4 … 64 words per batch, d = 3, 15, 25; table below)_
+
+### 3.3 Threads
+
+_(threads.jsonl: 1, 2, 4, 8 threads on distinct physical cores, 16 threads on all logical CPUs; table
+below)_
+
+### 3.4 Sampling only, single thread, against Stim
+
+_(throughput.jsonl; table below)_
+
 ## 4. Exactness
 
 Nothing in the sampler's distribution changed: the new compiler produces the same columns as the old
@@ -232,6 +249,20 @@ surface (d = 5) and colour (d = 5) circuits and shot counts 63, 4·10⁴ and 100
 identical for 1, 2, 3, 8 threads, for slab sizes from one batch to 4 MB, with and without hit tables,
 and with the AVX-512 kernel; a different seed changes them.
 
+**Frame sampler** (`tests/engines/frame_sampler.rs`): the full joint histogram of 60 random programs
+(every instruction of the subset, `REPEAT`, p up to 0.3, readout flips; 2¹⁸ shots each, batch widths
+1–16 words, scalar and AVX-512 builds alternating) passes a χ² test against the exact distribution
+enumerated from `compile_stim`'s columns (Wilson–Hilferty z < 4.5, Bonferroni); a program with one
+channel at +25 % is rejected at z > 10; on Stim's d = 5 rotated memory-X circuit every detector rate and
+DEM-correlated pair rate agrees with the FastSampler at 2²⁰ shots (1 % family-wise); the AVX-512 build
+is bit-identical.
+
+**Two-sample tests against Stim at 10⁶ shots** (`equivalence_x.py`, `negative_control_x.py`,
+`equivalence_other_x.py`; the qec-r4 / fast-sampler test battery unchanged: T0 DEM support, T1
+marginals, T2 DEM-correlated pairs, T3 events-per-shot mean and variance, T4 joint 4-detector
+histograms for the other circuits; Bonferroni at 1 % family-wise per cell) on the new paths: _(table
+4.1)_
+
 **Regression found on the way.** `SymPhaseSampler::new` panicked (`unreachable!`) on `I`, `Sx`, `Sxdg`,
 `ISwap` and `ISwapdg`, gates the tableau accepts: the symbolic frame had no rule for them. Fixed, with
 `exact_distribution_with_every_tableau_clifford` (exact enumeration against the branching tableau on
@@ -260,6 +291,10 @@ plus the old pipeline (`sample-fast` at `main`) for reference.
   `E`/`ELSE_CORRELATED_ERROR`, `HERALDED_*`, `MPP`, `MY`, feedback `CX rec[-1] q` and other gates are
   rejected with an error, never approximated. The new parser also rejects two inputs the old one
   silently accepted: `REPEAT 0` and a measurement flip probability outside [0, 1].
+- **What "exact" means on both sides.** Our samplers are exact up to f64 rounding of the hit rates and
+  Poisson tables (relative ~1e-16) and the 2⁻⁶⁴ grid of the random words. Stim's frame sampler converts
+  every noise probability to `float` before its geometric skipping (`RareErrorIterator`), i.e. it samples
+  `X_ERROR(0.001)` at p = 0.0010000000475 (relative 5·10⁻⁸). Neither is visible at 10⁶ shots.
 - **wyrand streams.** Batch `b` uses words `b·2³² …` of one wyrand sequence (period 2⁶⁴), so streams
   of different batches never overlap as long as a batch draws fewer than 2³² words (the largest batch
   here draws about 4·10⁵) and there are fewer than 2³² batches (4·10¹² shots).
@@ -287,7 +322,11 @@ python3 research/data/sampler-x/run_grid.py throughput $B $S ./wtime circ throug
 # batch width, AVX-512 kernel, threads
 python3 research/data/sampler-x/wsweep.py $B circ/B_d15_p0.001.stim 15 0.001 200000 3 4,8,16,32,64
 python3 research/data/sampler-x/threads.py $B circ/B_d3_p0.001.stim 3 0.001 1e9 3 1,2,4,8,16
-# 10^6-shot two-sample equivalence with Stim (both directions), negative control
-QSIM_STIM_COMPARE=$B WORK=/tmp/eq python3 research/data/sampler-x/equivalence_x.py 1e6 3,7,11,15 0.003 1 auto eq.jsonl
-QSIM_STIM_COMPARE=$B WORK=/tmp/eq python3 research/data/sampler-x/negative_control_x.py 8 on
+# 10^6-shot two-sample equivalence with Stim (all cells of §4), negative controls, DEM support
+research/data/sampler-x/run_equivalence.sh $B /tmp/eq circ
+# auto-policy calibration: frames vs compiled without / with tables, whole process
+python3 research/data/sampler-x/e2e.py $B $S ./wtime circ/B_d15_p0.001.stim 15 0.001 3 \
+    128,512,2048,8192,32768,131072 x_frames,x_notables,x_tables
 ```
+`SAMPLER_X_FRAMES_UP_TO` and `SAMPLER_X_KAPPA` override `sample-x`'s auto thresholds (for calibration).
+Tables for this notebook: `python3 research/data/sampler-x/make_tables.py`.
