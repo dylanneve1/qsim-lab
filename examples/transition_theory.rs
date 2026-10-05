@@ -25,8 +25,8 @@
 //!     over samples printed per t).
 //! ```
 
-use qsim_lab::monitored::circuit::{self, MOp, Params};
-use qsim_lab::monitored::{Cliff2, Mode, Monitored};
+use qsim_lab::engines::monitored::circuit::{self, MOp, Params};
+use qsim_lab::engines::monitored::{Cliff2, Mode, Monitored};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::collections::HashMap;

@@ -1,6 +1,6 @@
 //! Classical reproduction of IBM's 127-qubit kicked-Ising "utility"
 //! experiment (Kim et al., Nature 618, 500 (2023)) with sparse Pauli
-//! dynamics (`qsim_lab::spd`), plus the same circuits on larger heavy-hex
+//! dynamics (`qsim_lab::engines::spd`), plus the same circuits on larger heavy-hex
 //! lattices.
 //!
 //! ```text
@@ -11,7 +11,7 @@
 //! ```
 //! One JSON object per (θ, δ) on stdout. Set RAYON_NUM_THREADS to bound cores.
 
-use qsim_lab::spd::{
+use qsim_lab::engines::spd::{
     light_cone_size, simulate, term_bytes, KickedIsing, Lattice, PauliObs, SpdOptions,
 };
 use std::f64::consts::PI;

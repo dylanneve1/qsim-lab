@@ -1,6 +1,6 @@
 //! Executable checks for the theorems of `research/theory/theory-coset.md`
 //! (coset-representation error in the windowed Gidney–Ekerå Shor circuit,
-//! `src/shor_ge.rs`, `GeOpts::coset = c`).
+//! `src/shor/ge.rs`, `GeOpts::coset = c`).
 //!
 //! Every test fails if the corresponding statement is false:
 //! * `model_*`: the abstract permutation model of the coset circuit
@@ -24,8 +24,8 @@
 #[path = "theory_coset_model/mod.rs"]
 mod model;
 use model::*;
-use qsim_lab::shor_ge::{self, ExpReg, GeOpts};
-use qsim_lab::shor_mbu::MbuOpts;
+use qsim_lab::shor::ge::{self as shor_ge, ExpReg, GeOpts};
+use qsim_lab::shor::mbu::MbuOpts;
 
 // ------------------------------------------------------------- the model
 

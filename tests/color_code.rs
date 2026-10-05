@@ -1,6 +1,6 @@
 //! Validation of the triangular 6.6.6 colour-code generator.
+use qsim_lab::engines::stabilizer::symphase::{SymPhaseSampler, VarDist};
 use qsim_lab::qec::color::{circuit_dem, ColorCode, ColorNoise, KF_SCHEDULE, TRI_OPTIMAL};
-use qsim_lab::stabilizer::symphase::{SymPhaseSampler, VarDist};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;

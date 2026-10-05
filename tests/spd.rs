@@ -1,4 +1,4 @@
-//! Differential tests for the sparse-Pauli-dynamics engine (`qsim_lab::spd`):
+//! Differential tests for the sparse-Pauli-dynamics engine (`qsim_lab::engines::spd`):
 //! lattice construction against IBM's published coupling map, exact (δ = 0)
 //! SPD against the dense state vector and against the exact Clifford+Rz
 //! Pauli-path engine at 127 qubits, the rigorous l1 truncation bound, and the
@@ -7,8 +7,8 @@
 #![allow(clippy::needless_range_loop)]
 
 use num_complex::Complex64 as C;
-use qsim_lab::pauli_path::{self, PauliSum};
-use qsim_lab::spd::{simulate, KickedIsing, Lattice, PauliObs, SpdOptions};
+use qsim_lab::engines::pauli_path::{self, PauliSum};
+use qsim_lab::engines::spd::{simulate, KickedIsing, Lattice, PauliObs, SpdOptions};
 use qsim_lab::StateVector;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

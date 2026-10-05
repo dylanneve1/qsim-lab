@@ -1378,7 +1378,7 @@ pub fn dense(g: &Gate, k: usize) -> Vec<Complex64> {
     let dim = 1usize << k;
     let mut m = vec![Complex64::new(0.0, 0.0); dim * dim];
     for col in 0..dim {
-        let mut sv = crate::statevector::StateVectorF64::basis_state(k, col);
+        let mut sv = crate::engines::statevector::StateVectorF64::basis_state(k, col);
         sv.apply_gate(g).expect("valid gate");
         for (row, a) in sv.amplitudes().iter().enumerate() {
             m[row * dim + col] = *a;
@@ -1978,7 +1978,7 @@ fn find_partner(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statevector::StateVectorF64;
+    use crate::engines::statevector::StateVectorF64;
 
     fn sv(c: &Circuit) -> StateVectorF64 {
         let mut s = StateVectorF64::new(c.num_qubits);

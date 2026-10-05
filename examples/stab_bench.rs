@@ -6,7 +6,7 @@
 //! Every timing is the minimum over `REPS` runs.
 
 use qsim_lab::circuit::{Circuit, Op, Simulator};
-use qsim_lab::stabilizer::reference::RefTableau;
+use qsim_lab::engines::stabilizer::reference::RefTableau;
 use qsim_lab::{Gate, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

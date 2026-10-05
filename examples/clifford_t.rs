@@ -2,7 +2,7 @@
 //! Pauli-path simulator's cost doubles (at most) with each one.
 
 use qsim_lab::circuit::Circuit;
-use qsim_lab::pauli_path::{self, PauliSum};
+use qsim_lab::engines::pauli_path::{self, PauliSum};
 use qsim_lab::{Gate, Tableau};
 
 fn main() {

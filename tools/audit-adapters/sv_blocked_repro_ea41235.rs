@@ -1,7 +1,7 @@
 #![allow(clippy::field_reassign_with_default)]
 mod audit_common;
 use audit_common::*;
-use qsim_lab::blocked::BlockConfig;
+use qsim_lab::engines::blocked::BlockConfig;
 use qsim_lab::Gate::*;
 use qsim_lab::{Circuit, Gate, StateVectorF64};
 

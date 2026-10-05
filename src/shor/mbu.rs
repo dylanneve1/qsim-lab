@@ -1,7 +1,7 @@
 //! Measurement-based uncomputation (MBU) in the windowed Shor oracle
 //! (exp/mbu-shor, `research/shor/mbu-shor.md`).
 //!
-//! The superoptimised windowed oracle ([`crate::shor_superopt`]) is a pure
+//! The superoptimised windowed oracle ([`crate::shor::superopt`]) is a pure
 //! X/CNOT/CCX permutation. Fault-tolerant constructions (Gidney 2017,
 //! Babbush et al. 2018, Gidney 2019, Gidney–Ekerå 2019) uncompute
 //! temporaries by **measuring them in the X basis** instead of running the
@@ -51,8 +51,8 @@
 
 use crate::circuit::Circuit;
 use crate::gate::Gate;
-use crate::shor_superopt::{modadd_block, FanoutPlan, Opts};
-use crate::shor_window::WindowLayout;
+use crate::shor::superopt::{modadd_block, FanoutPlan, Opts};
+use crate::shor::window::WindowLayout;
 use std::rc::Rc;
 
 /// A resolved operation: a gate from {X, CNOT, CCX, SWAP, Z, CZ} or an
@@ -604,7 +604,7 @@ pub fn phase_lt_g(ops: &mut Vec<LOp>, a: &[usize], b: &[usize], cy: &[usize]) {
 }
 
 /// `b → (b + L) mod N` for `b, L < N` with Gidney adders (`4n` Toffolis):
-/// the structure of [`crate::shor_superopt::add_mod_reg`] (comparator flag
+/// the structure of [`crate::shor::superopt::add_mod_reg`] (comparator flag
 /// uncompute, `K = t·N` flip).
 pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64, flag: bool) {
     let w = &lay.win;
@@ -644,15 +644,15 @@ pub fn add_mod_g(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64, flag: bool) {
     }
 }
 
-/// The Cuccaro modular adder of [`crate::shor_superopt::add_mod_reg`] (all
+/// The Cuccaro modular adder of [`crate::shor::superopt::add_mod_reg`] (all
 /// options) with its flag uncomputed by measurement: the reversible part
 /// (up to `X(t)`, `t = [b_new < L]`) gets the peephole and SAT-rule passes;
 /// the comparator only runs as the `compute` of the flag (inverse
 /// multiplier) and, as a phase comparator (`Z` on the borrow instead of the
 /// `CNOT` into `t`), as the fix-up.
 pub fn add_mod_cuccaro_flag(ops: &mut Vec<LOp>, lay: &MbuLayout, n_mod: u64) {
-    use crate::shor_ripple::{cuccaro_add, cuccaro_sub, load_constant};
-    use crate::shor_superopt::{compare_lt, reversible_peephole, sat_peephole_init};
+    use crate::shor::ripple::{cuccaro_add, cuccaro_sub, load_constant};
+    use crate::shor::superopt::{compare_lt, reversible_peephole, sat_peephole_init};
     let w = &lay.win;
     let (l, b, k, c0, t) = (&w.l, &w.b, &w.k, w.c0, w.t);
     let n = w.n;
@@ -900,7 +900,7 @@ pub fn eval_on_key(ops: &[MbuOp], mut k: u128) -> (u128, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sparse::SparseState;
+    use crate::engines::sparse::SparseState;
     use num_complex::Complex64;
 
     fn mulmod(a: u64, b: u64, n: u64) -> u64 {

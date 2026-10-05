@@ -7,8 +7,8 @@
 //! x-span pruning and z projection fire. Copy to tests/ with audit_common.
 mod audit_common;
 use audit_common::*;
-use qsim_lab::pauli_frame::FrameOptions;
-use qsim_lab::pauli_path::{expectation_legacy, expectation_with, PauliSum};
+use qsim_lab::engines::pauli_frame::FrameOptions;
+use qsim_lab::engines::pauli_path::{expectation_legacy, expectation_with, PauliSum};
 use qsim_lab::{Circuit, Gate};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

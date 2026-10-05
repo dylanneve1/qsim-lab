@@ -662,12 +662,12 @@ impl Circuit {
     /// Serializes this circuit into OpenQASM 2.0 format. Fails for operations
     /// OpenQASM 2.0 cannot express (classically conditioned gates, noise).
     pub fn to_qasm(&self) -> Result<String, SimError> {
-        crate::qasm::to_qasm(self)
+        crate::io::qasm::to_qasm(self)
     }
 
     /// Parses an OpenQASM 2.0 program into a [`Circuit`].
     pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
-        crate::qasm::from_qasm(source)
+        crate::io::qasm::from_qasm(source)
     }
 
     /// Runs the circuit on a simulator and returns the measurement outcomes

@@ -5,8 +5,8 @@
 
 use qsim_lab::algorithms;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::ooc::schedule_ooc;
-use qsim_lab::ooc_window::{schedule_window, WindowOptions};
+use qsim_lab::engines::ooc::schedule_ooc;
+use qsim_lab::engines::ooc_window::{schedule_window, WindowOptions};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::time::Instant;

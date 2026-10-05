@@ -80,7 +80,7 @@ process, no GPU.
   The Fig. 4a notebook plots `−1 ×` the stored values, and Tindall's weight-17
   file uses the plotted sign, so `analyze.py` flips it.
 
-## 2. The engine (`src/spd.rs`)
+## 2. The engine (`src/engines/spd.rs`)
 
 Heisenberg picture: push `O` backwards through the circuit as a sparse real
 sum of Pauli strings, then evaluate on `|0…0⟩`. Design choices:

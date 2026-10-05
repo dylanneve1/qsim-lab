@@ -11,8 +11,8 @@
 //! magic_atlas demo-qft N                          # factored engine on QFT|x>, checked against the product formula
 //! ```
 #![allow(clippy::needless_range_loop)]
-use qsim_lab::adaptive::CompressedState;
 use qsim_lab::circuit::Circuit;
+use qsim_lab::engines::adaptive::CompressedState;
 use qsim_lab::gate::Gate;
 use qsim_lab::magic_atlas::{families, profile, state_magic, AtlasOptions, FactoredState};
 use qsim_lab::StateVectorF64;
@@ -426,7 +426,7 @@ fn main() {
             for (k, &want) in zexp.iter().enumerate() {
                 let mut st = vec!['I'; n];
                 st[k] = 'Z';
-                let obs = qsim_lab::pauli_path::PauliSum::from_str_single(
+                let obs = qsim_lab::engines::pauli_path::PauliSum::from_str_single(
                     &st.into_iter().collect::<String>(),
                 );
                 let e = cs.expectation(&obs);
@@ -438,7 +438,9 @@ fn main() {
                 st[q] = 'X';
             }
             let st: String = st.into_iter().collect();
-            let e = cs.expectation(&qsim_lab::pauli_path::PauliSum::from_str_single(&st));
+            let e = cs.expectation(&qsim_lab::engines::pauli_path::PauliSum::from_str_single(
+                &st,
+            ));
             err = err.max((e - 1.0).abs());
             let check_secs = t1.elapsed().as_secs_f64();
             println!(

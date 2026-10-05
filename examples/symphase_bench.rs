@@ -7,7 +7,7 @@
 //! Interleaved: each repetition times the tableau shots, then the sampler
 //! batches. Prints min per-shot times and the speedup.
 
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::{NoiseModel, SurfaceCode, Tableau};
 use rand::rngs::StdRng;
 use rand::SeedableRng;

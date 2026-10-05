@@ -2,9 +2,9 @@
 //! oracles vs windowed-opt, over all 2n controlled-U rounds of the record
 //! instances (exp/mbu-shor). Usage:
 //! `cargo run --release --example mbu_counts [N a] [w...]`
+use qsim_lab::shor::mbu::MbuCounts;
 use qsim_lab::shor::sliced::{oracle_ops, SlicedProgram};
 use qsim_lab::shor::{Instance, Oracle};
-use qsim_lab::shor_mbu::MbuCounts;
 
 fn run(n: u64, a: u64, oracle: Oracle) -> (MbuCounts, usize, usize) {
     let inst = Instance::new(n, a, oracle);

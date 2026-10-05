@@ -18,7 +18,7 @@
 mod audit_common;
 
 use audit_common::*;
-use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use qsim_lab::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::{Circuit, Gate, Mps, Simulator, StateVectorF32, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

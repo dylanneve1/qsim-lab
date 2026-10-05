@@ -2,8 +2,8 @@
 
 use super::core::{PX, PZ};
 use super::machine::Phys;
+use crate::engines::statevector::StateVector;
 use crate::gate::Gate;
-use crate::statevector::StateVector;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 

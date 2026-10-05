@@ -13,10 +13,10 @@
 //! in-RAM blocked executor (max |Δamp|, streamed so RAM stays at one state).
 
 use qsim_lab::algorithms;
-use qsim_lab::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::ooc::{OocConfig, OocScheduler, OocStateVector};
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::blocked::BlockConfig;
+use qsim_lab::engines::ooc::{OocConfig, OocScheduler, OocStateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::path::PathBuf;

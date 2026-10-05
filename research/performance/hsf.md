@@ -1,6 +1,6 @@
 # Hybrid Schrödinger–Feynman (HSF) backend
 
-`src/hsf.rs`: exact amplitudes for circuits that split into two qubit blocks
+`src/engines/hsf.rs`: exact amplitudes for circuits that split into two qubit blocks
 joined by few gates, in the style of Google's qsim/qsimh (Markov et al.).
 
 ## Idea

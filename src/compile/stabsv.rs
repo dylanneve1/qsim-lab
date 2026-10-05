@@ -16,8 +16,8 @@
 //! reference amplitude times a power of `i`, so there is no rounding drift.
 
 use crate::circuit::{Circuit, Op};
+use crate::engines::statevector::{Real, StateVector};
 use crate::gate::Gate;
-use crate::statevector::{Real, StateVector};
 use num_complex::{Complex, Complex64};
 use rayon::prelude::*;
 use std::f64::consts::FRAC_1_SQRT_2;
@@ -332,7 +332,7 @@ pub fn clifford_statevector<T: Real>(prefix: &Circuit) -> StateVector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statevector::StateVectorF64;
+    use crate::engines::statevector::StateVectorF64;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 

@@ -7,8 +7,8 @@
 //! `tbits` = restrict gate targets to qubits < tbits (default n)
 
 use num_complex::Complex64;
-use qsim_lab::blocked::{BlockConfig, KOp};
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::blocked::{BlockConfig, KOp};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use std::time::Instant;
 
 /// Assumed clock: M1 Pro P-core max is 3.228 GHz; override with `GHZ=`.

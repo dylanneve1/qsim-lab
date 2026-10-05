@@ -314,7 +314,7 @@ fix in a follow-up; it cannot corrupt results for well-formed QASM).
 
 ## 9. HSF merged with main — hsf-main @ 553fa13 (9285bab + notes)
 
-Only `src/hsf.rs` change vs the audited 44fdd83 is the catch-all `_ =>`
+Only `src/engines/hsf.rs` change vs the audited 44fdd83 is the catch-all `_ =>`
 arm rejecting every non-`Gate` op, so the 44fdd83 speed numbers carry over
 unchanged (no re-timing). `QSIM_FUZZ_ITERS=3`:
 

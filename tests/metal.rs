@@ -6,8 +6,8 @@ mod audit_common;
 
 use audit_common::{random_circuit, RefSv};
 use num_complex::Complex64;
-use qsim_lab::blocked::lower_gates;
-use qsim_lab::metal_sv::{circuit_gates, MetalConfig, MetalSim};
+use qsim_lab::engines::blocked::lower_gates;
+use qsim_lab::engines::metal_sv::{circuit_gates, MetalConfig, MetalSim};
 use qsim_lab::{algorithms, Circuit, Gate};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

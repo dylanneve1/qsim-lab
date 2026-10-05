@@ -29,11 +29,11 @@ use pyo3::types::{PyDict, PyList};
 use qsim_lab::algorithms::{gcd, pow_mod};
 use qsim_lab::circuit::Circuit;
 use qsim_lab::gate::Gate;
+use qsim_lab::shor::ge::{self as shor_ge, GeOpts, GeRun};
+use qsim_lab::shor::mbu::{MbuCounts, MbuOpts};
 use qsim_lab::shor::noisy::{self, NoiseKind, NoisyCircuit};
 use qsim_lab::shor::sliced::{self, SlicedState};
 use qsim_lab::shor::{self, fused, Instance, Oracle, OrderFindingState, SemiRun};
-use qsim_lab::shor_ge::{self, GeOpts, GeRun};
-use qsim_lab::shor_mbu::{MbuCounts, MbuOpts};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
@@ -462,7 +462,7 @@ fn run_keep<S: OrderFindingState, R: Rng + ?Sized>(
             Oracle::Permutation => {}
             Oracle::Beauregard => {
                 let lay = inst.layout();
-                let c = qsim_lab::shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
+                let c = qsim_lab::shor::arith::controlled_ua(&lay, 0, mult, inst.n_mod);
                 total_gates += c.ops.len() + 2 + usize::from(y != 0);
             }
             _ => {
@@ -860,8 +860,12 @@ fn resource_counts<'py>(
                         match o {
                             Oracle::Permutation => MbuCounts::default(),
                             Oracle::Beauregard => {
-                                let c =
-                                    qsim_lab::shor_arith::controlled_ua(&inst.layout(), 0, mult, n);
+                                let c = qsim_lab::shor::arith::controlled_ua(
+                                    &inst.layout(),
+                                    0,
+                                    mult,
+                                    n,
+                                );
                                 let mut k = MbuCounts::default();
                                 for g in c.gates() {
                                     k.total += 1;
@@ -933,7 +937,7 @@ fn reversible_block(inst: &Instance, mult: u64) -> PyResult<(Circuit, Vec<usize>
     match inst.oracle {
         Oracle::Beauregard => {
             let lay = inst.layout();
-            let c = qsim_lab::shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
+            let c = qsim_lab::shor::arith::controlled_ua(&lay, 0, mult, inst.n_mod);
             Ok((c, (1..=inst.m).collect()))
         }
         Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_) => {

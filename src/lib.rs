@@ -3,13 +3,13 @@
 //! A small, from-scratch quantum circuit simulator written to explore how
 //! different simulation methods scale:
 //!
-//! * [`statevector`]: dense `2^n` amplitudes. Exact, handles any gate, but
+//! * [`engines::statevector`]: dense `2^n` amplitudes. Exact, handles any gate, but
 //!   memory doubles with every qubit.
-//! * [`stabilizer`]: the Aaronson–Gottesman CHP tableau. `O(n^2)` bits and
+//! * [`engines::stabilizer`]: the Aaronson–Gottesman CHP tableau. `O(n^2)` bits and
 //!   fast, but only for Clifford circuits (H, S, CNOT, Paulis, measurement).
-//! * [`pauli_path`]: Clifford+T via Pauli-path summation. Polynomial in `n`,
+//! * [`engines::pauli_path`]: Clifford+T via Pauli-path summation. Polynomial in `n`,
 //!   exponential in the number of T gates.
-//! * [`mps`]: matrix product states with SVD truncation. Cost is set by the
+//! * [`engines::mps`]: matrix product states with SVD truncation. Cost is set by the
 //!   entanglement (bond dimension `χ`), not by `n`.
 //!
 //! All backends consume the same [`Circuit`]/[`Gate`] types and implement
@@ -32,58 +32,53 @@
 //! assert!(bits.iter().all(|&b| b == bits[0]));
 //! ```
 
-pub mod adaptive;
-pub mod adaptive_bench;
 pub mod algorithms;
 pub mod bench;
-pub mod blocked;
 pub mod chem;
 pub mod circuit;
 pub mod compile;
 pub mod dag;
-pub mod dense_fusion;
-mod dense_kernels;
+pub mod engines;
 pub mod ft;
 pub mod gate;
 pub mod graph;
-pub mod hsf;
+pub mod io;
 pub mod magic_atlas;
-#[cfg(all(feature = "metal", target_os = "macos"))]
-pub mod metal_sv;
-pub mod monitored;
-pub mod mps;
-pub mod mps_cost;
 pub mod noise;
-pub mod ooc;
-pub mod ooc_window;
-pub mod pauli_frame;
-pub mod pauli_path;
 pub mod pipeline;
 pub mod planner;
-pub mod qasm;
 pub mod qec;
 pub mod shor;
-pub mod shor_arith;
-pub mod shor_ge;
-pub mod shor_mbu;
-pub mod shor_ripple;
-pub mod shor_superopt;
-pub mod shor_window;
 pub mod simulability;
-pub mod sparse;
-pub mod spd;
-pub mod stab_rank;
-pub mod stabilizer;
-pub mod statevector;
-pub mod stim_io;
+
+// Pre-reorganisation module paths (`qsim_lab::engines::statevector`, `qsim_lab::shor::ge`,
+// `qsim_lab::io::qasm`, ...), kept so downstream code keeps compiling. New code
+// should use the paths above.
+#[doc(hidden)]
+pub use bench::adaptive as adaptive_bench;
+#[cfg(all(feature = "metal", target_os = "macos"))]
+#[doc(hidden)]
+pub use engines::metal_sv;
+#[doc(hidden)]
+pub use engines::{
+    adaptive, blocked, dense_fusion, hsf, monitored, mps, mps_cost, ooc, ooc_window, pauli_frame,
+    pauli_path, sparse, spd, stab_rank, stabilizer, statevector,
+};
+#[doc(hidden)]
+pub use io::{qasm, stim as stim_io};
+#[doc(hidden)]
+pub use shor::{
+    arith as shor_arith, ge as shor_ge, mbu as shor_mbu, ripple as shor_ripple,
+    superopt as shor_superopt, window as shor_window,
+};
 
 pub use circuit::{Circuit, CircuitStats, Op, SimError, Simulator};
+pub use engines::hsf::{HsfOptions, HybridSchrodingerFeynman};
+pub use engines::mps::Mps;
+pub use engines::ooc::{OocConfig, OocStateVector, OocStats};
+pub use engines::sparse::SparseState;
+pub use engines::stabilizer::Tableau;
+pub use engines::statevector::{StateVector, StateVectorF32, StateVectorF64};
 pub use gate::Gate;
-pub use hsf::{HsfOptions, HybridSchrodingerFeynman};
-pub use mps::Mps;
 pub use noise::NoiseModel;
-pub use ooc::{OocConfig, OocStateVector, OocStats};
 pub use qec::{DecodingGraph, RepetitionCode, SurfaceCode, UnionFindDecoder};
-pub use sparse::SparseState;
-pub use stabilizer::Tableau;
-pub use statevector::{StateVector, StateVectorF32, StateVectorF64};

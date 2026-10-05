@@ -4,8 +4,8 @@
 
 #![allow(clippy::needless_range_loop)]
 use num_complex::Complex64;
-use qsim_lab::adaptive::{self, CompressedState};
 use qsim_lab::circuit::Circuit;
+use qsim_lab::engines::adaptive::{self, CompressedState};
 use qsim_lab::gate::Gate;
 use qsim_lab::magic_atlas::{families, profile, state_magic, AtlasOptions, FactoredState};
 use qsim_lab::StateVectorF64;

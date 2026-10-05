@@ -1,12 +1,14 @@
 //! A small timing harness used by `qsim bench`. Each benchmark prints a
 //! markdown table row as soon as it is measured.
 
+pub mod adaptive;
+
 use crate::circuit::Circuit;
+use crate::engines::mps::Mps;
+use crate::engines::pauli_path::{self, PauliSum};
+use crate::engines::stabilizer::{tableau_bytes, Tableau};
+use crate::engines::statevector::{state_bytes, Real, StateVector};
 use crate::gate::Gate;
-use crate::mps::Mps;
-use crate::pauli_path::{self, PauliSum};
-use crate::stabilizer::{tableau_bytes, Tableau};
-use crate::statevector::{state_bytes, Real, StateVector};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::io::Write;
@@ -446,7 +448,7 @@ fn max_diff(a: &[num_complex::Complex64], b: &[num_complex::Complex64]) -> f64 {
 /// gates: full output and a batch of `amps` amplitudes. Interleaved,
 /// min of `reps`; also prints the accuracy of each HSF result.
 pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: usize, full: bool) {
-    use crate::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    use crate::engines::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
     header(&[
         "n",
         "k",
@@ -469,8 +471,8 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
         let part: Vec<bool> = (0..n).map(|q| q < n / 2).collect();
         let h = HybridSchrodingerFeynman::new(&c, &part, HsfOptions::default()).expect("plan");
         let o = HsfOptions::default();
-        let auto_k = crate::hsf::auto_partition(&c, &o)
-            .and_then(|p| crate::hsf::cut_bits(&c, &p, &o))
+        let auto_k = crate::engines::hsf::auto_partition(&c, &o)
+            .and_then(|p| crate::engines::hsf::cut_bits(&c, &p, &o))
             .expect("valid");
         let (mut t_sv, mut t_full, mut t_amp) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
         let mut err = 0.0f64;
@@ -516,7 +518,7 @@ pub fn hsf_crossover(n: usize, ks: &[usize], depth: usize, amps: usize, reps: us
 
 /// HSF amplitude batches on circuits too large for the state vector.
 pub fn hsf_big(ns: &[usize], ks: &[usize], depth: usize, amps: usize, middle: bool) {
-    use crate::hsf::{cut_bits, two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    use crate::engines::hsf::{cut_bits, two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
     header(&[
         "n",
         "blocks",
@@ -564,7 +566,7 @@ pub fn hsf_big(ns: &[usize], ks: &[usize], depth: usize, amps: usize, middle: bo
 /// A/B of the HSF design choices on one circuit (amplitude batch and full
 /// output), interleaved, min of `reps`.
 pub fn hsf_ablation(n: usize, k: usize, depth: usize, amps: usize, reps: usize, middle: bool) {
-    use crate::hsf::{
+    use crate::engines::hsf::{
         two_block_circuit, HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode,
     };
     let mut rng = StdRng::seed_from_u64(42);
@@ -654,7 +656,7 @@ pub fn hsf_ablation(n: usize, k: usize, depth: usize, amps: usize, reps: usize, 
 /// One measurement in a fresh process, for a clean peak-RSS number:
 /// `mode` is `sv`, `full` or `amps`. Prints one table row.
 pub fn hsf_point(n: usize, k: usize, depth: usize, amps: usize, mode: &str) {
-    use crate::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
+    use crate::engines::hsf::{two_block_circuit, HsfOptions, HybridSchrodingerFeynman};
     let mut rng = StdRng::seed_from_u64(1000 + k as u64);
     let c = two_block_circuit(n, n / 2, depth, k, false, &mut rng);
     let xs: Vec<usize> = (0..amps)

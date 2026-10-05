@@ -8,7 +8,7 @@
 //! probabilities, so 1e-12 absolute is below its rounding error). Larger
 //! circuits are compared statistically.
 
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::{Circuit, Gate, NoiseModel, Op, SurfaceCode, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -462,8 +462,8 @@ fn parity_sampler_matches_parities_of_raw_distribution() {
 /// to the dense path for the same RNG stream.
 #[test]
 fn sparse_sampling_path_is_identical_to_dense() {
+    use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
     use qsim_lab::qec::surface::SurfaceCode;
-    use qsim_lab::stabilizer::symphase::SymPhaseSampler;
     use qsim_lab::NoiseModel;
     use rand::rngs::StdRng;
     use rand::SeedableRng;

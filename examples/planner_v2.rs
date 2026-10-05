@@ -11,7 +11,7 @@
 //! ```
 
 use qsim_lab::compile::plan::AdaptiveRule;
-use qsim_lab::mps_cost::{replay, BondSource, Estimator};
+use qsim_lab::engines::mps_cost::{replay, BondSource, Estimator};
 use qsim_lab::planner::{
     self, mps_readout_units, mps_work_log2, predict_secs, quick_features, Engine, PlanFeatures,
     PlanRequest, PlannerConfig, Prepared,
@@ -161,7 +161,7 @@ fn cmd_req(engine: &str, c: &Circuit, mem: u128, seed: u64) -> String {
         }
         Prepared::Compressed(Some(st), _) => {
             size = format!("\"d\":{},", st.active_qubits());
-            Some(st.expectation(&qsim_lab::pauli_path::PauliSum::z_product(n, &all)))
+            Some(st.expectation(&qsim_lab::engines::pauli_path::PauliSum::z_product(n, &all)))
         }
         _ => None,
     };
@@ -384,10 +384,10 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
     let gates: Vec<qsim_lab::Gate> = c.gates().copied().collect();
     base.sup = simulability::support_bound(n, &gates);
     let t_sup = t.elapsed().as_secs_f64();
-    let prof = qsim_lab::adaptive::active_dimension_profile(&c).expect("frame");
+    let prof = qsim_lab::engines::adaptive::active_dimension_profile(&c).expect("frame");
     let t_t1a = t.elapsed().as_secs_f64();
     let t = Instant::now();
-    let obs_zero = qsim_lab::adaptive::z_product_vanishes(&c, &all).expect("cert");
+    let obs_zero = qsim_lab::engines::adaptive::z_product_vanishes(&c, &all).expect("cert");
     let t_cert = t.elapsed().as_secs_f64();
     let g = q.gates.max(1) as f64;
     base.sparse_l = g.log2() + base.sup as f64;

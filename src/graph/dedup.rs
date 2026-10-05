@@ -283,7 +283,7 @@ pub fn block_unitary(pc: &ParamCircuit, b: &Block, params: &[f64]) -> Vec<Comple
     let mut u = vec![Complex64::new(0.0, 0.0); d * d];
     // column x = U|x>
     for x in 0..d {
-        let mut sv = crate::statevector::StateVectorF64::basis_state(k, x);
+        let mut sv = crate::engines::statevector::StateVectorF64::basis_state(k, x);
         for g in &gates {
             sv.apply_gate(g).expect("valid gate");
         }

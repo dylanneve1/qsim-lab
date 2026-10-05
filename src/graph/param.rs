@@ -178,7 +178,7 @@ impl POp {
     /// Same op on relabelled qubits.
     pub fn map_qubits(&self, f: impl Fn(usize) -> usize) -> POp {
         match self {
-            POp::Fixed(g) => POp::Fixed(crate::hsf::map_gate(*g, f)),
+            POp::Fixed(g) => POp::Fixed(crate::engines::hsf::map_gate(*g, f)),
             POp::Rx(q, a) => POp::Rx(f(*q), a.clone()),
             POp::Ry(q, a) => POp::Ry(f(*q), a.clone()),
             POp::Rz(q, a) => POp::Rz(f(*q), a.clone()),

@@ -1,5 +1,5 @@
 //! Abstract model of the coset-arithmetic windowed Shor circuit of
-//! `src/shor_ge.rs` (`GeOpts::coset = c`), independent of the gate-level
+//! `src/shor/ge.rs` (`GeOpts::coset = c`), independent of the gate-level
 //! engine: every window block is the classical permutation
 //!   (x, b) -> (x', b') = ((b + A_h(x)) mod M, (x - A_{h^-1}(x')) mod M)
 //! of Z_M^2, M = 2^{n+c}, with A_h(x) = sum_k (h * chunk_k(x) * 2^{k w_m} mod N)

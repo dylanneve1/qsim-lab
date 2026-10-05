@@ -157,7 +157,7 @@ def save_state(s):
 def install_drivers(tree):
     """Copy the drivers into the tree; strip `// @dense` lines when the tree
     has no dense fusion."""
-    has_dense = "dense_fusion" in open(os.path.join(tree, "src/blocked.rs")).read()
+    has_dense = "dense_fusion" in open(os.path.join(tree, "src/engines/blocked.rs")).read()
     for src, dst in (("ai_bench.rs", "examples/ai_bench.rs"), ("ai_gate.rs", "tests/ai_gate.rs")):
         text = open(os.path.join(HERE, "rust", src)).read()
         if not has_dense:

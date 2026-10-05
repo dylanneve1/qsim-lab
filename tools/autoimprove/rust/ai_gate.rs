@@ -17,9 +17,9 @@ mod audit_common;
 
 use audit_common::{cx, edge_angle, edge_pair, random_gate, RefSv};
 use num_complex::Complex64 as C;
-use qsim_lab::blocked::{lower_gates, BlockConfig};
+use qsim_lab::engines::blocked::{lower_gates, BlockConfig};
 use qsim_lab::circuit::Circuit;
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use qsim_lab::Gate;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

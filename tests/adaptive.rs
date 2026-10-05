@@ -7,11 +7,11 @@ mod common;
 
 use common::*;
 use proptest::prelude::*;
-use qsim_lab::adaptive::{self, AdaptiveOptions, CompressedState, Strategy};
 use qsim_lab::bench::skeleton_stabilizer;
 use qsim_lab::circuit::Circuit;
+use qsim_lab::engines::adaptive::{self, AdaptiveOptions, CompressedState, Strategy};
+use qsim_lab::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::gate::Gate;
-use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::StateVectorF64;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

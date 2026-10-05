@@ -1,7 +1,7 @@
 # A simulability transition in monitored Clifford+T circuits
 
 Branch `exp/magic-transition` (from main e7e102d). Author: qsim-magic-transition agent, 4 Oct 2026.
-Code: `src/monitored/{mod.rs,circuit.rs,ent.rs}` (new engine), `examples/magic_transition.rs` (campaign
+Code: `src/engines/monitored/{mod.rs,circuit.rs,ent.rs}` (new engine), `examples/magic_transition.rs` (campaign
 driver), `tests/magic_transition.rs` (4 tests). Data: `research/data/magic-transition/` (`raw.csv` one row
 per trajectory, `aggregate.csv`, `fss.json`, PNGs, `analyze.py`, `jobs*.txt`, `run*.sh`). All runs on the
 M1 Pro (statistical campaign, ≤ 4 single-threaded workers, paused while the bench lock was held).
@@ -39,7 +39,7 @@ smallest size kept are the dominant systematic (see §5).
 
 ## 1. The engine: exact monitored Clifford+T with a shrinking register
 
-The state is kept in the rotation-frame form of `src/adaptive.rs`,
+The state is kept in the rotation-frame form of `src/engines/adaptive.rs`,
 
     |ψ⟩ = C (|φ⟩_A ⊗ |0⟩_rest),   C Clifford (n qubits),   |φ⟩ dense on d = |A| "active" coordinates,
 

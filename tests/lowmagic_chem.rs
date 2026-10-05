@@ -2,8 +2,8 @@
 //! Hamiltonian against Slater–Condon and against PySCF/OpenFermion numbers, the filtered
 //! compressed-state energy against the state vector, d = GF(2) span dimension, Rotosolve.
 use num_complex::Complex64 as C64;
-use qsim_lab::adaptive::CompressedState;
 use qsim_lab::chem::{self, Fcidump, POp, Program, Span};
+use qsim_lab::engines::adaptive::CompressedState;
 use qsim_lab::{Gate, StateVector};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

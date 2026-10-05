@@ -406,7 +406,7 @@ fn merge(h: &Gate, g: &Gate, phase: &mut f64) -> Option<Option<Gate>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statevector::StateVectorF64;
+    use crate::engines::statevector::StateVectorF64;
     use num_complex::Complex64;
 
     fn check_same(c: &Circuit) -> Optimized {

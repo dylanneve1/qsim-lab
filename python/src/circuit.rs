@@ -528,7 +528,7 @@ impl PyCircuit {
 
     #[staticmethod]
     fn from_qasm(py: Python<'_>, source: String) -> PyResult<PyCircuit> {
-        let r = heavy(py, Some(1), move || qsim_lab::qasm::from_qasm(&source));
+        let r = heavy(py, Some(1), move || qsim_lab::io::qasm::from_qasm(&source));
         Ok(PyCircuit::from_data(CircuitData {
             circuit: r.map_err(map_sim_err)?,
             ..Default::default()
@@ -537,14 +537,14 @@ impl PyCircuit {
 
     fn to_stim(&self) -> PyResult<String> {
         let d = &self.data;
-        qsim_lab::stim_io::to_stim(&d.circuit, &d.noise_model(), &d.detectors, &d.observables)
+        qsim_lab::io::stim::to_stim(&d.circuit, &d.noise_model(), &d.detectors, &d.observables)
             .map_err(|e| unsupported(format!("Stim export: {}", e.0)))
     }
 
     #[staticmethod]
     fn from_stim(py: Python<'_>, source: String) -> PyResult<PyCircuit> {
         let has_repeats = source.contains("REPEAT");
-        let r = heavy(py, Some(1), move || qsim_lab::stim_io::parse_stim(&source));
+        let r = heavy(py, Some(1), move || qsim_lab::io::stim::parse_stim(&source));
         let p = r.map_err(|e| qerr("ParseError", e.0))?;
         if p.noise.p_1q != 0.0 || p.noise.p_2q != 0.0 || p.noise.p_reset != 0.0 {
             return Err(unsupported("Stim import produced implicit gate noise"));

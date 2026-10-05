@@ -36,17 +36,17 @@
 //! or an error. The cache only ever reuses an engine *choice*, never a
 //! value.
 
-use crate::adaptive::{CompressedState, Sampler};
-use crate::blocked::BlockConfig;
 use crate::circuit::{Circuit, Op, SimError};
+use crate::engines::adaptive::{CompressedState, Sampler};
+use crate::engines::blocked::BlockConfig;
+use crate::engines::hsf::{HsfOptions, HybridSchrodingerFeynman};
+use crate::engines::mps::Mps;
+use crate::engines::mps_cost::{self, BondSource, Estimator};
+use crate::engines::sparse::SparseState;
+use crate::engines::stabilizer::Tableau;
+use crate::engines::statevector::StateVectorF64;
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::hsf::{HsfOptions, HybridSchrodingerFeynman};
-use crate::mps::Mps;
-use crate::mps_cost::{self, BondSource, Estimator};
 use crate::simulability::{self, Features};
-use crate::sparse::SparseState;
-use crate::stabilizer::Tableau;
-use crate::statevector::StateVectorF64;
 use num_complex::Complex64;
 use rand::Rng;
 use std::collections::HashMap;
@@ -64,7 +64,7 @@ pub enum Engine {
     Mps,
     Hsf,
     /// Clifford frame + dense register on the active qubits
-    /// ([`crate::adaptive::CompressedState`]).
+    /// ([`crate::engines::adaptive::CompressedState`]).
     Compressed,
 }
 
@@ -599,7 +599,7 @@ impl Plan {
 }
 
 /// log2 MPS work of the replayed bond profile.
-pub fn mps_work_log2(stats: &crate::mps::MpsStats, m: &CostModel) -> f64 {
+pub fn mps_work_log2(stats: &crate::engines::mps::MpsStats, m: &CostModel) -> f64 {
     stats
         .total(m.mps_svd_weight, m.mps_call_overhead)
         .max(1.0)
@@ -1069,7 +1069,7 @@ fn tier0_features(q: &QuickFeatures) -> PlanFeatures {
 
 /// Tier 1b: the rotation-frame active-dimension profile.
 fn frame_features(c: &Circuit, f: &mut PlanFeatures) -> Result<(), SimError> {
-    let prof = crate::adaptive::active_dimension_profile(c)?;
+    let prof = crate::engines::adaptive::active_dimension_profile(c)?;
     f.base.rotations = prof.len();
     f.base.d = prof.last().copied().unwrap_or(0);
     f.base.dense_l = if prof.is_empty() {
@@ -1181,7 +1181,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
     if let Some(obs) = cert_obs {
         if q.clifford || best(&ranked) > cfg.voi * c1b {
             let t1 = Instant::now();
-            f.base.obs_zero = crate::adaptive::z_product_vanishes(c, obs)?;
+            f.base.obs_zero = crate::engines::adaptive::z_product_vanishes(c, obs)?;
             f.computed[1] = true;
             stage[1] += t1.elapsed().as_secs_f64();
         }
@@ -1258,7 +1258,7 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
             max_bytes: cfg.mem_bytes,
             ..HsfOptions::default()
         };
-        let kl = crate::hsf::auto_partition(c, &opts)?;
+        let kl = crate::engines::hsf::auto_partition(c, &opts)?;
         simulability::hsf_split_features(c, &mut f.base, &kl)?;
         // the engine runs on this partition (no second KL at run time)
         f.hsf_split = Some(kl);
