@@ -48,6 +48,7 @@ pub mod graph;
 pub mod io;
 pub mod magic_atlas;
 pub mod noise;
+pub mod peaked;
 pub mod pipeline;
 pub mod planner;
 pub mod qec;
