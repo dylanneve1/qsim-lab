@@ -80,3 +80,86 @@ def run(
 def plan(
     circuit: CircuitCore, kind: str, payload: Any, memory: Union[int, str, None] = ...
 ) -> Dict[str, Any]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.qec (python/src/qec.rs; public wrapper: qsimlab.qec)
+
+class _QecModule:
+    CHUNK_SHOTS: int
+    def surface_code_memory(
+        self, d: int, rounds: int, basis: str = ..., p: float = ..., noise: str = ...
+    ) -> Tuple[CircuitCore, Dict[str, Any]]: ...
+    def repetition_code_memory(
+        self, d: int, rounds: int, p: float = ..., noise: str = ...
+    ) -> Tuple[CircuitCore, Dict[str, Any]]: ...
+    def color_code_memory(
+        self,
+        d: int,
+        rounds: int,
+        basis: str = ...,
+        schedule: Union[None, str, Sequence[Sequence[int]]] = ...,
+        flags: Sequence[bool] = ...,
+        p: float = ...,
+        noise: str = ...,
+    ) -> Tuple[CircuitCore, Dict[str, Any], List[List[int]]]: ...
+    def color_code_plaquettes(
+        self, d: int
+    ) -> Tuple[List[Tuple[int, int, int, List[int]]], List[bool]]: ...
+    def detector_error_model(
+        self, circuit: CircuitCore
+    ) -> Tuple[int, int, List[Tuple[float, List[int], List[int]]]]: ...
+    def sample_decode_count(
+        self,
+        sampler: "DetectorSamplerCore",
+        decoder: "BpOsdCore",
+        shots: int,
+        seed: int,
+        max_errors: Optional[int] = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def min_weight_logical(
+        self,
+        num_detectors: int,
+        errors: Sequence[Tuple[float, Sequence[int], Sequence[int]]],
+        observable: int = ...,
+        keep: Optional[Sequence[int]] = ...,
+        max_weight: int = ...,
+        count_cap: int = ...,
+        node_limit: Optional[int] = ...,
+        timeout: Optional[float] = ...,
+    ) -> Dict[str, Any]: ...
+    DetectorSamplerCore: type
+    BpOsdCore: type
+
+class DetectorSamplerCore:
+    def __init__(self, circuit: CircuitCore, engine: str = ...) -> None: ...
+    num_detectors: int
+    num_observables: int
+    engine: str
+    note: str
+    compile_time: float
+    rows: int
+    def sample(
+        self,
+        shots: int,
+        seed: int,
+        packed: bool = ...,
+        threads: Optional[int] = ...,
+        transposed: bool = ...,
+    ) -> Tuple[Any, Any, float]: ...
+    def _bench(self, shots: int, packed: bool) -> Tuple[float, float]: ...
+
+class BpOsdCore:
+    def __init__(
+        self,
+        num_detectors: int,
+        num_observables: int,
+        errors: Sequence[Tuple[float, Sequence[int], Sequence[int]]],
+        max_iter: int = ...,
+        ms_scale: float = ...,
+        osd_order: int = ...,
+    ) -> None: ...
+    num_detectors: int
+    num_observables: int
+    num_mechanisms: int
+    def decode_packed(self, syndromes: Any, threads: Optional[int] = ...) -> Tuple[Any, int, int]: ...
