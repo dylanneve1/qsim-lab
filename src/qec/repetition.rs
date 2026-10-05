@@ -17,19 +17,29 @@ use rand::RngCore;
 /// A bit-flip repetition code experiment.
 #[derive(Clone, Debug)]
 pub struct RepetitionCode {
+    /// Code distance (number of data qubits, ≥ 2).
     pub d: usize,
+    /// Number of syndrome-extraction rounds before the final data measurement.
     pub rounds: usize,
+    /// Union-Find decoder on the space-time detector graph.
     pub decoder: UnionFindDecoder,
 }
 
 /// Results of a repetition code memory experiment.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MemoryExperimentResult {
+    /// Code distance.
     pub distance: usize,
+    /// Syndrome-extraction rounds per shot.
     pub rounds: usize,
+    /// Representative physical error rate of the noise model: `p_1q` for the
+    /// repetition code, `p_2q` for the surface code.
     pub physical_p: f64,
+    /// Number of shots sampled.
     pub shots: usize,
+    /// Number of shots whose decoded logical outcome was wrong.
     pub logical_errors: usize,
+    /// `logical_errors / shots`.
     pub logical_error_rate: f64,
 }
 

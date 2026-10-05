@@ -14,6 +14,8 @@ use rand::SeedableRng;
 /// Measurements return the flip relative to the ideal outcome.
 #[derive(Clone, Debug, Default)]
 pub struct FrameBackend {
+    /// Per-physical-qubit Pauli frame: bit 0 (`PX`) = X component, bit 1
+    /// (`PZ`) = Z component. Grown on demand by `ensure`.
     pub frame: Vec<u8>,
 }
 
@@ -76,12 +78,16 @@ impl Phys for FrameBackend {
 /// Dense state vector with real (Born-rule) measurements, for validating the
 /// frame model on small cases. Fixed capacity.
 pub struct DenseBackend {
+    /// Full physical state vector over `cap` qubits.
     pub sv: StateVector<f64>,
+    /// RNG used for Born-rule measurements and resets.
     pub rng: StdRng,
     cap: usize,
 }
 
 impl DenseBackend {
+    /// Allocates a `cap`-qubit state vector in |0…0⟩ with an RNG seeded from
+    /// `seed`. Using more than `cap` physical qubits panics.
     pub fn new(cap: usize, seed: u64) -> Self {
         DenseBackend {
             sv: StateVector::new(cap),
