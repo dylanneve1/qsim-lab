@@ -64,7 +64,10 @@ impl Fcidump {
         let norb = key("NORB").ok_or("FCIDUMP: NORB")? as usize;
         let nelec = key("NELEC").ok_or("FCIDUMP: NELEC")? as usize;
         let ms2 = key("MS2").unwrap_or(0);
-        let body_start = text[end..].find('\n').map(|i| end + i + 1).unwrap_or(text.len());
+        let body_start = text[end..]
+            .find('\n')
+            .map(|i| end + i + 1)
+            .unwrap_or(text.len());
         let n2 = norb * norb;
         let mut fd = Fcidump {
             norb,
@@ -85,7 +88,10 @@ impl Fcidump {
                 .map_err(|e| format!("FCIDUMP value {:?}: {e}", t[0]))?;
             let idx: Vec<usize> = t[1..5]
                 .iter()
-                .map(|s| s.parse::<usize>().map_err(|e| format!("FCIDUMP index: {e}")))
+                .map(|s| {
+                    s.parse::<usize>()
+                        .map_err(|e| format!("FCIDUMP index: {e}"))
+                })
                 .collect::<Result<_, _>>()?;
             let (i, j, k, l) = (idx[0], idx[1], idx[2], idx[3]);
             if i > norb || j > norb || k > norb || l > norb {
@@ -664,7 +670,9 @@ pub fn trig2_min(t0: f64, vals: &[f64; 5]) -> (f64, f64) {
             + 2.0 * c[4] * (2.0 * t).cos()
     };
     let d2f = |t: f64| {
-        -c[1] * t.cos() - c[2] * t.sin() - 4.0 * c[3] * (2.0 * t).cos()
+        -c[1] * t.cos()
+            - c[2] * t.sin()
+            - 4.0 * c[3] * (2.0 * t).cos()
             - 4.0 * c[4] * (2.0 * t).sin()
     };
     let mut best = (0.0, f64::INFINITY);
@@ -760,8 +768,12 @@ impl RegisterHamiltonian {
         let mut groups: Vec<(u64, Vec<(u64, C)>)> = Vec::new();
         for (x, z, c) in terms {
             let y = (x & z).count_ones();
-            let ph = [C::new(1.0, 0.0), C::new(0.0, 1.0), C::new(-1.0, 0.0), C::new(0.0, -1.0)]
-                [(y % 4) as usize];
+            let ph = [
+                C::new(1.0, 0.0),
+                C::new(0.0, 1.0),
+                C::new(-1.0, 0.0),
+                C::new(0.0, -1.0),
+            ][(y % 4) as usize];
             match groups.last_mut() {
                 Some((gx, v)) if *gx == x => v.push((z, ph * c)),
                 _ => groups.push((x, vec![(z, ph * c)])),
@@ -873,8 +885,8 @@ fn lowest_tridiag(a: &[f64], b: &[f64]) -> f64 {
     let mut lo = f64::INFINITY;
     let mut hi = f64::NEG_INFINITY;
     for i in 0..n {
-        let r = (if i > 0 { b[i - 1].abs() } else { 0.0 })
-            + (if i + 1 < n { b[i].abs() } else { 0.0 });
+        let r =
+            (if i > 0 { b[i - 1].abs() } else { 0.0 }) + (if i + 1 < n { b[i].abs() } else { 0.0 });
         lo = lo.min(a[i] - r);
         hi = hi.max(a[i] + r);
     }
