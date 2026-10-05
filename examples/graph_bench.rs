@@ -1,4 +1,4 @@
-//! Graph compiler benchmarks (research/graph-compiler.md).
+//! Graph compiler benchmarks (research/compiler/graph-compiler.md).
 //!
 //! `cargo run --release --example graph_bench -- bind [workload n p binds]`
 //!
