@@ -13,6 +13,7 @@ pub mod compiled;
 pub mod dedup;
 pub mod observable;
 pub mod param;
+pub mod partition;
 pub mod rewrite;
 
 pub use compiled::{BoundCircuit, CompiledCircuit, GraphOptions, GraphStats};

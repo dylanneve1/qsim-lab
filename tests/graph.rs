@@ -526,3 +526,62 @@ fn dedup_finds_trotter_steps_and_recipe_cse_is_exact() {
         assert_eq!(x, y);
     }
 }
+
+#[test]
+fn partition_path_sum_is_exact() {
+    use qsim_lab::graph::partition::{cut_amplitudes, cut_size, plan_cut, CutPlan};
+    use qsim_lab::planner::{Engine, PlannerConfig};
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a17);
+    let cfg = PlannerConfig::default();
+    for case in 0..40 * iters() {
+        let n = 3 + case % 6;
+        let in_a: Vec<bool> = (0..n).map(|q| q < 1 + case % (n - 1)).collect();
+        let mut c = Circuit::new(n);
+        for _ in 0..rng.random_range(5..40) {
+            let g = random_gate(&mut rng, n, false, true);
+            let qs = g.qubits();
+            let crossing = qs.iter().any(|&q| in_a[q]) && !qs.iter().all(|&q| in_a[q]);
+            if crossing && !matches!(g, Gate::Cz(..) | Gate::Cnot(..) | Gate::CPhase(..)) {
+                continue;
+            }
+            c.gate(g);
+        }
+        let k = cut_size(&c, &in_a).unwrap();
+        if k > 6 {
+            continue;
+        }
+        let plan = CutPlan {
+            in_a: in_a.clone(),
+            cut: k,
+            side_a: (Engine::StateVector, 0.0),
+            side_b: (Engine::StateVector, 0.0),
+            predicted_secs: 0.0,
+            single: None,
+            plan_secs: 0.0,
+        };
+        let xs: Vec<u128> = (0..1u128 << n).collect();
+        let got = cut_amplitudes(&c, &plan, &xs, &cfg).unwrap();
+        let r = ref_run(&c);
+        let d = max_amp_diff(&r.a, got.into_iter());
+        assert!(d < 1e-10, "case {case} cut {k} diff {d}\n{c:?}");
+    }
+    // the planner-priced plan also gives exact amplitudes
+    let mut c = Circuit::new(8);
+    for q in 0..8 {
+        c.gate(Gate::H(q));
+        c.gate(Gate::T(q));
+    }
+    for q in 0..3 {
+        c.gate(Gate::Cnot(q, q + 1));
+    }
+    c.gate(Gate::Cz(3, 4));
+    for q in 4..7 {
+        c.gate(Gate::CPhase(q, q + 1, 0.3));
+        c.gate(Gate::Rx(q, 0.7));
+    }
+    let plan = plan_cut(&c, 8, &cfg, 4, 6).unwrap();
+    let xs: Vec<u128> = (0..256).collect();
+    let got = cut_amplitudes(&c, &plan, &xs, &cfg).unwrap();
+    let d = max_amp_diff(&ref_run(&c).a, got.into_iter());
+    assert!(d < 1e-10, "{d} {plan:?}");
+}
