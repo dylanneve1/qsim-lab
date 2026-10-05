@@ -44,6 +44,7 @@ ap.add_argument("--eval-every", type=int, default=1000)
 ap.add_argument("--dev-shots", type=int, default=5120)
 ap.add_argument("--dev-max", type=int, default=0, help="evaluate model selection on the first N dev shots per experiment")
 ap.add_argument("--max-minutes", type=float, default=45.0)
+ap.add_argument("--max-peak-mb", type=float, default=1750.0, help="stop if MLX peak + cache limit would pass ~2 GB")
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--checkpoint", type=int, default=1)
 ap.add_argument("--compile", type=int, default=1)
@@ -314,6 +315,9 @@ for it in range(1, a.steps + 1):
     if it % 50 == 0:
         paused += wait_memory(3.0)
         w = mem_report().get("wired_gb")
+        if mx.get_peak_memory() / 2**20 > a.max_peak_mb:
+            model.save_weights(os.path.join(a.out, "last.safetensors"))
+            raise SystemExit(f"MLX peak {mx.get_peak_memory() / 2**20:.0f} MB > {a.max_peak_mb} MB at it {it}: stopping")
         if w is not None and w > 4.0:
             model.save_weights(os.path.join(a.out, "last.safetensors"))
             raise SystemExit(f"wired memory {w} GB > 4 GB at it {it}: stopping")
