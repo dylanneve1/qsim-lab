@@ -122,7 +122,35 @@ fixed R = 25) reproduces both exactly, so the paper's TN numbers were probably c
 different pipeline. We therefore compare everything **inside one pipeline** and quote the paper's
 AlphaQubit result as its ratio to TN: 0.958 (d = 3) and 0.943 (d = 5).
 
-_(Tesseract, BP+OSD and AlphaQubit-lite rows: §5 update)_
+**Held-out comparison, d = 3 (odd-index shots, 8 datasets × 12 round counts × 25,000 shots = 2.4 M
+shots; every decoder on the same shots; 95 % CIs from a paired bootstrap over the joint per-shot
+fail pattern; ratio = LER / tensor-network LER on the same bootstrap draws).**
+
+| decoder | LER (fit R = 3…25) | 95 % CI | ratio vs TN | ε at R = 3 | ε at R = 25 |
+|---|---|---|---|---|---|
+| PyMatching (shipped) | 4.008 % | [3.972, 4.050] | 1.310 [1.296, 1.325] | 3.18 % | 3.89 % |
+| PyMatching 2.4, pij DEM (ours) | 3.882 % | [3.843, 3.923] | 1.269 [1.254, 1.282] | 3.09 % | 3.74 % |
+| correlated matching (shipped) | 3.492 % | [3.464, 3.525] | 1.141 [1.129, 1.154] | 2.95 % | 3.43 % |
+| **AlphaQubit-lite (this work)** | **3.512 %** | **[3.482, 3.542]** | **1.148 [1.137, 1.158]** | **2.64 %** | **3.38 %** |
+| PyMatching 2.4 correlated, pij DEM (ours) | 3.434 % | [3.409, 3.464] | 1.122 [1.112, 1.133] | 2.82 % | 3.33 % |
+| BP+OSD-CS order 10, pij DEM (ours, nd_tool) | 3.358 % | [3.331, 3.390] | 1.097 [1.089, 1.106] | 2.74 % | 3.27 % |
+| belief matching (shipped) | 3.122 % | [3.098, 3.149] | 1.020 [1.012, 1.029] | 2.71 % | 3.06 % |
+| tensor network (shipped) | 3.060 % | [3.038, 3.087] | 1.000 | 2.61 % | 2.98 % |
+| AlphaQubit, paper (both folds, 20-model ensemble) | 2.901 ± 0.023 % | | 0.958 (vs paper's TN) | | |
+
+(ε at fixed R is ½(1 − (1 − 2E)^{1/R}) averaged over the 8 datasets.)
+
+Reading the table:
+- AlphaQubit-lite beats PyMatching by 10 % and ties Google's shipped correlated matching; it is
+  15 % above the tensor network, where the paper's AlphaQubit is 4 % below it. We recover about
+  half of the PyMatching → AlphaQubit gap (PM 1.269 → lite 1.148 → paper 0.958 in TN units).
+- The model is strong on short experiments and weaker on long ones: at R = 3 its per-round error
+  (2.64 %) is within 1.5 % of the tensor network's and below belief matching's, but at R = 25 it is 13 %
+  above TN. The fitted intercepts F₀ are 1.06–1.15 (the paper requires F₀ ≈ 1 for a good fit), i.e.
+  the fidelity decays faster than exponentially-in-R would predict from the short runs. This is the
+  signature of an under-trained recurrent state: our curriculum spent most early samples on short
+  experiments, and we stopped after 2.2 M samples (paper: ≤ 2 × 10⁹ + 120 fine-tuning epochs).
+- Tesseract (beam 15) on this data: §5.3 (running, 5,000 shots per experiment).
 
 ### 5.2 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
 
