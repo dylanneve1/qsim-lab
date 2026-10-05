@@ -71,13 +71,17 @@ pub trait Key:
 {
     /// 64-bit words.
     const WORDS: usize;
+    /// Word `i` (`i < WORDS`), least significant first.
     fn word(&self, i: usize) -> u64;
+    /// Overwrites word `i` with `v`.
     fn set_word(&mut self, i: usize, v: u64);
+    /// Key whose low 64 bits are `v` (all higher bits 0).
     fn from_low(v: u64) -> Self {
         let mut k = Self::default();
         k.set_word(0, v);
         k
     }
+    /// Bit `j` (= qubit `j + 1`).
     fn bit(&self, j: usize) -> bool {
         (self.word(j / 64) >> (j % 64)) & 1 == 1
     }
@@ -100,6 +104,7 @@ pub trait Key:
         }
         (lo, hi)
     }
+    /// True if any bit at position `>= n` is set.
     fn any_from(&self, n: usize) -> bool {
         self.split(n).1 != Self::default()
     }
@@ -175,6 +180,7 @@ pub mod tag {
     pub const RESET: u8 = 0x50;
     /// Exponent-qubit control sites (windowed exponentiation).
     pub const CTRL: u8 = 0x60;
+    /// Mask of the block field.
     pub const BLOCK: u8 = 0x70;
 
     /// Lookup: unary-iteration / AND-chain gates (target an AND ancilla,
@@ -198,10 +204,13 @@ pub mod tag {
     pub const FLAGFIX: u8 = 8;
     /// Anything else (controlled swap gates).
     pub const GATE: u8 = 9;
+    /// Mask of the part field.
     pub const PART: u8 = 0x0f;
     /// The op belongs to the inverse multiplier (`a⁻¹`, second half).
     pub const INV: u8 = 0x80;
 
+    /// Name of the block field of `t` (`lookup`, `unlookup`, `modadd`, `swap`,
+    /// `reset`, `ctrl`, else `other`).
     pub fn block_name(t: u8) -> &'static str {
         match t & BLOCK {
             LOOKUP => "lookup",
@@ -213,6 +222,8 @@ pub mod tag {
             _ => "other",
         }
     }
+    /// Name of the part field of `t` (`unary`, `fanout`, `meas`, … ; `gate` for
+    /// [`GATE`] and unknown parts).
     pub fn part_name(t: u8) -> &'static str {
         match t & PART {
             UNARY => "unary",
@@ -257,7 +268,9 @@ fn op_slots(op: &NOp, groups: &[Vec<u32>], kind: NoiseKind) -> u64 {
 /// The ops of one round with their tags and location offsets.
 #[derive(Clone, Debug)]
 pub struct Round {
+    /// The ops in application order.
     pub ops: Vec<NOp>,
+    /// Block tag of every op ([`tag`]), parallel to `ops`.
     pub tags: Vec<u8>,
     /// Qubit groups of the [`NOp::ResetZ`] ops.
     pub groups: Vec<Vec<u32>>,
@@ -265,9 +278,13 @@ pub struct Round {
 }
 
 impl Round {
+    /// A round without [`NOp::ResetZ`] groups; panics if `ops` and `tags` differ
+    /// in length.
     pub fn new(ops: Vec<NOp>, tags: Vec<u8>, kind: NoiseKind) -> Self {
         Self::with_groups(ops, tags, Vec::new(), kind)
     }
+    /// A round whose [`NOp::ResetZ`] ops index `groups`; panics if `ops` and
+    /// `tags` differ in length.
     pub fn with_groups(
         ops: Vec<NOp>,
         tags: Vec<u8>,
@@ -289,6 +306,9 @@ impl Round {
             slot_prefix,
         }
     }
+    /// Number of op fault locations in the round under the round's noise kind
+    /// (gate arities, two per X-measurement and one per reset qubit for the
+    /// flip channels, the control sites of [`NOp::Ctrl`]).
     pub fn gate_slots(&self) -> u64 {
         *self.slot_prefix.last().unwrap()
     }
@@ -305,7 +325,9 @@ impl Round {
 /// its fault locations.
 #[derive(Clone, Debug)]
 pub struct Resolved {
+    /// The noise channel.
     pub kind: NoiseKind,
+    /// The rounds, in measurement order.
     pub rounds: Vec<Round>,
     loc_prefix: Vec<u64>,
     /// Per-round control sites (`Prep`, `H1`, `Phase`, `H2`, `Meas`); false
@@ -316,6 +338,8 @@ pub struct Resolved {
 }
 
 impl Resolved {
+    /// Fault locations of `rounds` with the per-round control sites (`Prep`, `H1`,
+    /// `Phase`, `H2`, `Meas`) and no exponent qubits.
     pub fn new(rounds: Vec<Round>, kind: NoiseKind) -> Self {
         let pm = u64::from(has_prep_meas(kind));
         let mut loc_prefix = vec![0u64];
@@ -721,11 +745,14 @@ fn insert_resets(
 /// A noisy semiclassical Shor circuit for any supported oracle.
 #[derive(Clone, Debug)]
 pub struct GenCircuit {
+    /// The order-finding instance.
     pub inst: Instance,
+    /// The noise channel.
     pub kind: NoiseKind,
     /// Qubits (control = qubit 0).
     pub nq: usize,
     src: Source,
+    /// Design-variant resets inserted into the rounds.
     pub resets: ResetMode,
     /// Exponent window (1 = one recycled control per round).
     pub we: usize,
@@ -751,6 +778,9 @@ impl GenCircuit {
         gc
     }
 
+    /// The circuit of `inst` without extra resets. Supports the `Ripple`,
+    /// `Windowed`, `WindowedOpt`, `WindowedMbu` and `WindowedMbuLookup` oracles
+    /// (panics otherwise) with at most 193 qubits.
     pub fn new(inst: &Instance, kind: NoiseKind) -> Self {
         let nq = inst.qubits();
         assert!(nq <= 193, "keys hold at most 192 non-control qubits");
@@ -1524,9 +1554,13 @@ pub struct GenState<K: Key, T: Real> {
     merged: Vec<(K, Complex<T>, Complex<T>)>,
     p1_raw: f64,
     p0_raw: f64,
+    /// Largest support seen (after a merge).
     pub peak: usize,
+    /// Gate × branch applications.
     pub work_ops: u128,
+    /// First round after which some branch had a non-zero ancilla.
     pub dirty_from: Option<usize>,
+    /// Support at the start of every round.
     pub support_trace: Vec<usize>,
     /// `ln` of the importance weight `Π_rounds ‖state‖²`.
     pub log_weight: f64,
@@ -1562,10 +1596,12 @@ impl<K: Key, T: Real> GenState<K, T> {
         }
     }
 
+    /// Number of stored branches (duplicates counted).
     pub fn nnz(&self) -> usize {
         self.keys.len()
     }
 
+    /// The stored branches `(key, amplitude)`.
     pub fn branches(&self) -> impl Iterator<Item = (K, Complex<T>)> + '_ {
         self.keys.iter().copied().zip(self.amps.iter().copied())
     }
@@ -2177,17 +2213,27 @@ fn trajectory_distribution_windowed<K: Key>(
 /// Outcome of one trajectory.
 #[derive(Clone, Debug)]
 pub struct GenTrajectory {
+    /// The recorded `t`-bit integer (`None` if the run was capped).
     pub measured: Option<u128>,
+    /// Order recovered from `measured` by [`postprocess`], if any.
     pub order: Option<u64>,
+    /// Nontrivial factor of `N` derived from the order, if any.
     pub factor: Option<u64>,
+    /// Largest support seen ([`GenState::peak`]).
     pub peak: usize,
+    /// Where the support exceeded the cap, if it did.
     pub capped: Option<Capped>,
+    /// First round after which some branch had a non-zero ancilla.
     pub dirty_from: Option<usize>,
+    /// Gate × branch applications.
     pub work_ops: u128,
+    /// Support at the start of every round that ran (plus the support that
+    /// exceeded the cap, if capped).
     pub support_trace: Vec<usize>,
     /// Importance weight `Π 2P(m_j)` of the uniformly drawn recorded
     /// X-basis outcomes (1 unless branches collided).
     pub weight: f64,
+    /// Rounds in which branches collided ([`GenState::collision_rounds`]).
     pub collision_rounds: usize,
 }
 
