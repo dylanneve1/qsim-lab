@@ -136,6 +136,10 @@ name = "symphase"
 path = "tests/engines/symphase.rs"
 
 [[test]]
+name = "tn"
+path = "tests/engines/tn.rs"
+
+[[test]]
 name = "compile"
 path = "tests/compiler/compile.rs"
 
