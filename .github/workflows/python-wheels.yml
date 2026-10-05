@@ -121,3 +121,5 @@ jobs:
         run: |
           python -m pytest python/tests -q
           python -m pytest -q --doctest-modules --pyargs qsimlab -o doctest_optionflags="NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
+          # README + docs/*.md tutorials are executable: a doc example that stops working fails CI
+          python -m pytest -q -p no:cacheprovider --doctest-glob='*.md' python/README.md python/docs -o doctest_optionflags="NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
