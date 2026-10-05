@@ -36,7 +36,7 @@ interleaved A/B, and report machine and load ([CONTRIBUTING.md](../CONTRIBUTING.
 | [pipeline_bench](pipeline_bench.rs) | `pipeline::simulate` vs plain simulation, end to end | [pipeline.md](../research/performance/pipeline.md) |
 | [stab_bench](stab_bench.rs) | Stabilizer tableau speed | [stab.md](../research/performance/stab.md) |
 | [symphase_bench](symphase_bench.rs) | SymPhase sampler vs shot-by-shot tableau on the surface-code memory | [stab.md](../research/performance/stab.md), [RESULTS.md](../RESULTS.md) |
-| [stim_compare](stim_compare.rs) | Identical-circuit comparison with Stim, both directions | [qec-r4.md](../research/qec/qec-r4.md), [fast-sampler.md](../research/qec/fast-sampler.md) |
+| [stim_compare](stim_compare.rs) | Identical-circuit comparison with Stim, both directions; `sample-x`/`bench-x`: the backward-compiled, multi-threaded detector sampler | [qec-r4.md](../research/qec/qec-r4.md), [fast-sampler.md](../research/qec/fast-sampler.md), [sampler-x.md](../research/qec/sampler-x.md) |
 | [stim_export](stim_export.rs) | Exports the surface-code circuit to .stim; per-detector rates and timing vs Stim | [qec-r4.md](../research/qec/qec-r4.md) |
 | [compile_bench](compile_bench.rs) | Compiler passes vs always simulating the original circuit | [compiler.md](../research/compiler/compiler.md) |
 | [dag_bench](dag_bench.rs) | DAG IR construction cost and gate counts after each peephole | [dag.md](../research/compiler/dag.md) |
