@@ -30,23 +30,23 @@
 //! `known_codes.py`): `below` (a nontrivial logical of weight `< T` exists;
 //! `d_up` is its weight), `tie` (`d = T` exactly), `new` (`d > T`, exact) or
 //! `undecided` (node limit). One JSON line per class with `k > 0`.
-use qsim_lab::qec::bicycle::{
-    distance_upper_bound, logical_masks, min_weight_logical, DistanceOpts, Gf2Mat, SearchOutcome,
-};
-use qsim_lab::qec::group_algebra::{
-    normalizer_quotient, orbit_roots, CosetCode, Cosets, Enumeration, FiniteGroup, GroupCode,
-};
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rayon::prelude::*;
 use qsim_lab::engines::stabilizer::fast_sampler::{FastSampler, WyRand};
 use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::qec::bb_circuit::{
     memory, schedule_valid, valid_schedules, BbMemory, BbSchedule, TwoBlockLayout,
 };
+use qsim_lab::qec::bicycle::{
+    distance_upper_bound, logical_masks, min_weight_logical, DistanceOpts, Gf2Mat, SearchOutcome,
+};
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
 use qsim_lab::qec::color::circuit_dem;
+use qsim_lab::qec::group_algebra::{
+    normalizer_quotient, orbit_roots, CosetCode, Cosets, Enumeration, FiniteGroup, GroupCode,
+};
+use rand::rngs::StdRng;
 use rand::RngCore;
+use rand::SeedableRng;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Mutex;
@@ -251,7 +251,10 @@ fn search_group(
 fn search(a: &[String]) {
     let mut thr: HashMap<(usize, usize), usize> = HashMap::new();
     for line in std::fs::read_to_string(&a[0]).unwrap().lines() {
-        let v: Vec<usize> = line.split_whitespace().map(|x| x.parse().unwrap()).collect();
+        let v: Vec<usize> = line
+            .split_whitespace()
+            .map(|x| x.parse().unwrap())
+            .collect();
         if v.len() == 3 {
             thr.insert((v[0], v[1]), v[2]);
         }
@@ -263,7 +266,10 @@ fn search(a: &[String]) {
             .unwrap()
             .lines()
             .filter_map(|l| {
-                let v: Vec<usize> = l.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+                let v: Vec<usize> = l
+                    .split_whitespace()
+                    .filter_map(|x| x.parse().ok())
+                    .collect();
                 (v.len() == 2).then(|| (v[0], v[1]))
             })
             .collect();
@@ -708,7 +714,10 @@ fn ler(a: &[String]) {
 fn csearch(a: &[String]) {
     let mut thr: HashMap<(usize, usize), usize> = HashMap::new();
     for line in std::fs::read_to_string(&a[0]).unwrap().lines() {
-        let v: Vec<usize> = line.split_whitespace().map(|x| x.parse().unwrap()).collect();
+        let v: Vec<usize> = line
+            .split_whitespace()
+            .map(|x| x.parse().unwrap())
+            .collect();
         if v.len() == 3 {
             thr.insert((v[0], v[1]), v[2]);
         }

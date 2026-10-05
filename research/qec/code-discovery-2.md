@@ -196,3 +196,49 @@ claimed below is then checked again by methods that share no code with the searc
 | [[192,16,12]] | SmallGroup(96,12) = C3 ⋊ ((C4 × C4) ⋊ C2) | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 3.0·10⁶ / 2.8·10⁶ | 12 / 12 |
 | [[200,16,12]] | SmallGroup(100,13) = D10 × D10 | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 2.8·10⁶ / 2.7·10⁶ | 12 / 12 |
 | [[224,18,12]] | SmallGroup(112,20) = C7 × ((C4 × C2) ⋊ C2) | 18 / 18 | 12, 12 (9.8·10⁴) | ≤ 11: 3.5·10⁶ / 3.6·10⁶ | 12 / 12 |
+
+### 4.1 The [[288,16,16]] code, explicitly
+
+G = Z6 × K with K = SmallGroup(24,8) = C3 ⋊ D8:
+
+```text
+K = < a, b, c | a^3 = b^4 = c^2 = 1,  b^-1 a b = a^-1,  c a c = a^-1,  c b c = b^-1 >,   Z6 = < z >
+A = { 1,  z^4 c,  z^2 a b^3 c }
+B = { 1,  z^4 a b^2,  z^5 b }
+X-check g:  L{g x : x in A},  R{y g : y in B}        Z-check h:  L{y^-1 h : y in B},  R{h x^-1 : x in A}
+```
+
+Every element is z^i a^j b^k c^l, and (z^i a^j b^k c^l)(z^i' a^j' b^k' c^l') =
+z^(i+i') a^(j + (−1)^(k+l) j') b^(k + (−1)^l k') c^(l+l').
+`code_288_from_presentation.py` builds the code from these lines alone (no GAP, no table): k = 16
+(both ranks 136), all checks commute, and `mwlogical.c` finds weight-16 logicals of both types and
+proves that none of weight ≤ 15 exists (3.98·10⁸ / 4.04·10⁸ nodes). In GAP's numbering
+(`export_groups.g`) the same code is SmallGroup(144,167), A = {0, 9, 83}, B = {0, 51, 90}.
+The same parameters occur over SmallGroup(144,64), (144,151), (144,153) and (144,154) (seven
+inequivalent pairs (A, B) in all; whether these codes are isomorphic was not checked).
+
+**Novelty.** A separate literature check (`novelty_288.md`, 25 papers incl. the four arXiv ids not
+extracted for the supplement) found no weight-6 code with n ≤ 300 and k·d²/n > 14.11, none with
+n ≤ 288, k ≥ 16 and d ≥ 16, and no weight-6 [[288,k,d]] with k ≥ 16 and d ≥ 14. The *parameters*
+[[288,16,16]] are published at higher check weight: a weight-9 quantum Tanner code over Q8 (Leverrier,
+Rozendaal & Zémor, arXiv:2512.20532; distance a 50 k-trial QDistRnd estimate), and Qian & Li's
+weight-7 [[288,16,18]] (arXiv:2608.08996) is better. The claim is therefore specific to weight 6: the
+margin over Liang et al.'s weight-6 [[254,14,16]] (14.11) is 0.8 %.
+
+### 4.2 The [[192,12,14]] code, explicitly
+
+G = SmallGroup(96,17) = C3 ⋊ (Q8 ⋊ C4):
+
+```text
+G = < a, i, j, t | a^3 = t^4 = 1, Q8 = <i, j> (i^2 = j^2 = (ij)^2, i^4 = 1), <t> ∩ Q8 = 1,
+                   t^-1 i t = i^-1, t^-1 j t = i j, i a = a i, t a = a t, j^-1 a j = a^-1 >
+A = { 1,  j t^2,  a t }
+B = { 1,  a i,  a^2 i^-1 t^3 }
+```
+
+`code_192_from_presentation.py` rebuilds it from these lines (quaternion arithmetic, no GAP): k = 12
+(ranks 90 / 90), all checks commute, and `mwlogical.c` proves d_Z = d_X = 14 (no logical of weight
+≤ 13; weight-14 logicals of both types found). In GAP's numbering: SmallGroup(96,17), A = {0, 1, 15},
+B = {0, 20, 85}. k·d²/n = 12.25 exceeds the gross code's 12.0, the best published weight-6 value with
+n ≤ 192 in our tables, and the code dominates the 2026 [[216,12,14]] lift of Hirasaki & Lee. It was
+not covered by a targeted literature search the way [[288,16,16]] was.

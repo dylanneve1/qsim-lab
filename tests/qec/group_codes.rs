@@ -8,10 +8,10 @@ use qsim_lab::qec::bicycle::{
     SearchOutcome, TwoBlockCode,
 };
 use qsim_lab::qec::group_algebra::{Enumeration, FiniteGroup, GroupCode};
-use std::collections::{HashMap, HashSet};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
+use std::collections::{HashMap, HashSet};
 
 fn commute(c: &GroupCode) -> bool {
     let (hx, hz) = (c.hx(), c.hz());
@@ -70,13 +70,20 @@ fn matches_bicycle_on_abelian_groups() {
 #[test]
 fn checks_commute_and_ranks_match() {
     let mut rng = StdRng::seed_from_u64(3);
-    for (m, k, q) in [(3, 2, 2), (5, 4, 2), (7, 3, 2), (9, 2, 8), (13, 3, 3), (4, 4, 3)] {
+    for (m, k, q) in [
+        (3, 2, 2),
+        (5, 4, 2),
+        (7, 3, 2),
+        (9, 2, 8),
+        (13, 3, 3),
+        (4, 4, 3),
+    ] {
         let g = FiniteGroup::metacyclic(m, k, q).unwrap();
         for _ in 0..20 {
             let w = rng.random_range(2..5usize);
             let a = random_subset(&mut rng, g.order, w);
             let wb = rng.random_range(2..5usize);
-                let b = random_subset(&mut rng, g.order, wb);
+            let b = random_subset(&mut rng, g.order, wb);
             let c = GroupCode::new(&g, &a, &b);
             assert!(commute(&c), "{m} {k} {q} {a:?} {b:?}");
             let (rx, rz) = c.ranks();
@@ -164,7 +171,11 @@ fn symmetric_roots_match_plain_and_brute_force() {
                 let (k, dz, dx) = brute(&c);
                 let (rz, rx) = c.distances(&DistanceOpts::default());
                 assert_eq!(k, rz.k);
-                assert_eq!((Some(dz), Some(dx)), (rz.exact(), rx.exact()), "{a:?} {b:?}");
+                assert_eq!(
+                    (Some(dz), Some(dx)),
+                    (rz.exact(), rx.exact()),
+                    "{a:?} {b:?}"
+                );
             }
             tested += 1;
         }
@@ -265,11 +276,7 @@ fn enumeration_matches_brute_force_orbits() {
         let gens: Vec<usize> = (1..n).collect();
         let left: Vec<Vec<usize>> = gens.iter().map(|&u| map(&|x| g.mul(u, x))).collect();
         let right: Vec<Vec<usize>> = gens.iter().map(|&u| map(&|x| g.mul(x, u))).collect();
-        let auts: Vec<Vec<usize>> = g
-            .aut_gens
-            .iter()
-            .map(|s| map(&|x| s[x] as usize))
-            .collect();
+        let auts: Vec<Vec<usize>> = g.aut_gens.iter().map(|s| map(&|x| s[x] as usize)).collect();
         let inv = map(&|x| g.inv(x));
         let mut parent: Vec<usize> = (0..ms * ms).collect();
         fn find(p: &mut [usize], mut x: usize) -> usize {
@@ -318,18 +325,24 @@ fn enumeration_matches_brute_force_orbits() {
             let x = key([a[0] as usize, a[1] as usize, a[2] as usize]) * ms
                 + key([b[0] as usize, b[1] as usize, b[2] as usize]);
             let r = find(&mut parent, x);
-            assert!(rep_of_root.insert(r, param(a, b)).is_none(), "two reps in one orbit");
+            assert!(
+                rep_of_root.insert(r, param(a, b)).is_none(),
+                "two reps in one orbit"
+            );
         }
         let mut rng = StdRng::seed_from_u64(9);
         for _ in 0..40 {
             let (i, j) = (rng.random_range(0..ms), rng.random_range(0..ms));
             let r = find(&mut parent, i * ms + j);
             let p = param(&subs[i], &subs[j]);
-            assert_eq!(rep_of_root[&r], p, "{} {:?} {:?}", g.label, subs[i], subs[j]);
+            assert_eq!(
+                rep_of_root[&r], p,
+                "{} {:?} {:?}",
+                g.label, subs[i], subs[j]
+            );
         }
     }
 }
-
 
 /// Coset codes: `H = {1}` gives the group code; every random coset code with
 /// `B` in the normaliser has commuting checks; the symmetry-rooted distance
@@ -424,8 +437,10 @@ fn coset_codes() {
     for _ in 0..10 {
         let a = random_subset(&mut rng, g.order, 3);
         let b = random_subset(&mut rng, g.order, 3);
-        let (ad, bd): (Vec<u16>, Vec<u16>) =
-            (a.iter().map(|&x| down(x)).collect(), b.iter().map(|&x| down(x)).collect());
+        let (ad, bd): (Vec<u16>, Vec<u16>) = (
+            a.iter().map(|&x| down(x)).collect(),
+            b.iter().map(|&x| down(x)).collect(),
+        );
         if HashSet::<u16>::from_iter(ad.iter().copied()).len() < 3
             || HashSet::<u16>::from_iter(bd.iter().copied()).len() < 3
         {
@@ -468,7 +483,10 @@ fn perm_group(gens: &[&[u8]]) -> (FiniteGroup, HashMap<Vec<u8>, u16>) {
             mul[i * n + j] = index[&r];
         }
     }
-    (FiniteGroup::from_table(n, mul, vec![], "perm").unwrap(), index)
+    (
+        FiniteGroup::from_table(n, mul, vec![], "perm").unwrap(),
+        index,
+    )
 }
 
 /// Rebuilds a code from a permutation representation of its group (printed by
@@ -477,13 +495,20 @@ fn perm_group(gens: &[&[u8]]) -> (FiniteGroup, HashMap<Vec<u8>, u16>) {
 fn pin(gens: &[&[u8]], a: &[&[u8]], b: &[&[u8]], n: usize, k: usize, d: usize) {
     let (g, index) = perm_group(gens);
     let el = |p: &[u8]| index[&p.to_vec()];
-    let (av, bv): (Vec<u16>, Vec<u16>) = (a.iter().map(|p| el(p)).collect(), b.iter().map(|p| el(p)).collect());
+    let (av, bv): (Vec<u16>, Vec<u16>) = (
+        a.iter().map(|p| el(p)).collect(),
+        b.iter().map(|p| el(p)).collect(),
+    );
     let c = GroupCode::new(&g, &av, &bv);
     assert_eq!(c.n(), n);
     assert!(c.is_connected());
     assert_eq!(c.k(), k);
     let (dz, dx) = c.distances(&DistanceOpts::default());
-    assert_eq!((dz.exact(), dx.exact()), (Some(d), Some(d)), "{dz:?} {dx:?}");
+    assert_eq!(
+        (dz.exact(), dx.exact()),
+        (Some(d), Some(d)),
+        "{dz:?} {dx:?}"
+    );
 }
 
 /// [[288,16,16]] over SmallGroup(144,167) = Z6 x (C3 : D8): k d^2/n = 14.2,
