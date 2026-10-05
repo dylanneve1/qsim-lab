@@ -75,6 +75,7 @@ pub enum Oracle {
 
 /// A simulator state that can run semiclassical order finding.
 pub trait OrderFindingState: Clone {
+    /// Applies one gate.
     fn gate(&mut self, g: &Gate);
     /// Applies a gate sequence; `blocked` lets a dense state use the
     /// cache-blocked fused executor ([`crate::engines::blocked`]).
@@ -95,7 +96,10 @@ pub trait OrderFindingState: Clone {
     /// work register = qubits `1..=m`); identity elsewhere. `inv` is
     /// `mult^-1 mod N`.
     fn ctrl_mul(&mut self, m: usize, mult: u64, inv: u64, n_mod: u64);
+    /// Probability of measuring qubit `q` as `1`.
     fn prob_one(&self, q: usize) -> f64;
+    /// Projects qubit `q` onto `outcome` and renormalises; the outcome must have
+    /// nonzero probability.
     fn collapse(&mut self, q: usize, outcome: bool);
     /// Bytes held by the amplitudes.
     fn bytes(&self) -> usize;
@@ -294,12 +298,15 @@ pub fn mod_inverse(a: u64, n: u64) -> u64 {
 /// Everything fixed for one order-finding instance.
 #[derive(Clone, Debug)]
 pub struct Instance {
+    /// The modulus `N` to factor.
     pub n_mod: u64,
+    /// The base `a` whose order mod `N` is sought (coprime to `N`).
     pub a: u64,
     /// Work-register width `n`.
     pub m: usize,
     /// Number of measured bits `t = 2n`.
     pub t: usize,
+    /// Which modular-multiplication oracle the rounds use.
     pub oracle: Oracle,
     /// Dense states run gate-level rounds with the cache-blocked executor
     /// (default `true`; `false` = one `apply_gate` pass per gate).
@@ -311,6 +318,11 @@ pub struct Instance {
 }
 
 impl Instance {
+    /// Precomputes the instance for modulus `n_mod` and base `a`.
+    ///
+    /// Panics unless `n_mod >= 3`, `gcd(a, n_mod) = 1` and the work register
+    /// (`work_bits(n_mod)` bits) is at most 63 bits wide. `blocked` defaults to
+    /// `true` and `gate_by_gate` to `false`.
     pub fn new(n_mod: u64, a: u64, oracle: Oracle) -> Self {
         assert!(n_mod >= 3 && gcd(a, n_mod) == 1);
         let m = work_bits(n_mod);
@@ -351,10 +363,12 @@ impl Instance {
         }
     }
 
+    /// Beauregard qubit layout for the `m`-bit work register.
     pub fn layout(&self) -> BeauregardLayout {
         BeauregardLayout::new(self.m)
     }
 
+    /// Ripple-carry qubit layout for the `m`-bit work register.
     pub fn ripple_layout(&self) -> crate::shor::ripple::RippleLayout {
         crate::shor::ripple::RippleLayout::new(self.m)
     }
@@ -458,17 +472,27 @@ impl Instance {
 /// Outcome of one semiclassical run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemiRun {
+    /// Base `a` used in this run.
     pub a: u64,
     /// The measured `2n`-bit integer (bit `i` = measurement `i`).
     pub measured: u128,
+    /// Order of `a` mod `N` recovered by [`postprocess`], if any.
     pub order: Option<u64>,
+    /// Nontrivial factor of `N` derived from an even order, if any.
     pub factor: Option<u64>,
+    /// Qubits the circuit needs ([`Instance::qubits`]).
     pub qubits: usize,
     /// Largest number of stored amplitudes seen during the run.
     pub peak_stored: usize,
     /// Largest amplitude memory seen during the run (bytes).
     pub peak_bytes: usize,
+    /// Gate count of the whole semiclassical circuit: oracle blocks plus the two
+    /// Hadamards per round, the feed-forward phase when earlier bits were 1, and
+    /// the control reset after each `1` outcome. Not counted for the permutation
+    /// oracle (0).
     pub total_gates: usize,
+    /// Toffoli (CCX) gates in the oracle blocks (0 for the permutation and
+    /// Beauregard oracles).
     pub toffoli_gates: usize,
     /// Gate × branch applications (sliced backend only, else 0).
     pub work_ops: u128,
@@ -678,11 +702,15 @@ pub fn semiclassical_ripple_circuit(n_mod: u64, a: u64) -> Circuit {
 /// Which simulator backs a semiclassical factoring attempt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Backend {
+    /// [`StateVector`] with f64 amplitudes.
     DenseF64,
+    /// [`StateVector`] with f32 amplitudes.
     DenseF32,
+    /// [`SparseState`] (exact, hash map of nonzero amplitudes).
     Sparse,
     /// [`fused::FusedDense`] (permutation oracle only).
     FusedF64,
+    /// [`fused::FusedDense`] with f32 amplitudes (permutation oracle only).
     FusedF32,
     /// [`fused::FusedSparse`] (permutation oracle only).
     FusedSparse,

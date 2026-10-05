@@ -29,19 +29,31 @@ use crate::shor::ripple::{cuccaro_add, cuccaro_sub, load_constant};
 /// Qubit layout of the windowed multiplier.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WindowLayout {
+    /// Width of the modulus (work-register bits).
     pub n: usize,
+    /// Window size (clamped to at most `n`).
     pub w: usize,
+    /// Control qubit (always 0).
     pub ctrl: usize,
+    /// Work register, LSB first (`1..=n`).
     pub x: Vec<usize>,
+    /// Accumulator, LSB first (`n+1..=2n+1`, `n + 1` qubits).
     pub b: Vec<usize>,
+    /// Lookup register `L` (`2n+2..=3n+1`).
     pub l: Vec<usize>,
+    /// Constant register `K` (`3n+2..=4n+1`).
     pub k: Vec<usize>,
+    /// Cuccaro carry-in (`4n + 2`).
     pub c0: usize,
+    /// Comparison flag (`4n + 3`).
     pub t: usize,
+    /// AND-chain ancillas of the lookup (`4n+4..4n+4+w`).
     pub and: Vec<usize>,
 }
 
 impl WindowLayout {
+    /// Layout for an `n`-bit modulus and window `w` (clamped to `n`); panics if
+    /// `n` or `w` is 0.
     pub fn new(n: usize, w: usize) -> Self {
         assert!(n >= 1 && w >= 1, "n and w must be positive");
         let w = w.min(n);
@@ -59,6 +71,7 @@ impl WindowLayout {
         }
     }
 
+    /// Total qubits: `4n + 4 + w`.
     pub fn num_qubits(&self) -> usize {
         4 * self.n + 4 + self.w
     }

@@ -260,6 +260,7 @@ impl SlicedProgram {
         self.ops.len()
     }
 
+    /// True if the program has no slice steps.
     pub fn is_empty(&self) -> bool {
         self.ops.is_empty()
     }
@@ -283,6 +284,7 @@ impl SlicedProgram {
 /// ancilla that must be 0 before and after the block.
 #[derive(Clone, Debug)]
 pub struct SliceIo {
+    /// Control qubit.
     pub ctrl: usize,
     /// Work register, LSB first.
     pub x: Vec<usize>,
@@ -290,6 +292,7 @@ pub struct SliceIo {
 
 /// An output slot that receives a work-register value.
 pub trait KeySlot: Send {
+    /// Stores the work-register value `y` in the slot.
     fn set_key(&mut self, y: u64);
 }
 impl KeySlot for u64 {
@@ -592,6 +595,9 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
 }
 
 impl<T: Real> SlicedState<T> {
+    /// Initial state: control `|0>`, work register `|1>`. Panics unless the
+    /// oracle is `Ripple`, `Windowed`, `WindowedOpt`, `WindowedMbu` or
+    /// `WindowedMbuLookup`.
     pub fn new(inst: &Instance) -> Self {
         assert!(matches!(
             inst.oracle,
@@ -618,6 +624,7 @@ impl<T: Real> SlicedState<T> {
         }
     }
 
+    /// Number of stored work-register branches.
     pub fn nnz(&self) -> usize {
         self.keys.len()
     }

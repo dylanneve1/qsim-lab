@@ -22,16 +22,24 @@ use crate::gate::Gate;
 /// Qubit layout for an `n`-bit modulus in Cuccaro ripple-carry arithmetic.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RippleLayout {
+    /// Width of the modulus (work-register bits).
     pub n: usize,
+    /// Control qubit (always 0).
     pub ctrl: usize,
+    /// Work register, LSB first (`1..=n`).
     pub x: Vec<usize>,
+    /// Accumulator, LSB first (`n+1..=2n+1`, `n + 1` qubits).
     pub b: Vec<usize>,
+    /// Constant register, LSB first (`2n+2..=3n+1`).
     pub a: Vec<usize>,
+    /// Cuccaro carry-in (`3n + 2`).
     pub c0: usize,
+    /// Modular comparison flag (`3n + 3`).
     pub t: usize,
 }
 
 impl RippleLayout {
+    /// Layout for an `n`-bit modulus; panics if `n == 0`.
     pub fn new(n: usize) -> Self {
         assert!(n >= 1, "n must be at least 1");
         let ctrl = 0;
