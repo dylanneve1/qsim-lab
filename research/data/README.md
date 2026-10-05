@@ -16,6 +16,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`dense-fusion/`](dense-fusion/) | [dense-fusion.md](../performance/dense-fusion.md) |
 | [`ft-shor/`](ft-shor/) | [ft-shor.md](../shor/ft-shor.md) |
 | [`ge-shor/`](ge-shor/) | [ge-shor.md](../shor/ge-shor.md) |
+| [`graph-compiler/`](graph-compiler/) | [graph-compiler.md](../compiler/graph-compiler.md) |
 | [`hsf/`](hsf/) | [hsf.md](../performance/hsf.md) |
 | [`mac-m1/`](mac-m1/) | [mac-m1.md](../performance/mac-m1.md) |
 | [`l1/`](l1/) | [mac-m1.md](../performance/mac-m1.md) |

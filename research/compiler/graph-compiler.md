@@ -215,7 +215,7 @@ is superposed, only the ops before it fold. Exploiting the rest needs the sparse
 engines, and the planner already routes such circuits there.
 
 ### 3c. k ≤ 5 dense fusion with a cost model: measured not to pay
-Dense k-qubit fusion is the integrator's work (`research/dense-fusion.md`). Its measured
+Dense k-qubit fusion is the integrator's work (`research/performance/dense-fusion.md`). Its measured
 kernel cost rule is that a k-qubit dense pass costs about 2^k single-qubit passes, so a group
 is fused only if it holds ≥ 2^k dense single-qubit gates. Fused groups won 2.15× (f32) on
 SU(4) blocks and lost or tied elsewhere. Before building a front-layer DP up to k = 5, I
