@@ -26,27 +26,36 @@ use std::collections::HashMap;
 /// A block: ops (indices into the circuit) and its qubits in canonical order.
 #[derive(Clone, Debug)]
 pub struct Block {
+    /// Indices into the circuit's `ops`, ascending.
     pub ops: Vec<usize>,
     /// `qubits[j]` = physical qubit of canonical qubit `j`.
     pub qubits: Vec<usize>,
+    /// Class id (equal canonical form, angles included), numbered by first appearance.
     pub class: usize,
+    /// Shape-class id (canonical form ignoring angles), numbered by first appearance.
     pub shape: usize,
 }
 
 /// Result of [`analyse`].
 #[derive(Clone, Debug, Default)]
 pub struct Dedup {
+    /// The blocks, in the order they were opened.
     pub blocks: Vec<Block>,
+    /// Number of distinct classes.
     pub num_classes: usize,
+    /// Number of distinct shape classes.
     pub num_shapes: usize,
     /// Instances per class.
     pub class_count: Vec<usize>,
+    /// Instances per shape class.
     pub shape_count: Vec<usize>,
     /// Ops in blocks whose class has at least two instances.
     pub covered_ops: usize,
     /// Same for shape classes.
     pub covered_ops_shape: usize,
+    /// Ops acting on at least one qubit (global-phase ops excluded).
     pub total_ops: usize,
+    /// Seconds spent in the analysis.
     pub secs: f64,
 }
 

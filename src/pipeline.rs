@@ -71,7 +71,12 @@ pub const ADAPTIVE_MAX_ACTIVE: usize = 26;
 pub enum Request {
     /// `shots` independent measurement records (one bool per measurement
     /// in program order), drawn with a seeded RNG.
-    Samples { shots: usize, seed: u64 },
+    Samples {
+        /// Number of independent shots.
+        shots: usize,
+        /// Seed of the RNG that draws them.
+        seed: u64,
+    },
     /// `<x|ψ>` for the given basis states `x` (bit `q` = qubit `q`) of a
     /// unitary circuit, including the global phase.
     Amplitudes(Vec<u128>),
@@ -98,14 +103,18 @@ impl Default for Budget {
 /// The answer to a [`Request`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum Output {
+    /// One measurement record per shot, each in program order.
     Samples(Vec<Vec<bool>>),
+    /// One amplitude per requested basis state, in request order.
     Amplitudes(Vec<Complex64>),
+    /// The requested Z-product expectation value, in `[-1, 1]`.
     Expectation(f64),
 }
 
 /// Result of [`simulate`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Simulation {
+    /// The answer to the request.
     pub output: Output,
     /// `(qubits, gates, engine)` per simulated component.
     pub engines: Vec<(usize, usize, Backend)>,
@@ -166,7 +175,9 @@ pub struct SimOptions {
 /// Options of the repeat pass (see `research/compiler/repeat.md`).
 #[derive(Clone, Debug)]
 pub struct RepeatOptions {
+    /// Options for detecting `prefix · B^r · suffix` structure.
     pub detect: DetectOptions,
+    /// Which exact fast paths may execute the detected repeat.
     pub exec: ExecOptions,
     /// Ignore circuits where repeats let a simulator skip fewer gates.
     pub min_saved_gates: usize,
@@ -521,7 +532,9 @@ fn simulate_plain(
 /// How `qsim run shor` should run for a modulus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ShorPath {
+    /// Use the semiclassical (one recycled control qubit) order-finding circuit.
     pub semiclassical: bool,
+    /// Use the exact sparse state instead of a dense register.
     pub sparse: bool,
     /// True if the choice differs from what the flags asked for.
     pub overridden: bool,

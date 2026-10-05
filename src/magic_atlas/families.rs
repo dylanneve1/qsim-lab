@@ -18,11 +18,15 @@ use std::f64::consts::PI;
 /// A parsed family spec.
 #[derive(Clone, Debug)]
 pub struct Spec {
+    /// Family name (the part before `:`).
     pub family: String,
+    /// Raw `key=value` parameters, trimmed, by key.
     pub params: BTreeMap<String, String>,
 }
 
 impl Spec {
+    /// Parses `family:key=value,...`; fails on a parameter without `=`.
+    ///  Values are kept as strings and checked by the family builder.
     pub fn parse(s: &str) -> Result<Spec, String> {
         let (family, rest) = match s.split_once(':') {
             Some((f, r)) => (f.to_string(), r),

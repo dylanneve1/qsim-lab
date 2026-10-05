@@ -70,21 +70,25 @@ impl NoiseModel {
         }
     }
 
+    /// Replaces the single-qubit gate error rate.
     pub fn with_p1(mut self, p: f64) -> Self {
         self.p_1q = p;
         self
     }
 
+    /// Replaces the two-qubit gate error rate.
     pub fn with_p2(mut self, p: f64) -> Self {
         self.p_2q = p;
         self
     }
 
+    /// Replaces the readout error rate.
     pub fn with_meas(mut self, p: f64) -> Self {
         self.p_meas = p;
         self
     }
 
+    /// Replaces the reset error rate.
     pub fn with_reset(mut self, p: f64) -> Self {
         self.p_reset = p;
         self

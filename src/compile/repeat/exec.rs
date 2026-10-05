@@ -23,10 +23,13 @@ use std::f64::consts::PI;
 /// Which fast paths [`run_dense`] may use.
 #[derive(Clone, Debug)]
 pub struct ExecOptions {
+    /// Collapse repeats of diagonal blocks into one phase layer (angles scaled by `r`).
     pub diag: bool,
+    /// Apply a block supported on at most `max_small_k` qubits as its `2^k`-dimensional unitary raised to the `r`-th power.
     pub small_unitary: bool,
     /// Largest block support (qubits) for the `2^k` unitary power.
     pub max_small_k: usize,
+    /// Compile a repeated block once and replay the compiled plan for every copy.
     pub reuse_plan: bool,
     /// Plan reuse only up to this register size; wider registers run all
     /// copies as one batch (cross-copy fusion wins there: Trotter n=14
@@ -54,8 +57,11 @@ impl Default for ExecOptions {
 /// What [`run_dense`] did.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ExecStats {
+    /// Repeats run as one folded diagonal phase layer.
     pub diag_blocks: usize,
+    /// Repeats run as a small-support unitary power.
     pub small_blocks: usize,
+    /// Repeats run by replaying one compiled plan per copy.
     pub reuse_blocks: usize,
     /// Repeats run copy by copy through the plain executor.
     pub plain_repeats: usize,
@@ -78,8 +84,11 @@ pub fn scaled_angle(a: f64, r: f64) -> f64 {
 /// `φ(x) = g0 + Σ a_q x_q + Σ b_pq x_p x_q`.
 #[derive(Clone, Debug, Default)]
 pub struct DiagPoly {
+    /// Constant term (global phase), radians.
     pub g0: f64,
+    /// Linear coefficient `a_q` per qubit, radians.
     pub a: BTreeMap<usize, f64>,
+    /// Quadratic coefficient `b_pq` per qubit pair, keyed `(min, max)`, radians.
     pub b: BTreeMap<(usize, usize), f64>,
 }
 
