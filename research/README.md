@@ -45,6 +45,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [planner.md](simulability/planner.md) | Planner v0, and predicting the cost of exact MPS |
 | [planner-v2.md](simulability/planner-v2.md) | Planner v2: samples, amplitudes, cheaper planning |
 | [adaptive.md](simulability/adaptive.md) | Adaptive representation switching (`src/adaptive.rs`) |
+| [spoof-utility.md](simulability/spoof-utility.md) | Classical (laptop) reproduction of IBM's 127-qubit kicked-Ising utility experiment with sparse Pauli dynamics; 433/1121-qubit lattices |
 
 ## Engine performance — [`performance/`](performance/)
 
