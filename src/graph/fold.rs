@@ -12,7 +12,10 @@
 //! * `SWAP` of two known wires swaps the knowledge, of one known wire it
 //!   stays (the knowledge moves).
 //!
-//! Anything else makes its wires unknown. The result is exactly equal to
+//! A known wire is kept physically in `|0>` (its flips are only recorded);
+//! when an op that does not fold touches it, and at the end, an `X`
+//! restores a known `1`. Anything that does not fold makes its wires
+//! unknown. The result is exactly equal to
 //! the input (global phase included, via [`POp::Global`]).
 
 use super::param::{Angle, POp, ParamCircuit};
@@ -113,18 +116,19 @@ pub fn fold_basis(pc: &ParamCircuit) -> (ParamCircuit, FoldStats) {
                         None => emit.push(POp::Fixed(Gate::X(t))),
                     },
                     (Some(true), None) => {
+                        materialize(t, &mut known, &mut emit);
                         emit.push(POp::Fixed(Gate::Cnot(b, t)));
-                        known[t] = None;
                     }
                     (None, Some(true)) => {
+                        materialize(t, &mut known, &mut emit);
                         emit.push(POp::Fixed(Gate::Cnot(a, t)));
-                        known[t] = None;
                     }
                     (None, None) => handled = false,
                 },
                 Gate::Swap(a, b) => {
                     if known[a].is_none() || known[b].is_none() {
-                        // the unknown state still has to move
+                        // the unknown state still has to move (a known wire
+                        // is physically |0>, so its knowledge moves along)
                         emit.push(op.clone());
                     }
                     known.swap(a, b);
@@ -163,15 +167,27 @@ pub fn fold_basis(pc: &ParamCircuit) -> (ParamCircuit, FoldStats) {
             out.ops.extend(emit);
         } else {
             for &q in &qs {
-                known[q] = None;
+                materialize(q, &mut known, &mut out.ops);
             }
             out.ops.push(op.clone());
         }
+    }
+    for q in 0..n {
+        materialize(q, &mut known, &mut out.ops);
     }
     if !(global.is_const() && global.c0 == 0.0) {
         out.ops.push(POp::Global(global));
     }
     (out, st)
+}
+
+/// A known wire is physically still `|0>` (its `X`s were dropped); before
+/// an op that does not fold touches it, put the known value back.
+fn materialize(q: usize, known: &mut [Option<bool>], out: &mut Vec<POp>) {
+    if known[q] == Some(true) {
+        out.push(POp::Fixed(Gate::X(q)));
+    }
+    known[q] = None;
 }
 
 /// `exp(-iθ/2 Z^{⊗v})` with some wires known: each known `1` flips the
