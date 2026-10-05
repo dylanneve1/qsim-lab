@@ -10,6 +10,7 @@ pub struct BitMatrix {
 }
 
 impl BitMatrix {
+    /// All-zero `np x np` matrix. Panics unless `np` is a multiple of 64.
     pub fn zeros(np: usize) -> Self {
         assert_eq!(np % 64, 0, "size must be a multiple of 64");
         let w = np / 64;
@@ -20,6 +21,7 @@ impl BitMatrix {
         }
     }
 
+    /// `np x np` identity. Panics unless `np` is a multiple of 64.
     pub fn identity(np: usize) -> Self {
         let mut m = Self::zeros(np);
         for i in 0..np {
@@ -51,15 +53,18 @@ impl BitMatrix {
         self.w
     }
 
+    /// Heap size of the bit data in bytes.
     pub fn bytes(&self) -> usize {
         self.data.len() * 8
     }
 
+    /// Bit `j` of line `i`.
     #[inline]
     pub fn get(&self, i: usize, j: usize) -> bool {
         (self.data[i * self.w + j / 64] >> (j % 64)) & 1 == 1
     }
 
+    /// Sets bit `j` of line `i` to `v`.
     #[inline]
     pub fn set(&mut self, i: usize, j: usize, v: bool) {
         let word = &mut self.data[i * self.w + j / 64];
@@ -71,11 +76,13 @@ impl BitMatrix {
         }
     }
 
+    /// Line `i` as `words()` packed words.
     #[inline]
     pub fn line(&self, i: usize) -> &[u64] {
         &self.data[i * self.w..(i + 1) * self.w]
     }
 
+    /// Line `i` as `words()` packed words, mutably.
     #[inline]
     pub fn line_mut(&mut self, i: usize) -> &mut [u64] {
         &mut self.data[i * self.w..(i + 1) * self.w]
@@ -94,6 +101,7 @@ impl BitMatrix {
         }
     }
 
+    /// Exchanges lines `a` and `b` (no-op if equal).
     pub fn swap_lines(&mut self, a: usize, b: usize) {
         if a != b {
             let (x, y) = self.two_lines_mut(a, b);

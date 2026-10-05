@@ -42,6 +42,8 @@ impl Hasher for IndexHasher {
     }
 }
 
+/// Map from basis index (bit `q` = qubit `q`) to amplitude; absent keys
+/// are zero amplitudes.
 pub type AmpMap = HashMap<u64, Complex64, BuildHasherDefault<IndexHasher>>;
 
 const ZERO: Complex64 = Complex64::new(0.0, 0.0);
@@ -86,6 +88,7 @@ impl SparseState {
         Self { n, amps: m, peak }
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -109,6 +112,7 @@ impl SparseState {
         self.amps.capacity() * (8 + 16 + 1)
     }
 
+    /// The amplitude `<index|ψ>` (`0` if not stored).
     pub fn amplitude(&self, index: u64) -> Complex64 {
         self.amps.get(&index).copied().unwrap_or(ZERO)
     }
@@ -118,6 +122,7 @@ impl SparseState {
         self.amps.iter().map(|(&k, &v)| (k, v))
     }
 
+    /// `<ψ|ψ>`: sum of `|a|^2` over the stored amplitudes.
     pub fn norm_sqr(&self) -> f64 {
         self.amps.values().map(|a| a.norm_sqr()).sum()
     }
@@ -342,6 +347,8 @@ impl SparseState {
         out
     }
 
+    /// Measures qubit `q` in the computational basis, collapses the state onto
+    /// the outcome (renormalised) and returns it (`true` = 1).
     pub fn measure_qubit<R: Rng + ?Sized>(&mut self, q: usize, rng: &mut R) -> bool {
         let p1 = self.prob_one(q);
         let outcome = rng.random::<f64>() < p1;

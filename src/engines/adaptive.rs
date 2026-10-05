@@ -580,8 +580,9 @@ pub struct CompressedStats {
     pub d_profile: Vec<usize>,
     /// Σ_j 2^{d_j}: amplitudes touched by the rotations.
     pub element_ops: u64,
-    /// Wall-clock seconds: compilation (tableau + frame), dense evolution.
+    /// Wall-clock seconds spent compiling (Heisenberg tableau + GF(2) frame).
     pub compile_secs: f64,
+    /// Wall-clock seconds spent evolving the dense active register.
     pub evolve_secs: f64,
 }
 
@@ -595,6 +596,7 @@ pub struct CompressedState {
     frame: Gf2Frame,
     tab: HeisenbergTableau,
     cliffords: Vec<Gate>,
+    /// What the construction cost (see [`CompressedStats`]).
     pub stats: CompressedStats,
 }
 
@@ -651,6 +653,7 @@ impl CompressedState {
         })
     }
 
+    /// Total number of qubits `n` of the circuit (active plus inert).
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -747,6 +750,7 @@ pub struct SamplerStats {
     pub dense_bits: usize,
     /// Dense passes spent diagonalising the measured observables.
     pub dense_passes: usize,
+    /// Wall-clock seconds spent building the sampler.
     pub build_secs: f64,
 }
 
@@ -772,6 +776,7 @@ pub struct Sampler {
     pivot_cols: Vec<(usize, Vec<u64>)>,
     /// Columns to XOR for each uniformly random generator bit.
     random_cols: Vec<Vec<u64>>,
+    /// What the construction found (see [`SamplerStats`]).
     pub stats: SamplerStats,
 }
 
@@ -1043,6 +1048,7 @@ impl Sampler {
         }
     }
 
+    /// Number of qubits `n` in each sample.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -1189,7 +1195,10 @@ pub enum Strategy {
 /// Options for [`expectation`].
 #[derive(Clone, Copy, Debug)]
 pub struct AdaptiveOptions {
+    /// Options for the Heisenberg (Pauli-frame) side; `prune` is always
+    /// forced on by [`expectation`].
     pub frame: FrameOptions,
+    /// When to hand over from the frame to the dense register.
     pub strategy: Strategy,
     /// Largest active register the dense side may use.
     pub max_dense_qubits: usize,
@@ -1238,6 +1247,7 @@ impl Default for AdaptiveOptions {
 /// What [`expectation`] did.
 #[derive(Clone, Debug, Default)]
 pub struct AdaptiveReport {
+    /// The expectation value `<0|U† O U|0>`.
     pub value: f64,
     /// Rotations left to the dense side (`None`: the frame finished).
     pub switched_at: Option<usize>,
@@ -1245,10 +1255,16 @@ pub struct AdaptiveReport {
     pub dense_qubits: usize,
     /// Terms handed over at the switch.
     pub handover_terms: usize,
+    /// Statistics of the Heisenberg (frame) side, up to the switch if one
+    /// happened.
     pub frame_stats: PathStats,
     /// Dense element operations (evolution + evaluation).
     pub dense_ops: u64,
+    /// Wall-clock seconds from the start of the call until the frame side
+    /// finished or handed over.
     pub frame_secs: f64,
+    /// Wall-clock seconds spent on the dense side (evolution + evaluation, or
+    /// the from-scratch dense run after a restart); `0` if no switch happened.
     pub dense_secs: f64,
     /// [`Strategy::Auto`] explored past a switch decision, ran out of its
     /// budget and restarted on the dense register from scratch.
