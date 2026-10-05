@@ -8,6 +8,7 @@ pub mod color;
 pub mod decoder;
 pub mod dem;
 pub mod distance;
+pub mod group_algebra;
 pub mod repetition;
 pub mod schedules;
 pub mod surface;

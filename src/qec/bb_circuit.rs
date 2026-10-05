@@ -1,6 +1,7 @@
 //! Syndrome-extraction memory circuits for weight-6 two-block codes
 //! (`|A| = |B| = 3`), generalising the depth-7 CNOT schedule of Bravyi et
-//! al. (Nature 627, 778 (2024)).
+//! al. (Nature 627, 778 (2024)), for abelian ([`TwoBlockCode`]) and
+//! non-abelian ([`GroupCode`]) groups via [`TwoBlockLayout`].
 //!
 //! # Layout and schedule
 //!
@@ -29,7 +30,8 @@
 //! measured in the memory basis.
 #![allow(clippy::needless_range_loop)]
 
-use super::bicycle::{bits_of, logical_basis, TwoBlockCode};
+use super::bicycle::{bits_of, logical_basis, Gf2Mat, TwoBlockCode};
+use super::group_algebra::{CosetCode, GroupCode};
 use crate::circuit::{Circuit, Op};
 use crate::gate::Gate;
 use crate::noise::NoiseModel;
@@ -110,6 +112,107 @@ fn add(c: &TwoBlockCode, g: usize, (a, b): (usize, usize), minus: bool) -> usize
     }
 }
 
+/// What a depth-7 syndrome circuit needs from a weight-(3, 3) two-block
+/// code: the qubit each check term touches (every term is a bijection
+/// between the checks of one type and one data block) and the check
+/// matrices. Implemented for [`TwoBlockCode`] (abelian `Z_l x Z_m`) and
+/// [`GroupCode`] (any finite group, `qec::group_algebra`).
+pub trait TwoBlockLayout {
+    /// Group order `N` (checks of each type; data qubits per block).
+    fn order(&self) -> usize;
+    /// `(|A|, |B|)`.
+    fn weights(&self) -> (usize, usize);
+    /// Data qubit touched by X-check `g` through term `t` (`0..3`: `L`, `3..6`: `R`).
+    fn x_term(&self, g: usize, t: usize) -> usize;
+    /// Data qubit touched by Z-check `h` through term `t` (`0..3`: `L`, `3..6`: `R`).
+    fn z_term(&self, h: usize, t: usize) -> usize;
+    /// `H_X`.
+    fn hx(&self) -> Gf2Mat;
+    /// `H_Z`.
+    fn hz(&self) -> Gf2Mat;
+}
+
+impl TwoBlockLayout for TwoBlockCode {
+    fn order(&self) -> usize {
+        TwoBlockCode::order(self)
+    }
+    fn weights(&self) -> (usize, usize) {
+        (self.a.len(), self.b.len())
+    }
+    fn x_term(&self, g: usize, t: usize) -> usize {
+        x_term_qubit(self, g, t)
+    }
+    fn z_term(&self, h: usize, t: usize) -> usize {
+        z_term_qubit(self, h, t)
+    }
+    fn hx(&self) -> Gf2Mat {
+        TwoBlockCode::hx(self)
+    }
+    fn hz(&self) -> Gf2Mat {
+        TwoBlockCode::hz(self)
+    }
+}
+
+/// X-check `g`, term `t < 3`: `L(g a_t)`; `t >= 3`: `R(b_{t-3} g)`. Z-check
+/// `h`, term `t < 3`: `L(b_t^-1 h)`; `t >= 3`: `R(h a_{t-3}^-1)` (the
+/// convention of `qec::group_algebra`; for abelian groups it coincides with
+/// [`TwoBlockCode`]'s).
+impl TwoBlockLayout for GroupCode<'_> {
+    fn order(&self) -> usize {
+        GroupCode::order(self)
+    }
+    fn weights(&self) -> (usize, usize) {
+        (self.a.len(), self.b.len())
+    }
+    fn x_term(&self, g: usize, t: usize) -> usize {
+        let nn = GroupCode::order(self);
+        if t < 3 {
+            self.g.mul(g, self.a[t] as usize)
+        } else {
+            nn + self.g.mul(self.b[t - 3] as usize, g)
+        }
+    }
+    fn z_term(&self, h: usize, t: usize) -> usize {
+        let nn = GroupCode::order(self);
+        if t < 3 {
+            self.g.mul(self.g.inv(self.b[t] as usize), h)
+        } else {
+            nn + self.g.mul(h, self.g.inv(self.a[t - 3] as usize))
+        }
+    }
+    fn hx(&self) -> Gf2Mat {
+        GroupCode::hx(self)
+    }
+    fn hz(&self) -> Gf2Mat {
+        GroupCode::hz(self)
+    }
+}
+
+/// Terms of a [`CosetCode`]: X-check `Hg`, term `t < 3`: `L(H g a_t)`, else
+/// `R(H b_{t-3} g)`; Z-check `Hh`, term `t < 3`: `L(H b_t^-1 h)`, else
+/// `R(H h a_{t-3}^-1)` (right and left multiplication by a fixed element
+/// are bijections of the cosets because `B` normalises `H`).
+impl TwoBlockLayout for CosetCode<'_> {
+    fn order(&self) -> usize {
+        CosetCode::order(self)
+    }
+    fn weights(&self) -> (usize, usize) {
+        (self.a.len(), self.b.len())
+    }
+    fn x_term(&self, g: usize, t: usize) -> usize {
+        self.x_check(g)[t]
+    }
+    fn z_term(&self, h: usize, t: usize) -> usize {
+        self.z_check(h)[t]
+    }
+    fn hx(&self) -> Gf2Mat {
+        self.explicit().hx()
+    }
+    fn hz(&self) -> Gf2Mat {
+        self.explicit().hz()
+    }
+}
+
 /// True if no data qubit is used twice in a layer and every term is used
 /// exactly once per check type.
 pub fn schedule_well_formed(s: &BbSchedule) -> bool {
@@ -140,7 +243,7 @@ pub fn schedule_well_formed(s: &BbSchedule) -> bool {
 /// True if the schedule measures the stabilizers: for every X-check /
 /// Z-check pair, the number of shared data qubits on which the X-check's
 /// CNOT comes first is even.
-pub fn schedule_valid(c: &TwoBlockCode, s: &BbSchedule) -> bool {
+pub fn schedule_valid<C: TwoBlockLayout + ?Sized>(c: &C, s: &BbSchedule) -> bool {
     if !schedule_well_formed(s) {
         return false;
     }
@@ -159,14 +262,14 @@ pub fn schedule_valid(c: &TwoBlockCode, s: &BbSchedule) -> bool {
     let mut ztouch: Vec<Vec<(usize, usize)>> = vec![Vec::new(); 2 * nn];
     for h in 0..nn {
         for t in 0..6 {
-            ztouch[z_term_qubit(c, h, t)].push((h, tz[t]));
+            ztouch[c.z_term(h, t)].push((h, tz[t]));
         }
     }
     let mut cnt = vec![0u8; nn];
     for g in 0..nn {
         cnt.iter_mut().for_each(|x| *x = 0);
         for t in 0..6 {
-            let q = x_term_qubit(c, g, t);
+            let q = c.x_term(g, t);
             for &(h, tzh) in &ztouch[q] {
                 if tx[t] < tzh {
                     cnt[h] ^= 1;
@@ -182,7 +285,7 @@ pub fn schedule_valid(c: &TwoBlockCode, s: &BbSchedule) -> bool {
 
 /// All valid schedules of the IBM shape (X idle in layer 0, Z idle in
 /// layer 6).
-pub fn valid_schedules(c: &TwoBlockCode) -> Vec<BbSchedule> {
+pub fn valid_schedules<C: TwoBlockLayout + ?Sized>(c: &C) -> Vec<BbSchedule> {
     fn perms(v: &mut Vec<u8>, k: usize, out: &mut Vec<Vec<u8>>) {
         if k == v.len() {
             out.push(v.clone());
@@ -236,9 +339,15 @@ pub struct BbMemory {
 
 /// Builds a `rounds`-cycle memory experiment in the Z (`x_basis = false`) or
 /// X basis with uniform circuit noise `p`.
-pub fn memory(c: &TwoBlockCode, s: &BbSchedule, rounds: usize, p: f64, x_basis: bool) -> BbMemory {
+pub fn memory<C: TwoBlockLayout + ?Sized>(
+    c: &C,
+    s: &BbSchedule,
+    rounds: usize,
+    p: f64,
+    x_basis: bool,
+) -> BbMemory {
     assert!(rounds >= 1);
-    assert_eq!((c.a.len(), c.b.len()), (3, 3), "weight-6 codes only");
+    assert_eq!(c.weights(), (3, 3), "weight-6 codes only");
     let nn = c.order();
     let nd = 2 * nn;
     let n = 4 * nn;
@@ -278,7 +387,7 @@ pub fn memory(c: &TwoBlockCode, s: &BbSchedule, rounds: usize, p: f64, x_basis: 
             let mut busy = vec![false; n];
             if let Some(t) = s.sx[layer] {
                 for g in 0..nn {
-                    let q = x_term_qubit(c, g, t as usize);
+                    let q = c.x_term(g, t as usize);
                     ops.push(Op::Gate(Gate::Cnot(xa(g), q)));
                     if p > 0.0 {
                         ops.push(Op::Depolarize2q(xa(g), q, p));
@@ -289,7 +398,7 @@ pub fn memory(c: &TwoBlockCode, s: &BbSchedule, rounds: usize, p: f64, x_basis: 
             }
             if let Some(t) = s.sz[layer] {
                 for h in 0..nn {
-                    let q = z_term_qubit(c, h, t as usize);
+                    let q = c.z_term(h, t as usize);
                     ops.push(Op::Gate(Gate::Cnot(q, za(h))));
                     if p > 0.0 {
                         ops.push(Op::Depolarize2q(q, za(h), p));

@@ -257,6 +257,29 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
 - The hook-safe CNOT order restores full distance; a standard-looking order gave d = 5 an effective
   distance of 3 (confirmed by fault injection).
 
+## 9. Weight-6 qLDPC codes beyond the known frontier (`research/qec/code-discovery-2.md`)
+
+An exhaustive search of weight-6 (3 + 3) two-block group-algebra codes over the 1000 groups of order
+≤ 150 that the first study (abelian, rank ≤ 2) did not cover — every non-abelian group and every
+abelian group of rank ≥ 3, from GAP's SmallGroups — against the published weight-6 frontier
+(`literature.md`, including the 2026 non-abelian and coset codes), Lin & Pryadko's public 2BGA dataset,
+the Unitary Foundation qLDPC challenge board, and all direct sums of these.
+- **Two new codes**, each strictly dominating published ones and exactly certified:
+  **[[224,18,12]]** over C7 × ((C4 × C2) ⋊ C2) (dominates [[294,18,10]], [[252,14,12]],
+  [[288,16,12]]; k·d²/n 11.57) and **[[288,34,8]]** over A4 × A4 (dominates [[288,32,6]] and
+  [[292,18,8]]; 7.56). Neither raises the weight-6 k·d²/n record.
+- The weight-6 record **[[288,16,16]]** (k·d²/n 14.22, above every weight-6 code in published papers,
+  best 14.11) occurs over ten groups of order 144; its distance is proved exactly here for the first
+  time. Its parameters are not new: they were posted to the qLDPC challenge in July 2026 (another
+  2BGA code, distance an upper bound), and exist at weight 9; weight 7 does better.
+- [[192,12,14]], [[192,16,12]], [[200,16,12]] are in Lin & Pryadko's 2023 dataset with randomized
+  distances; their distances are proved exactly here.
+- Certification: the exact symmetry-rooted search in Rust (both CSS sectors) and an independent C
+  program with no symmetry that proves no lighter nontrivial logical exists (3.7·10⁸ and 3.8·10⁸
+  nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent Python
+  script; codes are also rebuilt from presentations or permutation representations and re-proved.
+  Novelty is relative to the 40+ papers, the dataset and the challenge board we read, not proved.
+
 ## Honest notes
 
 - The adaptive-switching design is an independent rediscovery of **Clifft** (arXiv:2604.27058).

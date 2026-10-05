@@ -220,6 +220,10 @@ name = "bicycle_codes"
 path = "tests/qec/bicycle_codes.rs"
 
 [[test]]
+name = "group_codes"
+path = "tests/qec/group_codes.rs"
+
+[[test]]
 name = "color_code"
 path = "tests/qec/color_code.rs"
 

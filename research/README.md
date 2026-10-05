@@ -38,6 +38,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [fast-sampler.md](qec/fast-sampler.md) | Fast detector sampling: Poisson hits into precomputed detector tables |
 | [fast-sampler-audit.md](qec/fast-sampler-audit.md) | Independent audit of the FastSampler speed and equivalence claims |
 | [code-discovery.md](qec/code-discovery.md) | Exhaustive search of weight-6 two-block (BB/GB/coprime-BB) codes, n ≤ 300: exact [[n,k,d]] frontier vs the literature, depth-7 schedules, circuit-level LER |
+| [code-discovery-2.md](qec/code-discovery-2.md) | Weight-6 two-block group-algebra codes over every group of order ≤ 150 (1000 non-abelian / rank-3 groups) and coset codes over Z_m × K, against the 2026 frontier (non-abelian and coset codes included) |
 
 ## Simulability, magic and engine choice — [`simulability/`](simulability/)
 
