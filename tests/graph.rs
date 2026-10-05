@@ -585,3 +585,36 @@ fn partition_path_sum_is_exact() {
     let d = max_amp_diff(&ref_run(&c).a, got.into_iter());
     assert!(d < 1e-10, "{d} {plan:?}");
 }
+
+#[test]
+fn fold_basis_exact() {
+    use qsim_lab::graph::fold::fold_basis;
+    let mut rng = StdRng::seed_from_u64(base_seed() ^ 0x9a18);
+    let mut removed = 0;
+    for case in 0..300 * iters() {
+        let n = 1 + case % 7;
+        let np = rng.random_range(0..3);
+        let len = rng.random_range(0..40);
+        // mostly monomial / diagonal ops so wires stay known for a while
+        let mut pc = if rng.random_bool(0.5) {
+            region_heavy(&mut rng, n, np, len)
+        } else {
+            random_param_circuit(&mut rng, n, np, len)
+        };
+        if n >= 3 && rng.random_bool(0.3) {
+            let (a, b, c) = distinct3(&mut rng, n);
+            pc.ops.insert(0, POp::Fixed(Gate::X(a)));
+            pc.push(POp::Fixed(Gate::Ccx(a, b, c)));
+        }
+        let (f, st) = fold_basis(&pc);
+        removed += st.removed + st.simplified;
+        for _ in 0..2 {
+            let p = rand_params(&mut rng, np);
+            let r = reference(&pc, &p);
+            let r2 = reference(&f, &p);
+            let d = max_amp_diff(&r.a, r2.a.iter().copied());
+            assert!(d < 1e-10, "case {case} diff {d}\n{pc:?}\n{f:?}");
+        }
+    }
+    assert!(removed > 200, "{removed}");
+}

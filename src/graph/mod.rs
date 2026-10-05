@@ -11,6 +11,7 @@
 
 pub mod compiled;
 pub mod dedup;
+pub mod fold;
 pub mod observable;
 pub mod param;
 pub mod partition;

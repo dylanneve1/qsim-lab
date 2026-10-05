@@ -64,6 +64,8 @@ pub struct GraphOptions {
     pub rewrite: Option<super::rewrite::RewriteOptions>,
     /// Evaluate identical numeric recipes once per bind.
     pub dedup_recipes: bool,
+    /// Constant-fold wires in a known basis state ([`super::fold`]).
+    pub fold_basis: bool,
 }
 
 impl Default for GraphOptions {
@@ -79,6 +81,7 @@ impl Default for GraphOptions {
             patch_bind: true,
             rewrite: Some(super::rewrite::RewriteOptions::default()),
             dedup_recipes: true,
+            fold_basis: true,
         }
     }
 }
@@ -193,6 +196,8 @@ pub struct GraphStats {
     pub compile_secs: f64,
     /// The phase-region rewrite was applied.
     pub rewritten: bool,
+    /// Ops removed or simplified by basis-state folding.
+    pub folded_ops: usize,
 }
 
 /// One independent component, compiled for the blocked executor.
@@ -668,6 +673,14 @@ impl CompiledCircuit {
         opts: &GraphOptions,
     ) -> Result<Self, SimError> {
         let t0 = std::time::Instant::now();
+        let folded;
+        let (pc, folded_ops) = if opts.fold_basis {
+            let (f, st) = super::fold::fold_basis(pc);
+            folded = f;
+            (&folded, st.removed + st.simplified)
+        } else {
+            (pc, 0)
+        };
         let plain = Self::compile_one(pc, obs, opts)?;
         let mut best = plain;
         if let Some(ro) = &opts.rewrite {
@@ -691,6 +704,7 @@ impl CompiledCircuit {
                 p.compute_prefix()?;
             }
         }
+        best.stats.folded_ops = folded_ops;
         best.stats.compile_secs = t0.elapsed().as_secs_f64();
         Ok(best)
     }
@@ -855,6 +869,34 @@ impl CompiledCircuit {
             parts: self.parts.iter().map(|(_, p)| p.bind(params)).collect(),
             gphase: Complex64::from_polar(1.0, self.gphase.eval(params)),
         })
+    }
+
+    /// `<obs>` at `params` (convenience for bindings: no borrowed handle).
+    pub fn expectation_at(&self, params: &[f64]) -> Result<f64, SimError> {
+        self.bind(params)?.expectation()
+    }
+
+    /// The full state at `params` (compiled with no observable).
+    pub fn statevector_at(&self, params: &[f64]) -> Result<StateVectorF64, SimError> {
+        self.bind(params)?.statevector()
+    }
+
+    /// Amplitudes `<x|ψ(params)>` (compiled with no observable).
+    pub fn amplitudes_at(&self, params: &[f64], xs: &[u128]) -> Result<Vec<Complex64>, SimError> {
+        self.bind(params)?.amplitudes(xs)
+    }
+
+    /// Flat `[batch × num_params]` row-major parameter array (the layout a
+    /// NumPy binding hands over) → one expectation value per row.
+    pub fn sweep_flat(&self, flat: &[f64]) -> Result<Vec<f64>, SimError> {
+        let p = self.num_params.max(1);
+        if self.num_params == 0 || flat.len() % p != 0 {
+            return Err(SimError::NotSupported {
+                what: "sweep_flat: length is not a multiple of num_params",
+            });
+        }
+        let rows: Vec<Vec<f64>> = flat.chunks(p).map(|r| r.to_vec()).collect();
+        self.sweep_expectation(&rows)
     }
 
     /// `<obs>` at every parameter vector. Binds run in parallel (each on
