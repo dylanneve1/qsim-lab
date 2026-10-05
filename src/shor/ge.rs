@@ -1125,8 +1125,10 @@ pub fn initial<T: Real>(lay: &GeLayout, n_mod: u64, c: usize) -> Arr<T> {
     v
 }
 
-/// Mixes `(N, g, window)` into an outcome-stream seed.
-fn outcome_seed(n_mod: u64, g: u64, k: u64) -> u64 {
+/// Mixes `(N, g, window index)` into the seed of the window's
+/// measurement-based-uncomputation outcome stream (the stream [`run`],
+/// [`distribution`] and [`schedule_counts`] use for window `k`).
+pub fn outcome_seed(n_mod: u64, g: u64, k: u64) -> u64 {
     n_mod.wrapping_mul(0x2545_F491_4F6C_DD1D) ^ g.rotate_left(17) ^ k.wrapping_mul(0x9E37_79B9)
 }
 
@@ -1632,6 +1634,37 @@ pub fn eh_run<T: Real>(
     (r, f)
 }
 
+/// Classical step of Shor's algorithm run on an odd-order base
+/// `g = h^(2^k) mod N` (Miller's reduction). Given `r = ord(g)` (as found
+/// by order finding on `g`, verified here: `g^r = 1`), `2^k·r` is a
+/// multiple of `ord(h)`, so `x = h^r` satisfies `x^(2^k) = 1`. Squaring
+/// `x` until it reaches 1 exposes a square root of 1; if it is not `±1`,
+/// `gcd(x − 1, N)` is a proper factor. Returns `None` when `h^r = 1` or
+/// the root is `−1` (for `N = pq` this happens when `ord_p(h)` and
+/// `ord_q(h)` have the same 2-adic valuation). Purely classical; it uses
+/// nothing but `N`, `h`, `k` and the measured order.
+pub fn factor_from_power_order(n_mod: u64, h: u64, k: usize, r: u64) -> Option<u64> {
+    if r == 0 || pow_mod(pow2k(h, k, n_mod), r, n_mod) != 1 {
+        return None;
+    }
+    let mut x = pow_mod(h, r, n_mod);
+    if x == 1 {
+        return None;
+    }
+    for _ in 0..k {
+        let x2 = mul_mod(x, x, n_mod);
+        if x2 == 1 {
+            if x == n_mod - 1 {
+                return None;
+            }
+            let f = gcd(x - 1, n_mod);
+            return (f > 1 && f < n_mod).then_some(f);
+        }
+        x = x2;
+    }
+    None
+}
+
 /// One Shor order-finding run with exponent windows; returns the run and
 /// `(order, factor)` from the standard post-processing.
 pub fn shor_run<T: Real>(
@@ -1881,6 +1914,44 @@ mod tests {
                 // most branches are congruent; wrapped ones are the deviation
                 assert!(good * 10 >= tot * 7, "N={n_mod} c={c}: {good}/{tot}");
             }
+        }
+    }
+
+    /// Miller's reduction from the order of `h^(2^k)`: every base of
+    /// N = 35 and N = 1 005 973 either factors N or is one of the bases
+    /// for which it provably cannot (`ord_p(h)`, `ord_q(h)` with equal
+    /// 2-adic valuation), and a wrong order is rejected.
+    #[test]
+    fn factor_from_power_order_splits_n() {
+        for (n_mod, p, q) in [(35u64, 5u64, 7u64), (1_005_973, 997, 1009)] {
+            let k = crate::shor::work_bits(n_mod);
+            let ord = |a: u64, m: u64| {
+                let (mut x, mut e) = (a % m, 1u64);
+                while x != 1 {
+                    x = mul_mod(x, a, m);
+                    e += 1;
+                }
+                e
+            };
+            let v2 = |x: u64| x.trailing_zeros();
+            let (mut ok, mut tried) = (0, 0);
+            for h in (2..n_mod - 1).filter(|&h| gcd(h, n_mod) == 1).take(300) {
+                let g = pow2k(h, k, n_mod);
+                let r = ord(g, n_mod);
+                assert_eq!(r % 2, 1);
+                let f = factor_from_power_order(n_mod, h, k, r);
+                let can = v2(ord(h % p, p)) != v2(ord(h % q, q));
+                assert_eq!(f.is_some(), can, "N={n_mod} h={h}");
+                if let Some(f) = f {
+                    assert!(f == p || f == q);
+                    ok += 1;
+                }
+                tried += 1;
+                if r > 1 {
+                    assert_eq!(factor_from_power_order(n_mod, h, k, r + 2), None);
+                }
+            }
+            assert!(ok * 2 > tried, "N={n_mod}: {ok}/{tried}");
         }
     }
 

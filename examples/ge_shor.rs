@@ -2,15 +2,21 @@
 //! (exp/ge-shor, research/shor/ge-shor.md).
 //!
 //! ```text
-//! ge_shor run    <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd] [f32|f64]
+//! ge_shor run    <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd|shor-odd] [f32|f64] [runs]
 //! ge_shor counts <N> <seed> <we> <wm> <lookups|all|none> [shor|eh|eh-odd] [coset c]
 //! ge_shor coset  <N> <a> <we> <wm> <cmax>          exact distributions (t ≤ 26)
 //! ge_shor cosetmc <N> <a> <we> <wm> <c> <paths> <seed>
 //! ge_shor ehmc   <N> <runs> <seed> <we> <wm>       Monte-Carlo EH vs Shor success
+//! ge_shor info   <N> <seed>                        the base rule's h, g = h^(2^n), y (no factors used)
+//! ge_shor dump   <N> <seed> <we> <wm> <lookups|all|none> <shor|eh|eh-odd|shor-odd> <window>
+//!                                                  resolved ops of one window block (text)
 //! ```
 //! `run` picks the base like `qsim run shor --seed S --tries 1`
 //! (`StdRng::seed_from_u64(S)`, `random_range(2..N−1)`) and draws the
-//! measurement outcomes from the same stream.
+//! measurement outcomes from the same stream. `eh-odd` and `shor-odd` use
+//! `g = h^(2^n) mod N` (odd order; no factorisation needed); `shor-odd`
+//! runs Shor's order finding on `g` and factors with Miller's reduction
+//! from the multiple `2^n·ord(g)` of `ord(h)` (research/shor/shor-xl.md).
 use qsim_lab::algorithms::gcd;
 use qsim_lab::shor;
 use qsim_lab::shor::ge::{self as shor_ge, GeOpts};
@@ -87,43 +93,146 @@ fn main() {
             let var = v.get(7).map(String::as_str).unwrap_or("shor");
             let eh = var.starts_with("eh");
             let f32 = v.get(8).map(String::as_str) != Some("f64");
-            let (mut a, mut rng) = base(n_mod, seed);
-            if var == "eh-odd" {
+            // optional: up to `runs` runs on the same base until one factors N
+            // (each later run continues the same measurement stream)
+            let runs: usize = v.get(9).map_or(1, |s| s.parse().unwrap());
+            let (h, mut rng) = base(n_mod, seed);
+            let mut a = h;
+            if var == "eh-odd" || var == "shor-odd" {
                 // EH accepts any base: g = h^(2^n) has odd order (no
                 // factorisation used), which keeps the simulated support
                 // at r_odd (see research/shor/ge-shor.md)
                 a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
             }
-            let t0 = Instant::now();
-            let mut draw = || rng.random::<f64>();
-            if eh {
-                let (r, f) = if f32 {
-                    shor_ge::eh_run::<f32>(n_mod, a, &o, &mut draw)
+            for run in 1..=runs {
+                let t0 = Instant::now();
+                let mut draw = || rng.random::<f64>();
+                let done = if var == "shor-odd" {
+                    let (r, order, _) = if f32 {
+                        shor_ge::shor_run::<f32>(n_mod, a, &o, &mut draw)
+                    } else {
+                        shor_ge::shor_run::<f64>(n_mod, a, &o, &mut draw)
+                    };
+                    let secs = t0.elapsed().as_secs_f64();
+                    let k = shor::work_bits(n_mod);
+                    let factor =
+                        order.and_then(|r| shor_ge::factor_from_power_order(n_mod, h, k, r));
+                    println!(
+                        "Shor-odd run {run}  N={n_mod}  h={h}  g=h^(2^{k})={a}  measured={}  order(g)={order:?}  factor={factor:?}",
+                        r.y[0]
+                    );
+                    print_run(&r, secs);
+                    factor.is_some()
+                } else if eh {
+                    let (r, f) = if f32 {
+                        shor_ge::eh_run::<f32>(n_mod, a, &o, &mut draw)
+                    } else {
+                        shor_ge::eh_run::<f64>(n_mod, a, &o, &mut draw)
+                    };
+                    let secs = t0.elapsed().as_secs_f64();
+                    println!(
+                        "EH run {run}  N={n_mod}  h={h}  g={a}  m={}  exponent bits={}  j={}  k={}  factors={f:?}",
+                        shor_ge::eh_m(n_mod),
+                        3 * shor_ge::eh_m(n_mod),
+                        r.y[1],
+                        r.y[0]
+                    );
+                    print_run(&r, secs);
+                    f.is_some()
                 } else {
-                    shor_ge::eh_run::<f64>(n_mod, a, &o, &mut draw)
+                    let (r, order, factor) = if f32 {
+                        shor_ge::shor_run::<f32>(n_mod, a, &o, &mut draw)
+                    } else {
+                        shor_ge::shor_run::<f64>(n_mod, a, &o, &mut draw)
+                    };
+                    let secs = t0.elapsed().as_secs_f64();
+                    println!(
+                        "Shor run {run}  N={n_mod}  a={a}  measured={}  order={order:?}  factor={factor:?}",
+                        r.y[0]
+                    );
+                    print_run(&r, secs);
+                    factor.is_some()
                 };
-                let secs = t0.elapsed().as_secs_f64();
-                println!(
-                    "EH  N={n_mod}  g={a}  m={}  exponent bits={}  j={}  k={}  factors={f:?}",
-                    shor_ge::eh_m(n_mod),
-                    3 * shor_ge::eh_m(n_mod),
-                    r.y[1],
-                    r.y[0]
-                );
-                print_run(&r, secs);
-            } else {
-                let (r, order, factor) = if f32 {
-                    shor_ge::shor_run::<f32>(n_mod, a, &o, &mut draw)
-                } else {
-                    shor_ge::shor_run::<f64>(n_mod, a, &o, &mut draw)
-                };
-                let secs = t0.elapsed().as_secs_f64();
-                println!(
-                    "Shor  N={n_mod}  a={a}  measured={}  order={order:?}  factor={factor:?}",
-                    r.y[0]
-                );
-                print_run(&r, secs);
+                if done {
+                    break;
+                }
             }
+        }
+        Some("info") => {
+            // the base rule only: nothing here uses the factors of N
+            let n_mod: u64 = arg(&v, 2);
+            let seed: u64 = arg(&v, 3);
+            let (h, _) = base(n_mod, seed);
+            let k = shor::work_bits(n_mod);
+            let g = shor_ge::pow2k(h, k, n_mod);
+            println!(
+                "N={n_mod} bits={} n={k} seed={seed} h={h} g=h^(2^{k})={g} eh_m={} y=g^((N-1)/2)={}",
+                64 - n_mod.leading_zeros(),
+                shor_ge::eh_m(n_mod),
+                shor_ge::eh_target(n_mod, g)
+            );
+        }
+        Some("dump") => {
+            let n_mod: u64 = arg(&v, 2);
+            let seed: u64 = arg(&v, 3);
+            let o = GeOpts {
+                we: arg(&v, 4),
+                wm: arg(&v, 5),
+                mbu: mbu(&v[6]),
+                coset: 0,
+            };
+            let var = v[7].as_str();
+            let want: usize = arg(&v, 8);
+            let (mut a, _) = base(n_mod, seed);
+            if var == "eh-odd" || var == "shor-odd" {
+                a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
+            }
+            let regs = if var.starts_with("eh") {
+                shor_ge::eh_regs(n_mod, a)
+            } else {
+                shor_ge::shor_regs(n_mod, a)
+            };
+            let lay = shor_ge::GeLayout::new(shor::work_bits(n_mod), &o);
+            let mut wi = 0usize;
+            for reg in &regs {
+                for (i0, w) in shor_ge::windows(reg.len, o.we) {
+                    if wi == want {
+                        let g = shor_ge::pow2k(reg.base, reg.len - i0 - w, n_mod);
+                        let mut oc = qsim_lab::shor::mbu::Outcomes::from_env(
+                            shor_ge::outcome_seed(n_mod, g, wi as u64),
+                        );
+                        let ops = shor_ge::window_block(&lay, g, n_mod, &o, &mut oc);
+                        let list = |q: &[usize]| {
+                            q.iter().map(usize::to_string).collect::<Vec<_>>().join(",")
+                        };
+                        println!(
+                            "nq {} n {} N {n_mod} window {want} w {w} g {g} e {} x {}",
+                            lay.nq,
+                            lay.n,
+                            list(&lay.e[..w]),
+                            list(&lay.stored())
+                        );
+                        use qsim_lab::gate::Gate;
+                        use qsim_lab::shor::mbu::MbuOp;
+                        for op in &ops {
+                            match *op {
+                                MbuOp::G(Gate::X(t)) => println!("X {t}"),
+                                MbuOp::G(Gate::Cnot(c, t)) => println!("CX {c} {t}"),
+                                MbuOp::G(Gate::Ccx(a, b, t)) => println!("CCX {a} {b} {t}"),
+                                MbuOp::G(Gate::Swap(a, b)) => println!("SWAP {a} {b}"),
+                                MbuOp::G(Gate::Z(q)) => println!("Z {q}"),
+                                MbuOp::G(Gate::Cz(a, b)) => println!("CZ {a} {b}"),
+                                MbuOp::MeasX(q, m) => println!("MX {q} {}", u8::from(m)),
+                                MbuOp::GlobalNeg => println!("GNEG"),
+                                MbuOp::G(g) => panic!("unexpected gate {g:?}"),
+                            }
+                        }
+                        return;
+                    }
+                    wi += 1;
+                }
+            }
+            panic!("window {want} out of range ({wi} windows)");
         }
         Some("counts") => {
             let n_mod: u64 = arg(&v, 2);
@@ -142,7 +251,7 @@ fn main() {
             let var = v.get(7).map(String::as_str).unwrap_or("shor");
             let eh = var.starts_with("eh");
             let (mut a, _) = base(n_mod, seed);
-            if var == "eh-odd" {
+            if var == "eh-odd" || var == "shor-odd" {
                 a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
             }
             let regs = if eh {
