@@ -73,13 +73,17 @@ use std::time::Instant;
 /// An undirected coupling graph.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lattice {
+    /// Number of vertices (qubits), numbered `0..n`.
     pub n: usize,
     /// Edges `(a, b)` with `a < b`, sorted, no duplicates.
     pub edges: Vec<(usize, usize)>,
+    /// Sorted neighbour list of every vertex.
     pub adj: Vec<Vec<usize>>,
 }
 
 impl Lattice {
+    /// Builds the graph on `n` vertices from `edges` (either orientation;
+    /// duplicates are merged). Panics on a self-loop or an out-of-range vertex.
     pub fn from_edges(n: usize, edges: &[(usize, usize)]) -> Self {
         let mut e: Vec<(usize, usize)> = edges
             .iter()
@@ -244,14 +248,19 @@ impl Lattice {
 /// The kicked-Ising Trotter circuit of Kim et al.
 #[derive(Clone, Debug)]
 pub struct KickedIsing {
+    /// Coupling graph: one `RZZ` per edge per step.
     pub lattice: Lattice,
+    /// Number of Trotter steps `T`.
     pub steps: usize,
+    /// Kick angle `θ_h` of the `RX` layer (radians).
     pub theta_h: f64,
     /// One extra `RX(θ_h)` layer after the last step (Kim et al. Fig. 4a).
     pub final_rx: bool,
 }
 
 impl KickedIsing {
+    /// `steps` Trotter steps on `lattice` with kick angle `theta_h`, without
+    /// the final extra `RX` layer.
     pub fn new(lattice: Lattice, steps: usize, theta_h: f64) -> Self {
         KickedIsing {
             lattice,
@@ -293,11 +302,13 @@ pub struct PauliObs {
 }
 
 impl PauliObs {
+    /// A single Pauli string with coefficient 1.
     pub fn single(s: Vec<(usize, char)>) -> Self {
         PauliObs {
             terms: vec![(s, 1.0)],
         }
     }
+    /// `Z_q`.
     pub fn z(q: usize) -> Self {
         Self::single(vec![(q, 'Z')])
     }
@@ -331,6 +342,7 @@ impl PauliObs {
             .collect();
         Self::single(v)
     }
+    /// Sorted, deduplicated qubits acted on by any term.
     pub fn support(&self) -> Vec<usize> {
         let mut s: Vec<usize> = self
             .terms
@@ -346,6 +358,7 @@ impl PauliObs {
 // ---------------------------------------------------------------------------
 // Options and results
 
+/// Truncation, noise and resource options for [`simulate`].
 #[derive(Clone, Copy, Debug)]
 pub struct SpdOptions {
     /// Coefficient threshold δ (0 = exact), applied to merged coefficients.
@@ -386,14 +399,19 @@ impl Default for SpdOptions {
     }
 }
 
+/// Result of [`simulate`].
 #[derive(Clone, Debug, Default)]
 pub struct SpdResult {
+    /// The (truncated) expectation value `<0|U† O U|0>`; meaningless if
+    /// `aborted`.
     pub value: f64,
-    /// Qubits kept (light cone) and the key width in 64-bit words.
+    /// Qubits kept (the backward light cone, or all qubits without it).
     pub active_qubits: usize,
+    /// Width of a Pauli key in 64-bit words (per `x` and `z` part).
     pub words: usize,
     /// Terms after each merged backward layer (the final layer is not merged).
     pub terms_per_layer: Vec<usize>,
+    /// Largest number of live terms after any merged layer.
     pub peak_terms: usize,
     /// Terms entering the closed-form evaluation of the first RX layer.
     pub final_terms: usize,
@@ -404,7 +422,10 @@ pub struct SpdResult {
     /// Normalised squared Frobenius norm Σc² of the operator entering the
     /// last layer (1 for a unit-norm Pauli and no truncation or noise).
     pub norm2: f64,
+    /// Total wall-clock seconds.
     pub seconds: f64,
+    /// `max_terms` was exceeded and the run stopped early; only the
+    /// discarded-weight fields and the per-layer counts so far are filled in.
     pub aborted: bool,
 }
 

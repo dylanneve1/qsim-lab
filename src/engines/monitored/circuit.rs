@@ -11,19 +11,31 @@ use crate::gate::Gate;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+/// One op of a monitored brickwork layer.
 #[derive(Clone, Copy, Debug)]
 pub enum MOp {
+    /// Two-qubit Clifford: index into the Clifford group list ([`Cliff2::group`]),
+    /// then the qubits `(a, b)` it acts on.
     C2(u16, usize, usize),
+    /// `T` gate on a qubit.
     T(usize),
+    /// `Z` measurement of a qubit.
     M(usize),
 }
 
+/// Parameters of the random monitored brickwork.
 #[derive(Clone, Copy, Debug)]
 pub struct Params {
+    /// Number of qubits (a chain).
     pub n: usize,
+    /// Number of layers.
     pub depth: usize,
+    /// Probability of a `Z` measurement per qubit per layer.
     pub p_m: f64,
+    /// Probability of a `T` gate per qubit per layer.
     pub p_t: f64,
+    /// Close the chain into a ring (adds the `(n-1, 0)` gate on odd layers
+    /// when `n` is even and greater than 2).
     pub periodic: bool,
 }
 
@@ -87,7 +99,10 @@ pub fn apply<R: Rng + ?Sized>(
 pub struct Trajectory {
     /// `d` after every layer.
     pub d: Vec<u32>,
+    /// Number of measurement records made.
     pub records: usize,
+    /// Layer at which the run stopped because the register would exceed
+    /// `max_d` (`None`: it completed).
     pub failed_at: Option<usize>,
 }
 
