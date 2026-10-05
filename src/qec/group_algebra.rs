@@ -286,14 +286,14 @@ impl FiniteGroup {
         }
         let mut auts = Vec::new();
         for s in &self.aut_gens {
-            auts.push((0..n).map(|x| s[x / n2] * n2 as u16 + (x % n2) as u16).collect());
-        }
-        for s in &other.aut_gens {
             auts.push(
                 (0..n)
-                    .map(|x| ((x / n2) * n2) as u16 + s[x % n2])
+                    .map(|x| s[x / n2] * n2 as u16 + (x % n2) as u16)
                     .collect(),
             );
+        }
+        for s in &other.aut_gens {
+            auts.push((0..n).map(|x| ((x / n2) * n2) as u16 + s[x % n2]).collect());
         }
         FiniteGroup::from_table(n, mul, auts, format!("{}x{}", self.label, other.label))
             .expect("direct product of groups")
@@ -315,7 +315,10 @@ impl FiniteGroup {
         // greedy generating set
         let mut gens: Vec<u16> = Vec::new();
         let mut inside = self.subgroup(&gens);
-        while let Some(g) = (0..n).filter(|&g| !inside[g]).max_by_key(|&g| elem_order(g)) {
+        while let Some(g) = (0..n)
+            .filter(|&g| !inside[g])
+            .max_by_key(|&g| elem_order(g))
+        {
             gens.push(g as u16);
             inside = self.subgroup(&gens);
         }
@@ -375,7 +378,10 @@ impl FiniteGroup {
         let mut out = Vec::new();
         let nums = |l: &str| -> Result<Vec<u16>, GroupError> {
             l.split_whitespace()
-                .map(|t| t.parse::<u16>().map_err(|e| GroupError::Parse(e.to_string())))
+                .map(|t| {
+                    t.parse::<u16>()
+                        .map_err(|e| GroupError::Parse(e.to_string()))
+                })
                 .collect()
         };
         while let Some(h) = lines.next() {
@@ -383,11 +389,18 @@ impl FiniteGroup {
             if f.len() < 7 || f[0] != "G" {
                 return Err(GroupError::Parse(format!("bad header {h:?}")));
             }
-            let p = |s: &str| s.parse::<usize>().map_err(|e| GroupError::Parse(e.to_string()));
+            let p = |s: &str| {
+                s.parse::<usize>()
+                    .map_err(|e| GroupError::Parse(e.to_string()))
+            };
             let (n, id, ngens) = (p(f[1])?, p(f[2])?, p(f[5])?);
             let mut mul = Vec::with_capacity(n * n);
             for _ in 0..n {
-                let row = nums(lines.next().ok_or(GroupError::Parse("short table".into()))?)?;
+                let row = nums(
+                    lines
+                        .next()
+                        .ok_or(GroupError::Parse("short table".into()))?,
+                )?;
                 if row.len() != n {
                     return Err(GroupError::Parse("bad row length".into()));
                 }
@@ -557,8 +570,16 @@ impl<'g> GroupCode<'g> {
         let g = self.g;
         let a0 = g.inv(self.a[0] as usize);
         let b0 = g.inv(self.b[0] as usize);
-        let ga: Vec<u16> = self.a.iter().map(|&a| g.mul(a as usize, a0) as u16).collect();
-        let gb: Vec<u16> = self.b.iter().map(|&b| g.mul(b0, b as usize) as u16).collect();
+        let ga: Vec<u16> = self
+            .a
+            .iter()
+            .map(|&a| g.mul(a as usize, a0) as u16)
+            .collect();
+        let gb: Vec<u16> = self
+            .b
+            .iter()
+            .map(|&b| g.mul(b0, b as usize) as u16)
+            .collect();
         let (ha, hb) = (g.subgroup(&ga), g.subgroup(&gb));
         let mut prod = vec![false; g.order];
         for x in (0..g.order).filter(|&x| ha[x]) {
@@ -821,8 +842,10 @@ impl Cosets {
         let n = g.order;
         let inside: HashSet<usize> = h.iter().map(|&x| x as usize).collect();
         if !inside.contains(&0)
-            || h.iter()
-                .any(|&x| h.iter().any(|&y| !inside.contains(&g.mul(x as usize, y as usize))))
+            || h.iter().any(|&x| {
+                h.iter()
+                    .any(|&y| !inside.contains(&g.mul(x as usize, y as usize)))
+            })
         {
             return Err(GroupError::NotAGroup("H is not a subgroup".into()));
         }
@@ -942,11 +965,7 @@ impl<'g> CosetCode<'g> {
             .iter()
             .map(|&b| co(g.mul(g.inv(b as usize), r)))
             .collect();
-        s.extend(
-            self.a
-                .iter()
-                .map(|&a| n + co(g.mul(r, g.inv(a as usize)))),
-        );
+        s.extend(self.a.iter().map(|&a| n + co(g.mul(r, g.inv(a as usize)))));
         s
     }
 
@@ -1217,7 +1236,13 @@ impl Enumeration {
         let mut class_of: HashMap<Vec<u16>, u32> = HashMap::new();
         let mut reps = Vec::new();
         let mut cur: Vec<u16> = vec![0];
-        fn subsets(n: usize, w: usize, start: usize, cur: &mut Vec<u16>, f: &mut dyn FnMut(&[u16])) {
+        fn subsets(
+            n: usize,
+            w: usize,
+            start: usize,
+            cur: &mut Vec<u16>,
+            f: &mut dyn FnMut(&[u16]),
+        ) {
             if cur.len() == w {
                 f(cur);
                 return;
@@ -1242,7 +1267,8 @@ impl Enumeration {
                 let t: Vec<usize> = s.iter().map(|&y| g.mul(y as usize, xi)).collect();
                 for c in 0..n {
                     let ci = g.inv(c);
-                    let mut v: Vec<u16> = t.iter().map(|&y| g.mul(g.mul(c, y), ci) as u16).collect();
+                    let mut v: Vec<u16> =
+                        t.iter().map(|&y| g.mul(g.mul(c, y), ci) as u16).collect();
                     v.sort_unstable();
                     if v < best {
                         best = v.clone();

@@ -8,3 +8,7 @@ n224_k18_d12 sector z W=11: none <= 11 nodes 3468413  (0 s)
 n224_k18_d12 sector x W=11: none <= 11 nodes 3610273  (0 s)
 n192_k12_d14 sector z W=13: none <= 13 nodes 29202440  (4 s)
 n192_k12_d14 sector x W=13: none <= 13 nodes 28294328  (5 s)
+presentation-built [[288,16,16]] (code_288_from_presentation.py):
+p288 sector z W=15: none <= 15 nodes 398366082  (59 s)
+p288 sector x W=15: none <= 15 nodes 404486358  (84 s)
+presentation-built [[192,12,14]] (code_192_from_presentation.py): W=13 none in both sectors, W=14 weight-14 logical found in both
