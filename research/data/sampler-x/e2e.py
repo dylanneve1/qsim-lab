@@ -3,9 +3,11 @@
 
 usage: e2e.py <stim_compare> <stim CLI> <wtime> <circuit.stim> <d> <p> <reps> <shots,shots,...> [contenders]
 
-Per shot count (rounded up to a multiple of 64, which ptb64 needs), interleaved (the contender order rotates every rep), min over reps, single thread,
+Per shot count (rounded up to a multiple of 64, which ptb64 needs), interleaved (the contender order rotates every rep), min over reps
+(at least 11 below 10^6 shots: the minimum then filters scheduling delays of a loaded machine), single thread,
 ptb64 (detection events with observables appended) to /dev/null, the same .stim file for everyone:
   stim       native `stim detect --shots N --in F --out /dev/null --out_format ptb64 --append_observables`
+  stim_b8    the same with --out_format b8 (shot-major bytes; Stim writes it faster than ptb64 at large d)
   x          `stim_compare sample-x F N /dev/null 1 1 auto` (this branch: fast parse, backward compiler,
              hit tables only when they pay off)
   x_tables   same with mode on (always compile and build the hit tables)
@@ -22,13 +24,17 @@ B, S, WT, F, d, p, reps = sys.argv[1:8]
 d, p, reps = int(d), float(p), int(reps)
 # ptb64 needs a multiple of 64 shots (Stim refuses others): round up (1e2 -> 128, 1e3 -> 1024, ...)
 shots_list = [-(-int(float(x)) // 64) * 64 for x in sys.argv[8].split(",")]
-who = (sys.argv[9] if len(sys.argv) > 9 else "stim,x,fast").split(",")
+who = (sys.argv[9] if len(sys.argv) > 9 else "stim,stim_b8,x,fast").split(",")
 DN = os.devnull
 
 
 def cmd(name, n):
     if name == "stim":
         return [S, "detect", "--shots", str(n), "--in", F, "--out", DN, "--out_format", "ptb64",
+                "--append_observables"]
+    if name == "stim_b8":
+        # Stim's b8 writer is faster than its ptb64 writer at large d (§1): the best Stim mode
+        return [S, "detect", "--shots", str(n), "--in", F, "--out", DN, "--out_format", "b8",
                 "--append_observables"]
     if name == "x":
         return [B, "sample-x", F, str(n), DN, "1", "1", "auto"]
@@ -51,15 +57,24 @@ def wall(c):
 for n in shots_list:
     load0 = os.getloadavg()[0]
     rs = {w: [] for w in who}
-    for r in range(reps):
+    # short runs: more repetitions, so that the minimum filters out scheduling delays on a loaded box
+    reps_n = reps if n >= 1_000_000 else max(reps, 11)
+    for r in range(reps_n):
         order = who[r % len(who):] + who[:r % len(who)]
         for w in order:
             rs[w].append(wall(cmd(w, n)))
     m = {w: min(v) for w, v in rs.items()}
-    out = dict(d=d, p=p, shots=n, node=platform.node(), load1_before=load0, load1_after=os.getloadavg()[0],
+    out = dict(d=d, p=p, shots=n, reps=reps_n, node=platform.node(), load1_before=load0,
+               load1_after=os.getloadavg()[0],
                **{f"{w}_s": m[w] for w in who}, **{f"{w}_all_s": rs[w] for w in who})
     if "stim" in m:
         for w in who:
-            if w != "stim":
+            if not w.startswith("stim"):
                 out[f"stim_over_{w}"] = m["stim"] / m[w]
+    if "stim" in m and "stim_b8" in m:
+        best = min(m["stim"], m["stim_b8"])
+        out["best_stim_s"] = best
+        for w in who:
+            if not w.startswith("stim"):
+                out[f"best_stim_over_{w}"] = best / m[w]
     print(json.dumps(out), flush=True)

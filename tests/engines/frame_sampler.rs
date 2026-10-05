@@ -66,7 +66,9 @@ fn frame_counts(f: &FrameSampler, words: usize, batches: usize, seed: u64) -> Di
         f.sample_batch(words, &mut rng, &mut st, &mut out);
         for s in 0..64 * words {
             let (w, bit) = (s / 64, s % 64);
-            let key: Vec<bool> = (0..rows).map(|r| (out[w * rows + r] >> bit) & 1 == 1).collect();
+            let key: Vec<bool> = (0..rows)
+                .map(|r| (out[w * rows + r] >> bit) & 1 == 1)
+                .collect();
             *acc.entry(key).or_insert(0.0) += 1.0;
         }
     }
@@ -89,7 +91,10 @@ fn chi_z(obs: &Dist, exact: &Dist) -> f64 {
         }
     }
     for k in obs.keys() {
-        assert!(exact.get(k).copied().unwrap_or(0.0) > 0.0, "impossible outcome {k:?}");
+        assert!(
+            exact.get(k).copied().unwrap_or(0.0) > 0.0,
+            "impossible outcome {k:?}"
+        );
     }
     if pe > 0.0 {
         chi += (po - pe) * (po - pe) / pe;
@@ -106,7 +111,13 @@ fn random_program(rng: &mut StdRng) -> String {
     let mut t = String::new();
     let mut meas = 0usize;
     let pm = [0.0, 0.05][rng.random_range(0..2)];
-    let mpre = |p: f64| if p > 0.0 { format!("({p})") } else { String::new() };
+    let mpre = |p: f64| {
+        if p > 0.0 {
+            format!("({p})")
+        } else {
+            String::new()
+        }
+    };
     let lines = rng.random_range(3..12);
     let body = |t: &mut String, meas: &mut usize, rng: &mut StdRng| {
         let q = rng.random_range(0..n);
@@ -114,15 +125,24 @@ fn random_program(rng: &mut StdRng) -> String {
         let p = [0.02, 0.1, 0.3][rng.random_range(0..3)];
         match rng.random_range(0..14) {
             0 | 1 => t.push_str(&format!("H {q}\n")),
-            2 => t.push_str(&format!("{} {q}\n", ["S", "S_DAG", "X", "Y", "Z"][rng.random_range(0..5)])),
-            3 | 4 if n > 1 => t.push_str(&format!("{} {q} {r}\n", ["CX", "CZ", "SWAP"][rng.random_range(0..3)])),
+            2 => t.push_str(&format!(
+                "{} {q}\n",
+                ["S", "S_DAG", "X", "Y", "Z"][rng.random_range(0..5)]
+            )),
+            3 | 4 if n > 1 => t.push_str(&format!(
+                "{} {q} {r}\n",
+                ["CX", "CZ", "SWAP"][rng.random_range(0..3)]
+            )),
             5 => t.push_str(&format!("{} {q}\n", ["R", "RX"][rng.random_range(0..2)])),
             6 | 7 => {
                 let name = ["M", "MX", "MR", "MRX"][rng.random_range(0..4)];
                 t.push_str(&format!("{name}{} {q}\n", mpre(pm)));
                 *meas += 1;
             }
-            8 => t.push_str(&format!("{}({p}) {q}\n", ["X_ERROR", "Y_ERROR", "Z_ERROR"][rng.random_range(0..3)])),
+            8 => t.push_str(&format!(
+                "{}({p}) {q}\n",
+                ["X_ERROR", "Y_ERROR", "Z_ERROR"][rng.random_range(0..3)]
+            )),
             9 => t.push_str(&format!("DEPOLARIZE1({p}) {q}\n")),
             10 if n > 1 => t.push_str(&format!("DEPOLARIZE2({p}) {q} {r}\n")),
             11 if *meas > 0 => {
@@ -166,7 +186,11 @@ fn frame_sampler_matches_exact_distribution_on_random_programs() {
         let text = random_program(&mut rng);
         let prog = parse_stim_circuit(&text).unwrap();
         let cols = compile_stim(&prog);
-        let size: f64 = cols.groups.iter().map(|g| g.dist.outcomes().len() as f64).product();
+        let size: f64 = cols
+            .groups
+            .iter()
+            .map(|g| g.dist.outcomes().len() as f64)
+            .product();
         if size > 3e4 || cols.rows > 10 {
             continue;
         }

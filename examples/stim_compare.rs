@@ -408,20 +408,23 @@ fn main() {
             for r in 0..freps {
                 let mut w = devnull();
                 let t = Instant::now();
-                fr.write_ptb64(shots, 400 + r as u64, fwords, &mut w).unwrap();
+                fr.write_ptb64(shots, 400 + r as u64, fwords, &mut w)
+                    .unwrap();
                 w.flush().unwrap();
                 s_fr = s_fr.min(t.elapsed().as_secs_f64());
                 if fr_simd {
                     let mut w = devnull();
                     let t = Instant::now();
-                    frs.write_ptb64(shots, 500 + r as u64, fwords, &mut w).unwrap();
+                    frs.write_ptb64(shots, 500 + r as u64, fwords, &mut w)
+                        .unwrap();
                     w.flush().unwrap();
                     s_frs = s_frs.min(t.elapsed().as_secs_f64());
                 }
             }
             let mut fs = f.clone();
             let simd = fs.set_simd(true);
-            let (mut s_tab, mut s_notab, mut s_simd) = (f64::INFINITY, f64::INFINITY, f64::INFINITY);
+            let (mut s_tab, mut s_notab, mut s_simd) =
+                (f64::INFINITY, f64::INFINITY, f64::INFINITY);
             let small = || {
                 BufWriter::with_capacity(
                     1 << 16,
@@ -473,13 +476,15 @@ fn main() {
                 &prog.detectors,
                 &prog.observables,
             ));
-            let new = FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
+            let new =
+                FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
             println!("{}", if old == new { "equal" } else { "DIFFER" });
             assert!(old == new);
         }
         "dem-support-x" => {
             let text = std::fs::read_to_string(&a[2]).unwrap();
-            let f = FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
+            let f =
+                FastSampler::from_columns(compile_stim(&parse_stim_circuit(&text).unwrap()), true);
             for sig in f.hit_signatures() {
                 println!(
                     "{}",

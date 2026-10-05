@@ -27,7 +27,7 @@ def e2e(name="e2e.jsonl"):
     rs = rows(name)
     if not rs:
         return
-    print("\n### whole process (min of reps): Stim native / ours, and our time\n")
+    print("\n### whole process (min of reps): best native Stim (ptb64 or b8) / ours, (our time vs Stim's)\n")
     shots = sorted({r["shots"] for r in rs})
     for p in sorted({r["p"] for r in rs}):
         print(f"\np = {p}\n")
@@ -42,7 +42,8 @@ def e2e(name="e2e.jsonl"):
                     continue
                 r = m[-1]
                 loads += [r["load1_before"], r["load1_after"]]
-                cells.append(f"**{r['stim_s'] / r['x_s']:.2f}×** ({fmt_t(r['x_s'])} vs {fmt_t(r['stim_s'])})")
+                best = r.get("best_stim_s", r["stim_s"])
+                cells.append(f"**{best / r['x_s']:.2f}×** ({fmt_t(r['x_s'])} vs {fmt_t(best)})")
             print(f"| {d} | " + " | ".join(cells) + f" | {min(loads):.0f}–{max(loads):.0f} |")
 
 
@@ -51,11 +52,12 @@ def throughput(name="throughput.jsonl"):
     if not rs:
         return
     print("\n### sampling only, Mshot/s (single thread)\n")
-    print("| d | p | shots | Stim pip | Stim native (net) | ours old (net) | ours new (net) | ours new (internal) | new / best Stim | new / old | load |")
+    print("| d | p | shots | Stim pip | Stim native ptb64 / b8 (net) | ours old (net) | ours new (net) | ours new (internal) | new / best Stim | new / old | load |")
     print("|---|---|---|---|---|---|---|---|---|---|---|")
     for r in sorted(rs, key=lambda r: (r["p"], r["d"])):
-        best = max(r["mshots_stim_pip"], r["mshots_stim_net"])
-        print(f"| {r['d']} | {r['p']} | {r['shots']:,} | {r['mshots_stim_pip']:.2f} | {r['mshots_stim_net']:.2f} | "
+        best = max(r["mshots_stim_pip"], r["mshots_stim_net"], r.get("mshots_stim_b8_net", 0))
+        print(f"| {r['d']} | {r['p']} | {r['shots']:,} | {r['mshots_stim_pip']:.2f} | "
+              f"{r['mshots_stim_net']:.2f} / {r.get('mshots_stim_b8_net', float('nan')):.2f} | "
               f"{r['mshots_fast_net']:.2f} | {r['mshots_x_net']:.2f} | {r['mshots_x_int']:.2f} | "
               f"**{r['mshots_x_int'] / best:.1f}×** | {r['mshots_x_net'] / r['mshots_fast_net']:.2f}× | "
               f"{r['load1_before']:.0f}–{r['load1_after']:.0f} |")
@@ -119,7 +121,22 @@ def equivalence(name="equivalence_x.jsonl"):
     print(f"\n{tot_r} rejections in {tot_t} tests over {len(rs)} cells.")
 
 
+def calibrate(name="calibrate.jsonl"):
+    rs = rows(name)
+    if not rs:
+        return
+    print("\n### auto-policy calibration: whole process, ms (min of reps)\n")
+    print("| d | shots | frames | compiled, no tables | compiled, tables | fastest | load |")
+    print("|---|---|---|---|---|---|---|")
+    for r in sorted(rs, key=lambda r: (r["d"], r["shots"])):
+        t = {k: r[f"{k}_s"] for k in ("x_frames", "x_notables", "x_tables") if f"{k}_s" in r}
+        best = min(t, key=t.get)
+        print(f"| {r['d']} | {r['shots']:,} | {t['x_frames'] * 1e3:.2f} | {t['x_notables'] * 1e3:.2f} | "
+              f"{t['x_tables'] * 1e3:.2f} | {best[2:]} | {r['load1_before']:.0f}–{r['load1_after']:.0f} |")
+
+
 if __name__ == "__main__":
+    calibrate()
     equivalence()
     old_repro()
     e2e()

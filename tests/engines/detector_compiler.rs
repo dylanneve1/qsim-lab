@@ -35,7 +35,13 @@ fn old_columns(
 }
 
 /// New route == old route, columns and samplers (with hit tables).
-fn assert_same(c: &Circuit, noise: &NoiseModel, dets: &[Vec<usize>], obs: &[Vec<usize>], what: &str) {
+fn assert_same(
+    c: &Circuit,
+    noise: &NoiseModel,
+    dets: &[Vec<usize>],
+    obs: &[Vec<usize>],
+    what: &str,
+) {
     let (oc, of) = old_columns(c, noise, dets, obs).unwrap();
     let nc = compile_circuit(c, noise, dets, obs).unwrap();
     assert_eq!(nc, oc, "{what}: columns differ");
@@ -258,24 +264,55 @@ fn stim_front_end_equals_circuit_front_end() {
         texts.push((format!("export surface d={d}"), t));
     }
     let cc = ColorCode::new(5);
-    let m = cc.memory_basis(&cc.uniform_schedule(KF_SCHEDULE), 3, ColorNoise::Uniform(0.002), false);
+    let m = cc.memory_basis(
+        &cc.uniform_schedule(KF_SCHEDULE),
+        3,
+        ColorNoise::Uniform(0.002),
+        false,
+    );
     texts.push((
         "export colour d=5".into(),
         to_stim(&m.circuit, &m.noise, &m.detectors, &m.observables).unwrap(),
     ));
     for (name, text) in &texts {
         let prog = parse_stim(text).unwrap();
-        assert_eq!(prog, parse_stim_reference(text).unwrap(), "{name}: parsers differ");
+        assert_eq!(
+            prog,
+            parse_stim_reference(text).unwrap(),
+            "{name}: parsers differ"
+        );
         let sc = parse_stim_circuit(text).unwrap();
-        assert_eq!(sc.num_measurements(), prog.circuit.ops.iter().filter(|o| matches!(o, Op::Measure(_))).count());
+        assert_eq!(
+            sc.num_measurements(),
+            prog.circuit
+                .ops
+                .iter()
+                .filter(|o| matches!(o, Op::Measure(_)))
+                .count()
+        );
         assert_eq!(sc.num_detectors(), prog.detectors.len());
         assert_eq!(sc.num_observables(), prog.observables.len());
         let a = compile_stim(&sc);
-        let b = compile_circuit(&prog.circuit, &prog.noise, &prog.detectors, &prog.observables).unwrap();
+        let b = compile_circuit(
+            &prog.circuit,
+            &prog.noise,
+            &prog.detectors,
+            &prog.observables,
+        )
+        .unwrap();
         assert_eq!(a, b, "{name}: .stim front-end differs");
-        let (oc, of) = old_columns(&prog.circuit, &prog.noise, &prog.detectors, &prog.observables).unwrap();
+        let (oc, of) = old_columns(
+            &prog.circuit,
+            &prog.noise,
+            &prog.detectors,
+            &prog.observables,
+        )
+        .unwrap();
         assert_eq!(a, oc, "{name}: differs from the old route");
-        assert!(FastSampler::from_columns(a, true) == of, "{name}: samplers differ");
+        assert!(
+            FastSampler::from_columns(a, true) == of,
+            "{name}: samplers differ"
+        );
     }
 }
 
@@ -292,7 +329,10 @@ fn errors_match_the_old_route() {
     c.h(0).measure(0);
     assert!(matches!(
         compile_circuit(&c, &NoiseModel::none(), &[vec![1]], &[]),
-        Err(SimError::ClassicalBitOutOfRange { bit: 1, available: 1 })
+        Err(SimError::ClassicalBitOutOfRange {
+            bit: 1,
+            available: 1
+        })
     ));
     // feedback needs an earlier measurement, a Pauli, and no 1-qubit gate noise
     let mut c = Circuit::new(2);
@@ -331,7 +371,11 @@ fn random_stim_programs() {
         gen_block(&mut text, n, &mut meas, p, 0, &mut rng);
         // a final layer so detectors have something to read (same readout
         // flip as the body: the unrolled program has one p_meas)
-        text.push_str(&if p > 0.0 { format!("M({p})") } else { "M".to_string() });
+        text.push_str(&if p > 0.0 {
+            format!("M({p})")
+        } else {
+            "M".to_string()
+        });
         for q in 0..n {
             text.push_str(&format!(" {q}"));
         }
@@ -341,16 +385,36 @@ fn random_stim_programs() {
             let k = rng.random_range(1..=meas.min(6));
             text.push_str(&format!("DETECTOR rec[-{k}] rec[-1]\n"));
         }
-        text.push_str(&format!("OBSERVABLE_INCLUDE({}) rec[-1]\n", rng.random_range(0..2)));
+        text.push_str(&format!(
+            "OBSERVABLE_INCLUDE({}) rec[-1]\n",
+            rng.random_range(0..2)
+        ));
         let prog = parse_stim(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
-        assert_eq!(prog, parse_stim_reference(&text).unwrap(), "program {i}:\n{text}");
+        assert_eq!(
+            prog,
+            parse_stim_reference(&text).unwrap(),
+            "program {i}:\n{text}"
+        );
         let a = compile_stim(&parse_stim_circuit(&text).unwrap());
-        let b = compile_circuit(&prog.circuit, &prog.noise, &prog.detectors, &prog.observables).unwrap();
+        let b = compile_circuit(
+            &prog.circuit,
+            &prog.noise,
+            &prog.detectors,
+            &prog.observables,
+        )
+        .unwrap();
         assert_eq!(a, b, "program {i}:\n{text}");
     }
 }
 
-fn gen_block(text: &mut String, n: usize, meas: &mut usize, p: f64, depth: usize, rng: &mut StdRng) {
+fn gen_block(
+    text: &mut String,
+    n: usize,
+    meas: &mut usize,
+    p: f64,
+    depth: usize,
+    rng: &mut StdRng,
+) {
     let lines = rng.random_range(1..10);
     for _ in 0..lines {
         let q = rng.random_range(0..n);
@@ -358,9 +422,28 @@ fn gen_block(text: &mut String, n: usize, meas: &mut usize, p: f64, depth: usize
         let pp = rng.random_range(0.0..0.2f64);
         match rng.random_range(0..20) {
             0 => text.push_str(&format!("H {q}\n")),
-            1 => text.push_str(&format!("{} {q}\n", ["S", "S_DAG", "SQRT_Z", "SQRT_Z_DAG", "H_XZ", "X", "Y", "Z", "I"][rng.random_range(0..9)])),
-            2 | 3 if n > 1 => text.push_str(&format!("{} {q} {r}\n", ["CX", "CNOT", "ZCX", "CZ", "ZCZ", "SWAP"][rng.random_range(0..6)])),
-            4 => text.push_str(&format!("{} {q}\n", ["R", "RZ", "RX"][rng.random_range(0..3)])),
+            1 => text.push_str(&format!(
+                "{} {q}\n",
+                [
+                    "S",
+                    "S_DAG",
+                    "SQRT_Z",
+                    "SQRT_Z_DAG",
+                    "H_XZ",
+                    "X",
+                    "Y",
+                    "Z",
+                    "I"
+                ][rng.random_range(0..9)]
+            )),
+            2 | 3 if n > 1 => text.push_str(&format!(
+                "{} {q} {r}\n",
+                ["CX", "CNOT", "ZCX", "CZ", "ZCZ", "SWAP"][rng.random_range(0..6)]
+            )),
+            4 => text.push_str(&format!(
+                "{} {q}\n",
+                ["R", "RZ", "RX"][rng.random_range(0..3)]
+            )),
             5 | 6 => {
                 let name = ["M", "MZ", "MX", "MR", "MRZ", "MRX"][rng.random_range(0..6)];
                 if p > 0.0 {
@@ -370,7 +453,10 @@ fn gen_block(text: &mut String, n: usize, meas: &mut usize, p: f64, depth: usize
                 }
                 *meas += 1;
             }
-            7 => text.push_str(&format!("{}({pp}) {q}\n", ["X_ERROR", "Y_ERROR", "Z_ERROR", "DEPOLARIZE1"][rng.random_range(0..4)])),
+            7 => text.push_str(&format!(
+                "{}({pp}) {q}\n",
+                ["X_ERROR", "Y_ERROR", "Z_ERROR", "DEPOLARIZE1"][rng.random_range(0..4)]
+            )),
             8 if n > 1 => text.push_str(&format!("DEPOLARIZE2({pp}) {q} {r}\n")),
             9 if *meas > 0 => {
                 let k = rng.random_range(1..=(*meas).min(4));
@@ -378,7 +464,10 @@ fn gen_block(text: &mut String, n: usize, meas: &mut usize, p: f64, depth: usize
             }
             10 if *meas > 0 => {
                 let k = rng.random_range(1..=(*meas).min(4));
-                text.push_str(&format!("OBSERVABLE_INCLUDE({}) rec[-{k}]\n", rng.random_range(0..3)));
+                text.push_str(&format!(
+                    "OBSERVABLE_INCLUDE({}) rec[-{k}]\n",
+                    rng.random_range(0..3)
+                ));
             }
             11 => text.push_str("TICK\n"),
             12 if depth < 2 => {
@@ -391,7 +480,9 @@ fn gen_block(text: &mut String, n: usize, meas: &mut usize, p: f64, depth: usize
                 text.push_str("}\n");
             }
             13 => text.push_str(&format!("# comment\nQUBIT_COORDS(0, 1) {q}\n")),
-            _ => text.push_str(&format!("CX {q} {r}\n").replace(&format!("CX {q} {q}"), &format!("H {q}"))),
+            _ => text.push_str(
+                &format!("CX {q} {r}\n").replace(&format!("CX {q} {q}"), &format!("H {q}")),
+            ),
         }
     }
 }
@@ -425,15 +516,29 @@ fn write_ptb64_identical_across_threads_and_table_modes() {
         for threads in [2, 3, 8] {
             for slab in [1, 50_000, 4 << 20] {
                 let mut o = Vec::new();
-                ft.write_ptb64_with(shots, 5, threads, FastSampler::batch_words(shots), slab, &mut o)
-                    .unwrap();
+                ft.write_ptb64_with(
+                    shots,
+                    5,
+                    threads,
+                    FastSampler::batch_words(shots),
+                    slab,
+                    &mut o,
+                )
+                .unwrap();
                 assert!(o == want, "threads {threads} slab {slab}");
             }
         }
         for threads in [1, 4] {
             let mut o = Vec::new();
-            fc.write_ptb64_with(shots, 5, threads, FastSampler::batch_words(shots), 1, &mut o)
-                .unwrap();
+            fc.write_ptb64_with(
+                shots,
+                5,
+                threads,
+                FastSampler::batch_words(shots),
+                1,
+                &mut o,
+            )
+            .unwrap();
             assert!(o == want, "no tables, threads {threads}");
         }
         // the AVX-512 gather/scatter kernel (where the CPU has it)
@@ -441,8 +546,15 @@ fn write_ptb64_identical_across_threads_and_table_modes() {
         if fs.set_simd(true) {
             for threads in [1, 3] {
                 let mut o = Vec::new();
-                fs.write_ptb64_with(shots, 5, threads, FastSampler::batch_words(shots), 1, &mut o)
-                    .unwrap();
+                fs.write_ptb64_with(
+                    shots,
+                    5,
+                    threads,
+                    FastSampler::batch_words(shots),
+                    1,
+                    &mut o,
+                )
+                .unwrap();
                 assert!(o == want, "avx512, threads {threads}");
             }
         }
