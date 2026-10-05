@@ -46,7 +46,7 @@ def main():
     scratch = os.path.expanduser(f"~/qsim-lmc-scratch/{name}")
     os.makedirs(scratch, exist_ok=True)
     t0 = time.time()
-    drv = DMRGDriver(scratch=scratch, symm_type=SymmetryTypes.SU2, n_threads=int(os.environ.get("DMRG_THREADS", "1")), stack_mem=int(1.5e9))
+    drv = DMRGDriver(scratch=scratch, symm_type=SymmetryTypes.SU2, n_threads=int(os.environ.get("DMRG_THREADS", "1")), stack_mem=int(1.0e9))
     drv.initialize_system(n_sites=norb, n_elec=nel, spin=0)
     if order == "fiedler":
         idx = drv.orbital_reordering(h1, eri)
@@ -54,15 +54,15 @@ def main():
         eri = eri[idx][:, idx][:, :, idx][:, :, :, idx]
     mpo = drv.get_qc_mpo(h1e=h1, g2e=eri, ecore=ecore, iprint=0)
     ket = drv.get_random_mps(tag="KET", bond_dim=min(250, maxm), nroots=1)
-    ms = [m for m in (250, 500, 800, 1200, 1600) if m < maxm] + [maxm]
+    ms = [m for m in (200,) if m < maxm] + [maxm]
     bond_dims, noises, thrds = [], [], []
     for m in ms:
         bond_dims += [m] * 4
         noises += [1e-5] * 4
-        thrds += [1e-10] * 4
-    bond_dims += [maxm] * 4
-    noises += [0.0] * 4
-    thrds += [1e-12] * 4
+        thrds += [1e-9] * 4
+    bond_dims += [maxm] * 3
+    noises += [0.0] * 3
+    thrds += [1e-10] * 3
     e = drv.dmrg(mpo, ket, n_sweeps=len(bond_dims), bond_dims=bond_dims, noises=noises, thrds=thrds, iprint=1)
     sweep_e = drv.get_dmrg_results()[1] if hasattr(drv, "get_dmrg_results") else None
     rec = {
