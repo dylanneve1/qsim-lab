@@ -174,7 +174,11 @@ Reading the table:
   the fidelity decays faster than exponentially-in-R would predict from the short runs. This is the
   signature of an under-trained recurrent state: our curriculum spent most early samples on short
   experiments, and we stopped after 2.2 M samples (paper: ≤ 2 × 10⁹ + 120 fine-tuning epochs).
-- Tesseract (beam 15) on this data: §5.3 (running, 5,000 shots per experiment).
+- Tesseract (beam 15, 16 detector orders, pij DEM) on the first 5,000 held-out shots of every
+  experiment (paired subset of 0.8 M shots): **3.112 % [3.054, 3.176], ratio to TN 1.010 [0.997,
+  1.026]** — statistically tied with the tensor network and with belief matching (1.009). On the same
+  subset AlphaQubit-lite is 3.532 % (1.147), BP+OSD 3.366 % (1.093), correlated PyMatching 3.429 %
+  (1.113), PyMatching 3.878 % (1.259).
 
 ### 5.2 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
 
