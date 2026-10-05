@@ -1,0 +1,8 @@
+F^3: chi = 3 (72 optimal decompositions)
+  degenerate, bra #0: combos 258746400 found 1863
+  degenerate, bra #1: combos 258746400 found 1863
+  non-degenerate: 156384 minimal 4-term decompositions of F^3 (1257 orbits), glued 203
+F^4: 4-term decompositions found (up to symmetry, with repeats): 3929
+F^4: total 28215 decompositions with 4 terms; l1 norms: 2.276142375x810 2.345092060x81 2.488033872x81 2.621234435x243 2.666666667x24111 2.833125932x81 2.942809042x2268 3.154700538x54 3.287901102x81 3.430842913x162 3.564043477x162 3.775934973x81
+  65 orbits; representatives written
+F^5: non-degenerate 4-term decompositions (A side up to symmetry): 0
