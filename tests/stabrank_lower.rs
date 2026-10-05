@@ -1,4 +1,4 @@
-//! Executable checks for research/stabrank-lower.md.
+//! Executable checks for research/theory/stabrank-lower.md.
 //!
 //! The engine is the standalone file research/data/stabrank-lower/stabrank.rs (std only), included
 //! here as a module.  Every negative claim ("no decomposition with k terms") comes from a complete
