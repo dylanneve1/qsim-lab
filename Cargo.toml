@@ -132,6 +132,10 @@ name = "simd"
 path = "tests/engines/simd.rs"
 
 [[test]]
+name = "avx512"
+path = "tests/engines/avx512.rs"
+
+[[test]]
 name = "spd"
 path = "tests/engines/spd.rs"
 

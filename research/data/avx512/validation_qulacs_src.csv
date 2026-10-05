@@ -1,0 +1,15 @@
+n,workload,file,fw,prec,fidelity,max_abs_diff,passed
+12,qft,qft_12.txt,qulacs_src,c128,1.000000000000000,0.00e+00,True
+12,brick_cz,brick_cz_12.txt,qulacs_src,c128,1.000000000000000,7.29e-17,True
+12,brick_su4,brick_su4_12.txt,qulacs_src,c128,1.000000000000000,1.41e-16,True
+12,brick_su4,brick_su4_12.dense.txt,qulacs_src,c128,1.000000000000001,2.37e-15,True
+12,qv,qv_12.txt,qulacs_src,c128,1.000000000000000,1.21e-16,True
+12,qv,qv_12.dense.txt,qulacs_src,c128,1.000000000000000,2.02e-15,True
+12,qaoa,qaoa_12.txt,qulacs_src,c128,1.000000000000000,5.72e-17,True
+14,qft,qft_14.txt,qulacs_src,c128,1.000000000000000,0.00e+00,True
+14,brick_cz,brick_cz_14.txt,qulacs_src,c128,1.000000000000000,4.27e-17,True
+14,brick_su4,brick_su4_14.txt,qulacs_src,c128,1.000000000000000,8.30e-17,True
+14,brick_su4,brick_su4_14.dense.txt,qulacs_src,c128,1.000000000000000,2.30e-15,True
+14,qv,qv_14.txt,qulacs_src,c128,1.000000000000000,8.49e-17,True
+14,qv,qv_14.dense.txt,qulacs_src,c128,1.000000000000000,1.01e-15,True
+14,qaoa,qaoa_14.txt,qulacs_src,c128,1.000000000000000,5.34e-17,True
