@@ -40,6 +40,10 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Links
         run: python3 tools/check_links.py --anchors
+      # Runs here, in parallel with the test shards (clippy has already
+      # type-checked the examples; this catches codegen/link failures).
+      - name: Examples build (dev profile)
+        run: cargo build --examples
 
   test:
     runs-on: ubuntu-latest
@@ -61,9 +65,6 @@ jobs:
       - name: Doctests
         if: matrix.shard == 1
         run: cargo test --doc
-      - name: Examples build (dev profile)
-        if: matrix.shard == 2
-        run: cargo build --examples
 
   # Nightly / on demand: the examples in release, as users run them.
   examples-release:
