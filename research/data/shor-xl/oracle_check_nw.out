@@ -1,0 +1,11 @@
+OK N=549755813701 window=0 w=1 g=11585505291 qubits=165 ops=23815 (CCX 5592, CX 15635, CZ 413, MX 1368, X 774, Z 33) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=19 w=1 g=245101151355 qubits=165 ops=24358 (CCX 5748, CX 16032, CZ 404, MX 1368, X 774, Z 32) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=20 w=1 g=91386282684 qubits=165 ops=24445 (CCX 5825, CX 16014, CZ 439, MX 1367, X 774, Z 26) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=40 w=1 g=113102848492 qubits=165 ops=24001 (CCX 5674, CX 15743, CZ 407, MX 1372, X 770, Z 35) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=59 w=1 g=345241646758 qubits=165 ops=25345 (CCX 6061, CX 16705, CZ 401, MX 1369, X 772, Z 37) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=0 w=2 g=202832862843 qubits=166 ops=35387 (CCX 7810, CX 23968, CZ 681, MX 1879, X 1036, Z 13) inputs=2012: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=9 w=2 g=245101151355 qubits=166 ops=34830 (CCX 7655, CX 23572, CZ 678, MX 1880, X 1036, Z 9) inputs=2012: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=10 w=2 g=365984353069 qubits=166 ops=35995 (CCX 7958, CX 24461, CZ 658, MX 1871, X 1036, Z 11) inputs=2012: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=29 w=2 g=345241646758 qubits=166 ops=36056 (CCX 7965, CX 24485, CZ 677, MX 1878, X 1036, Z 15) inputs=2012: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=0 w=1 g=62290931961 qubits=165 ops=24320 (CCX 5746, CX 16005, CZ 402, MX 1366, X 772, Z 29) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign
+OK N=549755813701 window=77 w=1 g=345241646758 qubits=165 ops=24671 (CCX 5839, CX 16231, CZ 414, MX 1381, X 772, Z 34) inputs=2006: e unchanged, x -> g^e x mod N, ancillas 0, uniform sign

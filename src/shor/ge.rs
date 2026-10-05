@@ -36,7 +36,7 @@ use crate::shor::mbu::{
     add_g, inverse, modadd_ops, resolve, LOp, LookupSpec, MbuCounts, MbuLayout, MbuOp, MbuOpts,
     Outcomes, NO_CTRL,
 };
-use crate::shor::sliced::{transpose64, SlicedProgram};
+use crate::shor::sliced::{transpose64, SliceBuf, SlicedProgram};
 use crate::shor::window::WindowLayout;
 use crate::shor::{mod_inverse, mul_mod};
 use num_complex::{Complex, Complex64};
@@ -284,7 +284,7 @@ fn lanes() -> usize {
     std::env::var("QSIM_SLICE_LANES")
         .ok()
         .and_then(|v| v.parse().ok())
-        .filter(|l| [4usize, 8, 16, 32].contains(l))
+        .filter(|l| [4usize, 8, 16, 32, 64].contains(l))
         .unwrap_or(16)
 }
 
@@ -316,6 +316,7 @@ pub fn eval_e_inplace<T: Real>(
         4 => eval_e_l::<4, T>(prog, eq, xq, e, buf),
         8 => eval_e_l::<8, T>(prog, eq, xq, e, buf),
         32 => eval_e_l::<32, T>(prog, eq, xq, e, buf),
+        64 => eval_e_l::<64, T>(prog, eq, xq, e, buf),
         _ => eval_e_l::<16, T>(prog, eq, xq, e, buf),
     }
 }
@@ -336,8 +337,9 @@ fn eval_e_l<const L: usize, T: Real>(
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
     out.par_chunks_mut(64 * L)
         .map_init(
-            || vec![[0u64; L]; nq + 2],
-            |w, chunk| {
+            || SliceBuf::<L>::new(nq + 2),
+            |buf, chunk| {
+                let w = buf.words();
                 for wq in w.iter_mut() {
                     *wq = [0; L];
                 }
@@ -958,9 +960,17 @@ fn finish_in_place<T: Real>(
 }
 
 /// [`finish_in_place`] for two sorted runs `ent[..split]` (`e = 0`, i.e.
-/// `ψ`) and `ent[split..]`: outputs are written into the `e = 0` run behind
-/// its read pointer; a chunk whose outputs would overtake that pointer
-/// (the support grows in this window) continues in a side buffer.
+/// `ψ`) and `ent[split..]`. Each chunk writes its outputs, in key order,
+/// into the `e = 0` run behind its read pointer; an output that would
+/// overtake that pointer (the support grows in this window) waits in a
+/// per-chunk FIFO and is written as soon as more of the run has been read,
+/// so a chunk's result is its in-place prefix followed by the FIFO's
+/// remainder, both in key order. The chunks are then moved together inside
+/// `ent` (outputs never outnumber input branches): chunks that move right
+/// are moved last-first, then chunks that move left first-last, so no move
+/// overwrites a part not yet moved. Peak memory is the window's own array
+/// plus the FIFO remainders (the growth of the support in this window), not
+/// a second copy of the new state.
 fn finish_runs_in_place<T: Real>(
     wa: &WindowArrays<T>,
     mut ent: Vec<(u64, Complex<T>)>,
@@ -970,7 +980,7 @@ fn finish_runs_in_place<T: Real>(
     let w = wa.w;
     let ne = 1usize << w;
     let mask = (1u64 << w) - 1;
-    let results: Vec<(usize, Arr<T>)> = {
+    let results: Vec<(usize, std::collections::VecDeque<(u64, Complex<T>)>)> = {
         let (a, b) = ent.split_at_mut(split);
         let b: &[(u64, Complex<T>)] = b;
         let mut jobs = Vec::with_capacity(chunks.len());
@@ -987,7 +997,7 @@ fn finish_runs_in_place<T: Real>(
             .map(|(a, b)| {
                 let mut vals = [Complex64::zero(); 64];
                 let (mut ia, mut ib, mut o) = (0usize, 0usize, 0usize);
-                let mut ovf: Arr<T> = Vec::new();
+                let mut fifo = std::collections::VecDeque::new();
                 while ia < a.len() || ib < b.len() {
                     let ka = if ia < a.len() { a[ia].0 >> w } else { u64::MAX };
                     let kb = if ib < b.len() { b[ib].0 >> w } else { u64::MAX };
@@ -1004,39 +1014,51 @@ fn finish_runs_in_place<T: Real>(
                     debug_assert_eq!(len, 1);
                     let z = cvt::<T>(vals[0]);
                     if z != Complex::zero() {
-                        if ovf.is_empty() && o < ia {
+                        if fifo.is_empty() && o < ia {
                             a[o] = (key, z);
                             o += 1;
                         } else {
-                            ovf.push((key, z));
+                            fifo.push_back((key, z));
                         }
+                    }
+                    while o < ia {
+                        let Some(v) = fifo.pop_front() else { break };
+                        a[o] = v;
+                        o += 1;
                     }
                     vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
                 }
-                (o, ovf)
+                (o, fifo)
             })
             .collect()
     };
-    if results.iter().all(|r| r.1.is_empty()) {
-        let mut dst = 0;
-        for (&(a0, _, _, _), &(cnt, _)) in chunks.iter().zip(&results) {
-            if a0 != dst {
-                ent.copy_within(a0..a0 + cnt, dst);
-            }
-            dst += cnt;
-        }
-        ent.truncate(dst);
-        ent.shrink_to_fit();
-        ent
-    } else {
-        let total: usize = results.iter().map(|r| r.0 + r.1.len()).sum();
-        let mut out = Vec::with_capacity(total);
-        for (&(a0, _, _, _), (cnt, ovf)) in chunks.iter().zip(&results) {
-            out.extend_from_slice(&ent[a0..a0 + cnt]);
-            out.extend_from_slice(ovf);
-        }
-        out
+    // destinations: chunk c's result goes to [d[c], d[c + 1])
+    let mut d = Vec::with_capacity(chunks.len() + 1);
+    d.push(0usize);
+    for (cnt, fifo) in &results {
+        d.push(d.last().unwrap() + cnt + fifo.len());
     }
+    let total = *d.last().unwrap();
+    assert!(total <= ent.len(), "more outputs than input branches");
+    let place = |c: usize, ent: &mut Vec<(u64, Complex<T>)>| {
+        let (cnt, fifo) = &results[c];
+        let a0 = chunks[c].0;
+        if a0 != d[c] {
+            ent.copy_within(a0..a0 + cnt, d[c]);
+        }
+        let (f0, f1) = fifo.as_slices();
+        ent[d[c] + cnt..d[c] + cnt + f0.len()].copy_from_slice(f0);
+        ent[d[c] + cnt + f0.len()..d[c + 1]].copy_from_slice(f1);
+    };
+    for c in (0..chunks.len()).rev().filter(|&c| d[c] > chunks[c].0) {
+        place(c, &mut ent);
+    }
+    for c in (0..chunks.len()).filter(|&c| d[c] <= chunks[c].0) {
+        place(c, &mut ent);
+    }
+    ent.truncate(total);
+    ent.shrink_to_fit();
+    ent
 }
 
 /// One exponent register of a phase-estimation schedule.
@@ -1167,6 +1189,7 @@ pub fn run<T: Real>(
             r.windows += 1;
             st.prof[0] += t0.elapsed().as_secs_f64();
             let mut wa = st.window(&wp, w);
+            let n_branches = wa.branches();
             let tm = std::time::Instant::now();
             let final_window = last_reg && k + 1 == wins.len();
             // the joint distribution of the window's w bits in one pass,
@@ -1211,8 +1234,7 @@ pub fn run<T: Real>(
             st.prof[4] += tm.elapsed().as_secs_f64() - t_joint;
             if std::env::var_os("QSIM_GE_PROFILE").is_some() {
                 eprintln!(
-                    "[ge window {k}] in={} joint {:.3}s finish {:.3}s out={}",
-                    r.peak_branches,
+                    "[ge window {k}] branches={n_branches} joint {:.3}s finish {:.3}s out={}",
                     t_joint,
                     tm.elapsed().as_secs_f64() - t_joint,
                     st.psi.len()
