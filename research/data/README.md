@@ -17,6 +17,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`hsf/`](hsf/) | [hsf.md](../performance/hsf.md) |
 | [`mac-m1/`](mac-m1/) | [mac-m1.md](../performance/mac-m1.md) |
 | [`l1/`](l1/) | [mac-m1.md](../performance/mac-m1.md) |
+| [`lowmagic-chem/`](lowmagic-chem/) | [lowmagic-chem.md](../simulability/lowmagic-chem.md) |
 | [`magic-atlas/`](magic-atlas/) | [magic-atlas.md](../simulability/magic-atlas.md) |
 | [`magic-transition/`](magic-transition/) | [magic-transition.md](../simulability/magic-transition.md) |
 | [`mbu-shor/`](mbu-shor/) | [mbu-shor.md](../shor/mbu-shor.md) |
