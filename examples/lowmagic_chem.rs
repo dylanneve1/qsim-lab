@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! lowmagic_chem profile PROG [RANK_CAP]          # d, f, W_d (+ branching rank) of a program
-//! lowmagic_chem energy FCIDUMP PROG [SWEEPS] [MAX_D]   # exact energy (+ Rotosolve) on the compressed state
+//! lowmagic_chem energy FCIDUMP PROG [SWEEPS] [MAX_D] [NOPT]  # exact energy (+ Rotosolve of params < NOPT)
 //! lowmagic_chem check FCIDUMP PROG               # n <= 22: compressed vs state vector, filtered vs full H
 //! ```
 //! Programs and FCIDUMPs are written by `research/data/lowmagic-chem/chem.py`.
@@ -22,7 +22,7 @@ fn main() {
     let arg = |i: usize, d: usize| a.get(i).map_or(d, |s| s.parse().unwrap());
     match a.get(1).map(|s| s.as_str()) {
         Some("profile") => profile(&a[2], arg(3, 0)),
-        Some("energy") => energy(&a[2], &a[3], arg(4, 0), arg(5, 26)),
+        Some("energy") => energy(&a[2], &a[3], arg(4, 0), arg(5, 26), arg(6, usize::MAX)),
         Some("check") => check(&a[2], &a[3]),
         _ => eprintln!("usage: see the source header"),
     }
@@ -85,7 +85,7 @@ fn profile(prog_path: &str, rank_cap: usize) {
     );
 }
 
-fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize) {
+fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize, nopt: usize) {
     let fd = Fcidump::parse(&read(fd_path)).unwrap();
     let prog = Program::parse(&read(prog_path)).unwrap();
     assert_eq!(prog.n, fd.qubits(), "program and FCIDUMP disagree on qubits");
@@ -108,7 +108,7 @@ fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize) {
         (e0, prog.params.clone(), vec![e0], 0usize, 0.0);
     if sweeps > 0 && !prog.params.is_empty() {
         let t1 = Instant::now();
-        let (th, hi, ev) = chem::rotosolve(&prog, &h, sweeps, 1e-9, max_d).unwrap();
+        let (th, hi, ev) = chem::rotosolve(&prog, &h, sweeps, 1e-9, max_d, nopt).unwrap();
         t_opt = t1.elapsed().as_secs_f64();
         eopt = *hi.last().unwrap();
         theta = th;
