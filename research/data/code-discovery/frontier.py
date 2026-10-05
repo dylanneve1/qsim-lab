@@ -111,7 +111,50 @@ def dominates(a, b):
     return a[0] <= b[0] and a[1] >= b[1] and a[2] >= b[2] and a != b
 
 
+def sum_closure(base, nmax):
+    """Pareto sets of (k, d) reachable at each n <= nmax by direct sums
+    (disjoint copies) of codes in `base` [(n, k, d)]: [[n1+n2, k1+k2, min d]]."""
+    reach = defaultdict(set)
+    for n, k, d in base:
+        if n <= nmax:
+            reach[n].add((k, d, ((n, k, d),)))
+    changed = True
+    while changed:
+        changed = False
+        for n in sorted(list(reach)):
+            for k, d, parts in list(reach[n]):
+                if len(parts) >= 4:
+                    continue
+                for n2, k2, d2 in base:
+                    m = n + n2
+                    if m > nmax:
+                        continue
+                    item = (k + k2, min(d, d2), tuple(sorted(parts + ((n2, k2, d2),))))
+                    if not any(a >= item[0] and b >= item[1] for a, b, _ in reach[m]):
+                        reach[m] = {x for x in reach[m] if not (item[0] >= x[0] and item[1] >= x[1])}
+                        reach[m].add(item)
+                        changed = True
+    return reach
+
+
+def dominated_by_sums(code, reach):
+    """A sum of >= 2 codes with n' <= n, k' >= k, d' >= d (one strict or n' < n)."""
+    n, k, d = code
+    out = []
+    for n2, v in reach.items():
+        if n2 > n:
+            continue
+        for k2, d2, parts in v:
+            if len(parts) >= 2 and k2 >= k and d2 >= d and (n2, k2, d2) != (n, k, d) or (
+                len(parts) >= 2 and (n2, k2, d2) == (n, k, d)
+            ):
+                out.append((n2, k2, d2, parts))
+    return out
+
+
 ours = [(n, k, d) for n, v in front.items() for k, d, _ in v]
+NMAX = max(front)
+reach = sum_closure([x[:3] for x in lit] + ours, NMAX)
 rows = []
 for n in sorted(front):
     for k, d, r in front[n]:
@@ -124,12 +167,17 @@ with open(out + ".md", "w") as fo:
     fo.write("| n | k | d | kd^2/n | group | A | B | literature status |\n|---|---|---|---|---|---|---|---|\n")
     for n, k, d, r, lit_dom, beats in rows:
         same = [x for x in lit_dom if x[:3] == (n, k, d)]
+        sums = dominated_by_sums((n, k, d), reach)
         if same:
             st = "published" + ("" if not same[0][3] else " (lit d was a bound)")
         elif lit_dom:
             st = "dominated by " + ", ".join(f"[[{a},{b},{c}]]" for a, b, c, _ in lit_dom[:3])
+        elif sums:
+            a, b, c, parts = sums[0]
+            st = f"matched/dominated by a direct sum [[{a},{b},{c}]] = " + " + ".join(
+                f"[[{x},{y},{z}]]" for x, y, z in parts)
         else:
-            st = "**not in lit frontier**"
+            st = "**new Pareto point** (not dominated by any published code or direct sum)"
         if beats:
             st += "; dominates lit " + ", ".join(f"[[{a},{b},{c}{'*' if s else ''}]]" for a, b, c, s in beats[:4])
         g = f"Z{r['l']}xZ{r['m']}" if r["m"] > 1 else f"Z{r['l']}"
