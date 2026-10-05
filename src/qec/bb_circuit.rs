@@ -38,7 +38,11 @@ use crate::noise::NoiseModel;
 /// (`None` = idle).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BbSchedule {
+    /// X-check term used in each of the 7 CNOT layers (0–2 = `L` via `a_t`,
+    /// 3–5 = `R` via `b_{t-3}`).
     pub sx: [Option<u8>; 7],
+    /// Z-check term used in each of the 7 CNOT layers (0–2 = `L` via `b_t`,
+    /// 3–5 = `R` via `a_{t-3}`).
     pub sz: [Option<u8>; 7],
 }
 
@@ -49,6 +53,8 @@ pub const IBM_SCHEDULE: BbSchedule = BbSchedule {
 };
 
 impl BbSchedule {
+    /// Compact text form `"<sx>/<sz>"`: one character per layer, the term digit
+    /// or `-` for idle (e.g. `-143502/350124-` for [`IBM_SCHEDULE`]).
     pub fn spec(&self) -> String {
         let f = |s: &[Option<u8>; 7]| {
             s.iter()
@@ -212,8 +218,14 @@ pub fn valid_schedules(c: &TwoBlockCode) -> Vec<BbSchedule> {
 /// A built memory experiment.
 #[derive(Clone, Debug)]
 pub struct BbMemory {
+    /// The noisy memory circuit (all qubits start in |0⟩; ancilla layout as in the
+    /// module docs). Gate noise is explicit in the ops.
     pub circuit: Circuit,
+    /// Readout noise: measurement flips with probability `p` (all other noise
+    /// channels are disabled; gate noise is in the circuit ops).
     pub noise: NoiseModel,
+    /// Detectors as lists of measurement-record indices whose parity is
+    /// deterministic in the absence of noise.
     pub detectors: Vec<Vec<usize>>,
     /// One observable per logical qubit (`k` of them).
     pub observables: Vec<Vec<usize>>,

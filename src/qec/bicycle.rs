@@ -42,13 +42,19 @@ use rand::Rng;
 /// A dense GF(2) matrix, row-major, rows packed into `u64` words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Gf2Mat {
+    /// Number of rows.
     pub rows: usize,
+    /// Number of columns.
     pub cols: usize,
+    /// `u64` words per row (`ceil(cols / 64)`, at least 1).
     pub words: usize,
+    /// Row-major bits: row `r` occupies `data[r * words..(r + 1) * words]`,
+    /// column `c` is bit `c % 64` of word `c / 64`.
     pub data: Vec<u64>,
 }
 
 impl Gf2Mat {
+    /// All-zero `rows × cols` matrix.
     pub fn zeros(rows: usize, cols: usize) -> Self {
         let words = cols.div_ceil(64).max(1);
         Gf2Mat {
@@ -59,16 +65,19 @@ impl Gf2Mat {
         }
     }
 
+    /// Entry `(r, c)`.
     #[inline]
     pub fn get(&self, r: usize, c: usize) -> bool {
         self.data[r * self.words + c / 64] >> (c % 64) & 1 == 1
     }
 
+    /// Toggles entry `(r, c)`.
     #[inline]
     pub fn flip(&mut self, r: usize, c: usize) {
         self.data[r * self.words + c / 64] ^= 1u64 << (c % 64);
     }
 
+    /// Packed words of row `r`.
     pub fn row(&self, r: usize) -> &[u64] {
         &self.data[r * self.words..(r + 1) * self.words]
     }
@@ -175,7 +184,9 @@ fn dot(a: &[u64], b: &[u64]) -> bool {
 /// A two-block code over `Z_l x Z_m` given by the monomial sets `A`, `B`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TwoBlockCode {
+    /// Order of the first cyclic factor (`x^l = 1`).
     pub l: usize,
+    /// Order of the second cyclic factor (`y^m = 1`; 1 for GB codes).
     pub m: usize,
     /// Monomials `x^a y^b` of `A` as `(a, b)`.
     pub a: Vec<(usize, usize)>,
@@ -184,6 +195,9 @@ pub struct TwoBlockCode {
 }
 
 impl TwoBlockCode {
+    /// Code from monomial lists; exponents are reduced mod `l` and `m` and term
+    /// order is preserved (syndrome schedules index terms by position). Panics on
+    /// a repeated monomial.
     pub fn new(l: usize, m: usize, a: &[(usize, usize)], b: &[(usize, usize)]) -> Self {
         // term order is kept (syndrome-circuit schedules refer to it)
         let norm = |v: &[(usize, usize)]| -> Vec<(usize, usize)> {
@@ -210,6 +224,7 @@ impl TwoBlockCode {
         self.l * self.m
     }
 
+    /// Number of physical qubits, `2 l m`.
     pub fn n(&self) -> usize {
         2 * self.order()
     }
@@ -357,6 +372,7 @@ pub struct DistanceOpts {
     pub node_limit: u64,
     /// Iterations of the randomized information-set search.
     pub ub_iters: usize,
+    /// Seed of the randomized upper-bound search.
     pub seed: u64,
 }
 
@@ -387,6 +403,7 @@ pub struct DistanceResult {
 }
 
 impl DistanceResult {
+    /// The distance, if the lower and upper bounds coincide.
     pub fn exact(&self) -> Option<usize> {
         (self.lower == self.upper).then_some(self.upper)
     }
@@ -510,7 +527,10 @@ pub enum SearchOutcome {
     /// No nontrivial logical of weight `<= max_weight`.
     NoneUpTo(usize),
     /// Node limit hit: no logical of weight `<= proven` exists.
-    Aborted { proven: usize },
+    Aborted {
+        /// Largest weight proven to contain no nontrivial logical.
+        proven: usize,
+    },
 }
 
 struct Bb<'a> {
