@@ -3,6 +3,9 @@
 //! ```text
 //! bb_codes params <l> <m> <A> <B> [max_weight] [node_limit]
 //! bb_codes search <Nmin> <Nmax> <wa> <wb> <worker> <workers> [node_limit]
+//! bb_codes schedules <l> <m> <A> <B>
+//! bb_codes ler <l> <m> <A> <B> <sched|ibm> <rounds> <p> <shots> <seed> [threads] [osd_order] [x]
+//! bb_codes cdist <l> <m> <A> <B> <sched|ibm> <rounds> [max_w] [node_limit] [x]
 //! ```
 //! `search` enumerates every inequivalent two-block code over every abelian
 //! group of rank <= 2 and order `N` in `[Nmin, Nmax]` (`N % workers ==
@@ -17,6 +20,199 @@ use rand::SeedableRng;
 use std::collections::HashMap;
 use std::io::Write;
 use std::time::Instant;
+
+use qsim_lab::qec::bb_circuit::{
+    memory, schedule_valid, valid_schedules, BbMemory, BbSchedule, IBM_SCHEDULE,
+};
+use qsim_lab::qec::bicycle::{min_weight_logical, Gf2Mat, SearchOutcome};
+use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
+use qsim_lab::qec::color::circuit_dem;
+use qsim_lab::stabilizer::fast_sampler::{FastSampler, WyRand};
+use qsim_lab::stabilizer::symphase::SymPhaseSampler;
+use rand::RngCore;
+use rayon::prelude::*;
+
+/// Sector DEM: (sector detector ids, merged columns, obs masks, probabilities).
+fn sector_dem(m: &BbMemory) -> (Vec<usize>, DemMatrix) {
+    let sdet: Vec<usize> = (0..m.detectors.len()).filter(|&i| m.in_sector[i]).collect();
+    let mut map = vec![u32::MAX; m.detectors.len()];
+    for (k, &i) in sdet.iter().enumerate() {
+        map[i] = k as u32;
+    }
+    let dem = circuit_dem(&m.circuit, &m.noise, &m.detectors, &m.observables);
+    let mut merged: HashMap<(Vec<u32>, u64), f64> = HashMap::new();
+    for e in &dem {
+        let zs: Vec<u32> = e
+            .detectors
+            .iter()
+            .filter_map(|&i| {
+                let z = map[i as usize];
+                (z != u32::MAX).then_some(z)
+            })
+            .collect();
+        if zs.is_empty() {
+            assert_eq!(e.observables, 0, "undetectable logical mechanism");
+            continue;
+        }
+        let v = merged.entry((zs, e.observables)).or_insert(0.0);
+        *v = *v * (1.0 - e.p) + e.p * (1.0 - *v);
+    }
+    let mut ents: Vec<_> = merged.into_iter().collect();
+    ents.sort_by(|x, y| x.0.cmp(&y.0));
+    (
+        sdet.clone(),
+        DemMatrix {
+            num_detectors: sdet.len(),
+            cols: ents.iter().map(|e| e.0 .0.clone()).collect(),
+            obs: ents.iter().map(|e| e.0 .1).collect(),
+            p: ents.iter().map(|e| e.1).collect(),
+        },
+    )
+}
+
+fn code_and_sched(a: &[String]) -> (TwoBlockCode, BbSchedule) {
+    let c = TwoBlockCode::parse(a[0].parse().unwrap(), a[1].parse().unwrap(), &a[2], &a[3]);
+    let s = match a[4].as_str() {
+        "auto" => valid_schedules(&c)[0],
+        x => BbSchedule::parse(x),
+    };
+    assert!(schedule_valid(&c, &s), "invalid schedule {}", s.spec());
+    (c, s)
+}
+
+fn ler(a: &[String]) {
+    let (c, s) = code_and_sched(a);
+    let rounds: usize = a[5].parse().unwrap();
+    let p: f64 = a[6].parse().unwrap();
+    let shots: usize = a[7].parse().unwrap();
+    let seed: u64 = a[8].parse().unwrap();
+    let threads: usize = a.get(9).map_or(1, |s| s.parse().unwrap());
+    let order: usize = a.get(10).map_or(10, |s| s.parse().unwrap());
+    let x_basis = a.get(11).is_some_and(|s| s == "x");
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .unwrap();
+    let t0 = Instant::now();
+    let m = memory(&c, &s, rounds, p, x_basis);
+    let k = m.observables.len();
+    assert!(k <= 64);
+    let (sdet, dm) = sector_dem(&m);
+    let nmech = dm.cols.len();
+    let dec = BpOsd::new(dm, 100, 0.625, order);
+    let sets: Vec<Vec<usize>> = sdet
+        .iter()
+        .map(|&i| m.detectors[i].clone())
+        .chain(m.observables.iter().cloned())
+        .collect();
+    let smp = SymPhaseSampler::new(&m.circuit, &m.noise)
+        .unwrap()
+        .with_parities(&sets)
+        .relative_to_reference();
+    let f = FastSampler::new(&smp);
+    let nz = sdet.len();
+    let t_setup = t0.elapsed().as_secs_f64();
+    let words = 4usize;
+    let per_task = 64 * words * 8;
+    let tasks: Vec<usize> = (0..shots.div_ceil(per_task)).collect();
+    let t1 = Instant::now();
+    let res: Vec<(u64, u64, DecodeStats)> = tasks
+        .par_iter()
+        .map(|&t| {
+            let mut rng = WyRand(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (t as u64 + 1));
+            let _ = rng.next_u64();
+            let mut out = vec![0u64; f.stride() * words];
+            let mut sc = dec.scratch();
+            let mut st = DecodeStats::default();
+            let (mut fails, mut n) = (0u64, 0u64);
+            let mut fired: Vec<Vec<u32>> = vec![Vec::new(); 64];
+            for _ in 0..8 {
+                f.sample_batch(&mut rng, &mut out);
+                for w in 0..words {
+                    let blk = &out[w * f.stride()..(w + 1) * f.stride()];
+                    for v in fired.iter_mut() {
+                        v.clear();
+                    }
+                    for (r, &x0) in blk[..nz].iter().enumerate() {
+                        let mut x = x0;
+                        while x != 0 {
+                            fired[x.trailing_zeros() as usize].push(r as u32);
+                            x &= x - 1;
+                        }
+                    }
+                    for (sh, fd) in fired.iter().enumerate() {
+                        let mut actual = 0u64;
+                        for j in 0..k {
+                            actual |= (blk[nz + j] >> sh & 1) << j;
+                        }
+                        let pred = dec.decode(fd, &mut sc, &mut st);
+                        fails += (pred != actual) as u64;
+                        n += 1;
+                    }
+                }
+            }
+            (fails, n, st)
+        })
+        .collect();
+    let (mut fails, mut n, mut st) = (0u64, 0u64, DecodeStats::default());
+    for (fl, kk, s2) in res {
+        fails += fl;
+        n += kk;
+        st.bp_converged += s2.bp_converged;
+        st.osd_calls += s2.osd_calls;
+    }
+    let pl = fails as f64 / n as f64;
+    let z = 1.96f64;
+    let nf = n as f64;
+    let den = 1.0 + z * z / nf;
+    let cc = (pl + z * z / (2.0 * nf)) / den;
+    let h = z * (pl * (1.0 - pl) / nf + z * z / (4.0 * nf * nf)).sqrt() / den;
+    let per_round = |x: f64| 1.0 - (1.0 - x).max(0.0).powf(1.0 / rounds as f64);
+    let (pa, pb) = c.poly_strings();
+    println!(
+        "{{\"n\":{},\"k\":{k},\"l\":{},\"m\":{},\"A\":\"{pa}\",\"B\":\"{pb}\",\"sched\":\"{}\",\"basis\":\"{}\",\"rounds\":{rounds},\"p\":{p},\"shots\":{n},\"fails\":{fails},\"p_L\":{pl:.6e},\"ci95\":[{:.6e},{:.6e}],\"p_L_round\":{:.6e},\"ci95_round\":[{:.6e},{:.6e}],\"mechanisms\":{nmech},\"detectors\":{nz},\"bp_converged\":{},\"osd_calls\":{},\"osd_order\":{order},\"setup_s\":{t_setup:.2},\"decode_s\":{:.2},\"threads\":{threads}}}",
+        c.n(), c.l, c.m, s.spec(), if x_basis { "x" } else { "z" },
+        cc - h, cc + h, per_round(pl), per_round(cc - h), per_round(cc + h),
+        st.bp_converged, st.osd_calls, t1.elapsed().as_secs_f64()
+    );
+}
+
+fn cdist(a: &[String]) {
+    let (c, s) = code_and_sched(a);
+    let rounds: usize = a[5].parse().unwrap();
+    let max_w: usize = a.get(6).map_or(30, |s| s.parse().unwrap());
+    let limit: u64 = a.get(7).map_or(1_000_000_000, |s| s.parse().unwrap());
+    let x_basis = a.get(8).is_some_and(|s| s == "x");
+    let t0 = Instant::now();
+    let m = memory(&c, &s, rounds, 0.001, x_basis);
+    let (_sdet, dm) = sector_dem(&m);
+    let mut h = Gf2Mat::zeros(dm.num_detectors, dm.cols.len());
+    for (j, col) in dm.cols.iter().enumerate() {
+        for &i in col {
+            h.flip(i as usize, j);
+        }
+    }
+    let masks: Vec<u128> = dm.obs.iter().map(|&o| o as u128).collect();
+    // roots: observable-flipping mechanisms, each banning the earlier ones
+    let obs_mechs: Vec<usize> = (0..dm.cols.len()).filter(|&j| dm.obs[j] != 0).collect();
+    let roots: Vec<(usize, Vec<usize>)> = obs_mechs
+        .iter()
+        .enumerate()
+        .map(|(i, &j)| (j, obs_mechs[..i].to_vec()))
+        .collect();
+    let (out, nodes) = min_weight_logical(&h, &masks, &roots, 1, max_w, limit);
+    let (lo, up) = match &out {
+        SearchOutcome::Found(w, _) => (*w, *w),
+        SearchOutcome::NoneUpTo(w) => (*w + 1, usize::MAX),
+        SearchOutcome::Aborted { proven } => (*proven + 1, usize::MAX),
+    };
+    println!(
+        "{{\"n\":{},\"sched\":\"{}\",\"rounds\":{rounds},\"basis\":\"{}\",\"mechanisms\":{},\"dcirc_lo\":{lo},\"dcirc_up\":{},\"nodes\":{nodes},\"s\":{:.1}}}",
+        c.n(), s.spec(), if x_basis { "x" } else { "z" }, dm.cols.len(),
+        if up == usize::MAX { "null".to_string() } else { up.to_string() },
+        t0.elapsed().as_secs_f64()
+    );
+}
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -43,6 +239,20 @@ fn main() {
             );
         }
         "search" => search(&a[2..]),
+        "schedules" => {
+            let c = TwoBlockCode::parse(a[2].parse().unwrap(), a[3].parse().unwrap(), &a[4], &a[5]);
+            let v = valid_schedules(&c);
+            println!(
+                "{} valid; ibm valid: {}",
+                v.len(),
+                schedule_valid(&c, &IBM_SCHEDULE)
+            );
+            for s in v.iter().take(20) {
+                println!("{}", s.spec());
+            }
+        }
+        "ler" => ler(&a[2..]),
+        "cdist" => cdist(&a[2..]),
         x => panic!("unknown command {x}"),
     }
 }
