@@ -339,6 +339,39 @@ mod tests {
     }
 
     #[test]
+    fn enumeration_finds_every_class() {
+        // brute force over all pairs of 3-subsets (not only canonical A):
+        // the set of canonical keys with k > 0 equals what enumerate_codes visits
+        for (l, m) in [(6, 1), (9, 1), (3, 3), (6, 2), (7, 1), (12, 1)] {
+            let g = AbelianGroup::new(l, m);
+            let n = g.order();
+            let mut all: Vec<Sub> = Vec::new();
+            for a in 0..n {
+                for b in a + 1..n {
+                    for c in b + 1..n {
+                        all.push(vec![a as u16, b as u16, c as u16]);
+                    }
+                }
+            }
+            let mut brute: HashSet<Vec<u16>> = HashSet::new();
+            for a in &all {
+                for b in &all {
+                    if k_of(&g, a, b) > 0 {
+                        brute.insert(canon_pair(&g, a, b));
+                    }
+                }
+            }
+            let mut seen: HashSet<Vec<u16>> = HashSet::new();
+            enumerate_codes(&g, 3, 3, |c| {
+                let mut key = c.a.clone();
+                key.extend_from_slice(&c.b);
+                assert!(seen.insert(key));
+            });
+            assert_eq!(seen, brute, "Z{l} x Z{m}");
+        }
+    }
+
+    #[test]
     fn canonical_pair_is_invariant() {
         let g = AbelianGroup::new(6, 3);
         let a: Vec<u16> = vec![0, 4, 7];
