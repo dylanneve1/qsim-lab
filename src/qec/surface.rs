@@ -26,7 +26,7 @@
 //! distribution from the circuit-derived fault list in [`crate::qec::dem`] (every noise
 //! location and every Pauli the noise model can insert, propagated through the circuit).
 //! The two are checked against each other per detector and on the decoded logical error
-//! rate (`tests/qec_dem_audit.rs`). There is no silent switch between them.
+//! rate (`tests/qec/qec_dem_audit.rs`). There is no silent switch between them.
 //!
 //! # Decoding graph
 //!

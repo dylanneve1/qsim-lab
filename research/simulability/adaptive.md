@@ -24,7 +24,7 @@ runs:
 6. A meet-in-the-middle mode for expectation values.
 
 ## Verification
-`tests/adaptive.rs` checks amplitudes and expectation values against the
+`tests/engines/adaptive.rs` checks amplitudes and expectation values against the
 state vector at small n on random Clifford+T circuits, for every policy, plus
 sampler distributions. Values in the benchmark tables agree across `legacy`,
 `frame`, `dense`, `auto` and `sv` to ~1e-12.

@@ -29,7 +29,7 @@ IGNORE = os.path.join(DATA, ".gitignore")
 IGNORE_HDR = "# >>> tools/datafiles.py: unpacked originals of *.xz (do not edit by hand)\n"
 IGNORE_END = "# <<< tools/datafiles.py\n"
 TEXT_EXT = (".csv", ".jsonl", ".json", ".txt", ".log", ".out", ".err", ".tsv", ".stim", ".raw", ".dem")
-# read at test/build time by Rust code (tests/planner.rs): must stay plain
+# read at test/build time by Rust code (tests/simulability/planner.rs): must stay plain
 KEEP = {f"{DATA}/simulability/raw/{n}.csv" for n in ("ct24", "ct32", "ctnn0", "brick", "arith", "qaoa")}
 PRESET = 6 | lzma.PRESET_EXTREME
 

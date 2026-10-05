@@ -30,7 +30,7 @@
 //!
 //! The distribution is exactly that of running the circuit shot by shot
 //! with [`crate::Circuit::run_noisy`] on a [`super::Tableau`]
-//! (`tests/symphase.rs` compares full outcome distributions exactly on small
+//! (`tests/engines/symphase.rs` compares full outcome distributions exactly on small
 //! circuits).
 
 use super::Tableau;

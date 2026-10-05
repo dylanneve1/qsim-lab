@@ -113,7 +113,7 @@ Keys are `u128` or a 192-bit `K192` (GE at n = 24 has 130 qubits).
 
 ### Validation
 
-* `tests/noise_oracles.rs` (exact distributions of the recorded integer,
+* `tests/shor/noise_oracles.rs` (exact distributions of the recorded integer,
   whole measurement tree, vs an independent gate-by-gate sparse-state
   reference that applies every op as a real gate, every fault as a real Pauli
   and every X-basis measurement as H + projective measurement with its true
@@ -516,7 +516,7 @@ the work register — the residual damage of the variant.
   block tags (`tag`), `ResetMode`, wide keys (`Key`, `K192`); unit tests
   (resolution = `shor_mbu::resolve`, tags, equality with `shor::noisy`).
   `src/shor/superopt.rs`: `emit_window`, `madd_mask` made `pub(crate)` (tagging).
-* `tests/noise_oracles.rs` (4 tests: MBU fixed patterns, collision streams,
+* `tests/shor/noise_oracles.rs` (4 tests: MBU fixed patterns, collision streams,
   reset variants, windowed exponentiation, all vs the sparse reference).
 * `examples/noise_oracles.rs` (CSV per trajectory: y, ok, weight, support
   trace, every fault with round / site / gate / qubit / register / block tag /

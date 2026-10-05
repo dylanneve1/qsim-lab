@@ -19,7 +19,7 @@ Code read (`src/shor/sliced.rs`, `src/shor/window.rs`, `src/shor/mod.rs`):
   `a^(2^k) mod N` and the lookup tables `v·a^(2^k)·2^(jw) mod N` — that is how
   every compiled Shor circuit (Beauregard, Gidney) is built.
 * The safety checks are `assert!` (active in release) and do fire: new tests
-  in `tests/shor_r4_audit.rs` remove one lookup-uncompute Toffoli
+  in `tests/shor/shor_r4_audit.rs` remove one lookup-uncompute Toffoli
   (→ "ancillas did not return to 0"), append `X(ctrl)` (→ "control qubit
   changed"), and append an unconditional `X(x0)` (→ control-0 "not the
   identity"). Injectivity of the outputs is also asserted after the sort.
@@ -112,5 +112,5 @@ sentence next to it and the word "this repo's" before "record".
 
 ## Files
 
-`examples/audit_shor_r4.rs` (dump / dist / trace helper), `tests/shor_r4_audit.rs`,
+`examples/audit_shor_r4.rs` (dump / dist / trace helper), `tests/shor/shor_r4_audit.rs`,
 `research/data/shor_r4_audit/` (scripts + outputs).

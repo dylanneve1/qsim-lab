@@ -1,7 +1,7 @@
 # Coset-representation error in the Gidney–Ekerå Shor circuit (topic `theory-coset`, branch `exp/theory-coset`)
 
 Author: qsim-theory-coset agent, 4 Oct 2026, base main = 3919576 (exp/ge-shor merged).
-Checks: `tests/theory_coset.rs` (8 tests, all green: `cargo test --release --test theory_coset`,
+Checks: `tests/theory/theory_coset.rs` (8 tests, all green: `cargo test --release --test theory_coset`,
 ≈ 15 s on the VPS with 2 threads). Each test fails if its statement is false; one is labelled an
 *observation* (exhaustive, not proved). Data and drivers: `examples/theory_coset.rs`,
 `research/data/theory-coset/` (README there). All runs on the VPS (nice 15, ≤ 2 threads,

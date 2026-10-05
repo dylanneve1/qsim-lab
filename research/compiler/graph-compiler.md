@@ -9,7 +9,7 @@ engine.
 Code: `src/graph/{param,compiled,observable,rewrite,fold,dedup,partition}.rs`, a few hooks in
 `src/engines/blocked.rs` (stage preparation that reports where every op went, so numbers can be
 patched in place; `schedule_diag_order`), `pipeline::SimOptions::graph`.
-Tests: `tests/graph.rs` (12 tests; every path is checked against the independent reference
+Tests: `tests/compiler/graph.rs` (12 tests; every path is checked against the independent reference
 state vector of `tests/audit_common`, extended with textbook matrices for U/Sx/iSWAP).
 Bench: `examples/graph_bench.rs`. Raw data: `research/data/graph-compiler/`.
 
@@ -314,7 +314,7 @@ requests through the same path. The current `qsimlab.simulate` can expose it as 
 `GraphOptions` (all of the compiler's switches): `light_cone`, `diagonal_suffix`,
 `components`, `prefix_cache`, `patch_bind`, `dedup_recipes`, `fold_basis` (all on),
 `rewrite: Some(..)` (on, kept only when the plan is cheaper), `max_zstring = 6`, `block:
-BlockConfig`, `mem_bytes`. Every option combination in `tests/graph.rs::option_sets` is
+BlockConfig`, `mem_bytes`. Every option combination in `tests/compiler/graph.rs::option_sets` is
 differential-tested, including forced dense fusion with L1 tiling and both bind modes.
 
 The compiler is not behind `compile::plan::PlanOptions`. `PlanOptions` is `Copy` and

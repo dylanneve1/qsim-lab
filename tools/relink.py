@@ -117,7 +117,7 @@ def main(argv):
     moved_back = {map_path(p, pairs): p for p in before}
     # a mention must start the path: not preceded by a path character, and not by
     # "<dir>/" unless OLD itself is a whole path (e.g. "../research/x.md" is fine,
-    # "python/src/shor.rs" is not a mention of "src/shor.rs")
+    # "python/src/<f>.rs" is not a mention of "src/<f>.rs")
     mention_res = [
         (re.compile(r"(?<![\w.-])(?<![\w-]/)" + re.escape(old) + r"(?![\w-])"), new) for old, new in pairs
     ]

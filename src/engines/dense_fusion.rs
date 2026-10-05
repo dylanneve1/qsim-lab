@@ -11,7 +11,7 @@
 //!
 //! Origin: exp/sv-monomial / wip/fusion-avx2 (unreviewed WIP, Oct 1),
 //! ported onto the current executor, reviewed and differential-tested
-//! (`tests/dense_fusion.rs`). Measured result: `research/performance/dense-fusion.md`.
+//! (`tests/engines/dense_fusion.rs`). Measured result: `research/performance/dense-fusion.md`.
 //!
 //! # Ordering argument
 //!

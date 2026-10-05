@@ -6,7 +6,7 @@ load average 12–19 during the swarm. All timings go through
 `qsim-swarm/bench.sh` (flock) and are reported as **interleaved old-vs-new
 ratios, min-of-5**, because absolute times are dominated by box load.
 
-## 1. Differential fuzz harness — `tests/differential_fuzz.rs`
+## 1. Differential fuzz harness — `tests/core/differential_fuzz.rs`
 
 Design: a deliberately naive dense reference simulator (`RefSv`) lives in
 the test file with its *own* gate matrices and an out-of-place
@@ -40,7 +40,7 @@ Scale with `QSIM_FUZZ_ITERS=<k>` (default 1); change seeds with
 
 ```
 git worktree add wt/<topic> origin/exp/<topic>
-cp tests/differential_fuzz.rs wt/<topic>/tests/
+cp tests/core/differential_fuzz.rs wt/<topic>/tests/
 cd wt/<topic> && cargo test --release --test differential_fuzz
 ```
 
@@ -64,7 +64,7 @@ caps) are all subsumed by the new harness; the files were dropped.
 
 ## 2. QEC on main (86e5d67) — surface-code fast detector sampler
 
-`tests/qec_dem_audit.rs` (`#[ignore]`d because it fails on main; run with
+`tests/qec/qec_dem_audit.rs` (`#[ignore]`d because it fails on main; run with
 `cargo test --release --test qec_dem_audit -- --ignored --nocapture`)
 samples the d=3, rounds=3 memory experiment both ways — full noisy tableau
 (`build_circuit` + `run_noisy`) and the `error_mechanisms` list that
@@ -96,7 +96,7 @@ from reading `src/qec/surface.rs`:
    `shots > 300` or `d > 5`, so the *same* experiment returns a ~6× lower
    logical error rate just by asking for more shots. Any threshold plot made
    with `run_experiment` mixes the two models.
-3. `tests/surface.rs::fast_sampling_matches_tableau_sampling` only asserts
+3. `tests/qec/surface.rs::fast_sampling_matches_tableau_sampling` only asserts
    both rates are < 0.15, so it cannot detect either problem (0.0043 and
    0.025 both pass).
 4. The decoding graph has the same phenomenological structure (no diagonal
@@ -120,7 +120,7 @@ independent reference, n ∈ {1..11, 13} with 5 configs per circuit (default +
 on/off, `small_n` 0–3 forcing the multi-chunk path at tiny n), plus 16/18
 qubits (default and 4 KiB/2-slot configs) and 500-gate single-qubit fusion
 runs. `QSIM_FUZZ_ITERS=10`: **pass**, worst |Δamp| f64 = 1.0e−15, f32 =
-3.7e−7. Their own `tests/blocked.rs` compares against the in-crate
+3.7e−7. Their own `tests/engines/blocked.rs` compares against the in-crate
 gate-by-gate path only; this adds an independent oracle and edge-biased
 gates (Ccx in all orderings, Swap, CPhase with angles at 0/π/2π ± ε).
 
@@ -198,7 +198,7 @@ It fails only with `fuse_1q && split_phases` (either `schedule_diag`); it
 passes without the leading `Y(0)` or without the CNOT, and with
 `split_phases = false`. So the phase factor of a split fused run is applied
 on the wrong side of a non-diagonal op on the same qubit. The branch's own
-`tests/blocked.rs` (random brickwork / universal circuits vs gate-by-gate)
+`tests/engines/blocked.rs` (random brickwork / universal circuits vs gate-by-gate)
 did not catch it. Verdict for ea41235: **BUG — do not merge**. (The sv agent
 had already exited, so the repro was handed to the parent.)
 
@@ -233,7 +233,7 @@ output: `research/data/audit/qec_100c2dc_fixed_80k.txt`.
 `NoiseModel::uniform(1.0)` and `run_experiment_fast(&noise, …)` ignores its
 noise argument (`_noise`), so `SurfaceCode::new(3,3).run_experiment_fast(
 &NoiseModel::none(), 500, …)` reports 262/500 logical errors. Two tests in
-the branch's own `tests/surface.rs` fail because of it.
+the branch's own `tests/qec/surface.rs` fail because of it.
 
 **Other.** `run_experiment` still switches tableau→DEM at shots > 300 (now
 harmless once BUG 1 is fixed, since both agree, but surprising); three
@@ -513,7 +513,7 @@ Spot-check audit of out-of-core disk-backed state vector (`OocStateVector`) agai
   - f32: strict tolerance `|Δamplitude| ≤ 1e-5`
 
 **Results:**
-All 5 test suites (`spot_check_16_qubits_forced_small_chunks` through `spot_check_20_qubits_forced_small_chunks`), plus the branch's own test binary (`tests/ooc.rs` with proptests), passed cleanly (0 failures).
+All 5 test suites (`spot_check_16_qubits_forced_small_chunks` through `spot_check_20_qubits_forced_small_chunks`), plus the branch's own test binary (`tests/engines/ooc.rs` with proptests), passed cleanly (0 failures).
 - Max observed amplitude difference vs in-RAM blocked executor:
   - f64: `< 1.2e-13` across all circuits (well within 1e-12 tolerance)
   - f32: `< 4.8e-6` across all circuits (well within 1e-5 tolerance)
@@ -550,7 +550,7 @@ harness was run against deliberately broken copies of the code under test.
   touched wires; CZ/CPhase are diagonal and leave parities alone; constant
   wires (`X`, `Y = i·X·Z`) negate the angle and move `e^{iθ}` to the global
   phase. No issue found.
-- `tests/audit_phasefold.rs` (7 tests): random circuits over every gate kind
+- `tests/audit/audit_phasefold.rs` (7 tests): random circuits over every gate kind
   (n ≤ 8, full unitary for n ≤ 6), dense-parity Clifford+T up to 12 qubits,
   mid-circuit measure / reset / classically controlled rotations / X,Y,Z
   flips (instrument), measuring blocks repeated 1–5×, hand-made adversarial
@@ -595,7 +595,7 @@ harness was run against deliberately broken copies of the code under test.
   notebook's own table shows it too: 414 vs 343 ms). Now: plan reuse only
   for registers ≤ 12 qubits (where it is ~3× faster than one batch on tiny
   registers), otherwise all copies go out as one batch.
-- `tests/audit_repeat.rs` (6 tests): `run_dense` on hand-built programs with
+- `tests/audit/audit_repeat.rs` (6 tests): `run_dense` on hand-built programs with
   reps 0/1/2/3/7/64/513/4097/100003, nested repeats (inner reps 0/1/2/9),
   `Param` nodes, diagonal / Clifford / general (Rx, Ry, U, Toffoli) bodies,
   all six `ExecOptions` paths forced; `rewrite` with and without the
@@ -658,7 +658,7 @@ main fb30f56 + exp/repeat-r4 + exp/phasepoly-r4: merges without conflicts
 (the shared `tests/audit_r4/` helper is identical on both branches). The two
 passes are independent (`PlanOptions::phase_fold` in the compile front end;
 the repeat pass in `pipeline::simulate_with`, which calls the plain path with
-`phase_fold` off). `tests/audit_r4_compose.rs` checks
+`phase_fold` off). `tests/audit/audit_r4_compose.rs` checks
 `fold(rewrite(detect(c)))` and `rewrite(detect(fold(c)))` against the
 reference (instrument, global phase) on repeated Clifford+T(+Rz) blocks with
 and without measuring rounds — exact. Interaction: folding pulls merged
@@ -687,7 +687,7 @@ exp/simulability, exp/shor-noise, exp/magic-atlas, exp/qec-r4, exp/planner, whic
 only their authors' tests. For each, I tried to break the headline with a check the author did not
 run. Scripts and outputs: `research/data/r4-audit2/`; helpers `examples/audit_dump_shor_rounds.rs`
 (per-round oracle gate lists) and `examples/audit_dump_states.rs` (states after every gate, or the
-circuit as QASM); regression tests `tests/audit_r4b.rs`. VPS work ran under `nice -n 15`, ≤ 2 threads
+circuit as QASM); regression tests `tests/audit/audit_r4b.rs`. VPS work ran under `nice -n 15`, ≤ 2 threads
 (load 1–57 from other agents; no VPS timing is claimed). Mac timings: one lock hold per chunk
 (`mac_audit_bench.sh`, `mac_bench.log`), 1-min load 3.6–4.5 at chunk start.
 
@@ -781,7 +781,7 @@ circuit as QASM); regression tests `tests/audit_r4b.rs`. VPS work ran under `nic
   the target to "constant" whenever `t ⊕ other-control` cancelled, but `Wire::Const` does not record
   *which* constant, and with control 0 the target keeps its form. Counterexample
   `H(1) CX(1,2) CCX(0,1,2) CX(2,1) H(1)` on |000⟩: true support 4, bound 2. Fix: the target becomes
-  opaque (sound: support ≤ 2^{rank + #opaque}). `tests/audit_r4b.rs`: the counterexample plus a
+  opaque (sound: support ≤ 2^{rank + #opaque}). `tests/audit/audit_r4b.rs`: the counterexample plus a
   4,000-circuit fuzz (n ≤ 6, H/X/CX/CCX/SWAP/T/Rx/CZ) against the state-vector support; both fail on
   the old code, pass on the new. Recomputing `sup` for all 60 Toffoli instances of the dataset and the
   96 Toffoli rows of the atlas changes **no** value, so the fit, the phase diagrams and the atlas

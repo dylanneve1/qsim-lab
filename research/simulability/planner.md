@@ -9,7 +9,7 @@ Code:
 - `src/engines/adaptive.rs`: the `Strategy::Auto` change.
 - `src/compile/plan.rs` and `src/pipeline.rs`: expectation values now go through the planner, with a debug mode.
 - `src/simulability.rs`: new `hea` and `qft` families, and new engines `plan`/`planx`/`planp`/`mpsb`.
-- `tests/planner.rs`.
+- `tests/simulability/planner.rs`.
 
 Data and scripts are in `research/data/planner/`:
 - `collect.py`: deterministic MPS data per instance, run on the VPS. Outputs `mpsdata_vps.jsonl` and `mpsdata_new_vps.jsonl`.
@@ -116,7 +116,7 @@ the support bound I had copied from the simulability features. The Toffoli rule 
 as CNOT", and the XOR of equal affine forms was set to "constant". Both are fixed here; the old `support_bound` in
 simulability.rs still has the Toffoli shortcut, which affects only its tightness claims (open item).
 
-`tests/planner.rs::every_bound_dominates_the_real_bond_at_every_step` checks every bound against the real trace step by
+`tests/simulability/planner.rs::every_bound_dominates_the_real_bond_at_every_step` checks every bound against the real trace step by
 step on 64 circuits: family instances, plus edge-biased random circuits with Toffolis, controlled phases, long-range
 SWAPs, `U` and iSWAP.
 
@@ -210,7 +210,7 @@ execute_expectation(plan)
 - **Pipeline.** `pipeline::simulate` now sends every expectation-value component (after light cone and component split)
   through the planner (`PlanOptions::planner`). `SimOptions::planner_debug` turns on the reference check. Samples and
   amplitudes still use the rule-based dispatch.
-- **Tests (`tests/planner.rs`, all passing):**
+- **Tests (`tests/simulability/planner.rs`, all passing):**
   - replay == engine counts;
   - bound dominance at every step;
   - stab exact on Clifford circuits;
@@ -276,7 +276,7 @@ brickwork with random matching (59×). What remains:
 
 Even the oracle feature leaves brick at 86 %. Its errors are HSF and SV mispredictions, which no MPS feature can fix.
 
-### 5.2 The shipped Rust planner on the dataset (`tests/planner.rs`)
+### 5.2 The shipped Rust planner on the dataset (`tests/simulability/planner.rs`)
 In-sample constants, every feature computed: top-1 88.2 %, geo regret 1.087, worst 12.9×
 (`brick:n=20,D=16` → MPS, HSF best). The shipped, staged configuration gives geo ε-regret 1.074. The test asserts geo
 ≤ 1.15, top-1 ≥ 85 %, worst ≤ 20, and staged ε-regret ≤ 1.15. The published held-out result was 1.25 / 85 % / 161×.
@@ -340,7 +340,7 @@ budget is 0.2× the best predicted time, so it rarely runs long enough to matter
 6. **The `mpsb` exactness gate.** Should a bound-capped run's discarded weight, which is provably numerical noise, be held
    to the 1e-10 gate?
 7. ~~**simulability.rs `support_bound`.**~~ Fixed on exp/r4-audit2 (audit.md §16): the constant-control Toffoli now
-   makes the target opaque; a counterexample and a fuzz test are in `tests/audit_r4b.rs`. No dataset feature value changed.
+   makes the target opaque; a counterexample and a fuzz test are in `tests/audit/audit_r4b.rs`. No dataset feature value changed.
 
 ## 8. Reproduce
 ```

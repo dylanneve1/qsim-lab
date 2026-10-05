@@ -56,7 +56,7 @@ aarch64, off on x86_64** (§4).
 
 ## 2. Tests
 
-`tests/dense_fusion.rs` (all also run on aarch64):
+`tests/engines/dense_fusion.rs` (all also run on aarch64):
 
 * `fused_matches_audit_reference`: against the independent naive state
   vector `audit_common::RefSv` (edge-case angles and qubits, SWAP/CCX/CPhase),
@@ -69,7 +69,7 @@ aarch64, off on x86_64** (§4).
 * `algorithms_agree` (GHZ, QFT, brickwork, n = 4..13), `fusion_engages`
   (fusion actually produces dense ops on the test circuits, including
   3-qubit groups in a single-block register).
-* `tests/blocked.rs` configs now include forced dense fusion (k = 2, 3).
+* `tests/engines/blocked.rs` configs now include forced dense fusion (k = 2, 3).
 
 ## 3. Measurements (Apple M1 Pro, 8 cores; interleaved A/B, min of 3)
 
@@ -153,7 +153,7 @@ config in the same chunk (noise floor), load 13-20:
 
 Where the rule fuses nothing, the stage keeps its original op list, so the
 result is bit-identical to the unfused executor
-(`tests/dense_fusion.rs::no_dense_op_is_bit_identical`) and the timing
+(`tests/engines/dense_fusion.rs::no_dense_op_is_bit_identical`) and the timing
 differences in those rows are noise (compare off vs off2).
 
 ## 4. Verdict and defaults

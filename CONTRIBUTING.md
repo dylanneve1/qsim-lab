@@ -10,7 +10,7 @@ house style for both.
 | Path | What lives there |
 |---|---|
 | `src/` | the `qsim_lab` library and the `qsim` CLI (`src/main.rs`) |
-| `tests/` | integration tests; `tests/audit_common/` is the independent reference state vector every engine is checked against |
+| `tests/` | integration tests by area (`core/ engines/ compiler/ simulability/ shor/ qec/ theory/ audit/`), each listed as a `[[test]]` in `Cargo.toml`; shared helpers in `tests/common/` and `tests/audit_common/` (the independent reference state vector every engine is checked against) |
 | `examples/` | tutorials, benchmarks and research drivers — see [examples/README.md](examples/README.md) |
 | `research/` | lab notebooks by topic, plus `research/data/<study>/` — see [research/README.md](research/README.md) |
 | `tools/` | repo tooling: link checker, relinker, data packer, audit adapters, superopt scripts |
@@ -49,6 +49,10 @@ target directories you are done with.
 * Statistical claims (sampling, logical error rates) state the number of
   shots, the confidence interval and the test used.
 * A bug fix comes with the test that would have caught it.
+* New integration test: put it in `tests/<area>/<name>.rs`, add a `[[test]]`
+  entry to `Cargo.toml`, and pull helpers in with
+  `#[path = "../common/mod.rs"] mod common;`. Give it a weight in
+  `tools/ci_shard.py` if it runs for more than a few seconds.
 * Independent audits are recorded in [research/process/audit.md](research/process/audit.md);
   a claim that an audit overturned is corrected in place and listed under
   "Corrections we have published" in the README.

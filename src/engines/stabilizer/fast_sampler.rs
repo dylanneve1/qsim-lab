@@ -49,7 +49,7 @@
 //! random word (coins) or one comparison per shot (heavy groups).
 //!
 //! The output is not bit-identical to the old path (different draws); its
-//! distribution is the same. `tests/fast_sampler.rs` checks the hit algebra
+//! distribution is the same. `tests/engines/fast_sampler.rs` checks the hit algebra
 //! exactly, the per-group pattern frequencies and detector statistics
 //! against the old sampler, and `research/qec/fast-sampler.md` the 10^6-shot
 //! equivalence with Stim.

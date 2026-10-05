@@ -1,6 +1,6 @@
 # Theorems on single-auxiliary syndrome extraction for the triangular colour code
 
-Branch `exp/theory-colour` (from `main` = e7e102d). Code: `tests/theory_colour.rs`; scripts and data: `research/data/theory-colour/`.
+Branch `exp/theory-colour` (from `main` = e7e102d). Code: `tests/theory/theory_colour.rs`; scripts and data: `research/data/theory-colour/`.
 
 This turns the empirical colour-code findings of `research/qec/colour-global.md` and `research/qec/qec-r4.md` Part 2 into statements for every odd distance d. Setting: triangular 6.6.6 colour code with the Kishony–Fowler (K–F, arXiv:2603.28852) layout, Z memory, noisy-CNOT noise. The X-memory statements follow by the code's X/Z symmetry: exchange the two halves of the round.
 
