@@ -1,4 +1,4 @@
-# Adaptive representation switching (`src/adaptive.rs`)
+# Adaptive representation switching (`src/engines/adaptive.rs`)
 
 The agent hit its time limit before writing this notebook; the parent wrote
 it from the code, the tests, the raw data in `research/data/adaptive/` and the

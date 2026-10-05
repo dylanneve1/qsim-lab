@@ -2,7 +2,7 @@
 //!
 //! A circuit `U` of Clifford gates and `m` non-Clifford Z rotations is
 //! rewritten, with a Heisenberg tableau, as `U = C · R_m ⋯ R_1` with `C`
-//! Clifford and `R_j = exp(-i θ_j Q_j / 2)` (see [`crate::pauli_frame`]).
+//! Clifford and `R_j = exp(-i θ_j Q_j / 2)` (see [`crate::engines::pauli_frame`]).
 //! A CNOT network `V` with linear map `L` (`V|y> = |Ly>`) is chosen so that
 //! `W_j = span{x(Q_1..Q_j)}` becomes the span of the first `d_j` unit
 //! vectors for every `j` at once (the pruning proof in `research/performance/pauli.md`).
@@ -39,10 +39,10 @@
 //! as in the rest of the crate's decompositions.
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::pauli_frame::{expectation_staged, HeisenbergTableau, Staged};
+use crate::engines::pauli_path::{FrameOptions, PathStats, PauliSum};
+use crate::engines::statevector::{StateVectorF64, MAX_STATE_BYTES};
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::pauli_frame::{expectation_staged, HeisenbergTableau, Staged};
-use crate::pauli_path::{FrameOptions, PathStats, PauliSum};
-use crate::statevector::{StateVectorF64, MAX_STATE_BYTES};
 use num_complex::Complex64;
 use rand::Rng;
 use rayon::prelude::*;

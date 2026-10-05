@@ -1,6 +1,6 @@
 //! Windowed pass scheduler for the out-of-core state vector.
 //!
-//! The first out-of-core scheduler ([`crate::ooc::schedule_ooc`]) models every
+//! The first out-of-core scheduler ([`crate::engines::ooc::schedule_ooc`]) models every
 //! change of the local qubit set as a *global<->local qubit swap*, one full
 //! pass over the file each, plus one more pass for every local run in between.
 //! This module replaces that with **windowed passes**:
@@ -37,8 +37,8 @@
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::dag::gate_qubits;
+use crate::engines::ooc::remap_gate;
 use crate::gate::Gate;
-use crate::ooc::remap_gate;
 use rayon::prelude::*;
 
 /// One windowed pass over the file.

@@ -8,11 +8,11 @@
 //! in both f64 (tolerance 1e-12) and f32 (tolerance 1e-5).
 
 use qsim_lab::algorithms;
-use qsim_lab::blocked::BlockConfig;
+use qsim_lab::engines::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
 use qsim_lab::gate::Gate;
-use qsim_lab::ooc::{OocConfig, OocStateVector};
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::ooc::{OocConfig, OocStateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 

@@ -25,9 +25,9 @@
 //!    pass by a product of per-bit factor tables (see [`DiagBlock`]).
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
-use crate::dense_kernels as dk;
+use crate::engines::dense_kernels as dk;
+use crate::engines::statevector::{Real, StateVector};
 use crate::gate::{mat2_mul, Gate, Mat2};
-use crate::statevector::{Real, StateVector};
 use num_complex::{Complex, Complex64};
 use rayon::prelude::*;
 
@@ -285,7 +285,7 @@ pub struct BlockConfig {
     /// commuting neighbours, so the result agrees with the untiled
     /// executor to rounding error.
     pub l1_tile_bytes: usize,
-    /// Dense k-qubit fusion inside each stage (`crate::dense_fusion`):
+    /// Dense k-qubit fusion inside each stage (`crate::engines::dense_fusion`):
     /// groups of gates on at most this many cached qubits are multiplied
     /// into one dense `2^k x 2^k` unitary applied in one pass, when the cost
     /// rule (`dense_min_ops`) says it pays. `0`/`1` = off, `2` or `3` =
@@ -927,7 +927,7 @@ fn prepare_mapped<T: Real>(st: &Stage, n: usize) -> (Prepared<T>, Vec<OpLoc>) {
 /// Like [`prepare`], with dense fusion: fused groups become
 /// [`LOp::Dense`], runs of other ops are prepared as usual.
 fn prepare_fused<T: Real>(st: &Stage, n: usize, max_k: usize, min_ops: usize) -> Prepared<T> {
-    use crate::dense_fusion::{fuse_stage, FusedOp};
+    use crate::engines::dense_fusion::{fuse_stage, FusedOp};
     let mut pos = vec![None; n];
     let mut inner_mask = 0usize;
     for (j, &q) in st.inner.iter().enumerate() {

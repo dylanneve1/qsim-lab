@@ -12,10 +12,10 @@
 
 use super::cliff::{compact, remap_gate};
 use super::{op_angles, op_with_angles, Node, Program};
-use crate::blocked::{lower_gates, BlockConfig, CompiledKOps};
 use crate::circuit::{check_gate, Op, SimError, Simulator};
+use crate::engines::blocked::{lower_gates, BlockConfig, CompiledKOps};
+use crate::engines::statevector::{Real, StateVector};
 use crate::gate::Gate;
-use crate::statevector::{Real, StateVector};
 use num_complex::{Complex, Complex64};
 use std::collections::BTreeMap;
 use std::f64::consts::PI;

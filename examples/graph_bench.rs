@@ -4,7 +4,7 @@
 //!
 //! Variants are interleaved, min of `REPS` (default 3) reported.
 
-use qsim_lab::blocked::BlockConfig;
+use qsim_lab::engines::blocked::BlockConfig;
 use qsim_lab::graph::observable::{diagonal_expectation, pauli_expectation};
 use qsim_lab::graph::{
     phase_regions, Angle, CompiledCircuit, GraphOptions, Observable, POp, ParamCircuit,

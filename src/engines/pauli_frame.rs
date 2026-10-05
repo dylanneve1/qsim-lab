@@ -1,4 +1,4 @@
-//! The Pauli-rotation ("frame") engine behind [`crate::pauli_path`].
+//! The Pauli-rotation ("frame") engine behind [`crate::engines::pauli_path`].
 //!
 //! The legacy engine pushes the observable backwards through every gate, so a
 //! Clifford gate costs one pass over all terms. Here the circuit is first
@@ -49,8 +49,8 @@
 //! no ordering between shards.
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::pauli_path::{conj_string, PathStats, PauliSum};
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::pauli_path::{conj_string, PathStats, PauliSum};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
@@ -81,7 +81,7 @@ pub struct FrameOptions {
 impl Default for FrameOptions {
     fn default() -> Self {
         FrameOptions {
-            max_terms: crate::pauli_path::DEFAULT_MAX_TERMS,
+            max_terms: crate::engines::pauli_path::DEFAULT_MAX_TERMS,
             prune: true,
             merge_rotations: true,
             parallel: true,
@@ -995,7 +995,7 @@ fn run_staged<const W: usize>(
 }
 
 /// [`expectation`] with a [`SwitchPolicy`]: the Heisenberg sweep may stop
-/// early and return a [`SwitchPoint`] (see [`crate::adaptive`]).
+/// early and return a [`SwitchPoint`] (see [`crate::engines::adaptive`]).
 pub(crate) fn expectation_staged(
     circuit: &Circuit,
     observable: &PauliSum,

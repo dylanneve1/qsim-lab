@@ -1,12 +1,12 @@
 //! Differential tests of the measurement-based oracles
-//! (`Oracle::WindowedMbu`, `Oracle::WindowedMbuLookup`, `src/shor_mbu.rs`)
+//! (`Oracle::WindowedMbu`, `Oracle::WindowedMbuLookup`, `src/shor/mbu.rs`)
 //! against the permutation oracle and the reversible windowed-opt oracle:
 //! the sliced engine (sign word, asserted clean), the gate-by-gate sparse
 //! state (genuine H + projection for every X-basis measurement, P = 1/2
 //! asserted), measured integers up to 20 bits, and beyond 64 qubits.
 use qsim_lab::algorithms::gcd;
+use qsim_lab::shor::mbu::{self as shor_mbu, MbuCounts, MbuLayout, MbuOp, MbuOpts, Outcomes};
 use qsim_lab::shor::{self, Backend, Instance, Oracle};
-use qsim_lab::shor_mbu::{self, MbuCounts, MbuLayout, MbuOp, MbuOpts, Outcomes};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
@@ -178,13 +178,13 @@ fn mbu_counts_halve_toffolis() {
     let n_mod = 1_005_973u64;
     let n = shor::work_bits(n_mod);
     let a = 2;
-    let opt = qsim_lab::shor_superopt::controlled_ua(
-        &qsim_lab::shor_window::WindowLayout::new(n, 4),
+    let opt = qsim_lab::shor::superopt::controlled_ua(
+        &qsim_lab::shor::window::WindowLayout::new(n, 4),
         a,
         n_mod,
-        &qsim_lab::shor_superopt::Opts::ALL,
+        &qsim_lab::shor::superopt::Opts::ALL,
     );
-    let (_, opt_tof) = qsim_lab::shor_ripple::gate_counts(&opt);
+    let (_, opt_tof) = qsim_lab::shor::ripple::gate_counts(&opt);
     let mut oc = Outcomes::new(7, 0);
     let c_all = MbuCounts::of(&shor_mbu::controlled_ua(
         &MbuLayout::new(n, 4, &MbuOpts::ALL),

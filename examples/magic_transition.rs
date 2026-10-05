@@ -9,10 +9,10 @@
 //! cargo run --release --example magic_transition -- validate n=18 seeds=4
 //!   state-vector cross-check at larger n (same seeds, Born outcomes).
 
+use qsim_lab::engines::monitored::circuit::{self, MOp, Params};
+use qsim_lab::engines::monitored::ent::cut_entropy;
+use qsim_lab::engines::monitored::{Cliff2, Mode, Monitored};
 use qsim_lab::magic_atlas::state_magic;
-use qsim_lab::monitored::circuit::{self, MOp, Params};
-use qsim_lab::monitored::ent::cut_entropy;
-use qsim_lab::monitored::{Cliff2, Mode, Monitored};
 use qsim_lab::StateVectorF64;
 use rand::rngs::StdRng;
 use rand::SeedableRng;

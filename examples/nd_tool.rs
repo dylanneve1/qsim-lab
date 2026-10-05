@@ -13,13 +13,13 @@
 //!     (rows = detectors + 1 observable); writes one predicted-observable byte per shot and
 //!     prints a JSON summary. zonly = decode with the non-#x detectors only (as color_ler).
 //! ```
+use qsim_lab::engines::stabilizer::fast_sampler::{FastSampler, WyRand};
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
+use qsim_lab::io::stim::{parse_stim, to_stim};
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
 use qsim_lab::qec::color::{
     circuit_dem, ColorCode, ColorNoise, ColorSchedule, KF_SCHEDULE, TRI_OPTIMAL,
 };
-use qsim_lab::stabilizer::fast_sampler::{FastSampler, WyRand};
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
-use qsim_lab::stim_io::{parse_stim, to_stim};
 use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
 use std::collections::HashMap;

@@ -2,7 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 mod audit_common;
 use audit_common::{max_amp_diff, random_circuit, RefSv};
-use qsim_lab::stab_rank::RankState;
+use qsim_lab::engines::stab_rank::RankState;
 use qsim_lab::Circuit;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -52,8 +52,8 @@ fn random_universal_exact() {
 // dense helpers
 
 use num_complex::Complex64 as C;
+use qsim_lab::engines::stab_rank::Pauli;
 use qsim_lab::magic_atlas::{families, state_magic};
-use qsim_lab::stab_rank::Pauli;
 use qsim_lab::Gate;
 use rand::Rng;
 
@@ -174,7 +174,7 @@ fn thm_r3_branching_criterion_is_exact() {
             }
             for g in wc.gates() {
                 for h in g.decompose_to_clifford_rz() {
-                    qsim_lab::stab_rank::conj_gate(&mut p, &h);
+                    qsim_lab::engines::stab_rank::conj_gate(&mut p, &h);
                 }
             }
             factors.push(p);
@@ -195,7 +195,7 @@ fn thm_r3_branching_criterion_is_exact() {
         let unit: Vec<C> = uphi.iter().map(|x| x / nrm).collect();
         let is_stab = state_magic(&unit).nullity < 0.5;
         let (act, _, _, _) = RankState::classify(&rs.terms[0].st, lambda, &factors);
-        use qsim_lab::stab_rank::Action;
+        use qsim_lab::engines::stab_rank::Action;
         match act {
             Action::Branch => nb += 1,
             Action::Clifford => nc += 1,

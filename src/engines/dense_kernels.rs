@@ -14,7 +14,7 @@
 //! product code is therefore shared by all target positions: 1 target-set
 //! independent instantiation per `(K, T, FMA)`.
 
-use crate::statevector::Real;
+use crate::engines::statevector::Real;
 
 /// Amplitudes per vector in a tile (3 index bits).
 pub(crate) const LANES: usize = 8;

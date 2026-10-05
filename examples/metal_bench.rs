@@ -27,11 +27,11 @@ fn main() {
 mod imp {
     use num_complex::Complex32;
     use qsim_lab::algorithms;
-    use qsim_lab::blocked::{
+    use qsim_lab::circuit::Circuit;
+    use qsim_lab::engines::blocked::{
         fuse_1q, lower_gates, plan_stages, BlockConfig, BlockedChunkExecutor, KOp,
     };
-    use qsim_lab::circuit::Circuit;
-    use qsim_lab::metal_sv::{circuit_gates, MetalConfig, MetalSim, MetalState};
+    use qsim_lab::engines::metal_sv::{circuit_gates, MetalConfig, MetalSim, MetalState};
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rayon::prelude::*;

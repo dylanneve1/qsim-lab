@@ -10,13 +10,13 @@ Code:
 - `src/compile/plan.rs`, `src/pipeline.rs`: terminal samples (every component that would need a state vector or the
   compressed state, ≤ 128 qubits) and amplitudes (components ≤ 63 qubits) now go through the planner;
   `Backend::Planned(engine)` reports what ran.
-- `src/statevector.rs`: `sorted_uniforms`, O(shots) sorted uniforms (normalised exponential spacings) in
-  `StateVector::sample`; `src/sparse.rs`: `SparseState::sample`; `src/mps.rs`: buffer-reusing `sample` and
+- `src/engines/statevector.rs`: `sorted_uniforms`, O(shots) sorted uniforms (normalised exponential spacings) in
+  `StateVector::sample`; `src/engines/sparse.rs`: `SparseState::sample`; `src/engines/mps.rs`: buffer-reusing `sample` and
   `amplitude` (bit-identical), `canonicalize`.
-- `src/adaptive.rs`: `Strategy::Auto` explores past a switch decision with a ski-rental budget and can restart densely
-  (`explore_frac`, `AdaptiveReport::restarted`); `src/pauli_frame.rs`: rotations with < 2048 live terms run on the
+- `src/engines/adaptive.rs`: `Strategy::Auto` explores past a switch decision with a ski-rental budget and can restart densely
+  (`explore_frac`, `AdaptiveReport::restarted`); `src/engines/pauli_frame.rs`: rotations with < 2048 live terms run on the
   calling thread.
-- `src/mps_cost.rs`: `ReplayCost::final_bonds`; `src/simulability.rs`: `hsf_split_features`, `auto0` engine.
+- `src/engines/mps_cost.rs`: `ReplayCost::final_bonds`; `src/simulability.rs`: `hsf_split_features`, `auto0` engine.
 - `tests/planner_v2.rs` (new), `tests/planner.rs`, `tests/pipeline.rs` (updated).
 - `examples/planner_v2.rs`: `req` (evolve once, time every read-out), `plan VARIANT REQ` (end to end), `feat`
   (features, per-tier timings, decisions for a range of `voi`), `cachedemo`.

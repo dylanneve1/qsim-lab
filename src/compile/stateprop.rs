@@ -228,7 +228,7 @@ impl Prop {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statevector::StateVectorF64;
+    use crate::engines::statevector::StateVectorF64;
 
     fn check(c: &Circuit) -> Circuit {
         let all: Vec<usize> = (0..c.num_qubits).collect();

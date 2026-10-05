@@ -34,7 +34,7 @@ Everything is single-threaded unless stated. Stim is 1.16.0 throughout.
 1. **The .stim file was a hand-written reconstruction.** `examples/stim_export.rs` re-implements the circuit line by line instead of serialising the `Circuit` object that is actually sampled. It happened to match, but nothing enforced that.
 2. **Stim was timed through its slowest output path.** Stim was timed with `sampler.sample(shots, bit_packed=True)`, which builds a shot-major numpy array and transposes it. qsim-lab was timed writing 64-shot words into a scratch buffer that was immediately discarded. Stim's own streaming path, `sample_write(..., format="ptb64")`, emits exactly qsim-lab's layout (64-shot words per detector). On the VPS it is **2–4× faster** than `sample()`. Most of the claimed lead came from comparing different output paths.
 
-### 1.2 New tooling: `src/stim_io.rs`
+### 1.2 New tooling: `src/io/stim.rs`
 
 - **`to_stim(circuit, noise, detectors, observables)`** walks the real `Op` list and makes every implicit noise location of the `NoiseModel` explicit, in the order `run_noisy` and SymPhase use:
   - `DEPOLARIZE1`/`DEPOLARIZE2` after each gate;

@@ -1,12 +1,12 @@
-//! Monitored Clifford+T engine (`src/monitored`) against a dense state
+//! Monitored Clifford+T engine (`src/engines/monitored`) against a dense state
 //! vector with mid-circuit measurements: same circuit, same Born outcomes,
 //! per-measurement probabilities, final state, cut entropies and magic.
 
 use num_complex::Complex64;
+use qsim_lab::engines::monitored::circuit::{self, MOp, Params};
+use qsim_lab::engines::monitored::ent::cut_entropy;
+use qsim_lab::engines::monitored::{Cliff2, Mode, Monitored};
 use qsim_lab::magic_atlas::state_magic;
-use qsim_lab::monitored::circuit::{self, MOp, Params};
-use qsim_lab::monitored::ent::cut_entropy;
-use qsim_lab::monitored::{Cliff2, Mode, Monitored};
 use qsim_lab::StateVectorF64;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

@@ -1,6 +1,6 @@
 # Fast detector sampling: Poisson hits into precomputed detector tables
 
-Branch `exp/fast-sampler`. Code: `src/stabilizer/fast_sampler.rs`, `examples/stim_compare.rs`
+Branch `exp/fast-sampler`. Code: `src/engines/stabilizer/fast_sampler.rs`, `examples/stim_compare.rs`
 (`sample-fast`, `bench-fast`, `dem-support-fast`, `probe-bitsliced`). Tests: `tests/fast_sampler.rs`
 plus a unit test in the module. Data and scripts: `research/data/fast-sampler/`.
 

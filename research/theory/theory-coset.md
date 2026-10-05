@@ -27,7 +27,7 @@ E ∈ [0, 2^t) is the exponent, u(E) = a^E mod N its **class** (for EH: g^a y^�
 
 ## 0. The circuit as a permutation (and the model used for every check)
 
-`src/shor_ge.rs` with `GeOpts::coset = c`: registers x, b of n + c qubits start in
+`src/shor/ge.rs` with `GeOpts::coset = c`: registers x, b of n + c qubits start in
 Σ_{j,j'<2^c} |1 + jN⟩|j'N⟩ / 2^c. A window with multiplier h is
 
     x' = (b + A_h(x)) mod M,        b' = (x − A_{h^−1}(x')) mod M,

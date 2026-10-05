@@ -343,7 +343,7 @@ fn brickwork_suite() {
         );
         // compile vs run split
         {
-            use qsim_lab::blocked::{lower_gates, BlockConfig};
+            use qsim_lab::engines::blocked::{lower_gates, BlockConfig};
             let ops = lower_gates(bg.iter());
             let t = Instant::now();
             let plan = StateVectorF64::compile_kops(n, &ops, &BlockConfig::default());

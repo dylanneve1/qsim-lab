@@ -7,9 +7,9 @@
 //! color_ler <d> <rounds> <cnot|uniform> <p> <schedule-spec> <shots> <seed> [threads] [osd_order]
 //! (schedule spec: see `qec::color::parse_schedule_spec`; flags supported)
 //! ```
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
 use qsim_lab::qec::color::{circuit_dem, parse_schedule_spec, ColorCode, ColorNoise};
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;

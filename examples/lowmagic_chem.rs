@@ -9,8 +9,8 @@
 //! Programs and FCIDUMPs are written by `research/data/lowmagic-chem/chem.py`.
 //! Every command prints one JSON line.
 use qsim_lab::chem::{self, Fcidump, Program, Span};
+use qsim_lab::engines::stab_rank::RankState;
 use qsim_lab::magic_atlas::{self, AtlasOptions, FactoredState};
-use qsim_lab::stab_rank::RankState;
 use qsim_lab::StateVector;
 use std::time::Instant;
 

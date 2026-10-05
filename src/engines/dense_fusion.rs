@@ -5,7 +5,7 @@
 //! block), consecutive ops whose qubits fit in a set of at most `k <= 3`
 //! inner qubits are multiplied into one dense `2^k x 2^k` unitary, applied
 //! in a single pass over the block by the kernels in
-//! `src/dense_kernels.rs`. This trades arithmetic for passes: a fused
+//! `src/engines/dense_kernels.rs`. This trades arithmetic for passes: a fused
 //! 2-qubit block costs a 4x4 complex matrix-vector product per amplitude
 //! group instead of two or three separate sweeps.
 //!
@@ -21,7 +21,7 @@
 //! disjoint qubits and commute with it, so the output is the input product
 //! with commuting factors reordered.
 
-use crate::blocked::KOp;
+use crate::engines::blocked::KOp;
 use crate::gate::Mat2;
 use num_complex::Complex64;
 

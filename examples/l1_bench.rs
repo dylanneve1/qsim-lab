@@ -13,9 +13,11 @@
 
 use num_complex::Complex;
 use qsim_lab::algorithms;
-use qsim_lab::blocked::{fuse_1q, fusion_stats, lower_gates, tile_stats, BlockConfig, KOp};
 use qsim_lab::circuit::{Circuit, Op};
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::blocked::{
+    fuse_1q, fusion_stats, lower_gates, tile_stats, BlockConfig, KOp,
+};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::io::Write;

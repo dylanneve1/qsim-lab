@@ -9,8 +9,8 @@
 //! - "rates": write SymPhase detector and observable firing rates to stdout
 //! - "bench": benchmark SymPhase detector sampling, print time and rate to stdout
 
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::qec::surface::SurfaceCode;
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::NoiseModel;
 use rand::rngs::StdRng;
 use rand::SeedableRng;

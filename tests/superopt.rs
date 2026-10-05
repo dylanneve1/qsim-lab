@@ -1,5 +1,5 @@
 //! Differential tests of the superoptimised windowed oracle
-//! (`Oracle::WindowedOpt`, `src/shor_superopt.rs`) against the permutation
+//! (`Oracle::WindowedOpt`, `src/shor/superopt.rs`) against the permutation
 //! oracle and the unoptimised windowed oracle, through the sliced engine and
 //! (where the state fits in u64 keys) gate by gate on the sparse state.
 use qsim_lab::algorithms::gcd;

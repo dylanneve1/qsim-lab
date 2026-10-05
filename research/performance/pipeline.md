@@ -8,7 +8,7 @@ numbers below as orders of magnitude, not as precise speedups.
 
 ## What was built
 
-1. **Blocked executor by default for state vectors** (`src/circuit.rs`, `src/statevector.rs`).
+1. **Blocked executor by default for state vectors** (`src/circuit.rs`, `src/engines/statevector.rs`).
    `Simulator` gains `apply_gates(&[Gate])` (default: one `apply` per gate). `StateVector`
    overrides it: 2+ gates go through `apply_gates_blocked(&BlockConfig::default())`
    (`split_phases` stays `false`). `Circuit::run` / `run_noisy` collect *maximal runs of

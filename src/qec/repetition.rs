@@ -9,9 +9,9 @@
 //! [`UnionFindDecoder`] to correct data errors and recover the initial logical state `|0_L>`.
 
 use crate::circuit::Circuit;
+use crate::engines::stabilizer::Tableau;
 use crate::noise::NoiseModel;
 use crate::qec::decoder::{DecodingGraph, UnionFindDecoder};
-use crate::stabilizer::Tableau;
 use rand::RngCore;
 
 /// A bit-flip repetition code experiment.

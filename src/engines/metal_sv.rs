@@ -8,7 +8,7 @@
 //! [`MetalState::amplitudes`] is a zero-copy view and there are no
 //! host/device transfers.
 //!
-//! Execution reuses the CPU blocked executor's front end ([`crate::blocked`]):
+//! Execution reuses the CPU blocked executor's front end ([`crate::engines::blocked`]):
 //! gates are lowered to [`KOp`]s, runs of single-qubit gates are multiplied
 //! together ([`fuse_1q`]), the op list is cut into stages of `tg_bits`
 //! inner qubits ([`plan_stages`]) and diagonal terms are moved together
@@ -39,8 +39,8 @@
 //! [`MetalSim::apply_kops_naive`] is the unfused baseline: one dispatch over
 //! the whole state per op.
 
-use crate::blocked::{fuse_1q, lower_gates, plan_stages, schedule_diag, KOp};
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::blocked::{fuse_1q, lower_gates, plan_stages, schedule_diag, KOp};
 use crate::gate::{Gate, Mat2};
 use metal::{
     Buffer, CommandQueue, CompileOptions, ComputePipelineState, Device, MTLResourceOptions, MTLSize,

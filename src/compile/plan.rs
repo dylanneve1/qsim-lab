@@ -9,12 +9,14 @@ use super::peephole::optimize;
 use super::stabsv::clifford_statevector;
 use super::stateprop::propagate;
 use super::{require_unitary, validate};
-use crate::adaptive::{expectation as adaptive_expectation, AdaptiveOptions, CompressedState};
 use crate::circuit::{Circuit, Op, SimError, Simulator};
+use crate::engines::adaptive::{
+    expectation as adaptive_expectation, AdaptiveOptions, CompressedState,
+};
+use crate::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use crate::engines::stabilizer::Tableau;
+use crate::engines::statevector::{state_bytes, Real, StateVector, MAX_STATE_BYTES};
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
-use crate::stabilizer::Tableau;
-use crate::statevector::{state_bytes, Real, StateVector, MAX_STATE_BYTES};
 use num_complex::{Complex, Complex64};
 use rand::Rng;
 use rayon::prelude::*;
@@ -50,9 +52,9 @@ pub struct PlanOptions {
 }
 
 /// When a component that would run on a dense state vector runs on the
-/// compressed state of [`crate::adaptive`] instead: the component has at
+/// compressed state of [`crate::engines::adaptive`] instead: the component has at
 /// least `min_qubits` qubits and its active register `d`
-/// ([`crate::adaptive::active_dimension`]) satisfies
+/// ([`crate::engines::adaptive::active_dimension`]) satisfies
 /// `d <= max_active` and `d + margin <= n`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AdaptiveRule {
@@ -78,7 +80,7 @@ impl AdaptiveRule {
         if n < self.min_qubits || n > 512 {
             return None;
         }
-        let d = crate::adaptive::active_dimension(c).ok()?;
+        let d = crate::engines::adaptive::active_dimension(c).ok()?;
         (d <= self.max_active && d + self.margin <= n).then_some(d)
     }
 }

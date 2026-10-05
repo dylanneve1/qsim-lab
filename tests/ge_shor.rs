@@ -1,4 +1,4 @@
-//! Exact checks of the Gidney–Ekerå techniques (`src/shor_ge.rs`):
+//! Exact checks of the Gidney–Ekerå techniques (`src/shor/ge.rs`):
 //! exponent-windowed phase estimation against the textbook distribution,
 //! the permutation oracle and a gate-by-gate quantum reference; the
 //! support law for windowed rounds; Ekerå–Håstad against its exact
@@ -6,9 +6,9 @@
 //! effect is measured exactly.
 use num_complex::Complex64;
 use qsim_lab::algorithms::{gcd, pow_mod};
+use qsim_lab::shor::ge::{self, ExpReg, GeOpts, GeState, WindowProg};
+use qsim_lab::shor::mbu::{MbuOpts, Outcomes};
 use qsim_lab::shor::{self, Instance, Oracle};
-use qsim_lab::shor_ge::{self, ExpReg, GeOpts, GeState, WindowProg};
-use qsim_lab::shor_mbu::{MbuOpts, Outcomes};
 
 fn bases(n: u64, count: usize) -> Vec<u64> {
     (2..n).filter(|&a| gcd(a, n) == 1).take(count).collect()
@@ -45,7 +45,7 @@ fn windowed_distribution_matches_textbook() {
             for we in [1usize, 2, 3, 4] {
                 for (wm, mbu) in [(2, MbuOpts::ALL), (3, MbuOpts::LOOKUPS), (1, MbuOpts::NONE)] {
                     let o = opts(we, wm, mbu);
-                    let d = shor_ge::distribution(n, &shor_ge::shor_regs(n, a), &o, 1e-15);
+                    let d = ge::distribution(n, &ge::shor_regs(n, a), &o, 1e-15);
                     let e = max_diff(&full, &d);
                     assert!(e < 1e-12, "N={n} a={a} {o:?}: {e:e}");
                     let s: f64 = d.iter().sum();
@@ -69,11 +69,11 @@ fn windowed_gate_by_gate_matches() {
             (2, 3, MbuOpts::NONE),
         ] {
             let o = opts(we, wm, mbu);
-            let lay = shor_ge::GeLayout::new(shor::work_bits(n), &o);
+            let lay = ge::GeLayout::new(shor::work_bits(n), &o);
             if lay.nq > 64 {
                 continue;
             }
-            let d = shor_ge::distribution_sparse(n, &shor_ge::shor_regs(n, a), &o, 1e-15);
+            let d = ge::distribution_sparse(n, &ge::shor_regs(n, a), &o, 1e-15);
             let e = max_diff(&full, &d);
             assert!(e < 1e-10, "N={n} a={a} {o:?}: {e:e}");
         }
@@ -83,7 +83,7 @@ fn windowed_gate_by_gate_matches() {
 /// Theorem 1(b) of research/theory/theory-shor.md (exact support of the
 /// semiclassical state after `i` measured bits).
 fn support_closed(n_mod: u64, a: u64, t: usize, i: usize, y: u128) -> usize {
-    let gi = shor_ge::pow2k(a, t - i, n_mod);
+    let gi = ge::pow2k(a, t - i, n_mod);
     let mut r = 1u128;
     let mut x = gi;
     while x != 1 {
@@ -118,16 +118,16 @@ fn windowed_support_law_on_trees() {
         let n = shor::work_bits(n_mod);
         let t = 2 * n;
         let o = opts(we, 3, MbuOpts::LOOKUPS);
-        let lay = shor_ge::GeLayout::new(n, &o);
-        let regs = shor_ge::shor_regs(n_mod, a);
-        let wins = shor_ge::windows(t, we);
+        let lay = ge::GeLayout::new(n, &o);
+        let regs = ge::shor_regs(n_mod, a);
+        let wins = ge::windows(t, we);
         let progs: Vec<(usize, usize, WindowProg)> = wins
             .iter()
             .enumerate()
             .map(|(k, &(i0, w))| {
-                let g = shor_ge::pow2k(regs[0].base, t - i0 - w, n_mod);
+                let g = ge::pow2k(regs[0].base, t - i0 - w, n_mod);
                 let mut oc = Outcomes::new(k as u64 + 1, 0);
-                let ops = shor_ge::window_block(&lay, g, n_mod, &o, &mut oc);
+                let ops = ge::window_block(&lay, g, n_mod, &o, &mut oc);
                 (i0, w, WindowProg::new(&lay, &ops))
             })
             .collect();
@@ -166,7 +166,7 @@ fn windowed_support_law_on_trees() {
             fn inner(
                 ctx: (u64, u64, usize, &[(usize, usize, WindowProg)], usize),
                 st: &GeState<f64>,
-                wa: shor_ge::WindowArrays<f64>,
+                wa: ge::WindowArrays<f64>,
                 j: usize,
                 y: u128,
                 nodes: &mut usize,
@@ -199,7 +199,7 @@ fn windowed_support_law_on_trees() {
                     walk(n_mod, a, t, progs, k + 1, s2, y, nodes, budget);
                     return;
                 }
-                let phi = shor_ge::correction(i, y);
+                let phi = ge::correction(i, y);
                 let (p0, p1) = wa.probs(phi);
                 for (bit, pb) in [(false, p0), (true, p1)] {
                     if pb <= 1e-13 {
@@ -239,8 +239,8 @@ fn windowed_support_law_on_trees() {
 /// The textbook Ekerå–Håstad distribution of `(j, k)`:
 /// `P(j,k) = Σ_z |2^{−3m} Σ_{a,b: g^a y^{−b} = z} e^{−2πi(aj/2^{2m} + bk/2^m)}|²`.
 fn eh_textbook(n_mod: u64, g: u64) -> Vec<f64> {
-    let m = shor_ge::eh_m(n_mod);
-    let y = shor_ge::eh_target(n_mod, g);
+    let m = ge::eh_m(n_mod);
+    let y = ge::eh_target(n_mod, g);
     let yi = shor::mod_inverse(y, n_mod);
     let (na, nb) = (1usize << (2 * m), 1usize << m);
     let mut z_of = vec![0u64; na * nb];
@@ -282,15 +282,15 @@ fn eh_textbook(n_mod: u64, g: u64) -> Vec<f64> {
 fn eh_distribution_matches_textbook() {
     for (n_mod, gs) in [(35u64, vec![2u64, 3]), (77, vec![2]), (143, vec![2])] {
         for g in gs {
-            let m = shor_ge::eh_m(n_mod);
-            let regs = shor_ge::eh_regs(n_mod, g);
+            let m = ge::eh_m(n_mod);
+            let regs = ge::eh_regs(n_mod, g);
             assert_eq!(regs[0].len + regs[1].len, 3 * m);
             let book = eh_textbook(n_mod, g);
             let na = 1u128 << (2 * m);
             let nb = 1usize << m;
             for o in [opts(1, 2, MbuOpts::LOOKUPS), opts(2, 2, MbuOpts::ALL)] {
                 // the engine runs register b (k, m bits) first: index k + 2^m j
-                let d0 = shor_ge::distribution(n_mod, &regs, &o, 1e-15);
+                let d0 = ge::distribution(n_mod, &regs, &o, 1e-15);
                 let mut d = vec![0.0; d0.len()];
                 for (idx, &p) in d0.iter().enumerate() {
                     let (k, j) = (idx % nb, idx / nb);
@@ -305,7 +305,7 @@ fn eh_distribution_matches_textbook() {
                     continue;
                 }
                 let (j, k) = (idx as u128 % na, idx as u128 / na);
-                if shor_ge::eh_postprocess(n_mod, g, j, k, 4096).0.is_some() {
+                if ge::eh_postprocess(n_mod, g, j, k, 4096).0.is_some() {
                     ok += p;
                 }
             }
@@ -330,7 +330,7 @@ fn coset_deviation_shrinks_with_padding() {
             mbu: MbuOpts::ALL,
             coset: c,
         };
-        let d = shor_ge::distribution(n_mod, &shor_ge::shor_regs(n_mod, a), &o, 1e-15);
+        let d = ge::distribution(n_mod, &ge::shor_regs(n_mod, a), &o, 1e-15);
         let s: f64 = d.iter().sum();
         assert!((s - 1.0).abs() < 1e-9, "c={c}: Σ = {s}");
         let t: f64 = 0.5 * full.iter().zip(&d).map(|(x, y)| (x - y).abs()).sum::<f64>();
@@ -359,7 +359,7 @@ fn windowed_run_reproduces_semiclassical_bits() {
         for we in [1usize, 2, 3] {
             let mut r3 = rng2.clone();
             let o = opts(we, 3, MbuOpts::LOOKUPS);
-            let (run, _, _) = shor_ge::shor_run::<f64>(n_mod, a, &o, &mut || r3.random::<f64>());
+            let (run, _, _) = ge::shor_run::<f64>(n_mod, a, &o, &mut || r3.random::<f64>());
             assert_eq!(run.y[0], base.measured, "N={n_mod} we={we}");
         }
         let _ = &mut rng2;
@@ -371,10 +371,10 @@ fn eh_regs_compute_short_dlog() {
     // y = g^d with d = (p + q − 2)/2 < 2^m
     for (n_mod, p, q) in [(35u64, 5u64, 7u64), (143, 11, 13), (1_005_973, 997, 1009)] {
         let d = (p + q - 2) / 2;
-        assert!(d < 1 << shor_ge::eh_m(n_mod));
+        assert!(d < 1 << ge::eh_m(n_mod));
         for g in bases(n_mod, 5) {
-            assert_eq!(pow_mod(g, d, n_mod), shor_ge::eh_target(n_mod, g));
+            assert_eq!(pow_mod(g, d, n_mod), ge::eh_target(n_mod, g));
         }
-        let _: Vec<ExpReg> = shor_ge::eh_regs(n_mod, 2);
+        let _: Vec<ExpReg> = ge::eh_regs(n_mod, 2);
     }
 }

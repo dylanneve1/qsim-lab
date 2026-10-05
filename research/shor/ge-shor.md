@@ -1,10 +1,10 @@
 # Gidney–Ekerå techniques in the exact gate-level Shor simulation (exp/ge-shor)
 
 Branch `exp/ge-shor`, based on main `f1258f6` (= exp/mbu-shor merged),
-with main `4dbe6ef` merged in. Code: `src/shor_ge.rs` (oracle, windowed engine, Ekerå–Håstad,
-coset arithmetic), small changes to `src/shor_mbu.rs` (uncontrolled
+with main `4dbe6ef` merged in. Code: `src/shor/ge.rs` (oracle, windowed engine, Ekerå–Håstad,
+coset arithmetic), small changes to `src/shor/mbu.rs` (uncontrolled
 lookups, a global-sign op) and `src/shor/sliced.rs` (global sign in the
-sign check). Tests: `src/shor_ge.rs` (3 unit tests), `tests/ge_shor.rs`
+sign check). Tests: `src/shor/ge.rs` (3 unit tests), `tests/ge_shor.rs`
 (7). Driver: `examples/ge_shor.rs` (`run`, `counts`, `coset`, `cosetmc`,
 `ehmc`). Data: `research/data/ge-shor/`.
 

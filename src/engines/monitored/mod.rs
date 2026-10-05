@@ -1,6 +1,6 @@
 //! Exact simulation of **monitored Clifford+T circuits** (random Clifford
 //! gates, `T` gates and mid-circuit `Z` measurements with Born-rule
-//! outcomes) in the rotation-frame form of [`crate::adaptive`]:
+//! outcomes) in the rotation-frame form of [`crate::engines::adaptive`]:
 //!
 //! ```text
 //!     |ψ> = C (|φ>_A ⊗ |0>_{rest})
@@ -38,7 +38,7 @@
 pub mod circuit;
 pub mod ent;
 
-use crate::adaptive::rotate_dense;
+use crate::engines::adaptive::rotate_dense;
 use num_complex::Complex64 as C64;
 use rand::Rng;
 use std::f64::consts::FRAC_PI_4;

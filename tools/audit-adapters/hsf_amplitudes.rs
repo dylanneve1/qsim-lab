@@ -6,7 +6,7 @@
 mod audit_common;
 
 use audit_common::*;
-use qsim_lab::hsf::{HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode};
+use qsim_lab::engines::hsf::{HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode};
 use qsim_lab::Circuit;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

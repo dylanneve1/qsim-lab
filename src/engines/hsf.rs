@@ -47,8 +47,8 @@
 //!   forwards on every path.
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::statevector::{StateVectorF64, MAX_STATE_BYTES};
 use crate::gate::{Gate, Mat2, Mat4};
-use crate::statevector::{StateVectorF64, MAX_STATE_BYTES};
 use faer::linalg::matmul::matmul;
 use faer::{Accum, Mat, MatMut, MatRef, Par};
 use num_complex::Complex64;

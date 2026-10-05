@@ -11,9 +11,9 @@ and Born probabilities of a numpy simulation forced to the same outcomes.
 |---|---|---|
 | active dimension `d_k`, factored dimension `f_k`, skeleton entanglement, support bound | `magic_profile(c)` → `MagicProfile` | `qsim_lab::magic_atlas::profile` ([magic-atlas.md](../../research/simulability/magic-atlas.md)) |
 | stabilizer nullity, stabilizer 2-Rényi entropy (`n ≤ 13`) | `state_magic(c_or_state)` → `StateMagic` | `magic_atlas::state_magic` (all `4^n` Pauli expectations, one Walsh–Hadamard transform per `x`) |
-| number of stabilizer terms after every gate | `branching_rank(c)` → `BranchingRank` | `qsim_lab::stab_rank` ([theory-rank.md](../../research/theory/theory-rank.md)) |
+| number of stabilizer terms after every gate | `branching_rank(c)` → `BranchingRank` | `qsim_lab::engines::stab_rank` ([theory-rank.md](../../research/theory/theory-rank.md)) |
 | per-engine work estimates + the planner's explanation | `simulability(c, request)` → `Simulability` | `simulability::features`, Planner v2 |
-| Clifford+T with mid-circuit measurements: `d(t)`, Born probabilities, cut entropies | `monitored(c)` → `MonitoredResult` | `qsim_lab::monitored` ([magic-transition.md](../../research/simulability/magic-transition.md)) |
+| Clifford+T with mid-circuit measurements: `d(t)`, Born probabilities, cut entropies | `monitored(c)` → `MonitoredResult` | `qsim_lab::engines::monitored` ([magic-transition.md](../../research/simulability/magic-transition.md)) |
 
 ## The rotation frame in one paragraph
 

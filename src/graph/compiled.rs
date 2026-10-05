@@ -24,13 +24,13 @@
 
 use super::observable::{diagonal_expectation, pauli_expectation, Observable};
 use super::param::{Angle, POp, ParamCircuit};
-use crate::blocked::{
+use crate::circuit::SimError;
+use crate::engines::blocked::{
     lower_gate, plan_stages, prepare_stage_cfg, prepare_stage_mapped, run_prepared_stage,
     schedule_diag_order, BlockConfig, KOp, OpLoc, PreparedStage, Stage,
 };
-use crate::circuit::SimError;
+use crate::engines::statevector::{state_bytes, StateVectorF64, MAX_STATE_BYTES};
 use crate::gate::{mat2_mul, Gate, Mat2};
-use crate::statevector::{state_bytes, StateVectorF64, MAX_STATE_BYTES};
 use num_complex::Complex64;
 use rayon::prelude::*;
 
