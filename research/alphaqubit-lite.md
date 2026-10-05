@@ -276,9 +276,9 @@ decoder in the archive).
   possible.
 - **Fine-tuning** (one 42-min run, 1.0 M samples ≈ 1.4 epochs of the Willow training half,
   r ∈ {10, 13} only, lr 2e-4) brings it level with Harmony-SI1000 (a 101-member matching ensemble) and
-  within 0.1 % (absolute) of correlated matching with the RL-optimised prior at the trained round counts
+  equal (within 0.5 % relative) to correlated matching with the RL-optimised prior at the trained round counts
   (r = 10: 0.679 vs 0.678 %; r = 13: 0.710 vs 0.707 %). It generalises less well to r = 30 and 50,
-  which it never saw (it is 7–19 % above the RL-prior decoders there).
+  which it never saw (it is 7–23 % above the RL-prior decoders there).
 - The paper-style log-fidelity *fit* over r = 10…50 is unkind to the network (0.922 % vs Harmony-RL
   0.723 %): on Willow every decoder is worse at r = 30 than at r = 50 (the configurations were taken
   separately), and the network's long-r degradation dominates a 4-point fit. We therefore quote the
