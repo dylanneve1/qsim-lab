@@ -299,14 +299,24 @@ pub enum DistStep {
     /// only in diagonal / control roles and are specialised per rank.
     Local(Vec<Gate>),
     /// Exchange physical local qubit `local` with physical global qubit `global`.
-    Swap { local: usize, global: usize },
+    Swap {
+        /// Physical local qubit (`< local_bits`).
+        local: usize,
+        /// Physical global qubit (`>= local_bits`).
+        global: usize,
+    },
     /// Physical swaps of local slots that *relocate* logical qubits (layout
     /// change, used to restore canonical order): applied as `Swap` gates and
     /// the logical->physical map follows them.
     Relabel(Vec<(usize, usize)>),
     /// A folded `Swap` gate: the logical qubits on physical slots `a` and `b`
     /// exchange labels; no amplitude moves.
-    Rename { a: usize, b: usize },
+    Rename {
+        /// First physical slot.
+        a: usize,
+        /// Second physical slot.
+        b: usize,
+    },
 }
 
 /// Planner knobs.
