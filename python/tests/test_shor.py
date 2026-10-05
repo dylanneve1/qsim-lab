@@ -152,6 +152,24 @@ def test_beauregard_oracle_against_dense_reference():
             assert abs(psi[idx] - 1) < 1e-9
 
 
+def test_beauregard_oracle_in_qiskit():
+    qiskit = pytest.importorskip("qiskit")
+    from qiskit.quantum_info import Statevector
+
+    from qsimlab.interop import to_qiskit
+
+    N, a = 15, 2
+    o = shor.oracle_circuit(N, a, "beauregard")
+    qc = to_qiskit(o.circuit)
+    for x in (1, 7, 14):
+        idx = 1 | sum(((x >> k) & 1) << q for k, q in enumerate(o.work))
+        sv = Statevector.from_int(idx, 2**o.num_qubits).evolve(qc)
+        y = a * x % N
+        want = 1 | sum(((y >> k) & 1) << q for k, q in enumerate(o.work))
+        assert abs(sv.data[want] - 1) < 1e-9
+    assert qiskit is not None
+
+
 def test_mbu_oracles_are_not_circuits():
     with pytest.raises(UnsupportedOperationError, match="feed-forward"):
         shor.oracle_circuit(15, 7, "windowed-mbu")
