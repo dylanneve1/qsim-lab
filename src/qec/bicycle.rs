@@ -185,20 +185,17 @@ pub struct TwoBlockCode {
 
 impl TwoBlockCode {
     pub fn new(l: usize, m: usize, a: &[(usize, usize)], b: &[(usize, usize)]) -> Self {
-        let norm = |v: &[(usize, usize)]| {
-            let mut v: Vec<(usize, usize)> = v.iter().map(|&(i, j)| (i % l, j % m)).collect();
-            v.sort_unstable();
-            v
+        // term order is kept (syndrome-circuit schedules refer to it)
+        let norm = |v: &[(usize, usize)]| -> Vec<(usize, usize)> {
+            v.iter().map(|&(i, j)| (i % l, j % m)).collect()
         };
         let (a, b) = (norm(a), norm(b));
-        let mut ad = a.clone();
-        ad.dedup();
-        let mut bd = b.clone();
-        bd.dedup();
-        assert!(
-            ad.len() == a.len() && bd.len() == b.len(),
-            "repeated monomial"
-        );
+        for v in [&a, &b] {
+            let mut d = v.clone();
+            d.sort_unstable();
+            d.dedup();
+            assert_eq!(d.len(), v.len(), "repeated monomial");
+        }
         TwoBlockCode { l, m, a, b }
     }
 
@@ -395,19 +392,12 @@ impl DistanceResult {
     }
 }
 
-/// For the pair `(hcheck, hother)` of a CSS code: per qubit, a `u128` mask of
-/// which of `k` conjugate logicals it overlaps. A vector `e` in `ker hcheck`
-/// is a nontrivial logical iff the XOR of the masks over its support is
-/// non-zero. Returns `(masks, k)`; panics if `k > 64`.
-pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u128>, usize) {
-    // conjugates: ker(hother) modulo rowspace(hcheck)
-    let n = hcheck.cols;
+/// A basis of `ker(hcheck)` modulo `rowspace(hother)` (`k` vectors): for
+/// `(hcheck, hother) = (H_X, H_Z)` these are Z-type logical operators.
+pub fn logical_basis(hcheck: &Gf2Mat, hother: &Gf2Mat) -> Vec<Vec<u64>> {
     let w = hcheck.words;
-    let mut basis = hcheck.clone();
+    let mut basis = hother.clone();
     let r0 = basis.rref(None).len();
-    let mut rows: Vec<Vec<u64>> = (0..r0).map(|r| basis.row(r).to_vec()).collect();
-    let mut piv: Vec<usize> = Vec::new();
-    // incremental elimination: keep rows reduced with recorded pivots
     let mut red: Vec<(usize, Vec<u64>)> = Vec::new();
     let reduce = |v: &mut Vec<u64>, red: &[(usize, Vec<u64>)]| {
         for (c, r) in red {
@@ -418,23 +408,32 @@ pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u128>, usize) {
             }
         }
     };
-    for r in rows.drain(..) {
-        let mut v = r;
+    for r in 0..r0 {
+        let mut v = basis.row(r).to_vec();
         reduce(&mut v, &red);
         if let Some(&c) = bits_of(&v).first() {
             red.push((c, v));
         }
     }
-    let mut conj: Vec<Vec<u64>> = Vec::new();
-    for v0 in hother.kernel() {
+    let mut out = Vec::new();
+    for v0 in hcheck.kernel() {
         let mut v = v0.clone();
         reduce(&mut v, &red);
         if let Some(&c) = bits_of(&v).first() {
             red.push((c, v));
-            piv.push(c);
-            conj.push(v0);
+            out.push(v0);
         }
     }
+    out
+}
+
+/// For the pair `(hcheck, hother)` of a CSS code: per qubit, a `u128` mask of
+/// which of `k` conjugate logicals it overlaps. A vector `e` in `ker hcheck`
+/// is a nontrivial logical iff the XOR of the masks over its support is
+/// non-zero. Returns `(masks, k)`; panics if `k > 64`.
+pub fn logical_masks(hcheck: &Gf2Mat, hother: &Gf2Mat) -> (Vec<u128>, usize) {
+    let n = hcheck.cols;
+    let conj = logical_basis(hother, hcheck);
     let k = conj.len();
     assert!(k <= 128, "k = {k} > 128 unsupported");
     let mut masks = vec![0u128; n];
@@ -854,6 +853,6 @@ mod tests {
             vec![(0, 0), (1, 2), (2, 1)]
         );
         let c = TwoBlockCode::parse(12, 6, "x^3 + y + y^2", "y^3 + x + x^2");
-        assert_eq!(c.poly_strings().0, "y + y^2 + x^3");
+        assert_eq!(c.poly_strings().0, "x^3 + y + y^2");
     }
 }
