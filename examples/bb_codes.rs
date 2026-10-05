@@ -14,7 +14,7 @@
 //! with `k > 0`: exact `d` when `d_lower == d_upper`.
 use qsim_lab::qec::bb_search::{enumerate_codes, groups_of_order, AbelianGroup};
 use qsim_lab::qec::bicycle::{
-    code_distance, distance_upper_bound, logical_masks, DistanceOpts, TwoBlockCode,
+    distance_upper_bound, logical_masks, two_block_roots, DistanceOpts, TwoBlockCode,
 };
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -371,9 +371,9 @@ fn search(a: &[String]) {
         for (l, m) in groups_of_order(nn) {
             let t0 = Instant::now();
             let g = AbelianGroup::new(l, m);
-            let mut best: HashMap<usize, usize> = HashMap::new();
             let mut rng = StdRng::seed_from_u64((nn * 1000 + m) as u64);
-            let (mut exact, mut pruned, mut aborted) = (0u64, 0u64, 0u64);
+            // pass 1: every inequivalent class with k > 0, with an ISD upper bound
+            let mut cands = Vec::new();
             let (ranked, found) = enumerate_codes(&g, wa, wb, |c| {
                 let code = c.code();
                 if c.k > 128 {
@@ -384,27 +384,64 @@ fn search(a: &[String]) {
                 let (hx, hz) = (code.hx(), code.hz());
                 let (masks, k) = logical_masks(&hx, &hz);
                 assert_eq!(k, c.k);
-                let (ub, _) = distance_upper_bound(&hx, &masks, 30, &mut rng);
+                let (ub, _) = distance_upper_bound(&hx, &masks, 10, &mut rng);
+                cands.push((k, ub, code));
+            });
+            // pass 2: most promising first; a class is decided exactly only
+            // if it can strictly beat the best exact d for its k
+            cands.sort_by(|x, y| x.0.cmp(&y.0).then(y.1.cmp(&x.1)));
+            let mut best: HashMap<usize, usize> = HashMap::new();
+            let (mut exact, mut pruned, mut aborted) = (0u64, 0u64, 0u64);
+            let roots = two_block_roots(nn);
+            for (k, ub, code) in &cands {
+                let (k, ub) = (*k, *ub);
                 let b = best.get(&k).copied().unwrap_or(0);
-                // only a strictly better d can change the frontier
+                let (hx, hz) = (code.hx(), code.hz());
+                let (masks, _) = logical_masks(&hx, &hz);
                 let (lo, up) = if ub <= b {
                     pruned += 1;
                     (0, ub)
                 } else {
-                    let o = DistanceOpts {
-                        max_weight: ub,
-                        node_limit,
-                        ub_iters: 30,
-                        seed: 7,
-                    };
-                    let r = code_distance(&hx, &hz, Some(nn), &o);
-                    if r.lower == r.upper {
-                        exact += 1;
-                        best.insert(k, b.max(r.lower));
+                    // is there a logical of weight <= b? (one DFS level)
+                    let start = if b > 0 {
+                        match min_weight_logical(&hx, &masks, &roots, b, b, node_limit).0 {
+                            SearchOutcome::Found(_, sup) => {
+                                pruned += 1;
+                                Err(sup.len())
+                            }
+                            SearchOutcome::NoneUpTo(_) => Ok(b + 1),
+                            SearchOutcome::Aborted { .. } => {
+                                aborted += 1;
+                                Err(usize::MAX)
+                            }
+                        }
                     } else {
-                        aborted += 1;
+                        Ok(1)
+                    };
+                    match start {
+                        Err(usize::MAX) => (0, ub),
+                        Err(w) => (0, w.min(ub)),
+                        Ok(st) => {
+                            // d >= st: exact from st (first hit is the minimum)
+                            match min_weight_logical(&hx, &masks, &roots, st, ub - 1, node_limit).0
+                            {
+                                SearchOutcome::Found(w, _) => {
+                                    exact += 1;
+                                    best.insert(k, w);
+                                    (w, w)
+                                }
+                                SearchOutcome::NoneUpTo(_) => {
+                                    exact += 1;
+                                    best.insert(k, ub);
+                                    (ub, ub)
+                                }
+                                SearchOutcome::Aborted { proven } => {
+                                    aborted += 1;
+                                    (proven.max(st - 1) + 1, ub)
+                                }
+                            }
+                        }
                     }
-                    (r.lower, r.upper)
                 };
                 let (pa, pb) = code.poly_strings();
                 writeln!(
@@ -413,7 +450,7 @@ fn search(a: &[String]) {
                     2 * nn
                 )
                 .unwrap();
-            });
+            }
             eprintln!(
                 "N={nn} G=Z{l}xZ{m} |Aut|={} ranked={ranked} classes={found} exact={exact} pruned={pruned} aborted={aborted} t={:.1}s",
                 g.auts.len(),
