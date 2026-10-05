@@ -9,8 +9,11 @@ use rayon::prelude::*;
 /// qubits (`Y` sets both).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PauliTerm {
+    /// Real coefficient `c_t`.
     pub coef: f64,
+    /// X mask: bit `q` set when the factor on qubit `q` is `X` or `Y`.
     pub x: u128,
+    /// Z mask: bit `q` set when the factor on qubit `q` is `Z` or `Y`.
     pub z: u128,
 }
 
@@ -34,10 +37,12 @@ impl PauliTerm {
 /// `Σ_t c_t P_t`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Observable {
+    /// The terms of the sum, in insertion order.
     pub terms: Vec<PauliTerm>,
 }
 
 impl Observable {
+    /// The zero observable (no terms).
     pub fn new() -> Self {
         Observable::default()
     }

@@ -16,7 +16,9 @@ use crate::gate::Gate;
 /// `c0 + Σ coef · θ[index]`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Angle {
+    /// Constant offset, radians.
     pub c0: f64,
+    /// `(parameter index, coefficient)` pairs.
     pub terms: Vec<(u32, f64)>,
 }
 
@@ -99,8 +101,11 @@ impl From<f64> for Angle {
 pub enum POp {
     /// A gate with fixed angles.
     Fixed(Gate),
+    /// `exp(-i θ X / 2)` on the qubit.
     Rx(usize, Angle),
+    /// `exp(-i θ Y / 2)` on the qubit.
     Ry(usize, Angle),
+    /// `exp(-i θ Z / 2)` on the qubit.
     Rz(usize, Angle),
     /// `diag(1, e^{iθ})`.
     Phase(usize, Angle),
@@ -238,12 +243,16 @@ impl POp {
 /// A unitary circuit with parameterised angles.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ParamCircuit {
+    /// Register width.
     pub num_qubits: usize,
+    /// Length of the parameter vector `θ`.
     pub num_params: usize,
+    /// Ops in circuit order.
     pub ops: Vec<POp>,
 }
 
 impl ParamCircuit {
+    /// An empty circuit on `num_qubits` qubits with `num_params` parameters.
     pub fn new(num_qubits: usize, num_params: usize) -> Self {
         ParamCircuit {
             num_qubits,
@@ -288,30 +297,39 @@ impl ParamCircuit {
         self
     }
 
+    /// Appends a fixed gate (panics on bad qubits, like [`ParamCircuit::push`]).
     pub fn gate(&mut self, g: Gate) -> &mut Self {
         self.push(POp::Fixed(g))
     }
+    /// Appends `Rx(a)` on qubit `q`.
     pub fn rx(&mut self, q: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Rx(q, a.into()))
     }
+    /// Appends `Ry(a)` on qubit `q`.
     pub fn ry(&mut self, q: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Ry(q, a.into()))
     }
+    /// Appends `Rz(a)` on qubit `q`.
     pub fn rz(&mut self, q: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Rz(q, a.into()))
     }
+    /// Appends the phase gate `diag(1, e^{ia})` on qubit `q`.
     pub fn phase(&mut self, q: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Phase(q, a.into()))
     }
+    /// Appends the controlled phase `diag(1, 1, 1, e^{ia})` on qubits `x`, `y`.
     pub fn cphase(&mut self, x: usize, y: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::CPhase(x, y, a.into()))
     }
+    /// Appends `exp(-i a/2 Z⊗Z)` on qubits `x`, `y`.
     pub fn rzz(&mut self, x: usize, y: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Rzz(x, y, a.into()))
     }
+    /// Appends `exp(-i a/2 X⊗X)` on qubits `x`, `y`.
     pub fn rxx(&mut self, x: usize, y: usize, a: impl Into<Angle>) -> &mut Self {
         self.push(POp::Rxx(x, y, a.into()))
     }
+    /// Appends the phase gadget `exp(-i a/2 Z⊗…⊗Z)` on qubits `qs`.
     pub fn zstring(&mut self, qs: &[usize], a: impl Into<Angle>) -> &mut Self {
         self.push(POp::ZString(qs.to_vec(), a.into()))
     }

@@ -49,11 +49,15 @@ pub const ENGINES: [&str; 9] = [
 /// Parsed `family:key=value,key=value` specification.
 #[derive(Clone, Debug)]
 pub struct Spec {
+    /// Circuit family name (the part before `:`).
     pub family: String,
+    /// Numeric parameters, by key.
     pub params: BTreeMap<String, f64>,
 }
 
 impl Spec {
+    /// Parses `family:key=value,...`; an empty parameter list is allowed.
+    ///  Fails on a parameter without `=` or with a non-numeric value.
     pub fn parse(s: &str) -> Result<Spec, String> {
         let (family, rest) = s.split_once(':').unwrap_or((s, ""));
         let mut params = BTreeMap::new();
@@ -371,9 +375,13 @@ pub fn observable_qubits(name: &str, n: usize) -> Result<Vec<usize>, String> {
 /// one engine; the remaining fields are the raw ingredients.
 #[derive(Clone, Debug, Default)]
 pub struct Features {
+    /// Number of qubits.
     pub n: usize,
+    /// Unitary gates.
     pub gates: usize,
+    /// Two-qubit gates.
     pub g2: usize,
+    /// Three-qubit gates.
     pub g3: usize,
     /// Two-qubit-gate depth (ASAP layers counting only multi-qubit gates).
     pub depth2: usize,
@@ -400,11 +408,15 @@ pub struct Features {
     pub mps_l: f64,
     /// The same two without the support cap (pure crossing count).
     pub chi_bits0: usize,
+    /// The MPS work estimate matching `chi_bits0`.
     pub mps_l0: f64,
     /// HSF: log2 paths of the KL partition and block sizes.
     pub hsf_k: u32,
+    /// Qubits on side A of the partition.
     pub hsf_na: usize,
+    /// Qubits on side B of the partition.
     pub hsf_nb: usize,
+    /// log2 HSF work (path evolutions plus output accumulation) with `hsf_keff` path bits.
     pub hsf_l: f64,
     /// Path bits after exact zero-path pruning is accounted for: a cut gate
     /// whose diagonal-side qubit is still in a definite Z state on every
@@ -414,11 +426,15 @@ pub struct Features {
     pub hsf_l0: f64,
     /// Affine upper bound on log2 of the support size of the final state.
     pub sup: usize,
+    /// log2 sparse-state work: `log2 gates + sup`.
     pub sparse_l: f64,
+    /// log2 state-vector work: `log2 gates + n`.
     pub sv_l: f64,
     /// Seconds spent computing these features.
     pub secs: f64,
+    /// Seconds spent on the rotation-frame part.
     pub secs_frame: f64,
+    /// Seconds spent on the HSF features (0 if not computed).
     pub secs_hsf: f64,
 }
 
@@ -796,12 +812,14 @@ fn lead(v: &[u64]) -> usize {
 /// Outcome of one engine run.
 #[derive(Clone, Debug, Default)]
 pub struct EngineRun {
+    /// The computed expectation value.
     pub value: f64,
     /// Seconds in the engine (circuit construction excluded).
     pub secs: f64,
     /// Engine-specific size: SV amplitudes, sparse peak nnz, MPS max bond,
     /// HSF paths, frame peak terms, dense active qubits.
     pub size: f64,
+    /// Engine-specific diagnostics (free-form `key=value` text, may be empty).
     pub note: String,
 }
 
