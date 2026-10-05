@@ -249,17 +249,21 @@ impl Program {
             }
         }
         for op in &p.ops {
-            if let POp::Rot {
-                pauli,
-                param: Some(k),
-                ..
-            } = op
-            {
-                if *k >= p.params.len() {
-                    p.params.resize(k + 1, 0.0);
+            match op {
+                POp::Rot { pauli, param, .. } => {
+                    if let Some(k) = param {
+                        if *k >= p.params.len() {
+                            p.params.resize(k + 1, 0.0);
+                        }
+                    }
+                    if pauli.iter().any(|&(q, _)| q >= p.n) {
+                        return Err("Pauli qubit out of range".into());
+                    }
                 }
-                if pauli.iter().any(|&(q, _)| q >= p.n) {
-                    return Err("Pauli qubit out of range".into());
+                POp::Clifford(g) => {
+                    if g.qubits().iter().any(|&q| q >= p.n) {
+                        return Err("Clifford qubit out of range".into());
+                    }
                 }
             }
         }
