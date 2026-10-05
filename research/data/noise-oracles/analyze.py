@@ -141,7 +141,8 @@ def main():
     for r in rows:
         if not r['vcap'] or r['really_capped'] or r['endwin']:
             continue
-        use = r['cal'] if fam(r) == 'rev' else (r['n'] >= 14 and r['realcap'] >= 16 * r['r'])
+        use = r['cal'] if fam(r) == 'rev' else (
+            r['n'] >= 14 and r['realcap'] >= 16 * r['r'] and '+' not in r['variant'])
         if use:
             c = cal[r['ccls']]
             c[0] += 1; c[1] += r['w'] * r['ok']; c[2] += r['w']
