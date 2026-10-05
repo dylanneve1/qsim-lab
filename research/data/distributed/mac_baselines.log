@@ -1,0 +1,49 @@
+# round=1 qft n=26 start=10:18:05 load={ 2.78 3.16 3.27 }
+ram workload=qft n=26 prec=f32 best_s=0.221
+ooc ooc,qft,26,f32,window,20,4,1,512,6,5,6,3072,3072,1505.8,1460.6,710.0,389.1,310.1,4.28,NaN
+dist node=0 workload=qft n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.441 compute_s=0.338 exchange_s=0.080 local_swap_s=0.024 norm=0.999999762 verify=norm max_err=NaN
+# round=1 brick n=26 start=10:19:13 load={ 2.82 3.17 3.27 }
+ram workload=brick n=26 prec=f32 best_s=0.395
+ooc ooc,brick,26,f32,window,20,4,1,512,3,2,3,1536,1536,772.5,764.5,479.5,31.0,138.2,4.17,NaN
+dist node=0 workload=brick n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.3 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.737 compute_s=0.636 exchange_s=0.083 local_swap_s=0.017 norm=1.000000069 verify=norm max_err=NaN
+# round=1 qft n=28 start=10:20:20 load={ 3.28 3.22 3.28 }
+ram workload=qft n=28 prec=f32 best_s=0.839
+ooc ooc,qft,28,f32,window,20,4,1,2048,7,6,6,14336,14336,4995.3,7006.0,2832.8,1345.1,1578.2,6.02,NaN
+dist node=0 workload=qft n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=1.768 compute_s=1.441 exchange_s=0.253 local_swap_s=0.075 norm=0.999999762 verify=norm max_err=NaN
+# round=1 brick n=28 start=10:21:34 load={ 3.71 3.51 3.39 }
+ram workload=brick n=28 prec=f32 best_s=1.647
+ooc ooc,brick,28,f32,window,20,4,1,2048,3,2,2,6144,6144,2752.4,3120.2,2032.2,71.0,441.6,4.68,NaN
+dist node=0 workload=brick n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=2.926 compute_s=2.628 exchange_s=0.230 local_swap_s=0.068 norm=1.000000078 verify=norm max_err=NaN
+# round=2 qft n=26 start=10:22:48 load={ 3.23 3.49 3.40 }
+dist node=0 workload=qft n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.3 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.435 compute_s=0.331 exchange_s=0.084 local_swap_s=0.020 norm=0.999999762 verify=norm max_err=NaN
+ram workload=qft n=26 prec=f32 best_s=0.197
+ooc ooc,qft,26,f32,window,20,4,1,512,6,5,6,3072,3072,1257.2,1204.1,676.0,362.0,240.0,5.12,NaN
+# round=2 brick n=26 start=10:23:55 load={ 3.13 3.41 3.38 }
+dist node=0 workload=brick n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.732 compute_s=0.629 exchange_s=0.084 local_swap_s=0.019 norm=1.000000069 verify=norm max_err=NaN
+ram workload=brick n=26 prec=f32 best_s=0.387
+ooc ooc,brick,26,f32,window,20,4,1,512,3,2,3,1536,1536,792.1,594.4,497.3,36.1,127.3,4.07,NaN
+# round=2 qft n=28 start=10:25:03 load={ 2.91 3.29 3.33 }
+dist node=0 workload=qft n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.3 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=1.727 compute_s=1.400 exchange_s=0.252 local_swap_s=0.075 norm=0.999999762 verify=norm max_err=NaN
+ram workload=qft n=28 prec=f32 best_s=0.833
+ooc ooc,qft,28,f32,window,20,4,1,2048,7,6,6,14336,14336,6800.6,8542.3,2518.0,1170.4,3166.7,4.42,NaN
+# round=2 brick n=28 start=10:26:18 load={ 3.05 3.33 3.35 }
+dist node=0 workload=brick n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.3 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=2.917 compute_s=2.622 exchange_s=0.226 local_swap_s=0.070 norm=1.000000078 verify=norm max_err=NaN
+ram workload=brick n=28 prec=f32 best_s=1.662
+ooc ooc,brick,28,f32,window,20,4,1,2048,3,2,2,6144,6144,2696.4,2636.9,2036.1,74.4,439.9,4.78,NaN
+# round=3 qft n=26 start=10:27:32 load={ 3.11 3.31 3.33 }
+ooc ooc,qft,26,f32,window,20,4,1,512,6,5,6,3072,3072,1268.3,1168.8,690.0,372.0,211.5,5.08,NaN
+dist node=0 workload=qft n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.5 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.423 compute_s=0.323 exchange_s=0.080 local_swap_s=0.020 norm=0.999999762 verify=norm max_err=NaN
+ram workload=qft n=26 prec=f32 best_s=0.199
+# round=3 brick n=26 start=10:28:39 load={ 3.41 3.29 3.32 }
+ooc ooc,brick,26,f32,window,20,4,1,512,3,2,3,1536,1536,746.9,561.2,475.0,31.3,130.2,4.31,NaN
+dist node=0 workload=brick n=26 prec=f32 L=23 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.3 local_gib=0.438 cross_pairs=3 local_pairs=9 sent_mib=96.0 recv_mib=96.0 wall_s=0.732 compute_s=0.631 exchange_s=0.083 local_swap_s=0.017 norm=1.000000069 verify=norm max_err=NaN
+ram workload=brick n=26 prec=f32 best_s=0.413
+# round=3 qft n=28 start=10:29:47 load={ 3.45 3.36 3.34 }
+ooc ooc,qft,28,f32,window,20,4,1,2048,7,6,6,14336,14336,4534.4,6318.4,2710.7,1281.9,1232.8,6.63,NaN
+dist node=0 workload=qft n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=1.732 compute_s=1.407 exchange_s=0.250 local_swap_s=0.075 norm=0.999999762 verify=norm max_err=NaN
+ram workload=qft n=28 prec=f32 best_s=0.828
+# round=3 brick n=28 start=10:31:00 load={ 2.99 3.32 3.33 }
+ooc ooc,brick,28,f32,window,20,4,1,2048,3,2,2,6144,6144,2712.3,2677.6,2089.6,83.9,395.1,4.75,NaN
+dist node=0 workload=brick n=28 prec=f32 L=25 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.2 local_gib=1.750 cross_pairs=3 local_pairs=9 sent_mib=384.0 recv_mib=384.0 wall_s=2.910 compute_s=2.611 exchange_s=0.229 local_swap_s=0.069 norm=1.000000078 verify=norm max_err=NaN
+ram workload=brick n=28 prec=f32 best_s=1.659
+# done 10:32:14

@@ -62,6 +62,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [autoimprove.md](performance/autoimprove.md) | Automated propose → verify → benchmark → keep loop for the blocked SV kernels: 1.14x single-thread / 1.26x 4-thread on M1 Pro from lookahead stage planning, per-thread scratch and a pair kernel; method and honest assessment |
 | [metal.md](performance/metal.md) | Metal (Apple GPU) f32 state-vector backend |
 | [ooc.md](performance/ooc.md) | Out-of-core state vector: fewer passes over disk |
+| [distributed-sv.md](performance/distributed-sv.md) | Two-machine distributed state vector (Mac + VPS over SSH): correct, but WAN-bandwidth-bound |
 | [pipeline.md](performance/pipeline.md) | One entry point; blocked executor by default |
 | [stab.md](performance/stab.md) | Stabilizer tableau speed |
 | [pauli.md](performance/pauli.md) | Pauli paths (Clifford+T) |
