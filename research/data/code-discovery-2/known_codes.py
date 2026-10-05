@@ -2,8 +2,11 @@
 
 usage: python known_codes.py [--extra extra.tsv] > threshold.tsv
 
-Known = the merged weight-6 frontier of ../code-discovery/literature.md and
-every weight-6 row of the two-block sections of its 2026-10-05 supplement
+Known = the merged weight-6 frontier of ../code-discovery/literature.md,
+every weight-6 row of the two-block sections of its 2026-10-05 supplement,
+the best weight-6 code per (n, k) of Lin & Pryadko's public 2BGA dataset
+(lin_pryadko_2bga_w6.tsv), every weight <= 6 CSS code of the Unitary
+Foundation qLDPC challenge board (qldpc_challenge_w6.tsv)
 (published; d taken as listed, also when it is only an upper bound), the
 exact abelian rank<=2 frontier ../code-discovery/frontier_w6.json and
 ../code-discovery/certified.jsonl, plus optional extra "n k d" rows, and every
@@ -27,7 +30,7 @@ NMAX = 300
 def published():
     text = open(os.path.join(CD, "literature.md")).read()
     sec = text.split("## Merged Pareto frontier")[1].split("## Weight-8")[0]
-    out = supplement(text)
+    out = supplement(text) + lin_pryadko() + challenge()
     for line in sec.splitlines():
         m = re.match(r"\|\s*(\d+)\s*\|(.*)\|\s*[\d.]+\s*\|", line)
         if not m:
@@ -58,6 +61,37 @@ def supplement(text):
         n = int(m.group(1))
         if d and n <= NMAX:
             out.append((n, int(m.group(2)), int(d.group(1))))
+    return out
+
+
+def lin_pryadko():
+    """Best weight-6 codes per (n, k) of Lin & Pryadko's 2BGA dataset (lin_pryadko_2bga_w6.tsv)."""
+    out = []
+    path = os.path.join(HERE, "lin_pryadko_2bga_w6.tsv")
+    if os.path.exists(path):
+        for line in open(path):
+            if line.startswith("#") or not line.strip():
+                continue
+            n, k, d = map(int, line.split()[:3])
+            if n <= NMAX:
+                out.append((n, k, d))
+    return out
+
+
+def challenge():
+    """Weight <= 6 CSS codes of the Unitary Foundation qLDPC challenge (qldpc_challenge_w6.tsv)."""
+    out = []
+    path = os.path.join(HERE, "qldpc_challenge_w6.tsv")
+    if os.path.exists(path):
+        for line in open(path):
+            if line.startswith("#") or not line.strip():
+                continue
+            f = line.split("\t")
+            if f[2] == "None":
+                continue
+            n, k, d = int(f[0]), int(f[1]), int(f[2])
+            if n <= NMAX:
+                out.append((n, k, d))
     return out
 
 

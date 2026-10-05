@@ -230,27 +230,28 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
 - The hook-safe CNOT order restores full distance; a standard-looking order gave d = 5 an effective
   distance of 3 (confirmed by fault injection).
 
-## 9. Weight-6 qLDPC codes beyond the published frontier (`research/qec/code-discovery-2.md`)
+## 9. Weight-6 qLDPC codes beyond the known frontier (`research/qec/code-discovery-2.md`)
 
-An exhaustive search of weight-6 two-block group-algebra codes over all 1000 groups of order ≤ 150
-that the first study (abelian, rank ≤ 2) did not cover — every non-abelian group and every abelian
-group of rank ≥ 3, from GAP's SmallGroups — compared against the published weight-6 frontier
-(`literature.md`, now including the 2026 non-abelian and coset codes) and all direct sums.
-- **[[288,16,16]]** over Z6 × (C3 ⋊ D8) (SmallGroup(144,167); explicit presentation in the
-  notebook): k·d²/n = 14.22, above every published *weight-6* code with n ≤ 288 (best:
-  [[254,14,16]], 14.11, Liang et al.); it also strictly dominates the published weight-6
-  [[288,16,12]] codes. The same parameters are published at weight 9 (a quantum Tanner code), and
-  weight 7 reaches [[288,16,18]], so the claim is specific to weight 6 and the margin is 0.8 %.
-- **[[192,12,14]]** over C3 ⋊ (Q8 ⋊ C4) (SmallGroup(96,17)): k·d²/n = 12.25, above the gross code's
-  12.0, the best published weight-6 value with n ≤ 192 in our tables.
-- New Pareto points without a k·d²/n record: [[192,16,12]], [[200,16,12]] (over D10 × D10),
-  [[224,18,12]] (dominating the published [[294,18,10]] and [[252,14,12]]) and [[288,34,8]] (over
-  A4 × A4). Every new code strictly dominates at least one published weight-6 code.
-- Each code is certified twice: the exact symmetry-rooted search (both CSS sectors) and an
-  independent C program with no symmetry that proves no lighter nontrivial logical exists (3.7·10⁸ and
-  3.8·10⁸ nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent
-  Python script; the two headline codes are also rebuilt from their written presentations alone and
-  re-proved. Literature novelty was checked against 40+ papers, not proved.
+An exhaustive search of weight-6 (3 + 3) two-block group-algebra codes over the 1000 groups of order
+≤ 150 that the first study (abelian, rank ≤ 2) did not cover — every non-abelian group and every
+abelian group of rank ≥ 3, from GAP's SmallGroups — against the published weight-6 frontier
+(`literature.md`, including the 2026 non-abelian and coset codes), Lin & Pryadko's public 2BGA dataset,
+the Unitary Foundation qLDPC challenge board, and all direct sums of these.
+- **Two new codes**, each strictly dominating published ones and exactly certified:
+  **[[224,18,12]]** over C7 × ((C4 × C2) ⋊ C2) (dominates [[294,18,10]], [[252,14,12]],
+  [[288,16,12]]; k·d²/n 11.57) and **[[288,34,8]]** over A4 × A4 (dominates [[288,32,6]] and
+  [[292,18,8]]; 7.56). Neither raises the weight-6 k·d²/n record.
+- The weight-6 record **[[288,16,16]]** (k·d²/n 14.22, above every weight-6 code in published papers,
+  best 14.11) occurs over ten groups of order 144; its distance is proved exactly here for the first
+  time. Its parameters are not new: they were posted to the qLDPC challenge in July 2026 (another
+  2BGA code, distance an upper bound), and exist at weight 9; weight 7 does better.
+- [[192,12,14]], [[192,16,12]], [[200,16,12]] are in Lin & Pryadko's 2023 dataset with randomized
+  distances; their distances are proved exactly here.
+- Certification: the exact symmetry-rooted search in Rust (both CSS sectors) and an independent C
+  program with no symmetry that proves no lighter nontrivial logical exists (3.7·10⁸ and 3.8·10⁸
+  nodes per sector for [[288,16,16]]), plus k and weight-d witnesses checked by an independent Python
+  script; codes are also rebuilt from presentations or permutation representations and re-proved.
+  Novelty is relative to the 40+ papers, the dataset and the challenge board we read, not proved.
 
 ## Honest notes
 
