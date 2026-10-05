@@ -1,4 +1,4 @@
-//! Exactness and theorem checks for `stab_rank` (research/theory-rank.md).
+//! Exactness and theorem checks for `stab_rank` (research/theory/theory-rank.md).
 #![allow(clippy::needless_range_loop)]
 mod audit_common;
 use audit_common::{max_amp_diff, random_circuit, RefSv};

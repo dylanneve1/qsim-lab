@@ -1,0 +1,101 @@
+# Research notebooks
+
+Every experiment in qsim-lab is written up as a lab notebook: what was tried,
+how it was measured, the numbers (including negative results), and the
+caveats. Raw data and the scripts that produced it live in
+[`data/<topic>/`](data/). Headline results are collected in
+[RESULTS.md](../RESULTS.md); corrections to earlier claims are logged in
+[process/audit.md](process/audit.md). How to write a notebook:
+[CONTRIBUTING.md](../CONTRIBUTING.md#research-notebooks).
+
+Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Shor's algorithm — [`shor/`](shor/)
+
+| Notebook | Topic |
+|---|---|
+| [shor.md](shor/shor.md) | Scaling Shor's algorithm: sparse/sliced state, ripple and windowed oracles, gate-level runs to 31-bit generic N (start here) |
+| [superopt.md](shor/superopt.md) | Superoptimising the gate-level Shor oracle (1.70 M → 1.04 M gates at 31 bits) |
+| [mbu-shor.md](shor/mbu-shor.md) | Measurement-based uncomputation in the exact gate-level simulation |
+| [ge-shor.md](shor/ge-shor.md) | Gidney–Ekerå techniques: windowing, Ekerå–Håstad, coset representation |
+| [shor-noise.md](shor/shor-noise.md) | Gate-level Shor under circuit noise, measured at scale |
+| [shor-r4-audit.md](shor/shor-r4-audit.md) | Independent audit of the round-4 31-bit results |
+
+## Quantum error correction — [`qec/`](qec/)
+
+| Notebook | Topic |
+|---|---|
+| [qec.md](qec/qec.md) | Circuit-derived detector error model and the surface-code threshold (start here) |
+| [schedules.md](qec/schedules.md) | Surface-code syndrome-extraction schedule search |
+| [qec-r4.md](qec/qec-r4.md) | Identical-circuit Stim comparison; colour-code schedule search |
+| [colour-global.md](qec/colour-global.md) | Colour-code schedules: global search and optimality certificates |
+| [colour-flags.md](qec/colour-flags.md) | Colour-code flags: full circuit distance as real circuits |
+| [neural-decoder.md](qec/neural-decoder.md) | A learned decoder trained on FastSampler data: surface code and colour code |
+| [fast-sampler.md](qec/fast-sampler.md) | Fast detector sampling: Poisson hits into precomputed detector tables |
+| [fast-sampler-audit.md](qec/fast-sampler-audit.md) | Independent audit of the FastSampler speed and equivalence claims |
+
+## Simulability, magic and engine choice — [`simulability/`](simulability/)
+
+| Notebook | Topic |
+|---|---|
+| [simulability.md](simulability/simulability.md) | Phase diagram of exact simulability across engines (start here) |
+| [magic-atlas.md](simulability/magic-atlas.md) | A magic atlas of real quantum algorithms |
+| [magic-transition.md](simulability/magic-transition.md) | A simulability transition in monitored Clifford+T circuits |
+| [planner.md](simulability/planner.md) | Planner v0, and predicting the cost of exact MPS |
+| [planner-v2.md](simulability/planner-v2.md) | Planner v2: samples, amplitudes, cheaper planning |
+| [adaptive.md](simulability/adaptive.md) | Adaptive representation switching (`src/adaptive.rs`) |
+
+## Engine performance — [`performance/`](performance/)
+
+| Notebook | Topic |
+|---|---|
+| [sv.md](performance/sv.md) | State-vector speed: cache blocking, SIMD kernels |
+| [sv-monomial.md](performance/sv-monomial.md) | k-qubit dense fusion and monomial-segment fusion |
+| [mac-m1.md](performance/mac-m1.md) | Apple M1 Pro: NEON FMA kernels, nested L1 tiling, block size |
+| [metal.md](performance/metal.md) | Metal (Apple GPU) f32 state-vector backend |
+| [ooc.md](performance/ooc.md) | Out-of-core state vector: fewer passes over disk |
+| [pipeline.md](performance/pipeline.md) | One entry point; blocked executor by default |
+| [stab.md](performance/stab.md) | Stabilizer tableau speed |
+| [pauli.md](performance/pauli.md) | Pauli paths (Clifford+T) |
+| [hsf.md](performance/hsf.md) | Hybrid Schrödinger–Feynman backend |
+| [mps.md](performance/mps.md) | MPS backend optimisation |
+
+## Compiler — [`compiler/`](compiler/)
+
+| Notebook | Topic |
+|---|---|
+| [compiler.md](compiler/compiler.md) | Exact circuit-level passes and plans (`src/compile/`) |
+| [dag.md](compiler/dag.md) | Circuit DAG IR (`src/dag.rs`) |
+| [phasepoly.md](compiler/phasepoly.md) | Phase folding: graph-based T-count reduction |
+| [repeat.md](compiler/repeat.md) | Exact exploitation of repeated blocks (`compile::repeat`) |
+
+## Theory — [`theory/`](theory/)
+
+| Notebook | Topic |
+|---|---|
+| [theory-shor.md](theory/theory-shor.md) | Theorems behind the round-4 Shor observations (support law, borrowed magic, noise windows) |
+| [theory-coset.md](theory/theory-coset.md) | Coset-representation error in the Gidney–Ekerå Shor circuit |
+| [theory-rank.md](theory/theory-rank.md) | Low stabilizer rank in algorithm circuits: branching-rank invariant and an exact engine |
+| [theory-colour.md](theory/theory-colour.md) | Single-auxiliary syndrome extraction for the triangular colour code |
+| [transition-theory.md](theory/transition-theory.md) | Why ν_eff ≈ 2.5: the transition as the Clifford MIPT in a noise field |
+
+## Process — [`process/`](process/)
+
+| Notebook | Topic |
+|---|---|
+| [audit.md](process/audit.md) | Independent audits of every merged branch, and the corrections they forced |
+| [literature.md](process/literature.md) | Literature map: where qsim-lab's speed work sits |
+
+## Layout
+
+```
+research/
+  README.md          this index
+  ARCHITECTURE.md    lab-wide design document
+  <topic>/<name>.md  notebooks, one per study
+  data/<name>/       raw data + the scripts that produced it, one folder per study
+```
+
+`data/` is flat by study name (not by topic folder) so a study's data path
+never changes when its notebook is re-filed. Large raw files are stored
+xz-compressed; see [data/README.md](data/README.md) for how to unpack them.

@@ -1,0 +1,35 @@
+# >>> tools/datafiles.py: unpacked originals of *.xz (do not edit by hand)
+/audit/d11_p0003.stim
+/audit/d15_p0003.stim
+/colour-flags/runs/vps_bposd.jsonl
+/magic-transition/raw.csv
+/planner-v2/feat_voi.jsonl
+/planner-v2/mac/autoab/grid_autoab_0.csv
+/planner-v2/mac/autoab/grid_autoab_1.csv
+/planner-v2/mac/e2e.jsonl
+/planner-v2/mac/e2e2.jsonl
+/planner-v2/mac/e2e3.jsonl
+/planner-v2/mac/e2e4.jsonl
+/planner-v2/mac/feat_mac.jsonl
+/planner-v2/mac/req.jsonl
+/planner/mac/new_hea.csv
+/planner/mac/plan2_0.csv
+/planner/mac/plan2_1.csv
+/planner/mac/plan3_0.csv
+/planner/mac/plan3_1.csv
+/planner/mac/plan4_0.csv
+/planner/mac/plan4_1.csv
+/planner/mac/plan_0.csv
+/planner/mac/plan_1.csv
+/planner/mac/retime_skirental_0.csv
+/planner/mac/retime_skirental_1.csv
+/planner/mpsdata_vps.jsonl
+/simulability/raw/arith.mid2.csv
+/simulability/raw/brick.mid2.csv
+/simulability/raw/ct24.mid2.csv
+/simulability/raw/ct32.mid2.csv
+/simulability/raw/ctnn0.mid2.csv
+/simulability/raw/qaoa.mid2.csv
+/transition-theory/decay.csv
+/transition-theory/steady.csv
+# <<< tools/datafiles.py

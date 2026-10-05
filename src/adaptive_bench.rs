@@ -68,7 +68,7 @@ fn flush() {
 /// Builds the circuit of a family by name.
 pub fn family(name: &str, n: usize, t: usize, core: usize, t_tail: usize, depth: usize) -> Circuit {
     match name {
-        // The README / research/pauli.md family (seed 3, nested in t).
+        // The README / research/performance/pauli.md family (seed 3, nested in t).
         "random" => clifford_t_family(n, depth, t, 3)(t),
         "two-phase" => two_phase(n, core, t, t_tail, depth, 5),
         // Cuccaro ripple-carry adder on `t` bits (n is ignored: 2t + 2).

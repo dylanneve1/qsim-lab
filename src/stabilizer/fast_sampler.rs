@@ -51,7 +51,7 @@
 //! The output is not bit-identical to the old path (different draws); its
 //! distribution is the same. `tests/fast_sampler.rs` checks the hit algebra
 //! exactly, the per-group pattern frequencies and detector statistics
-//! against the old sampler, and `research/fast-sampler.md` the 10^6-shot
+//! against the old sampler, and `research/qec/fast-sampler.md` the 10^6-shot
 //! equivalence with Stim.
 
 use super::symphase::{SymPhaseSampler, VarDist};
@@ -480,7 +480,7 @@ impl FastSampler {
 
     /// Drops the padded hit tables so every class takes the column-by-column
     /// path (used when an entry is wider than `MAX_STRIDE`); for tests and
-    /// the ablation in `research/fast-sampler.md`.
+    /// the ablation in `research/qec/fast-sampler.md`.
     #[doc(hidden)]
     pub fn force_column_path(&mut self) {
         for c in &mut self.classes {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline estimate of end-to-end regret vs the tiering parameter `voi`
-(research/planner-v2.md §3): the tiered decision for each voi (deterministic,
+(research/simulability/planner-v2.md §3): the tiered decision for each voi (deterministic,
 `planner_v2 feat`), its planning cost from the Mac per-tier timings
 (feat_mac.jsonl: support, certificate, frame, MPS replay, HSF partition, plus
 the O(G) pass), and the chosen engine's measured time (read-out session).
