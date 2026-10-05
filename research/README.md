@@ -20,6 +20,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [ge-shor.md](shor/ge-shor.md) | Gidney–Ekerå techniques: windowing, Ekerå–Håstad, coset representation |
 | [shor-noise.md](shor/shor-noise.md) | Gate-level Shor under circuit noise, measured at scale |
 | [ft-shor.md](shor/ft-shor.md) | Shor on error-corrected (concatenated Steane) qubits, simulated end to end at the gate level |
+| [noise-oracles.md](shor/noise-oracles.md) | Noise tolerance of the new (smaller) Shor oracles under circuit noise |
 | [shor-r4-audit.md](shor/shor-r4-audit.md) | Independent audit of the round-4 31-bit results |
 
 ## Quantum error correction — [`qec/`](qec/)
