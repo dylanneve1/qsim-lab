@@ -39,7 +39,7 @@
 //! * **State vector** otherwise, f64, blocked executor, refused above
 //!   [`Budget::mem_bytes`].
 //!
-//! The same numbers are recorded in `research/pipeline.md`.
+//! The same numbers are recorded in `research/performance/pipeline.md`.
 
 use crate::circuit::{Circuit, Op, SimError};
 use crate::compile::plan::{
@@ -61,7 +61,7 @@ use rand::SeedableRng;
 pub const ADAPTIVE_MIN_QUBITS: usize = 12;
 /// The dense active register must be at least this many qubits smaller than
 /// the component (measured: adaptive ties the state vector at `d = n` and
-/// wins from `d = n - 1`, see `research/pipeline.md`).
+/// wins from `d = n - 1`, see `research/performance/pipeline.md`).
 pub const ADAPTIVE_MARGIN: usize = 1;
 /// Largest active register (qubits) the compressed state may allocate.
 pub const ADAPTIVE_MAX_ACTIVE: usize = 26;
@@ -151,11 +151,11 @@ pub struct SimOptions {
     pub repeat: Option<RepeatOptions>,
     /// Planner debug mode for expectation values: every planned component
     /// with at most 20 qubits is also run on the reference state vector,
-    /// and a disagreement panics (research/planner.md).
+    /// and a disagreement panics (research/simulability/planner.md).
     pub planner_debug: bool,
 }
 
-/// Options of the repeat pass (see `research/repeat.md`).
+/// Options of the repeat pass (see `research/compiler/repeat.md`).
 #[derive(Clone, Debug)]
 pub struct RepeatOptions {
     pub detect: DetectOptions,
@@ -411,7 +411,7 @@ fn simulate_plain(
     };
     match request {
         Request::Samples { shots, seed } => {
-            // Planner v2 (research/planner-v2.md) picks the engine of every
+            // Planner v2 (research/simulability/planner-v2.md) picks the engine of every
             // terminal component that would otherwise need a state vector
             // or the compressed state; it respects the budget itself.
             let opts = PlanOptions {
@@ -451,7 +451,7 @@ fn simulate_plain(
             })
         }
         Request::Expectation(qs) => {
-            // Expectation values go through Planner v0 (research/planner.md).
+            // Expectation values go through Planner v0 (research/simulability/planner.md).
             let opts = PlanOptions {
                 planner: Some(planner_cfg),
                 ..opts

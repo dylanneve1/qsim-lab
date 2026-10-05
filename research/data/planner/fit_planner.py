@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MPS cost prediction + planner evaluation (research/planner.md).
+"""MPS cost prediction + planner evaluation (research/simulability/planner.md).
 
 Inputs: the Mac timings of the simulability dataset (../simulability/raw)
 and the deterministic MPS data from collect.py (mpsdata_*.jsonl: replayed

@@ -3,7 +3,7 @@
 neural decoder.
 
 usage: gen_surface.py <d> <p> <prefix> [noise=uniform|si1000]
-  uniform: Stim's four knobs all = p (as research/qec-r4.md, direction B).
+  uniform: Stim's four knobs all = p (as research/qec/qec-r4.md, direction B).
   si1000 : SI1000-style (Gidney-Newman-McEwen): CZ-free approximation on Stim's CX circuit:
            2q depol p, 1q depol p/10, data idle depol p/10 per round (before_round), reset flip 2p,
            measure flip 5p.

@@ -1,4 +1,4 @@
-//! Colour-code schedule experiments (see research/qec-r4.md).
+//! Colour-code schedule experiments (see research/qec/qec-r4.md).
 //!
 //! ```text
 //! color_search layout <d>

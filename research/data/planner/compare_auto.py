@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strategy::Auto before/after the ski-rental guard (research/planner.md §4).
+"""Strategy::Auto before/after the ski-rental guard (research/simulability/planner.md §4).
 
 Old: research/data/simulability/raw (Mac, same instances, old Auto).
 New: Mac re-time of frame, dense and auto with the fixed Auto (same session

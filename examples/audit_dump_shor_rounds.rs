@@ -1,4 +1,4 @@
-//! Audit helper (research/audit.md §16): dumps the per-round windowed oracle
+//! Audit helper (research/process/audit.md §16): dumps the per-round windowed oracle
 //! blocks of a Shor instance as plain text, so an independent (Python)
 //! noisy simulator can replay them.
 //! `cargo run --release --example audit_dump_shor_rounds -- N a w > out.txt`

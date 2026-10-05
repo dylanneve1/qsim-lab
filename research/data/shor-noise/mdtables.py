@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Markdown tables for research/shor-noise.md from summary.csv / strata.csv / window_model.csv."""
+"""Markdown tables for research/shor/shor-noise.md from summary.csv / strata.csv / window_model.csv."""
 import csv, math, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))

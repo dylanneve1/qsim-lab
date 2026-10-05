@@ -120,7 +120,7 @@ mod imp {
         (samp, norm)
     }
 
-    /// Amplitude updates of a fused op list (as in research/mac-m1.md: a
+    /// Amplitude updates of a fused op list (as in research/performance/mac-m1.md: a
     /// controlled op touches only the amplitudes where its controls are set).
     fn amp_ops(ops: &[KOp], n: usize) -> f64 {
         ops.iter()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end planner evaluation on the Mac (research/planner.md §5).
+"""End-to-end planner evaluation on the Mac (research/simulability/planner.md §5).
 
 1. The 314 dataset instances: `planx` (Planner v0 as shipped: plan + run,
    speculation on, no certificate), `planp` (+ probe-or-solve), `plan`

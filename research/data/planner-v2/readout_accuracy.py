@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Accuracy of the read-out models (research/planner-v2.md §2): per
+"""Accuracy of the read-out models (research/simulability/planner-v2.md §2): per
 component, RMSE (log10) of the linear op-count model, fitted on all
 instances and leave-one-family-out, on read-outs >= 20 µs.
     readout_accuracy.py feat.jsonl req.jsonl hsfamp.jsonl
