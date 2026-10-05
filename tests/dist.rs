@@ -328,6 +328,7 @@ fn plan_respects_roles() {
                     DistStep::Relabel(pairs) => {
                         assert!(pairs.iter().all(|&(a, b)| a < l && b < l && a != b))
                     }
+                    DistStep::Rename { a, b } => assert!(a != b && *a < n && *b < n),
                 }
             }
         }

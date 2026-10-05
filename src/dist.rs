@@ -282,6 +282,9 @@ pub enum DistStep {
     /// change, used to restore canonical order): applied as `Swap` gates and
     /// the logical->physical map follows them.
     Relabel(Vec<(usize, usize)>),
+    /// A folded `Swap` gate: the logical qubits on physical slots `a` and `b`
+    /// exchange labels; no amplitude moves.
+    Rename { a: usize, b: usize },
 }
 
 /// Planner knobs.
@@ -450,6 +453,9 @@ pub fn plan_gates(
                         v2p[b] = pa;
                         p2v[pa] = b;
                         p2v[pb] = a;
+                        // Labels only: the pending run is in physical
+                        // coordinates, so it need not be flushed.
+                        steps.push(DistStep::Rename { a: pa, b: pb });
                     }
                     folded += 1;
                 } else if needs_local(g).iter().all(|&q| v2p[q] < l) {
@@ -940,6 +946,7 @@ impl<T: Real> DistState<T> {
                 DistStep::Local(gates) => self.apply_local(gates),
                 DistStep::Swap { local, global } => self.swap_qubits(*local, *global, link)?,
                 DistStep::Relabel(pairs) => self.relabel(pairs),
+                DistStep::Rename { a, b } => self.rename(*a, *b),
             }
         }
         debug_assert_eq!(self.v2p, plan.final_v2p);
@@ -988,6 +995,15 @@ impl<T: Real> DistState<T> {
         }
         self.stats.runs += 1;
         self.stats.compute += t0.elapsed();
+    }
+
+    /// Exchanges the logical labels of physical slots `a` and `b` (applies a
+    /// logical `Swap` gate without moving data).
+    pub fn rename(&mut self, a: usize, b: usize) {
+        let va = self.v2p.iter().position(|&p| p == a).unwrap();
+        let vb = self.v2p.iter().position(|&p| p == b).unwrap();
+        self.v2p[va] = b;
+        self.v2p[vb] = a;
     }
 
     /// Swaps local physical slots pairwise and moves the logical qubits with

@@ -244,6 +244,7 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
                     st.swap_qubits(*local, *global, &mut link).unwrap()
                 }
                 DistStep::Relabel(p) => st.relabel(p),
+                DistStep::Rename { a, b } => st.rename(*a, *b),
             }
             eprintln!(
                 "[node {node}] step {i}/{} {} {:.2}s (t={:.1}s)",
@@ -252,6 +253,7 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
                     DistStep::Local(g) => format!("local {} gates", g.len()),
                     DistStep::Swap { local, global } => format!("swap {local}<->{global}"),
                     DistStep::Relabel(p) => format!("relabel {} pairs", p.len()),
+                    DistStep::Rename { a, b } => format!("rename {a}<->{b}"),
                 },
                 ts.elapsed().as_secs_f64(),
                 t0.elapsed().as_secs_f64()
