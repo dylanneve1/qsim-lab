@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! cargo run --release --example todd_bench -- [--restarts R] [--seed S] [--passes P]
-//!     [--seconds S] [--hred] [--pauli] [--no-absorb] [--no-todd] [--out DIR]
+//!     [--seconds S] [--lns R] [--hred] [--pauli] [--no-absorb] [--no-todd] [--out DIR]
 //!     [--csv FILE] FILE.qc...
 //! ```
 //!
@@ -14,7 +14,7 @@
 //! the Hadamard rewrites, checked on basis inputs) is verified by the
 //! path-sum identity; `--pauli` (Pauli-frame mode) changes the Hadamard
 //! structure and is verified by exact simulation of every basis input
-//! (n ≤ 16) or 4096 random ones. `--out` writes each verified output
+//! (n ≤ 20, `--exhaustive N` to change) or 4096 random ones. `--out` writes each verified output
 //! circuit as `.qc`.
 
 use qsim_lab::compile::phase_fold;
@@ -44,6 +44,7 @@ fn main() {
     let mut csv: Option<String> = None;
     let mut hred = false;
     let mut pauli = false;
+    let mut exhaustive_max = 20usize;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -54,7 +55,9 @@ fn main() {
             "--no-todd" => opts.todd = false,
             "--hred" => hred = true,
             "--pauli" => pauli = true,
+            "--exhaustive" => exhaustive_max = args.next().unwrap().parse().unwrap(),
             "--no-absorb" => opts.absorb_cliffords = false,
+            "--lns" => opts.lns_rounds = args.next().unwrap().parse().unwrap(),
             "--out" => out_dir = Some(args.next().unwrap()),
             "--csv" => csv = Some(args.next().unwrap()),
             _ => files.push(a),
@@ -90,7 +93,7 @@ fn main() {
                 // the Hadamard rewrite changes the path variables, so it is
                 // checked semantically: exact basis-state simulation
                 let n = pc.num_qubits;
-                let inputs: Vec<u128> = if n <= 16 {
+                let inputs: Vec<u128> = if n <= exhaustive_max {
                     (0..(1u128 << n)).collect()
                 } else {
                     let mut x: u128 = 0x9E37_79B9_7F4A_7C15;
@@ -107,7 +110,7 @@ fn main() {
                 hred_check = format!(
                     " hred -{removed}H basis[{}{}]={}",
                     inputs.len(),
-                    if n <= 16 { " all" } else { " sampled" },
+                    if n <= exhaustive_max { " all" } else { " sampled" },
                     if ok == Ok(0) { "ok" } else { "FAIL" }
                 );
             }
@@ -134,7 +137,7 @@ fn main() {
         let ver: Result<u8, String> = if pauli {
             // Hadamard structure changes: exact basis-state simulation
             let n = pc.num_qubits;
-            let inputs: Vec<u128> = if n <= 16 {
+            let inputs: Vec<u128> = if n <= exhaustive_max {
                 (0..(1u128 << n)).collect()
             } else {
                 let mut x: u128 = 0x2545_F491_4F6C_DD1D;

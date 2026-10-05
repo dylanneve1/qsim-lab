@@ -1,0 +1,3 @@
+# circuit  T-count  mode (records: below every published ancilla-free count)
+qcla_adder_10 157 slot
+qft_4 63 pauli
