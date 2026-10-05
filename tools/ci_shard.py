@@ -26,6 +26,9 @@ WEIGHTS = {
     "stabrank_lower": 2.3, "planner": 2.2, "l1_tiling": 2, "dense_fusion": 2, "simulability": 1.6,
 }
 DEFAULT_SECS = 1.0
+# Each extra test binary also costs ~17 s to compile and link on the runner
+# (run 37262442574: 4 binaries built in 3m15s, 19 in 7m31s), so balance that too.
+PER_TARGET_SECS = 17.0
 UNIT_AND_DOC_SECS = 12.4 + 4.0  # lib unit tests + doctests, always shard 1
 
 
@@ -44,7 +47,7 @@ def assign(n):
     for t in sorted(test_targets(), key=lambda t: (-WEIGHTS.get(t, DEFAULT_SECS), t)):
         i = min(range(n), key=lambda k: (load[k], k))
         shards[i].append(t)
-        load[i] += WEIGHTS.get(t, DEFAULT_SECS)
+        load[i] += WEIGHTS.get(t, DEFAULT_SECS) + PER_TARGET_SECS
     return shards, load
 
 
