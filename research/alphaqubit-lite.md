@@ -17,7 +17,7 @@ recovers roughly half of AlphaQubit's d = 3 gain over PyMatching but not the res
 | real data (held out) | AlphaQubit-lite | PyMatching | correlated matching | Tesseract | best published |
 |---|---|---|---|---|---|
 | Sycamore d = 3, LER (fit R = 3…25) | **3.51 %** | 3.88 % | 3.43 % (ours) / 3.49 % (Google) | 3.11 % | tensor net 3.06 %; AlphaQubit 2.90 % (paper) |
-| Sycamore d = 5 | **5.55 %** | 4.39 % | 3.53 % / 3.61 % | (§5.3) | tensor net 2.98 %; AlphaQubit 2.75 % (paper) |
+| Sycamore d = 5 | **5.55 %** | 4.39 % | 3.53 % / 3.61 % | 3.31 % (1–2 k shots/exp.) | tensor net 2.98 %; AlphaQubit 2.75 % (paper) |
 | Willow d = 3, mean ε r = 10/13/30 | **0.760 %** (0.807 % zero-shot) | 0.993 % | 0.865 % (ours) / 0.739 % (Google, RL prior) | 0.738 % (arXiv:2609.04557) | Harmony-RL 0.714 % |
 
 - d = 3 Sycamore: 10 % better than PyMatching, level with Google's correlated matching, 15 % above
@@ -128,8 +128,8 @@ inactive ≥ 5.3 GB). Lite model: D = 64, key 16, conv 32, 0.37 M parameters.
 | d5 fine-tune, lr 3e-4 | real training half, batch 80 | 0.12 M (stopped) | 20 min | ~170 | 1.60 GB | 12–16 % (wrecked; discarded) |
 | d5 fine-tune, lr 5e-5 | real training half, batch 80 | 0.35 M | 42 min | ~170 | 1.60 GB | 5.51 % (best at 0.1 M) |
 | d5 held-out evaluation | odd shots, 0.6 M | – | 12 min | 850 | | 5.554 % (test) |
-| Willow d3 fine-tune | from the Sycamore d3 model; Willow even shots, r ∈ {10, 13} (0.72 M), batch 256, lr 2e-4 | 1.02 M | 42 min | ~680 | 1.24 GB | (dev fit too noisy, §5.2) |
-| Willow d3 evaluations (zero-shot, fine-tuned) | odd shots, 10 k per configuration, r ∈ {10, 13, 30, 50} | – | 12 + 9 min | | | §5.2 |
+| Willow d3 fine-tune | from the Sycamore d3 model; Willow even shots, r ∈ {10, 13} (0.72 M), batch 256, lr 2e-4 | 1.02 M | 42 min | ~680 | 1.24 GB | (dev fit too noisy, §5.3) |
+| Willow d3 evaluations (zero-shot, fine-tuned) | odd shots, 10 k per configuration, r ∈ {10, 13, 30, 50} | – | 12 + 9 min | | | §5.3 |
 
 Total for the reported d = 3 model: 2.2 M training samples, 84 GPU-minutes. AlphaQubit's Sycamore
 models: up to 2 × 10⁹ pretraining samples + ~120 fine-tuning epochs per model, ×20 ensemble members,
@@ -217,7 +217,7 @@ Reading the table:
 
 BP+OSD-CS (order 10, ours) on the first 5,000 shots per experiment (paired 120 k-shot subset):
 3.803 % [3.654, 3.982], ratio 1.249 — worse than correlated matching at d = 5 although better at
-d = 3. Tesseract at d = 5: §5.3.
+d = 3. Tesseract at d = 5: §5.2.
 
 At d = 5 AlphaQubit-lite **loses to PyMatching** (5.55 % vs 4.39 %). It only had 0.67 M d = 5
 samples (0.32 M pretraining warm-started from the d = 3 model, 0.35 M fine-tuning, of which the best
@@ -229,7 +229,15 @@ detection events than the real device (d = 3: 2–6 %), and Sycamore d = 5 sits 
 (Λ₃/₅ ≈ 1.04), so DEM-simulated d = 5 data is substantially harder than the real data (simulated-dev
 LER 13 % vs real-dev 5.7 % for the same model).
 
-### 5.2 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
+### 5.2 Tesseract at d = 5 (Sycamore)
+
+Tesseract (beam 15, pij DEM) is slow on d = 5 × 25 rounds on the shared VPS (up to 19 min per 1,000
+shots), so it ran on the first 1,000–2,000 held-out shots per experiment (paired 29 k-shot subset):
+**3.305 % [3.061, 3.639], ratio to TN 1.047 [0.973, 1.139]** — statistically tied with the tensor
+network and belief matching (1.012) and clearly better than correlated matching (1.175), BP+OSD
+(1.230) and PyMatching (1.455). AlphaQubit-lite on the same subset: 5.47 % (1.73).
+
+### 5.3 Willow 2024 (105-qubit processor, d = 3: 9 patches, d = 5: 4 patches)
 
 Test fold: odd-index shots (25,000 per configuration). Per-round LER ε = ½(1 − (1 − 2E)^{1/r}) per
 configuration, averaged over patches and bases; "mean 10–30" averages r ∈ {10, 13, 30}, which is
