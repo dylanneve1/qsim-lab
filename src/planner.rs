@@ -44,13 +44,14 @@ use crate::engines::mps::Mps;
 use crate::engines::mps_cost::{self, BondSource, Estimator};
 use crate::engines::sparse::SparseState;
 use crate::engines::stabilizer::Tableau;
+use crate::engines::tn;
 use crate::engines::statevector::StateVectorF64;
 use crate::gate::{is_multiple_of_half_pi, Gate};
 use crate::simulability::{self, Features};
 use num_complex::Complex64;
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 /// An exact engine the planner can choose.
@@ -71,6 +72,9 @@ pub enum Engine {
     /// Clifford frame + dense register on the active qubits
     /// ([`crate::engines::adaptive::CompressedState`]).
     Compressed,
+    /// Exact tensor-network contraction ([`crate::engines::tn`]): amplitudes
+    /// and Z-product expectations (through the light cone) without a state.
+    Tn,
 }
 
 impl Engine {
@@ -84,6 +88,7 @@ impl Engine {
             Engine::Mps => "mps",
             Engine::Hsf => "hsf",
             Engine::Compressed => "cstate",
+            Engine::Tn => "tn",
         }
     }
 
@@ -97,6 +102,7 @@ impl Engine {
             "mps" => Engine::Mps,
             "hsf" => Engine::Hsf,
             "cstate" => Engine::Compressed,
+            "tn" => Engine::Tn,
             _ => return None,
         })
     }
@@ -214,6 +220,44 @@ pub struct CostModel {
     /// includes the full `2^n` output) for samples and amplitudes; the
     /// models above are fitted on whole expectation runs, as in v1.
     pub state: [EngineModel; 5],
+    /// Tensor-network contraction model.
+    pub tn: TnModel,
+}
+
+/// Tensor-network time model (research/simulability/tn.md §6): one
+/// contraction takes `2^(a + b log2 C) + c0 + c1 · tensors` seconds for the
+/// sliced contraction cost `C` (complex multiply-adds) of the planned tree.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TnModel {
+    /// Intercept, log2 seconds.
+    pub a: f64,
+    /// Slope per log2 of the contraction cost.
+    pub b: f64,
+    /// Fixed seconds per contraction (network build, simplification, plan).
+    pub c0: f64,
+    /// Seconds per tensor of the simplified network.
+    pub c1: f64,
+}
+
+impl TnModel {
+    /// Predicted seconds of one contraction of cost `10^log10_cost`.
+    pub fn secs(&self, log10_cost: f64, tensors: usize) -> f64 {
+        let l2 = log10_cost / std::f64::consts::LOG10_2;
+        (self.a + self.b * l2).exp2() + self.c0 + self.c1 * tensors as f64
+    }
+}
+
+impl Default for TnModel {
+    /// Fitted on the 16-vCPU Xeon (one thread) and converted to M1 units with
+    /// the measured state-vector speed ratio (research/simulability/tn.md §6).
+    fn default() -> Self {
+        TnModel {
+            a: -29.9,
+            b: 1.0,
+            c0: 2e-4,
+            c1: 2e-6,
+        }
+    }
 }
 
 impl ReadoutModel {
@@ -261,6 +305,7 @@ impl CostModel {
                 m(-20.1377, 0.60326),
                 m(-28.5187, 0.98508),
             ],
+            tn: TnModel::default(),
         }
     }
 
@@ -309,6 +354,8 @@ pub struct FeatureCost {
     pub mps: [f64; 2],
     /// HSF Kernighan–Lin partition: fixed + per gate·qubit².
     pub hsf: [f64; 2],
+    /// Tensor-network network build and quick tree search: fixed + per gate.
+    pub tn: [f64; 2],
 }
 
 impl Default for FeatureCost {
@@ -318,6 +365,7 @@ impl Default for FeatureCost {
             frame: [1.254e-5, 2.153e-7, 1.461e-8],
             mps: [7.26e-5, 4.33e-8],
             hsf: [3.67e-3, 7.34e-9],
+            tn: [2e-3, 2e-5],
         }
     }
 }
@@ -377,6 +425,9 @@ pub struct PlannerConfig {
     /// Reuse plans of structurally equal circuits (same gates and qubits,
     /// same Clifford class of every angle, same request size bucket).
     pub cache: bool,
+    /// Consider the tensor-network engine (v2 tiers only) for amplitudes
+    /// and expectation values.
+    pub tn: bool,
 }
 
 impl Default for PlannerConfig {
@@ -400,6 +451,7 @@ impl Default for PlannerConfig {
             voi_amplitudes: 4.0,
             feature_cost: FeatureCost::default(),
             cache: true,
+            tn: true,
         }
     }
 }
@@ -410,6 +462,7 @@ impl PlannerConfig {
         PlannerConfig {
             tiered: false,
             cache: false,
+            tn: false,
             model: CostModel::mac_m1_v1(),
             ..Default::default()
         }
@@ -434,7 +487,11 @@ impl PlannerConfig {
         ] {
             h.u64(x.to_bits());
         }
-        h.u64(u64::from(self.use_certificate) | (u64::from(self.tiered) << 1));
+        h.u64(
+            u64::from(self.use_certificate)
+                | (u64::from(self.tiered) << 1)
+                | (u64::from(self.tn) << 2),
+        );
         h.u64(self.probe_cap.map_or(u64::MAX, u64::from));
         h.0
     }
@@ -602,6 +659,23 @@ pub struct PlanFeatures {
     /// Kernighan–Lin partition of tier 3b); the HSF engine runs on exactly
     /// this partition. `None`: the engine computes its own KL partition.
     pub hsf_split: Option<Vec<bool>>,
+    /// The tensor-network tier (tier 4): the tree the engine runs.
+    pub tn: Option<TnFeature>,
+}
+
+/// The tensor-network tier's result.
+#[derive(Clone, Debug)]
+pub struct TnFeature {
+    /// log10 of the sliced contraction cost of one amplitude, or of the
+    /// doubled light-cone network of an expectation (complex multiply-adds).
+    pub log10_cost: f64,
+    /// log2 of the largest intermediate of one slice (entries).
+    pub log2_size: f64,
+    /// Tensors of the simplified network.
+    pub tensors: usize,
+    /// The contraction tree and slicing found while planning; the engine
+    /// contracts along it (and searches again only if it does not fit).
+    pub path: Arc<tn::Path>,
 }
 
 /// A decision.
@@ -619,7 +693,7 @@ pub struct Plan {
     pub solved: Option<f64>,
     /// What the probe did: `(finished, truncated)`.
     pub probe: Option<(bool, bool)>,
-    /// Seconds per tier `[quick, tier 1, MPS replay, HSF]` (v2).
+    /// Seconds per tier `[quick, tier 1, MPS replay, HSF and TN]` (v2).
     pub stage_secs: [f64; 4],
     /// The plan came from the cache.
     pub cached: bool,
@@ -659,6 +733,7 @@ pub fn plan_features(
         tier: 3,
         computed: [true; 6],
         hsf_split: None,
+        tn: None,
     })
 }
 
@@ -707,6 +782,17 @@ pub fn hsf_amp_units(f: &Features) -> (f64, f64) {
 
 /// Predicted seconds of `e` for `req` (evolution + read-out).
 pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    if e == Engine::Tn {
+        let Some(t) = &f.tn else {
+            return f64::INFINITY;
+        };
+        let one = m.tn.secs(t.log10_cost, t.tensors);
+        return match req {
+            PlanRequest::Amplitudes(k) => one * (*k).max(1) as f64,
+            PlanRequest::Expectation(_) => one,
+            PlanRequest::Samples(_) => f64::INFINITY,
+        };
+    }
     let ro = &m.readout;
     let n = f.base.n;
     let s = req.shots();
@@ -776,6 +862,16 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
 /// active dimension 0, every MPS bond 1, a balanced HSF partition without
 /// paths). Used to skip features of engines that cannot win.
 pub fn lower_bound_secs(e: Engine, q: &QuickFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    if e == Engine::Tn {
+        // every two-qubit gate tensor (16 entries) is contracted at least once
+        let lc = (16.0 * q.g2.max(1) as f64).log10();
+        let one = m.tn.secs(lc, 1);
+        return match req {
+            PlanRequest::Amplitudes(k) => one * (*k).max(1) as f64,
+            PlanRequest::Expectation(_) => one,
+            PlanRequest::Samples(_) => f64::INFINITY,
+        };
+    }
     let n = q.n;
     let g = q.gates.max(1) as f64;
     let mut f = PlanFeatures {
@@ -829,6 +925,8 @@ fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool
         Engine::Mps => !indexed || n <= 128,
         Engine::Tableau => f.clifford && !amps,
         Engine::Zero => false,
+        // the tree is sliced to the budget; amplitudes are indexed by u128
+        Engine::Tn => f.tn.is_some() && !matches!(req, PlanRequest::Samples(_)) && (!amps || n <= 128),
     }
 }
 
@@ -1304,6 +1402,22 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         }
         ranked = rank(&f, req, cfg, &considered);
     }
+    // Tier 4: tensor-network tree search (amplitudes and expectations), if
+    // the engine could beat the best prediction by more than `voi` x the
+    // search's cost. The engine then contracts along the planned tree.
+    if cfg.tn && !matches!(req, PlanRequest::Samples(_)) && (!amps || n <= 128) {
+        let tn_lb = lower_bound_secs(Engine::Tn, &q, req, &cfg.model);
+        let c4 = fc.tn[0] + fc.tn[1] * g;
+        if best(&ranked) - tn_lb > cfg.voi * c4 {
+            let t4 = Instant::now();
+            if let Some(tf) = tn_feature(c, req, cfg)? {
+                f.tn = Some(tf);
+                considered.push(Engine::Tn);
+                ranked = rank(&f, req, cfg, &considered);
+            }
+            stage[3] += t4.elapsed().as_secs_f64();
+        }
+    }
     let Some(&(engine, _)) = ranked.first() else {
         return Err(SimError::TooLarge {
             what: "planner: no exact engine fits the budget",
@@ -1315,6 +1429,114 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
     let mut p = empty_plan(engine, ranked, f);
     probe_or_solve(c, req, cfg, &mut p)?;
     Ok(finish(p, stage))
+}
+
+/// Qubits that appear an odd number of times in a Z-product (`Z_q Z_q = I`).
+fn odd_qubits(obs: &[usize]) -> Vec<usize> {
+    let mut v: Vec<usize> = Vec::new();
+    for &q in obs {
+        if let Some(p) = v.iter().position(|&x| x == q) {
+            v.swap_remove(p);
+        } else {
+            v.push(q);
+        }
+    }
+    v.sort_unstable();
+    v
+}
+
+fn tn_options(cfg: &PlannerConfig) -> tn::TnOptions {
+    tn::TnOptions {
+        max_bytes: cfg.mem_bytes,
+        path: tn::PathOptions::quick(),
+        ..tn::TnOptions::default()
+    }
+}
+
+/// The circuit whose `<0|.|0>` amplitude the TN engine contracts for `req`
+/// (`None` for samples).
+fn tn_circuit(c: &Circuit, req: &PlanRequest) -> Result<Option<Circuit>, SimError> {
+    Ok(match req {
+        PlanRequest::Amplitudes(_) => Some(c.clone()),
+        PlanRequest::Expectation(obs) => {
+            let p: Vec<(usize, tn::Pauli)> =
+                odd_qubits(obs).into_iter().map(|q| (q, tn::Pauli::Z)).collect();
+            Some(tn::expectation_circuit(c, &p)?.0)
+        }
+        PlanRequest::Samples(_) => None,
+    })
+}
+
+/// Tier 4: builds and simplifies the network of `req` (amplitude of
+/// `|0^n>`, or the doubled light-cone network) and runs the quick search.
+pub fn tn_feature(
+    c: &Circuit,
+    req: &PlanRequest,
+    cfg: &PlannerConfig,
+) -> Result<Option<TnFeature>, SimError> {
+    let Some(d) = tn_circuit(c, req)? else {
+        return Ok(None);
+    };
+    let mut nw = tn::Network::amplitude(&d, &vec![false; d.num_qubits], &[])?;
+    let opts = tn_options(cfg);
+    nw.simplify(&opts.simplify);
+    let hg = tn::Hypergraph::from_network(&nw);
+    let mut po = opts.path.clone();
+    po.target_log2_size = Some(tn::default_target_log2(&opts));
+    let path = tn::search(&hg, &po);
+    Ok(Some(TnFeature {
+        log10_cost: path.stats.log10_sliced_flops,
+        log2_size: path.stats.log2_sliced_max_size,
+        tensors: nw.tensors.len(),
+        path: Arc::new(path),
+    }))
+}
+
+/// `<x|d|0>` by tensor-network contraction, along `path` when it matches
+/// the simplified network and fits the budget, else after a fresh search.
+fn tn_contract(
+    d: &Circuit,
+    bits: &[bool],
+    path: Option<&tn::Path>,
+    mem_bytes: u128,
+) -> Result<Complex64, SimError> {
+    let cfg = PlannerConfig {
+        mem_bytes,
+        ..PlannerConfig::default()
+    };
+    let opts = tn_options(&cfg);
+    let nw = tn::Network::amplitude(d, bits, &[])?;
+    if let Some(p) = path {
+        let mut sn = nw.clone();
+        sn.simplify(&opts.simplify);
+        if p.tree.n_leaves == sn.tensors.len() {
+            let eo = tn::ExecOptions {
+                max_bytes: mem_bytes,
+                ..tn::ExecOptions::default()
+            };
+            let sliced: Vec<bool> = (0..sn.dims.len())
+                .map(|i| p.sliced.get(i).copied().unwrap_or(false))
+                .collect();
+            match tn::contract::<Complex64>(&sn, &p.tree, &sliced, &eo) {
+                Ok((v, _)) => return Ok(v[0]),
+                Err(SimError::TooLarge { .. }) => {}
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    Ok(tn::run_network(nw, &opts)?.0[0])
+}
+
+/// A circuit prepared for tensor-network amplitudes (no state is built).
+#[derive(Clone, Debug)]
+pub struct TnPrepared {
+    /// The circuit.
+    pub circuit: Circuit,
+    /// The tree planned for `<0^n|C|0^n>` (reused for every amplitude when
+    /// the simplified network has the same tensors).
+    pub path: Option<Arc<tn::Path>>,
+    /// Memory budget of one contraction.
+    pub mem_bytes: u128,
 }
 
 // ---------------------------------------------------------------------------
@@ -1357,7 +1579,18 @@ fn run_one(
     cfg: &PlannerConfig,
     deadline: Option<f64>,
     split: Option<&[bool]>,
+    tnf: Option<&TnFeature>,
 ) -> Result<Outcome, SimError> {
+    if e == Engine::Tn {
+        let d = tn_circuit(c, &PlanRequest::Expectation(obs.to_vec()))?.expect("expectation");
+        let v = tn_contract(
+            &d,
+            &vec![false; d.num_qubits],
+            tnf.map(|t| &*t.path),
+            cfg.mem_bytes,
+        )?;
+        return Ok(Outcome::Value(v.re));
+    }
     if let (Engine::Hsf, Some(sp)) = (e, split) {
         // HSF on the split the plan priced, full output, parity
         let opts = HsfOptions {
@@ -1418,7 +1651,7 @@ fn run_one(
         // the compressed state runs exactly as the cost model measured it
         // (frame + dense register, always evolved: `Strategy::Auto`'s
         // run-time hand-over is not used, its cost is not predictable).
-        Engine::Tableau | Engine::StateVector | Engine::Hsf | Engine::Compressed => {
+        Engine::Tableau | Engine::StateVector | Engine::Hsf | Engine::Compressed | Engine::Tn => {
             let r = simulability::run_engine_obs(e.name(), c, cfg.mem_bytes, obs)?;
             Ok(Outcome::Value(r.value))
         }
@@ -1470,6 +1703,7 @@ pub fn execute_expectation(
             cfg,
             deadline_for(&order, i, cfg),
             plan.features.hsf_split.as_deref(),
+            plan.features.tn.as_ref(),
         ) {
             Ok(Outcome::Value(v)) => {
                 result = Some((v, e));
@@ -1545,6 +1779,8 @@ pub enum Prepared {
     Compressed(Option<Box<CompressedState>>, Option<Box<Sampler>>),
     /// Stabilizer tableau.
     Tableau(Box<Tableau>),
+    /// Tensor-network contraction (amplitudes only; no state).
+    Tn(Box<TnPrepared>),
 }
 
 /// Evolves `c|0^n>` on `e`; `Ok(None)` if the deadline (seconds) or the
@@ -1639,6 +1875,11 @@ pub fn prepare_split(
                 what: "planner: the Zero engine has no state",
             })
         }
+        Engine::Tn => Prepared::Tn(Box::new(TnPrepared {
+            circuit: c.clone(),
+            path: None,
+            mem_bytes: cfg.mem_bytes,
+        })),
     }))
 }
 
@@ -1719,6 +1960,11 @@ impl Prepared {
                     })
                     .collect()
             }
+            Prepared::Tn(_) => {
+                return Err(not_indexed(
+                    "planner: the tensor-network engine computes amplitudes, not samples",
+                ))
+            }
             Prepared::Tableau(t) => {
                 if t.num_qubits() > 128 {
                     return Err(not_indexed("planner samples need n <= 128"));
@@ -1748,6 +1994,19 @@ impl Prepared {
                     h.amplitudes(&ix)?
                 }
             },
+            Prepared::Tn(t) => {
+                let n = t.circuit.num_qubits;
+                xs.iter()
+                    .map(|&x| {
+                        tn_contract(
+                            &t.circuit,
+                            &tn::bits_of(x, n),
+                            t.path.as_deref(),
+                            t.mem_bytes,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            }
             Prepared::Compressed(..) | Prepared::Tableau(_) => {
                 return Err(not_indexed(
                     "planner: compressed state / tableau amplitudes drop the global phase",
@@ -1870,6 +2129,13 @@ pub fn execute_amplitudes(
             deadline_for(&order, i, cfg),
             plan.features.hsf_split.as_deref(),
         )
+        .map(|p| match p {
+            Some(Prepared::Tn(mut t)) => {
+                t.path = plan.features.tn.as_ref().map(|f| f.path.clone());
+                Some(Prepared::Tn(t))
+            }
+            other => other,
+        })
         .and_then(|p| p.map(|mut p| p.amplitudes(xs)).transpose());
         match r {
             Ok(Some(a)) => {
