@@ -19,6 +19,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [mbu-shor.md](shor/mbu-shor.md) | Measurement-based uncomputation in the exact gate-level simulation |
 | [ge-shor.md](shor/ge-shor.md) | Gidney–Ekerå techniques: windowing, Ekerå–Håstad, coset representation |
 | [shor-noise.md](shor/shor-noise.md) | Gate-level Shor under circuit noise, measured at scale |
+| [ft-shor.md](shor/ft-shor.md) | Shor on error-corrected (concatenated Steane) qubits, simulated end to end at the gate level |
 | [shor-r4-audit.md](shor/shor-r4-audit.md) | Independent audit of the round-4 31-bit results |
 
 ## Quantum error correction — [`qec/`](qec/)

@@ -13,6 +13,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`dag/`](dag/) | [dag.md](../compiler/dag.md) |
 | [`fast-sampler/`](fast-sampler/) | [fast-sampler.md](../qec/fast-sampler.md) |
 | [`fast-sampler-audit/`](fast-sampler-audit/) | [fast-sampler-audit.md](../qec/fast-sampler-audit.md) |
+| [`ft-shor/`](ft-shor/) | [ft-shor.md](../shor/ft-shor.md) |
 | [`ge-shor/`](ge-shor/) | [ge-shor.md](../shor/ge-shor.md) |
 | [`hsf/`](hsf/) | [hsf.md](../performance/hsf.md) |
 | [`mac-m1/`](mac-m1/) | [mac-m1.md](../performance/mac-m1.md) |
