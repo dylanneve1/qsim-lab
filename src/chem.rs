@@ -741,3 +741,169 @@ pub fn rotosolve(
     }
     Ok((th, hist, evals))
 }
+
+// ---------------------------------------------------------------------------
+// Best state in the register (a classical comparator)
+
+/// `H` restricted to the compressed register, grouped by `x`: for each `x`,
+/// the `(z, c·i^{|x∧z|})` pairs.
+pub struct RegisterHamiltonian {
+    pub d: usize,
+    groups: Vec<(u64, Vec<(u64, num_complex::Complex64)>)>,
+}
+
+impl RegisterHamiltonian {
+    pub fn new(st: &CompressedState, h: &PauliSum) -> RegisterHamiltonian {
+        use num_complex::Complex64 as C;
+        let mut terms = st.register_terms(h);
+        terms.sort_unstable_by_key(|t| (t.0, t.1));
+        let mut groups: Vec<(u64, Vec<(u64, C)>)> = Vec::new();
+        for (x, z, c) in terms {
+            let y = (x & z).count_ones();
+            let ph = [C::new(1.0, 0.0), C::new(0.0, 1.0), C::new(-1.0, 0.0), C::new(0.0, -1.0)]
+                [(y % 4) as usize];
+            match groups.last_mut() {
+                Some((gx, v)) if *gx == x => v.push((z, ph * c)),
+                _ => groups.push((x, vec![(z, ph * c)])),
+            }
+        }
+        RegisterHamiltonian {
+            d: st.active_qubits(),
+            groups,
+        }
+    }
+
+    pub fn groups(&self) -> usize {
+        self.groups.len()
+    }
+
+    /// `out = H v` on the `2^d` register.
+    pub fn apply(&self, v: &[num_complex::Complex64], out: &mut [num_complex::Complex64]) {
+        use num_complex::Complex64 as C;
+        let len = v.len();
+        assert_eq!(len, 1 << self.d);
+        out.iter_mut().for_each(|o| *o = C::new(0.0, 0.0));
+        let mut diag = vec![C::new(0.0, 0.0); len];
+        for (x, zs) in &self.groups {
+            diag.iter_mut().for_each(|o| *o = C::new(0.0, 0.0));
+            if zs.len() <= self.d + 1 {
+                for &(z, c) in zs {
+                    for (b, dv) in diag.iter_mut().enumerate() {
+                        if (z & b as u64).count_ones() % 2 == 1 {
+                            *dv -= c;
+                        } else {
+                            *dv += c;
+                        }
+                    }
+                }
+            } else {
+                // D(b) = Σ_z c_z (-1)^{z·b}: a Walsh–Hadamard transform of c
+                for &(z, c) in zs {
+                    diag[z as usize] += c;
+                }
+                let mut h = 1;
+                while h < len {
+                    for i in (0..len).step_by(2 * h) {
+                        for j in i..i + h {
+                            let (a, b) = (diag[j], diag[j + h]);
+                            diag[j] = a + b;
+                            diag[j + h] = a - b;
+                        }
+                    }
+                    h *= 2;
+                }
+            }
+            let x = *x as usize;
+            for b in 0..len {
+                out[b ^ x] += diag[b] * v[b];
+            }
+        }
+    }
+}
+
+/// Lowest eigenvalue of `H` restricted to the compressed register of `st`,
+/// in the symmetry sector of the register state `φ` (plain Lanczos started
+/// from `φ`, no re-orthogonalisation: the lowest Ritz value converges, ghost
+/// copies are harmless). Every circuit whose rotations stay in this span has
+/// energy `>=` this number (variational principle). Returns the Ritz value
+/// after each iteration.
+pub fn register_ground(
+    st: &CompressedState,
+    h: &PauliSum,
+    iters: usize,
+    tol: f64,
+) -> (Vec<f64>, usize) {
+    use num_complex::Complex64 as C;
+    let rh = RegisterHamiltonian::new(st, h);
+    let mut v: Vec<C> = st.active_amplitudes().to_vec();
+    let nrm = v.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
+    v.iter_mut().for_each(|a| *a /= nrm);
+    let len = v.len();
+    let mut vprev = vec![C::new(0.0, 0.0); len];
+    let mut w = vec![C::new(0.0, 0.0); len];
+    let (mut alphas, mut betas) = (Vec::new(), Vec::new());
+    let mut hist = Vec::new();
+    let mut beta = 0.0f64;
+    for it in 0..iters {
+        rh.apply(&v, &mut w);
+        let alpha: f64 = v.iter().zip(&w).map(|(a, b)| (a.conj() * b).re).sum();
+        for i in 0..len {
+            w[i] -= v[i] * alpha + vprev[i] * beta;
+        }
+        alphas.push(alpha);
+        let ritz = lowest_tridiag(&alphas, &betas);
+        hist.push(ritz);
+        beta = w.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
+        let conv = it > 2 && (hist[it - 1] - ritz).abs() < tol;
+        if beta < 1e-12 || conv {
+            break;
+        }
+        betas.push(beta);
+        std::mem::swap(&mut vprev, &mut v);
+        for i in 0..len {
+            v[i] = w[i] / beta;
+        }
+    }
+    (hist, rh.groups())
+}
+
+/// Lowest eigenvalue of the symmetric tridiagonal matrix (bisection).
+fn lowest_tridiag(a: &[f64], b: &[f64]) -> f64 {
+    let n = a.len();
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for i in 0..n {
+        let r = (if i > 0 { b[i - 1].abs() } else { 0.0 })
+            + (if i + 1 < n { b[i].abs() } else { 0.0 });
+        lo = lo.min(a[i] - r);
+        hi = hi.max(a[i] + r);
+    }
+    // count eigenvalues < x (Sturm sequence)
+    let count = |x: f64| {
+        let mut c = 0;
+        let mut q = 1.0f64;
+        for i in 0..n {
+            let off = if i > 0 { b[i - 1] * b[i - 1] } else { 0.0 };
+            q = a[i] - x - if i > 0 { off / q } else { 0.0 };
+            if q == 0.0 {
+                q = 1e-300;
+            }
+            if q < 0.0 {
+                c += 1;
+            }
+        }
+        c
+    };
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if count(mid) >= 1 {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+        if hi - lo < 1e-13 * (1.0 + hi.abs()) {
+            break;
+        }
+    }
+    0.5 * (lo + hi)
+}

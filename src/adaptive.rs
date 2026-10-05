@@ -674,6 +674,16 @@ impl CompressedState {
 
     /// Exact `<ψ| O |ψ>`.
     pub fn expectation(&self, obs: &PauliSum) -> f64 {
+        let mut terms = self.register_terms(obs);
+        eval_terms(&self.amp, &mut terms).0
+    }
+
+    /// The terms of `obs` in the active-register frame: `(x, z, c)` with
+    /// `<ψ|O|ψ> = Σ c <φ| i^{|x∧z|} X^x Z^z |φ>` over the dense register `φ`
+    /// ([`Self::active_amplitudes`]). Terms whose `x` part leaves the register
+    /// are dropped (their expectation vanishes), so the returned operator is
+    /// `O` projected onto the register subspace `C V† (· ⊗ |0>)`.
+    pub fn register_terms(&self, obs: &PauliSum) -> Vec<(u64, u64, f64)> {
         assert_eq!(obs.n, self.n);
         let w = self.w;
         let mask = (1u64 << self.d) - 1;
@@ -689,7 +699,7 @@ impl CompressedState {
             }
             terms.push((x[0], z[0] & mask, if neg { -c } else { c }));
         }
-        eval_terms(&self.amp, &mut terms).0
+        terms
     }
 
     /// Expands to a full `2^n` state vector (tests; `n <= 24`). Equal to the

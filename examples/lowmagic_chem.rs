@@ -3,6 +3,7 @@
 //! ```text
 //! lowmagic_chem profile PROG [RANK_CAP]          # d, f, W_d (+ branching rank) of a program
 //! lowmagic_chem energy FCIDUMP PROG [SWEEPS] [MAX_D] [NOPT]  # exact energy (+ Rotosolve of params < NOPT)
+//!     (LANCZOS=k: also the lowest energy of H projected on the same 2^d register, k Lanczos steps)
 //! lowmagic_chem check FCIDUMP PROG               # n <= 22: compressed vs state vector, filtered vs full H
 //! ```
 //! Programs and FCIDUMPs are written by `research/data/lowmagic-chem/chem.py`.
@@ -115,8 +116,21 @@ fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize, nopt: usi
         hist = hi;
         evals = ev;
     }
+    // best state in the same register (Lanczos), at the final parameters
+    let lanczos: usize = std::env::var("LANCZOS")
+        .ok()
+        .map_or(0, |v| v.parse().unwrap());
+    let (mut e_reg, mut reg_iters, mut reg_secs) = (f64::NAN, 0usize, 0.0);
+    if lanczos > 0 {
+        let t2 = Instant::now();
+        let (_, st) = chem::energy(&prog, Some(&theta), &h, max_d).unwrap();
+        let (hist, _) = chem::register_ground(&st, &h, lanczos, 1e-9);
+        e_reg = *hist.last().unwrap();
+        reg_iters = hist.len();
+        reg_secs = t2.elapsed().as_secs_f64();
+    }
     println!(
-        "{{\"fcidump\":\"{}\",\"prog\":\"{}\",\"n\":{},\"rotations\":{},\"params\":{},\"d\":{},\"nnz\":{},\"span_dim\":{},\"filtered\":{},\"monomials_total\":{},\"monomials_kept\":{},\"pauli_terms\":{},\"ham_secs\":{:.3},\"e_init\":{:.10},\"eval_secs\":{:.4},\"evolve_secs\":{:.4},\"e_opt\":{:.10},\"opt_secs\":{:.3},\"evals\":{},\"hist\":{},\"theta\":{}}}",
+        "{{\"fcidump\":\"{}\",\"prog\":\"{}\",\"n\":{},\"rotations\":{},\"params\":{},\"d\":{},\"nnz\":{},\"span_dim\":{},\"filtered\":{},\"monomials_total\":{},\"monomials_kept\":{},\"pauli_terms\":{},\"ham_secs\":{:.3},\"e_init\":{:.10},\"eval_secs\":{:.4},\"evolve_secs\":{:.4},\"e_opt\":{:.10},\"opt_secs\":{:.3},\"evals\":{},\"e_reg\":{:.10},\"reg_iters\":{},\"reg_secs\":{:.3},\"hist\":{},\"theta\":{}}}",
         fd_path,
         prog_path,
         prog.n,
@@ -136,6 +150,9 @@ fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize, nopt: usi
         eopt,
         t_opt,
         evals,
+        e_reg,
+        reg_iters,
+        reg_secs,
         json_list(&hist.iter().map(|x| format!("{x:.10}")).collect::<Vec<_>>()),
         json_list(&theta.iter().map(|x| format!("{x:.12}")).collect::<Vec<_>>()),
     );
