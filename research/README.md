@@ -41,6 +41,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | [simulability.md](simulability/simulability.md) | Phase diagram of exact simulability across engines (start here) |
 | [magic-atlas.md](simulability/magic-atlas.md) | A magic atlas of real quantum algorithms |
+| [lowmagic-chem.md](simulability/lowmagic-chem.md) | Low-magic quantum chemistry beyond SV size (negative result: d = tapered qubit count) |
 | [magic-transition.md](simulability/magic-transition.md) | A simulability transition in monitored Clifford+T circuits |
 | [planner.md](simulability/planner.md) | Planner v0, and predicting the cost of exact MPS |
 | [planner-v2.md](simulability/planner-v2.md) | Planner v2: samples, amplitudes, cheaper planning |

@@ -37,6 +37,7 @@ pub mod adaptive_bench;
 pub mod algorithms;
 pub mod bench;
 pub mod blocked;
+pub mod chem;
 pub mod circuit;
 pub mod compile;
 pub mod dag;
