@@ -28,7 +28,7 @@ use crate::circuit::Circuit;
 use crate::gate::Gate;
 use num_complex::Complex64 as C64;
 use std::collections::HashMap;
-use std::f64::consts::{FRAC_PI_4, PI};
+use std::f64::consts::FRAC_PI_4;
 
 // ---------------------------------------------------------------------------
 // bitsets
@@ -1534,6 +1534,3 @@ pub fn bits(n: usize, ones: &[usize]) -> Vec<u64> {
     }
     b
 }
-
-/// Convenience: π as used by builders.
-pub const PI_: f64 = PI;
