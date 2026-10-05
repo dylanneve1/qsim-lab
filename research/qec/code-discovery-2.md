@@ -277,6 +277,21 @@ non-abelian group of order ≤ 100 at total weight ≤ 8; its best weight-6 code
 our threshold (`lin_pryadko_2bga_w6.tsv`), and with it [[192,16,12]] and [[200,16,12]] are not new
 either. The exact distances proved here are.
 
+### 4.3 The two new codes, explicitly
+
+Both are given as permutation groups (products composed left to right, as in GAP: x·y applies x
+first), with the code convention of §2 (X-check g: L{g a}, R{b g}); the tests rebuild them from
+exactly these permutations.
+
+- **[[224,18,12]]**, G = C7 × P = SmallGroup(112,20) on the points 0–14: c = (8 9 10 11 12 13 14),
+  r = (0 1 2 3)(5 7), s = (4 5)(6 7), t = (4 6)(5 7), P = ⟨r, s, t⟩ = (C4 × C2) ⋊ C2 of order 16.
+  A = {1, r c, s c³}, B = {1, r² c, t c³}. k = 18 (ranks 103 / 103), d_Z = d_X = 12. The same
+  parameters occur over C7 × (C4 ⋊ C4) = SmallGroup(112,21).
+- **[[288,34,8]]**, G = A4 × A4 = SmallGroup(144,184), the first A4 on 0–3 and the second on 4–7:
+  A = {1, (1 3 2)(4 5)(6 7), (0 1 3)(4 6)(5 7)}, B = {1, (0 1)(2 3)(5 7 6), (0 3)(1 2)(4 5 7)}.
+  k = 34 (ranks 127 / 127), d_Z = d_X = 8; all 288 qubits fall into two automorphism orbits (one
+  per block), so its exact distance takes 1.3·10³ nodes. Also over C2 × C6 × A4 = SmallGroup(144,193).
+
 ## 5. Results of the search
 
 (final numbers pending: the search was still running when this was drafted)
@@ -289,7 +304,7 @@ order 96–144 with a large abelian or direct-product part: C3 ⋊ (Q8 ⋊ C4) a
 [[288,16,16]] ten groups of order 144, all of the form (C3 × C3) ⋊ (2-group) or C3 × (…) or
 C6 × (C3 ⋊ D8). Most non-abelian groups give nothing competitive: with small centre the
 two-sided-translation classes are few and the codes either have k = 0 or are disconnected (⟨A⟩⟨B⟩ ≠ G
-for three quarters of the k > 0 classes).
+for about 70 % of the k > 0 classes).
 
 **Rediscoveries** (the search finds the published non-abelian 2BGA codes in its space): the
 [[168,16,10]] cover code of Aydin–Tamo–Barg in SmallGroup(84,13) (as a class reaching T), the
@@ -334,7 +349,7 @@ OSD order 10) on the Z sector, exactly as in the first study.
   isomorphic.
 - **Coset codes** were implemented and tested (§3) but, on this loaded machine, not searched at scale.
 
-## 9. Reproduce
+## 8. Reproduce
 
 ```text
 # groups (GAP 4.15.1 with SmallGroups; ~1 min): one file per order N, 1000 groups
