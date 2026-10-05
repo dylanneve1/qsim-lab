@@ -694,7 +694,7 @@ pub struct SearchStats {
 /// Find all independent k-sets of stabilizer states (k >= 2) whose span contains psi
 /// (normalised), i.e. all rank-k decompositions with no vanishing coefficient, up to the symmetry
 /// group; returns orbit representatives (possibly with repeats) found in canonical (min-orbit-index
-/// first) form.  Completeness argument: see research/stabrank-lower.md, "Search".
+/// first) form.  Completeness argument: see research/theory/stabrank-lower.md, "Search".
 pub fn search(
     t: &Table,
     psi: &[C],
@@ -1005,7 +1005,7 @@ pub fn l1_norms(ds: &[Dec]) -> Vec<f64> {
         .map(|d| d.coef.iter().map(|z| z.abs()).sum())
         .collect()
 }
-/// The l1-ratio criterion (research/stabrank-lower.md, Cor. 7): returns true if NO two optimal
+/// The l1-ratio criterion (research/theory/stabrank-lower.md, Cor. 7): returns true if NO two optimal
 /// decompositions have l1 norms in ratio r (so a plateau chi_n = chi_{n-1} is impossible).
 pub fn l1_ratio_obstruction(ds: &[Dec], r: f64) -> bool {
     let l = l1_norms(ds);
