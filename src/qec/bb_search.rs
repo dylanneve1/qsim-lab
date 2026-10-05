@@ -115,7 +115,7 @@ pub fn canon_subset(g: &AbelianGroup, s: &[u16]) -> Sub {
     for sigma in &g.auts {
         for &t in s {
             let v = transform(g, s, t as usize, sigma);
-            if best.as_ref().is_none_or(|b| v < *b) {
+            if best.as_ref().map_or(true, |b| v < *b) {
                 best = Some(v);
             }
         }
@@ -159,7 +159,7 @@ pub fn canon_pair(g: &AbelianGroup, a: &[u16], b: &[u16]) -> Vec<u16> {
                 let w = transform(g, q, u as usize, sigma);
                 let mut key = first.clone();
                 key.extend_from_slice(&w);
-                if best.as_ref().is_none_or(|b| key < *b) {
+                if best.as_ref().map_or(true, |b| key < *b) {
                     best = Some(key);
                 }
             }
