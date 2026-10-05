@@ -365,7 +365,11 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
                 .collect()
         })
         .collect();
-    let opts = GraphOptions::default();
+    // plain = no rewrite; forced = always the rewritten circuit; auto = the
+    // default (rewrite kept only if the plan is cheaper)
+    let mut opts = GraphOptions::default();
+    opts.rewrite = None;
+    let auto = GraphOptions::default();
     let mut best = [f64::INFINITY; 5];
     let mut vals = [0.0; 3];
     for _ in 0..reps() {
@@ -390,6 +394,13 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
         });
         best[2] = best[2].min(t / binds as f64);
         vals[2] = v;
+        let ca = CompiledCircuit::compile(&pc, Some(&o), &auto).unwrap();
+        let (t, _) = time(|| {
+            ps.iter()
+                .map(|p| ca.bind(p).unwrap().expectation().unwrap())
+                .sum::<f64>()
+        });
+        best[4] = best[4].min(t / binds as f64);
     }
     assert!(
         (vals[0] - vals[1]).abs() < 1e-8 * binds as f64
@@ -399,7 +410,7 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
     let ccr = CompiledCircuit::compile(&rc, Some(&o), &opts).unwrap();
     let cco = CompiledCircuit::compile(&pc, Some(&o), &opts).unwrap();
     println!(
-        "{w} n={n} p={p} ops {}->{} regions {}/{} perm ops {}->{} gadgets {} | kops/stages {:?} -> {:?} | per-bind: baseline {:.3}ms compiled {:.3}ms rewritten {:.3}ms | rewrite vs compiled {:.2}x, vs baseline {:.2}x | rewrite pass {:.2}ms",
+        "{w} n={n} p={p} ops {}->{} regions {}/{} perm ops {}->{} gadgets {} | kops/stages {:?} -> {:?} | per-bind: baseline {:.3}ms compiled {:.3}ms rewritten {:.3}ms | rewrite vs compiled {:.2}x, vs baseline {:.2}x | rewrite pass {:.2}ms | auto {:.3}ms (chose rewrite: {})",
         pc.ops.len(),
         rc.ops.len(),
         st.rewritten,
@@ -414,7 +425,12 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
         best[2] * 1e3,
         best[1] / best[2],
         best[0] / best[2],
-        best[3] * 1e3
+        best[3] * 1e3,
+        best[4] * 1e3,
+        CompiledCircuit::compile(&pc, Some(&o), &auto)
+            .unwrap()
+            .stats()
+            .rewritten
     );
 }
 
