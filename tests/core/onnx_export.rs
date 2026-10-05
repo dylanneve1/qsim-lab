@@ -17,7 +17,7 @@ use std::f64::consts::PI;
 enum Val {
     Varint(u64),
     Fixed32(u32),
-    Fixed64(u64),
+    Fixed64,
     Bytes(Vec<u8>),
 }
 
@@ -46,9 +46,8 @@ fn fields(b: &[u8]) -> Vec<(u32, Val)> {
         let v = match key & 7 {
             0 => Val::Varint(varint(b, &mut i)),
             1 => {
-                let v = u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
                 i += 8;
-                Val::Fixed64(v)
+                Val::Fixed64
             }
             2 => {
                 let len = varint(b, &mut i) as usize;
@@ -149,7 +148,10 @@ fn decode(model: &[u8]) -> DModel {
         .into_iter()
         .map(|o| {
             let f = fields(bytes(o));
-            (one_string(&f, 1).unwrap_or_default(), int(get_all(&f, 2)[0]))
+            (
+                one_string(&f, 1).unwrap_or_default(),
+                int(get_all(&f, 2)[0]),
+            )
         })
         .collect();
     let metadata = get_all(&m, 14)
@@ -230,7 +232,11 @@ fn check_wiring(d: &DModel) {
         .collect();
     let mut names = HashSet::new();
     for n in &d.nodes {
-        assert!(names.insert(n.name.clone()), "duplicate node name {}", n.name);
+        assert!(
+            names.insert(n.name.clone()),
+            "duplicate node name {}",
+            n.name
+        );
         assert_eq!(n.domain, "qsim");
         for i in &n.inputs {
             assert!(defined.contains(i), "{} reads undefined {i}", n.name);
@@ -273,9 +279,7 @@ fn exact_param(n: &DNode, name: &str) -> f64 {
     let key = format!("{name} = ");
     let start = doc.find(&key).expect("param in doc") + key.len();
     let rest = &doc[start..];
-    let end = rest
-        .find(|c: char| c == ' ' || c == ',' || c == ')')
-        .unwrap_or(rest.len());
+    let end = rest.find([' ', ',', ')']).unwrap_or(rest.len());
     rest[..end].parse().expect("f64")
 }
 
@@ -322,7 +326,8 @@ fn reconstruct(d: &DModel, num_qubits: usize) -> Circuit {
         };
         let op = if let Some(g) = g {
             if n.op.starts_with("IF_") {
-                let (Some(A::I(rec)), Some(A::I(val))) = (n.attrs.get("record"), n.attrs.get("value"))
+                let (Some(A::I(rec)), Some(A::I(val))) =
+                    (n.attrs.get("record"), n.attrs.get("value"))
                 else {
                     panic!("IF_ node without record/value")
                 };
@@ -408,7 +413,9 @@ fn ghz_graph_structure() {
     assert_eq!(d.nodes[3].outputs, ["q0_3", "m0"]);
     let outs: Vec<&str> = d.outputs.iter().map(|(n, _, _)| n.as_str()).collect();
     assert_eq!(outs, ["q0_3", "q1_3", "q2_2", "m0", "m1", "m2"]);
-    assert!(d.outputs[3..].iter().all(|(_, e, s)| *e == 9 && s.is_empty()));
+    assert!(d.outputs[3..]
+        .iter()
+        .all(|(_, e, s)| *e == 9 && s.is_empty()));
     assert_eq!(d.metadata["qubits"], "3");
     assert_eq!(d.metadata["measurements"], "3");
     assert_eq!(d.metadata["gates_2q"], "2");
@@ -424,7 +431,17 @@ fn every_gate_kind_roundtrips_exactly() {
         c.u(1, a, -a, 2.0 * a);
         c.gate(Gate::CPhase(3, 0, a));
     }
-    c.i(0).h(1).x(2).y(3).z(0).s(1).sdg(2).t(3).tdg(0).sx(1).sxdg(2);
+    c.i(0)
+        .h(1)
+        .x(2)
+        .y(3)
+        .z(0)
+        .s(1)
+        .sdg(2)
+        .t(3)
+        .tdg(0)
+        .sx(1)
+        .sxdg(2);
     c.gate(Gate::Cz(0, 3))
         .gate(Gate::Swap(1, 2))
         .gate(Gate::ISwap(2, 3))
@@ -548,7 +565,10 @@ fn invalid_programs_are_rejected() {
     c.c_if(0, Gate::X(1)); // reads a measurement that has not happened
     assert!(matches!(
         to_onnx(&c, &OnnxOptions::default()),
-        Err(SimError::ClassicalBitOutOfRange { bit: 0, available: 0 })
+        Err(SimError::ClassicalBitOutOfRange {
+            bit: 0,
+            available: 0
+        })
     ));
     let mut c = Circuit::new(1);
     c.measure(0);
@@ -558,7 +578,10 @@ fn invalid_programs_are_rejected() {
     };
     assert!(matches!(
         to_onnx(&c, &opts),
-        Err(SimError::ClassicalBitOutOfRange { bit: 1, available: 1 })
+        Err(SimError::ClassicalBitOutOfRange {
+            bit: 1,
+            available: 1
+        })
     ));
 }
 

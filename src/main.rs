@@ -657,10 +657,7 @@ fn main() {
                     ExportExample::Bv => {
                         let n = qubits.unwrap_or(6);
                         let secret = rand::Rng::random::<u64>(&mut rng) & ((1u64 << n) - 1);
-                        (
-                            format!("bv_{n}"),
-                            algorithms::bernstein_vazirani(n, secret),
-                        )
+                        (format!("bv_{n}"), algorithms::bernstein_vazirani(n, secret))
                     }
                     ExportExample::Qft => {
                         let n = qubits.unwrap_or(5);
