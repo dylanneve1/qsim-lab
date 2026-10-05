@@ -1,0 +1,28 @@
+ 13:39:16 up 136 days, 14:48,  5 users,  load average: 44.02, 48.20, 48.33
+N=549755813701 window 40: qubits=165 steps=24675 reps=20
+L= 8 Scalar: 0.325 ns per step per 64-branch word, 1.971e11 gate-branch ops/s per thread
+L= 8 Avx2: 0.267 ns per step per 64-branch word, 2.394e11 gate-branch ops/s per thread
+L= 8 Avx512: 0.232 ns per step per 64-branch word, 2.758e11 gate-branch ops/s per thread
+L=16 Scalar: 0.272 ns per step per 64-branch word, 2.356e11 gate-branch ops/s per thread
+L=16 Avx2: 0.176 ns per step per 64-branch word, 3.647e11 gate-branch ops/s per thread
+L=16 Avx512: 0.144 ns per step per 64-branch word, 4.449e11 gate-branch ops/s per thread
+L=32 Scalar: 0.266 ns per step per 64-branch word, 2.402e11 gate-branch ops/s per thread
+L=32 Avx2: 0.144 ns per step per 64-branch word, 4.441e11 gate-branch ops/s per thread
+L=32 Avx512: 0.102 ns per step per 64-branch word, 6.262e11 gate-branch ops/s per thread
+L=64 Scalar: 0.370 ns per step per 64-branch word, 1.729e11 gate-branch ops/s per thread
+L=64 Avx2: 0.168 ns per step per 64-branch word, 3.816e11 gate-branch ops/s per thread
+L=64 Avx512: 0.110 ns per step per 64-branch word, 5.800e11 gate-branch ops/s per thread
+N=549755813701 window 25: qubits=166 steps=36888 reps=20
+L= 8 Scalar: 0.349 ns per step per 64-branch word, 1.833e11 gate-branch ops/s per thread
+L= 8 Avx2: 0.268 ns per step per 64-branch word, 2.390e11 gate-branch ops/s per thread
+L= 8 Avx512: 0.209 ns per step per 64-branch word, 3.061e11 gate-branch ops/s per thread
+L=16 Scalar: 0.319 ns per step per 64-branch word, 2.005e11 gate-branch ops/s per thread
+L=16 Avx2: 0.215 ns per step per 64-branch word, 2.973e11 gate-branch ops/s per thread
+L=16 Avx512: 0.143 ns per step per 64-branch word, 4.474e11 gate-branch ops/s per thread
+L=32 Scalar: 0.286 ns per step per 64-branch word, 2.235e11 gate-branch ops/s per thread
+L=32 Avx2: 0.179 ns per step per 64-branch word, 3.583e11 gate-branch ops/s per thread
+L=32 Avx512: 0.116 ns per step per 64-branch word, 5.519e11 gate-branch ops/s per thread
+L=64 Scalar: 0.327 ns per step per 64-branch word, 1.957e11 gate-branch ops/s per thread
+L=64 Avx2: 0.180 ns per step per 64-branch word, 3.562e11 gate-branch ops/s per thread
+L=64 Avx512: 0.106 ns per step per 64-branch word, 6.047e11 gate-branch ops/s per thread
+ 13:39:17 up 136 days, 14:48,  5 users,  load average: 44.02, 48.20, 48.33

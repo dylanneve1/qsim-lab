@@ -1,0 +1,25 @@
+## L=32
+before: load average: 59.68, 54.45, 44.66  | avail 13 GB, used 8 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+time 110.216 s  (build 0.071, eval 30.059, sort 63.334, probs 7.889, new state 8.579)
+wall 110.24 s  user 390.42 s  sys 13.49 s  maxrss 4012124 KB
+## L=64
+before: load average: 58.86, 55.66, 46.19  | avail 14 GB, used 7 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+time 90.038 s  (build 0.114, eval 23.102, sort 52.898, probs 6.322, new state 7.321)
+wall 90.04 s  user 382.59 s  sys 13.06 s  maxrss 4012656 KB
+## L=16
+before: load average: 56.84, 55.81, 47.11  | avail 11 GB, used 8 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+time 97.580 s  (build 0.079, eval 28.658, sort 54.838, probs 6.396, new state 7.360)
+wall 97.58 s  user 429.13 s  sys 13.56 s  maxrss 4011596 KB
+## L=32
+before: load average: 59.76, 56.82, 48.34  | avail 10 GB, used 10 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+time 78.531 s  (build 0.098, eval 21.681, sort 44.785, probs 5.373, new state 6.367)
+wall 78.53 s  user 413.57 s  sys 14.12 s  maxrss 4012580 KB
+## L=64
+before: load average: 58.55, 57.47, 49.25  | avail 10 GB, used 10 GB
+EH run 1  N=1537596787  h=457167243  g=297783755  m=16  exponent bits=48  j=1940035148  k=42399  factors=Some((29287, 52501))
+time 76.453 s  (build 0.078, eval 17.913, sort 47.806, probs 4.509, new state 5.864)
+wall 76.45 s  user 429.06 s  sys 16.15 s  maxrss 4016848 KB

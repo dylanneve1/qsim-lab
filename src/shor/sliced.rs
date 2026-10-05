@@ -37,6 +37,13 @@
 //! order of `a`. For a generic semiprime and random base `r ≈ N/c`, so this
 //! is exponential in the bit length — it is the sparse state of the real
 //! circuit, made fast, not a factoring speed-up.
+//!
+//! # Instruction-set tiers
+//!
+//! The step loop runs as an explicit AVX-512 kernel (one `VPTERNLOGQ` per
+//! 512-bit word and step), the same loop compiled for AVX2, or the portable
+//! loop, chosen at run time ([`SliceIsa`]); all tiers compute identical bits
+//! (differential tests below). Measurements: research/shor/shor-xl.md §4.
 
 use super::{Instance, Oracle, OrderFindingState};
 use crate::circuit::{Circuit, Op};
@@ -47,7 +54,7 @@ use num_traits::Zero;
 use rayon::prelude::*;
 
 /// Default lane count: one slice holds `64 * LANES` branches. Override with
-/// the environment variable `QSIM_SLICE_LANES` (4, 8, 16 or 32).
+/// the environment variable `QSIM_SLICE_LANES` (4, 8, 16, 32 or 64).
 pub const LANES: usize = 16;
 
 fn lanes() -> usize {
@@ -56,7 +63,7 @@ fn lanes() -> usize {
         std::env::var("QSIM_SLICE_LANES")
             .ok()
             .and_then(|v| v.parse().ok())
-            .filter(|l| [4usize, 8, 16, 32].contains(l))
+            .filter(|l| [4usize, 8, 16, 32, 64].contains(l))
             .unwrap_or(LANES)
     })
 }
@@ -67,6 +74,110 @@ fn has_avx2() -> bool {
     *A.get_or_init(|| {
         std::env::var_os("QSIM_NO_AVX2").is_none() && std::arch::is_x86_feature_detected!("avx2")
     })
+}
+
+#[cfg(target_arch = "x86_64")]
+fn has_avx512() -> bool {
+    static A: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *A.get_or_init(|| {
+        std::env::var_os("QSIM_NO_AVX512").is_none()
+            && std::arch::is_x86_feature_detected!("avx512f")
+    })
+}
+
+/// Instruction-set tier of the slice evaluator (`w[t] ^= w[a] & w[b]` steps).
+///
+/// [`SlicedProgram::eval`] picks the best tier at run time: AVX-512 when the
+/// CPU has AVX-512F and the lane count `L` is a multiple of 8 (one
+/// `VPTERNLOGQ` with truth table `0x78`, i.e. `t ^ (a & b)`, per 512-bit
+/// word), else AVX2, else the portable loop. `QSIM_NO_AVX512` and
+/// `QSIM_NO_AVX2` (any value) switch the tiers off. Every tier computes the
+/// same bits; `tests` in this module check that on random programs and on
+/// real oracle blocks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SliceIsa {
+    /// Portable loop (whatever the compiler makes of it for the build target).
+    Scalar,
+    /// The same loop compiled with AVX2 enabled (256-bit AND / XOR).
+    Avx2,
+    /// Explicit AVX-512F kernel: `VPTERNLOGQ` per 512-bit word (`L % 8 == 0`).
+    Avx512,
+}
+
+impl SliceIsa {
+    /// Whether this CPU can run the tier (environment overrides ignored).
+    pub fn available(self) -> bool {
+        match self {
+            SliceIsa::Scalar => true,
+            #[cfg(target_arch = "x86_64")]
+            SliceIsa::Avx2 => std::arch::is_x86_feature_detected!("avx2"),
+            #[cfg(target_arch = "x86_64")]
+            SliceIsa::Avx512 => std::arch::is_x86_feature_detected!("avx512f"),
+            #[cfg(not(target_arch = "x86_64"))]
+            _ => false,
+        }
+    }
+
+    /// The tier [`SlicedProgram::eval`] uses for lane count `l` on this CPU,
+    /// with the `QSIM_NO_AVX512` / `QSIM_NO_AVX2` overrides applied.
+    pub fn active(l: usize) -> SliceIsa {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if l % 8 == 0 && has_avx512() {
+                return SliceIsa::Avx512;
+            }
+            if has_avx2() {
+                return SliceIsa::Avx2;
+            }
+        }
+        let _ = l;
+        SliceIsa::Scalar
+    }
+}
+
+/// A per-thread slice buffer of `n` words of `[u64; L]`, 64-byte aligned
+/// (a 512-bit load from an unaligned word would straddle two cache lines).
+pub struct SliceBuf<const L: usize> {
+    v: Vec<u64>,
+    off: usize,
+    n: usize,
+}
+
+impl<const L: usize> SliceBuf<L> {
+    /// `n` zeroed words.
+    pub fn new(n: usize) -> Self {
+        let v = vec![0u64; n * L + 8];
+        let off = (v.as_ptr() as usize).wrapping_neg() % 64 / 8;
+        Self { v, off, n }
+    }
+    /// The words, as `&mut [[u64; L]]`.
+    pub fn words(&mut self) -> &mut [[u64; L]] {
+        let p = self.v[self.off..self.off + self.n * L].as_mut_ptr();
+        // SAFETY: the range holds n·L initialised u64 owned by `self.v`;
+        // [u64; L] has the alignment of u64 and size 8·L, so the cast is a
+        // valid reinterpretation of n consecutive arrays.
+        unsafe { std::slice::from_raw_parts_mut(p.cast::<[u64; L]>(), self.n) }
+    }
+}
+
+/// Runs `ops` on `w` with the tier [`SliceIsa::active`] picks.
+#[inline]
+fn dispatch<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if L % 8 == 0 && has_avx512() {
+            // SAFETY: AVX-512F detected at run time; L is a multiple of 8;
+            // indices are checked by the callers.
+            unsafe { eval_avx512::<L>(ops, w) };
+            return;
+        }
+        if has_avx2() {
+            // SAFETY: AVX2 support was detected at run time.
+            unsafe { eval_avx2::<L>(ops, w) };
+            return;
+        }
+    }
+    eval_body::<L>(ops, w);
 }
 
 /// In-place 64×64 bit-matrix transpose: afterwards bit `i` of `a[j]` is
@@ -88,21 +199,15 @@ pub fn transpose64(a: &mut [u64; 64]) {
     }
 }
 
-/// Applies raw `w[t] ^= w[a] & w[b]` steps with the same AVX2 runtime
-/// dispatch as [`SlicedProgram::eval`]. Used by the noisy engine
+/// Applies raw `w[t] ^= w[a] & w[b]` steps with the same runtime
+/// dispatch as [`SlicedProgram::eval`] ([`SliceIsa`]). Used by the noisy engine
 /// ([`super::noisy`]), whose programs also address a sign word.
 ///
 /// # Safety
 /// Every index in `ops` must be `< w.len()` (the noisy engine checks this
 /// once when it builds a program).
 pub(crate) unsafe fn eval_raw_unchecked<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
-    #[cfg(target_arch = "x86_64")]
-    if has_avx2() {
-        // SAFETY: AVX2 support was detected at run time; indices checked by the caller.
-        unsafe { eval_avx2::<L>(ops, w) };
-        return;
-    }
-    eval_body::<L>(ops, w);
+    dispatch::<L>(ops, w);
 }
 
 /// A reversible circuit compiled to `w[t] ^= w[c1] & w[c2]` steps.
@@ -142,6 +247,41 @@ fn eval_body<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
 #[target_feature(enable = "avx2")]
 unsafe fn eval_avx2<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
     eval_body::<L>(ops, w);
+}
+
+/// AVX-512F kernel: per step and per 512-bit word, one `VPTERNLOGQ` with
+/// truth table `0x78` computes `t ^ (a & b)` (inputs ordered t, a, b; table
+/// bit `4t + 2a + b` is set for (0,1,1), (1,0,0), (1,0,1), (1,1,0)). X and
+/// CNOT steps address the all-ones word; the reset step `[q, q, q]` gives
+/// `q ^ (q & q) = 0`. `L` must be a multiple of 8.
+///
+/// # Safety
+/// The CPU must support AVX-512F and every index in `ops` must be
+/// `< w.len()`.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn eval_avx512<const L: usize>(ops: &[[u32; 3]], w: &mut [[u64; L]]) {
+    use std::arch::x86_64::{_mm512_loadu_si512, _mm512_storeu_si512, _mm512_ternarylogic_epi64};
+    debug_assert!(L % 8 == 0);
+    let base = w.as_mut_ptr().cast::<u64>();
+    for &[t, a, b] in ops {
+        // SAFETY: indices < w.len() (caller); each word is L u64, L % 8 == 0,
+        // so every 8-u64 load/store stays inside word t, a or b.
+        unsafe {
+            let pt = base.add(t as usize * L);
+            let pa = base.add(a as usize * L);
+            let pb = base.add(b as usize * L);
+            let mut k = 0;
+            while k < L {
+                let vt = _mm512_loadu_si512(pt.add(k).cast());
+                let va = _mm512_loadu_si512(pa.add(k).cast());
+                let vb = _mm512_loadu_si512(pb.add(k).cast());
+                let r = _mm512_ternarylogic_epi64::<0x78>(vt, va, vb);
+                _mm512_storeu_si512(pt.add(k).cast(), r);
+                k += 8;
+            }
+        }
+    }
 }
 
 impl SlicedProgram {
@@ -265,18 +405,56 @@ impl SlicedProgram {
         self.ops.is_empty()
     }
 
-    /// Applies the program to `w` (`nq + 1` words, the last all ones).
+    /// Applies the program to `w` (`nq + 1` words, the last all ones), with
+    /// the instruction-set tier [`SliceIsa::active`] picks.
     #[inline]
     pub fn eval<const L: usize>(&self, w: &mut [[u64; L]]) {
         assert!(w.len() > self.nq + usize::from(self.signed));
         assert!(w[self.nq].iter().all(|&x| x == u64::MAX));
-        #[cfg(target_arch = "x86_64")]
-        if has_avx2() {
-            // SAFETY: AVX2 support was detected at run time.
-            unsafe { eval_avx2::<L>(&self.ops, w) };
-            return;
+        dispatch::<L>(&self.ops, w);
+    }
+
+    /// [`SlicedProgram::eval`] with an explicit tier (differential tests and
+    /// benchmarks). Panics if the CPU lacks the tier, or for
+    /// [`SliceIsa::Avx512`] unless `L` is a multiple of 8.
+    pub fn eval_with<const L: usize>(&self, isa: SliceIsa, w: &mut [[u64; L]]) {
+        assert!(w.len() > self.nq + usize::from(self.signed));
+        assert!(w[self.nq].iter().all(|&x| x == u64::MAX));
+        assert!(isa.available(), "{isa:?} is not available on this CPU");
+        match isa {
+            SliceIsa::Scalar => eval_body::<L>(&self.ops, w),
+            #[cfg(target_arch = "x86_64")]
+            // SAFETY: AVX2 availability asserted above.
+            SliceIsa::Avx2 => unsafe { eval_avx2::<L>(&self.ops, w) },
+            #[cfg(target_arch = "x86_64")]
+            SliceIsa::Avx512 => {
+                assert!(L % 8 == 0, "the AVX-512 tier needs L % 8 == 0");
+                // SAFETY: AVX-512F availability asserted above; L % 8 == 0.
+                unsafe { eval_avx512::<L>(&self.ops, w) }
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            _ => unreachable!(),
         }
-        eval_body::<L>(&self.ops, w);
+    }
+
+    /// The compiled steps `[t, a, b]` (`w[t] ^= w[a] & w[b]`; word `nq` is
+    /// all ones, word `nq + 1` the sign).
+    pub fn steps(&self) -> &[[u32; 3]] {
+        &self.ops
+    }
+
+    /// A program from raw steps (differential tests and benchmarks); every
+    /// index must be `≤ nq + 1`.
+    pub fn from_steps(nq: usize, ops: Vec<[u32; 3]>) -> Self {
+        assert!(ops.iter().flatten().all(|&i| (i as usize) <= nq + 1));
+        let signed = ops.iter().flatten().any(|&i| i as usize == nq + 1);
+        Self {
+            nq,
+            gates: ops.len(),
+            ops,
+            signed,
+            global_neg: false,
+        }
     }
 }
 
@@ -341,6 +519,7 @@ pub fn eval_block_into<S: KeySlot>(
         4 => eval_block_l::<4, S>(prog, io, ctrl, xs, out),
         8 => eval_block_l::<8, S>(prog, io, ctrl, xs, out),
         32 => eval_block_l::<32, S>(prog, io, ctrl, xs, out),
+        64 => eval_block_l::<64, S>(prog, io, ctrl, xs, out),
         _ => eval_block_l::<16, S>(prog, io, ctrl, xs, out),
     }
 }
@@ -361,7 +540,7 @@ fn eval_block_l<const L: usize, S: KeySlot>(
         is_reg[q] = true;
     }
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
-    let batch = |w: &mut Vec<[u64; L]>, inp: &[u64]| -> Vec<u64> {
+    let batch = |w: &mut [[u64; L]], inp: &[u64]| -> Vec<u64> {
         for wq in w.iter_mut() {
             *wq = [0; L];
         }
@@ -427,22 +606,22 @@ fn eval_block_l<const L: usize, S: KeySlot>(
         }
         o
     };
-    let init = || vec![[0u64; L]; nq + 2];
+    let init = || SliceBuf::<L>::new(nq + 2);
     match out {
         BlockOut::Keys(out) => {
             assert_eq!(out.len(), xs.len());
             xs.par_chunks(b)
                 .zip(out.par_chunks_mut(b))
-                .for_each_init(init, |w, (inp, outp)| {
-                    for (o, y) in outp.iter_mut().zip(batch(w, inp)) {
+                .for_each_init(init, |buf, (inp, outp)| {
+                    for (o, y) in outp.iter_mut().zip(batch(buf.words(), inp)) {
                         o.set_key(y);
                     }
                 });
         }
         BlockOut::Identity => {
-            xs.par_chunks(b).for_each_init(init, |w, inp| {
+            xs.par_chunks(b).for_each_init(init, |buf, inp| {
                 assert!(
-                    batch(w, inp) == inp,
+                    batch(buf.words(), inp) == inp,
                     "controlled-U with control 0 is not the identity"
                 );
             });
@@ -882,6 +1061,191 @@ mod tests {
                 eval_block(&prog, &io, true, &[0, 1, 2, 3]),
                 vec![0, 1, 2, 3]
             );
+        }
+    }
+
+    fn xs64(s: &mut u64) -> u64 {
+        *s ^= *s << 13;
+        *s ^= *s >> 7;
+        *s ^= *s << 17;
+        *s
+    }
+
+    /// Runs `prog` on `w0` with every available tier, on an aligned
+    /// ([`SliceBuf`]) and a deliberately misaligned buffer, and through the
+    /// default dispatch; all results must equal the portable loop's.
+    fn tiers_agree<const L: usize>(prog: &SlicedProgram, w0: &[[u64; L]]) -> Vec<[u64; L]> {
+        let mut want = w0.to_vec();
+        prog.eval_with::<L>(SliceIsa::Scalar, &mut want);
+        for isa in [SliceIsa::Scalar, SliceIsa::Avx2, SliceIsa::Avx512] {
+            if !isa.available() || (isa == SliceIsa::Avx512 && L % 8 != 0) {
+                continue;
+            }
+            let mut buf = SliceBuf::<L>::new(w0.len());
+            buf.words().copy_from_slice(w0);
+            prog.eval_with::<L>(isa, buf.words());
+            assert_eq!(buf.words(), &want[..], "{isa:?} L={L} aligned");
+            // misaligned by one u64 (8 bytes off a 64-byte boundary)
+            let mut raw = vec![0u64; w0.len() * L + 16];
+            let off = (raw.as_ptr() as usize).wrapping_neg() % 64 / 8 + 1;
+            let mis: &mut [[u64; L]] =
+                unsafe { std::slice::from_raw_parts_mut(raw[off..].as_mut_ptr().cast(), w0.len()) };
+            mis.copy_from_slice(w0);
+            prog.eval_with::<L>(isa, mis);
+            assert_eq!(&mis[..], &want[..], "{isa:?} L={L} misaligned");
+        }
+        let mut w = w0.to_vec();
+        prog.eval(&mut w);
+        assert_eq!(
+            w,
+            want,
+            "default dispatch ({:?}) L={L}",
+            SliceIsa::active(L)
+        );
+        want
+    }
+
+    fn random_words<const L: usize>(s: &mut u64, n: usize, one: usize) -> Vec<[u64; L]> {
+        let mut w = vec![[0u64; L]; n];
+        for (i, wq) in w.iter_mut().enumerate() {
+            for x in wq.iter_mut() {
+                *x = if i == one { u64::MAX } else { xs64(s) };
+            }
+        }
+        w
+    }
+
+    fn random_program_check<const L: usize>(s: &mut u64) {
+        let nq = 1 + (xs64(s) % 40) as usize;
+        let (one, sign) = (nq as u32, nq as u32 + 1);
+        let len = (xs64(s) % 400) as usize;
+        let mut ops = Vec::with_capacity(len);
+        for _ in 0..len {
+            let mut r = || (xs64(s) % nq as u64) as u32;
+            let (t, a, b) = (r(), r(), r());
+            ops.push(match xs64(s) % 6 {
+                0 => [t, one, one],  // X
+                1 => [t, a, one],    // CNOT (t == a allowed: clears t)
+                2 => [t, a, b],      // CCX (repeated indices allowed)
+                3 => [t, t, t],      // reset (measurement-based uncompute)
+                4 => [sign, a, one], // Z / X-measurement phase
+                _ => [sign, a, b],   // CZ
+            });
+        }
+        let prog = SlicedProgram::from_steps(nq, ops);
+        let w0 = random_words::<L>(s, nq + 2, nq);
+        tiers_agree::<L>(&prog, &w0);
+    }
+
+    /// Every instruction-set tier gives bit-identical words on random
+    /// programs (all step kinds, aliased indices, the sign word) for every
+    /// lane count.
+    #[test]
+    fn slice_tiers_agree_on_random_programs() {
+        let mut s = 0x2545_F491_4F6C_DD1Du64;
+        for _ in 0..150 {
+            random_program_check::<4>(&mut s);
+            random_program_check::<8>(&mut s);
+            random_program_check::<16>(&mut s);
+            random_program_check::<32>(&mut s);
+        }
+        eprintln!(
+            "tiers available: avx2 {} avx512 {}; active(L=16) = {:?}",
+            SliceIsa::Avx2.available(),
+            SliceIsa::Avx512.available(),
+            SliceIsa::active(16)
+        );
+    }
+
+    /// Bit-sliced inputs: lane `i` holds the register values `vals[i][r]` on
+    /// the qubits `regs[r]` (LSB first); every other word 0, word `nq` ones.
+    fn slice_inputs<const L: usize>(
+        nq: usize,
+        regs: &[&[usize]],
+        vals: &[Vec<u64>],
+    ) -> Vec<[u64; L]> {
+        let mut w = vec![[0u64; L]; nq + 2];
+        w[nq] = [u64::MAX; L];
+        for (i, v) in vals.iter().enumerate() {
+            for (r, reg) in regs.iter().enumerate() {
+                for (j, &q) in reg.iter().enumerate() {
+                    w[q][i / 64] |= ((v[r] >> j) & 1) << (i % 64);
+                }
+            }
+        }
+        w
+    }
+
+    fn read_lane<const L: usize>(w: &[[u64; L]], reg: &[usize], i: usize) -> u64 {
+        reg.iter()
+            .enumerate()
+            .map(|(j, &q)| ((w[q][i / 64] >> (i % 64)) & 1) << j)
+            .sum()
+    }
+
+    /// Real oracle blocks: the MBU controlled-U of a Shor round (20 and 31
+    /// bits) and Gidney–Ekerå window blocks of the EH circuit for N_W
+    /// (39 bits, both configurations): every tier gives identical words on
+    /// random valid inputs, and the outputs are the right products with
+    /// clean ancillas.
+    #[test]
+    fn slice_tiers_agree_on_real_oracle_blocks() {
+        use crate::shor::ge::{self, GeLayout, GeOpts};
+        use crate::shor::mbu::{MbuOpts, Outcomes};
+        use crate::shor::{mul_mod, Instance, Oracle};
+        let mut s = 0x9E37_79B9_7F4A_7C15u64;
+        for (n_mod, a) in [(1_005_973u64, 980_062u64), (1_537_596_787, 457_167_243)] {
+            let inst = Instance::new(n_mod, a, Oracle::WindowedMbuLookup(4));
+            let (ops, io, nq) = oracle_ops(&inst, a);
+            let prog = SlicedProgram::compile_ops(nq, &ops).unwrap();
+            let vals: Vec<Vec<u64>> = (0..64 * 16)
+                .map(|_| vec![xs64(&mut s) & 1, xs64(&mut s) % n_mod])
+                .collect();
+            let ctrl = [io.ctrl];
+            let w0 = slice_inputs::<16>(nq, &[&ctrl, &io.x], &vals);
+            let w = tiers_agree::<16>(&prog, &w0);
+            for (i, v) in vals.iter().enumerate() {
+                let want = if v[0] == 1 {
+                    mul_mod(a, v[1], n_mod)
+                } else {
+                    v[1]
+                };
+                assert_eq!(read_lane(&w, &io.x, i), want, "N={n_mod} lane {i}");
+            }
+            let w32 = slice_inputs::<32>(nq, &[&ctrl, &io.x], &vals);
+            tiers_agree::<32>(&prog, &w32);
+        }
+        let n_mod = 549_755_813_701u64;
+        let g = 345_241_646_758u64;
+        for (we, wm) in [(2usize, 3usize), (1, 4)] {
+            let o = GeOpts {
+                we,
+                wm,
+                mbu: MbuOpts::LOOKUPS,
+                coset: 0,
+            };
+            let lay = GeLayout::new(crate::shor::work_bits(n_mod), &o);
+            let mut oc = Outcomes::new(7, 0);
+            let ops = ge::window_block(&lay, g, n_mod, &o, &mut oc);
+            let prog = SlicedProgram::compile_ops(lay.nq, &ops).unwrap();
+            let vals: Vec<Vec<u64>> = (0..64 * 8)
+                .map(|_| vec![xs64(&mut s) % (1 << we), xs64(&mut s) % n_mod])
+                .collect();
+            let w0 = slice_inputs::<8>(lay.nq, &[&lay.e, &lay.x], &vals);
+            let w = tiers_agree::<8>(&prog, &w0);
+            let gp: Vec<u64> = (0..1u64 << we)
+                .map(|e| crate::algorithms::pow_mod(g, e, n_mod))
+                .collect();
+            for (i, v) in vals.iter().enumerate() {
+                let want = mul_mod(gp[v[0] as usize], v[1], n_mod);
+                assert_eq!(read_lane(&w, &lay.x, i), want, "N_W we={we} lane {i}");
+                assert_eq!(read_lane(&w, &lay.e, i), v[0]);
+            }
+            for q in (0..lay.nq).filter(|q| !lay.e.contains(q) && !lay.x.contains(q)) {
+                assert!(w[q].iter().all(|&x| x == 0), "ancilla {q} dirty");
+            }
+            let sign_ok = if prog.global_neg { u64::MAX } else { 0 };
+            assert!(w[lay.nq + 1].iter().all(|&x| x == sign_ok), "relative sign");
         }
     }
 

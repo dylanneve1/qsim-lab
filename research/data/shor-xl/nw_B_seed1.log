@@ -1,0 +1,67 @@
+== 2026-10-05 11:41:41 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 1 4 lookups eh-odd f32 3
+before: load average: 15.33, 8.30, 9.64  | avail 15 GB, used 9 GB
+[ge window 0] in=0 joint 0.000s finish 0.000s out=2
+[ge window 1] in=0 joint 0.000s finish 0.000s out=4
+[ge window 2] in=0 joint 0.008s finish 0.000s out=8
+[ge window 3] in=0 joint 0.000s finish 0.000s out=16
+[ge window 4] in=0 joint 0.000s finish 0.000s out=32
+[ge window 5] in=0 joint 0.000s finish 0.000s out=64
+[ge window 6] in=0 joint 0.000s finish 0.000s out=128
+[ge window 7] in=0 joint 0.000s finish 0.000s out=256
+[ge window 8] in=0 joint 0.000s finish 0.000s out=512
+[ge window 9] in=0 joint 0.000s finish 0.000s out=1024
+[ge window 10] in=0 joint 0.000s finish 0.000s out=2048
+[ge window 11] in=0 joint 0.000s finish 0.000s out=4096
+[ge window 12] in=0 joint 0.000s finish 0.000s out=8192
+[ge window 13] in=0 joint 0.000s finish 0.000s out=16384
+[ge window 14] in=0 joint 0.000s finish 0.001s out=32768
+[ge window 15] in=0 joint 0.000s finish 0.001s out=65536
+[ge window 16] in=0 joint 0.001s finish 0.005s out=131072
+[ge window 17] in=0 joint 0.001s finish 0.009s out=262144
+[ge window 18] in=0 joint 0.002s finish 0.020s out=524288
+[ge window 19] in=0 joint 0.003s finish 0.037s out=1048576
+[ge window 0] in=0 joint 0.007s finish 0.064s out=2097152
+[ge window 1] in=0 joint 0.020s finish 0.150s out=4194304
+[ge window 2] in=0 joint 0.031s finish 0.201s out=8388608
+[ge window 3] in=0 joint 0.058s finish 0.284s out=16092506
+[ge window 4] in=0 joint 0.063s finish 0.305s out=18821501
+[ge window 5] in=0 joint 0.091s finish 0.623s out=37643002
+[ge window 6] in=0 joint 0.180s finish 1.169s out=70889707
+[ge window 7] in=0 joint 0.182s finish 1.217s out=71582595
+[ge window 8] in=0 joint 0.176s finish 0.309s out=71582595
+[ge window 9] in=0 joint 0.208s finish 0.318s out=71582595
+[ge window 10] in=0 joint 0.184s finish 0.325s out=71582595
+[ge window 11] in=0 joint 0.286s finish 0.368s out=71582595
+[ge window 12] in=0 joint 0.224s finish 0.319s out=71582595
+[ge window 13] in=0 joint 0.192s finish 0.301s out=71582595
+[ge window 14] in=0 joint 0.189s finish 0.368s out=71582595
+[ge window 15] in=0 joint 0.200s finish 0.334s out=71582595
+[ge window 16] in=0 joint 0.204s finish 0.327s out=71582595
+[ge window 17] in=0 joint 0.232s finish 0.330s out=71582595
+[ge window 18] in=0 joint 0.244s finish 0.323s out=71582595
+[ge window 19] in=0 joint 0.198s finish 0.345s out=71582595
+[ge window 20] in=0 joint 0.214s finish 0.364s out=71582595
+[ge window 21] in=0 joint 0.212s finish 0.338s out=71582595
+[ge window 22] in=0 joint 0.204s finish 0.334s out=71582595
+[ge window 23] in=0 joint 0.194s finish 0.316s out=71582595
+[ge window 24] in=0 joint 0.208s finish 0.350s out=71582595
+[ge window 25] in=0 joint 0.200s finish 0.320s out=71582595
+[ge window 26] in=0 joint 0.199s finish 0.324s out=71582595
+[ge window 27] in=0 joint 0.223s finish 0.359s out=71582595
+[ge window 28] in=0 joint 0.228s finish 0.323s out=71582595
+[ge window 29] in=0 joint 0.207s finish 0.326s out=71582595
+[ge window 30] in=0 joint 0.202s finish 0.318s out=71582595
+[ge window 31] in=0 joint 0.196s finish 0.334s out=71582595
+[ge window 32] in=0 joint 0.209s finish 0.311s out=71582595
+[ge window 33] in=0 joint 0.194s finish 0.289s out=71582595
+[ge window 34] in=0 joint 0.212s finish 0.317s out=71582595
+[ge window 35] in=0 joint 0.213s finish 0.359s out=71582595
+[ge window 36] in=0 joint 0.197s finish 0.363s out=71582595
+[ge window 37] in=0 joint 0.194s finish 0.294s out=71582595
+[ge window 38] in=0 joint 0.191s finish 0.344s out=71582595
+[ge window 39] in=0 joint 0.218s finish 0.000s out=0
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=165  windows=60  toffoli=351697  gates=1480218  meas=82033  fixups=26563  steps=1520967  peak_support=71582595  peak_branches=143165190  gate_branch_ops=1.209e14
+time 143.912 s  (build 0.222, eval 67.095, sort 54.809, probs 7.300, new state 14.340)
+wall 143.91 s  user 904.47 s  sys 19.74 s  maxrss 4588984 KB
+after:  load average: 38.06, 20.63, 14.08  | avail 11 GB, used 13 GB

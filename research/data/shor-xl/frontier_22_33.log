@@ -1,0 +1,87 @@
+== 2026-10-05 12:39:12 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 2306833 1 1 4 lookups eh-odd f32 3
+before: load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+EH run 1  N=2306833  h=2247418  g=482593  m=11  exponent bits=33  j=2124462  k=1838  factors=None
+qubits=97  windows=33  toffoli=64760  gates=253513  meas=18857  fixups=7778  steps=262957  peak_support=143983  peak_branches=287966  gate_branch_ops=3.616e10
+time 0.157 s  (build 0.053, eval 0.027, sort 0.048, probs 0.012, new state 0.017)
+EH run 2  N=2306833  h=2247418  g=482593  m=11  exponent bits=33  j=2657464  k=1373  factors=Some((1229, 1877))
+qubits=97  windows=33  toffoli=64760  gates=253513  meas=18857  fixups=7778  steps=262957  peak_support=143983  peak_branches=287966  gate_branch_ops=3.616e10
+time 0.131 s  (build 0.046, eval 0.025, sort 0.033, probs 0.013, new state 0.014)
+wall 0.29 s  user 1.14 s  sys 0.12 s  maxrss 11176 KB
+after:  load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:12 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 4297567 1 1 4 lookups eh-odd f32 3
+before: load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+EH run 1  N=4297567  h=4186881  g=2024911  m=12  exponent bits=36  j=1003991  k=1838  factors=Some((1433, 2999))
+qubits=101  windows=36  toffoli=73571  gates=296674  meas=21625  fixups=9106  steps=307570  peak_support=268321  peak_branches=536642  gate_branch_ops=8.279e10
+time 0.277 s  (build 0.060, eval 0.058, sort 0.098, probs 0.027, new state 0.034)
+wall 0.27 s  user 1.11 s  sys 0.09 s  maxrss 13392 KB
+after:  load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:12 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 10161323 1 1 4 lookups eh-odd f32 3
+before: load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+EH run 1  N=10161323  h=9899614  g=9821904  m=12  exponent bits=36  j=2971831  k=1838  factors=Some((2753, 3691))
+qubits=105  windows=36  toffoli=78170  gates=319356  meas=23366  fixups=9885  steps=331039  peak_support=79335  peak_branches=158670  gate_branch_ops=2.801e10
+time 0.150 s  (build 0.062, eval 0.025, sort 0.040, probs 0.010, new state 0.013)
+wall 0.15 s  user 0.47 s  sys 0.08 s  maxrss 7288 KB
+after:  load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:12 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 18942389 1 1 4 lookups eh-odd f32 3
+before: load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+EH run 1  N=18942389  h=18454521  g=2982753  m=13  exponent bits=39  j=43507451  k=5934  factors=Some((3041, 6229))
+qubits=109  windows=39  toffoli=102452  gates=395241  meas=27829  fixups=10826  steps=409171  peak_support=9861  peak_branches=19722  gate_branch_ops=5.327e9
+time 0.124 s  (build 0.074, eval 0.016, sort 0.016, probs 0.009, new state 0.008)
+wall 0.12 s  user 0.22 s  sys 0.10 s  maxrss 5148 KB
+after:  load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:13 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 43584217 1 1 4 lookups eh-odd f32 3
+before: load average: 19.35, 25.73, 26.76  | avail 16 GB, used 6 GB
+EH run 1  N=43584217  h=42461693  g=30742945  m=13  exponent bits=39  j=65751211  k=5934  factors=Some((6263, 6959))
+qubits=113  windows=39  toffoli=106422  gates=419196  meas=28682  fixups=11072  steps=433670  peak_support=10892749  peak_branches=21785498  gate_branch_ops=3.545e12
+time 6.982 s  (build 0.080, eval 1.771, sort 3.458, probs 0.552, new state 1.091)
+wall 6.98 s  user 34.71 s  sys 1.55 s  maxrss 352764 KB
+after:  load average: 20.36, 25.83, 26.79  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:20 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 82337219 1 1 4 lookups eh-odd f32 3
+before: load average: 20.36, 25.83, 26.79  | avail 16 GB, used 6 GB
+EH run 1  N=82337219  h=80216601  g=10443967  m=14  exponent bits=42  j=212474358  k=14126  factors=Some((6529, 12611))
+qubits=117  windows=42  toffoli=118568  gates=476505  meas=32276  fixups=12549  steps=492659  peak_support=21437  peak_branches=42874  gate_branch_ops=1.351e10
+time 0.149 s  (build 0.093, eval 0.015, sort 0.027, probs 0.007, new state 0.007)
+wall 0.15 s  user 0.34 s  sys 0.06 s  maxrss 5500 KB
+after:  load average: 20.36, 25.83, 26.79  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:20 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 221643407 1 1 4 lookups eh-odd f32 3
+before: load average: 20.36, 25.83, 26.79  | avail 16 GB, used 6 GB
+EH run 1  N=221643407  h=215934921  g=69596927  m=14  exponent bits=42  j=102635861  k=14126  factors=Some((14207, 15601))
+qubits=121  windows=42  toffoli=123909  gates=498836  meas=34393  fixups=13786  steps=516155  peak_support=6925425  peak_branches=13850850  gate_branch_ops=3.284e12
+time 6.392 s  (build 0.093, eval 1.748, sort 3.071, probs 0.532, new state 0.933)
+wall 6.39 s  user 29.86 s  sys 1.38 s  maxrss 230092 KB
+after:  load average: 19.99, 25.57, 26.69  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:26 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 282304153 1 1 4 lookups eh-odd f32 3
+before: load average: 19.99, 25.57, 26.69  | avail 16 GB, used 6 GB
+EH run 1  N=282304153  h=275033334  g=10278184  m=15  exponent bits=45  j=1017085482  k=30510  factors=Some((12391, 22783))
+qubits=125  windows=45  toffoli=156021  gates=615346  meas=40183  fixups=14581  steps=635404  peak_support=23522415  peak_branches=47044830  gate_branch_ops=1.373e13
+time 20.162 s  (build 0.105, eval 5.242, sort 10.586, probs 1.477, new state 2.700)
+wall 20.16 s  user 116.37 s  sys 4.06 s  maxrss 743512 KB
+after:  load average: 23.39, 25.99, 26.81  | avail 16 GB, used 6 GB
+== 2026-10-05 12:39:46 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 869985671 1 1 4 lookups eh-odd f32 3
+before: load average: 23.39, 25.99, 26.81  | avail 16 GB, used 6 GB
+EH run 1  N=869985671  h=847578960  g=368245883  m=15  exponent bits=45  j=240696874  k=30510  factors=Some((26717, 32563))
+qubits=129  windows=45  toffoli=161835  gates=653021  meas=41250  fixups=14989  steps=673546  peak_support=108740799  peak_branches=217481598  gate_branch_ops=6.060e13
+time 75.102 s  (build 0.108, eval 18.970, sort 41.584, probs 5.096, new state 9.111)
+wall 75.11 s  user 508.36 s  sys 15.28 s  maxrss 3508836 KB
+after:  load average: 26.47, 26.60, 26.97  | avail 16 GB, used 6 GB
+== 2026-10-05 12:41:02 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 1537596787 1 1 4 lookups eh-odd f32 3
+before: load average: 26.47, 26.60, 26.97  | avail 16 GB, used 6 GB
+EH run 1  N=1537596787  h=1497995576  g=1213527316  m=16  exponent bits=48  j=3639429909  k=30510  factors=Some((29287, 52501))
+qubits=133  windows=48  toffoli=178913  gates=727506  meas=45691  fixups=16598  steps=750315  peak_support=21354375  peak_branches=42708750  gate_branch_ops=1.590e13
+time 21.209 s  (build 0.113, eval 6.014, sort 10.793, probs 1.552, new state 2.684)
+wall 21.21 s  user 124.97 s  sys 4.42 s  maxrss 675144 KB
+after:  load average: 27.74, 26.87, 27.05  | avail 14 GB, used 8 GB
+== 2026-10-05 12:41:23 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 3631204201 1 1 4 lookups eh-odd f32 3
+before: load average: 27.74, 26.87, 27.05  | avail 14 GB, used 8 GB
+EH run 1  N=3631204201  h=3537681581  g=3155209093  m=16  exponent bits=48  j=3937649621  k=30510  factors=Some((58907, 61643))
+qubits=137  windows=48  toffoli=185763  gates=758574  meas=48211  fixups=17831  steps=782679  peak_support=3504907  peak_branches=7009814  gate_branch_ops=3.001e12
+time 4.879 s  (build 0.137, eval 1.589, sort 2.174, probs 0.344, new state 0.627)
+wall 4.88 s  user 22.69 s  sys 0.93 s  maxrss 117532 KB
+after:  load average: 28.41, 27.02, 27.10  | avail 14 GB, used 8 GB
+== 2026-10-05 12:41:28 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 5135420869 1 1 4 lookups eh-odd f32 3
+before: load average: 28.41, 27.02, 27.10  | avail 14 GB, used 8 GB
+EH run 1  N=5135420869  h=5003156754  g=3800824332  m=17  exponent bits=51  j=7416048778  k=96046  factors=Some((43753, 117373))
+qubits=141  windows=51  toffoli=228178  gates=882715  meas=55525  fixups=19111  steps=910594  peak_support=53492289  peak_branches=106984578  gate_branch_ops=4.777e13
+time 54.307 s  (build 0.143, eval 15.906, sort 27.968, probs 3.772, new state 6.392)
+wall 54.31 s  user 351.36 s  sys 10.09 s  maxrss 1681684 KB
+after:  load average: 24.31, 26.23, 26.83  | avail 15 GB, used 6 GB

@@ -36,7 +36,7 @@ use crate::shor::mbu::{
     add_g, inverse, modadd_ops, resolve, LOp, LookupSpec, MbuCounts, MbuLayout, MbuOp, MbuOpts,
     Outcomes, NO_CTRL,
 };
-use crate::shor::sliced::{transpose64, SlicedProgram};
+use crate::shor::sliced::{transpose64, SliceBuf, SlicedProgram};
 use crate::shor::window::WindowLayout;
 use crate::shor::{mod_inverse, mul_mod};
 use num_complex::{Complex, Complex64};
@@ -284,7 +284,7 @@ fn lanes() -> usize {
     std::env::var("QSIM_SLICE_LANES")
         .ok()
         .and_then(|v| v.parse().ok())
-        .filter(|l| [4usize, 8, 16, 32].contains(l))
+        .filter(|l| [4usize, 8, 16, 32, 64].contains(l))
         .unwrap_or(16)
 }
 
@@ -316,6 +316,7 @@ pub fn eval_e_inplace<T: Real>(
         4 => eval_e_l::<4, T>(prog, eq, xq, e, buf),
         8 => eval_e_l::<8, T>(prog, eq, xq, e, buf),
         32 => eval_e_l::<32, T>(prog, eq, xq, e, buf),
+        64 => eval_e_l::<64, T>(prog, eq, xq, e, buf),
         _ => eval_e_l::<16, T>(prog, eq, xq, e, buf),
     }
 }
@@ -336,8 +337,9 @@ fn eval_e_l<const L: usize, T: Real>(
     let anc: Vec<usize> = (0..nq).filter(|&q| !is_reg[q]).collect();
     out.par_chunks_mut(64 * L)
         .map_init(
-            || vec![[0u64; L]; nq + 2],
-            |w, chunk| {
+            || SliceBuf::<L>::new(nq + 2),
+            |buf, chunk| {
+                let w = buf.words();
                 for wq in w.iter_mut() {
                     *wq = [0; L];
                 }
@@ -958,9 +960,17 @@ fn finish_in_place<T: Real>(
 }
 
 /// [`finish_in_place`] for two sorted runs `ent[..split]` (`e = 0`, i.e.
-/// `ψ`) and `ent[split..]`: outputs are written into the `e = 0` run behind
-/// its read pointer; a chunk whose outputs would overtake that pointer
-/// (the support grows in this window) continues in a side buffer.
+/// `ψ`) and `ent[split..]`. Each chunk writes its outputs, in key order,
+/// into the `e = 0` run behind its read pointer; an output that would
+/// overtake that pointer (the support grows in this window) waits in a
+/// per-chunk FIFO and is written as soon as more of the run has been read,
+/// so a chunk's result is its in-place prefix followed by the FIFO's
+/// remainder, both in key order. The chunks are then moved together inside
+/// `ent` (outputs never outnumber input branches): chunks that move right
+/// are moved last-first, then chunks that move left first-last, so no move
+/// overwrites a part not yet moved. Peak memory is the window's own array
+/// plus the FIFO remainders (the growth of the support in this window), not
+/// a second copy of the new state.
 fn finish_runs_in_place<T: Real>(
     wa: &WindowArrays<T>,
     mut ent: Vec<(u64, Complex<T>)>,
@@ -970,7 +980,7 @@ fn finish_runs_in_place<T: Real>(
     let w = wa.w;
     let ne = 1usize << w;
     let mask = (1u64 << w) - 1;
-    let results: Vec<(usize, Arr<T>)> = {
+    let results: Vec<(usize, std::collections::VecDeque<(u64, Complex<T>)>)> = {
         let (a, b) = ent.split_at_mut(split);
         let b: &[(u64, Complex<T>)] = b;
         let mut jobs = Vec::with_capacity(chunks.len());
@@ -987,7 +997,7 @@ fn finish_runs_in_place<T: Real>(
             .map(|(a, b)| {
                 let mut vals = [Complex64::zero(); 64];
                 let (mut ia, mut ib, mut o) = (0usize, 0usize, 0usize);
-                let mut ovf: Arr<T> = Vec::new();
+                let mut fifo = std::collections::VecDeque::new();
                 while ia < a.len() || ib < b.len() {
                     let ka = if ia < a.len() { a[ia].0 >> w } else { u64::MAX };
                     let kb = if ib < b.len() { b[ib].0 >> w } else { u64::MAX };
@@ -1004,39 +1014,51 @@ fn finish_runs_in_place<T: Real>(
                     debug_assert_eq!(len, 1);
                     let z = cvt::<T>(vals[0]);
                     if z != Complex::zero() {
-                        if ovf.is_empty() && o < ia {
+                        if fifo.is_empty() && o < ia {
                             a[o] = (key, z);
                             o += 1;
                         } else {
-                            ovf.push((key, z));
+                            fifo.push_back((key, z));
                         }
+                    }
+                    while o < ia {
+                        let Some(v) = fifo.pop_front() else { break };
+                        a[o] = v;
+                        o += 1;
                     }
                     vals[..ne].iter_mut().for_each(|v| *v = Complex64::zero());
                 }
-                (o, ovf)
+                (o, fifo)
             })
             .collect()
     };
-    if results.iter().all(|r| r.1.is_empty()) {
-        let mut dst = 0;
-        for (&(a0, _, _, _), &(cnt, _)) in chunks.iter().zip(&results) {
-            if a0 != dst {
-                ent.copy_within(a0..a0 + cnt, dst);
-            }
-            dst += cnt;
-        }
-        ent.truncate(dst);
-        ent.shrink_to_fit();
-        ent
-    } else {
-        let total: usize = results.iter().map(|r| r.0 + r.1.len()).sum();
-        let mut out = Vec::with_capacity(total);
-        for (&(a0, _, _, _), (cnt, ovf)) in chunks.iter().zip(&results) {
-            out.extend_from_slice(&ent[a0..a0 + cnt]);
-            out.extend_from_slice(ovf);
-        }
-        out
+    // destinations: chunk c's result goes to [d[c], d[c + 1])
+    let mut d = Vec::with_capacity(chunks.len() + 1);
+    d.push(0usize);
+    for (cnt, fifo) in &results {
+        d.push(d.last().unwrap() + cnt + fifo.len());
     }
+    let total = *d.last().unwrap();
+    assert!(total <= ent.len(), "more outputs than input branches");
+    let place = |c: usize, ent: &mut Vec<(u64, Complex<T>)>| {
+        let (cnt, fifo) = &results[c];
+        let a0 = chunks[c].0;
+        if a0 != d[c] {
+            ent.copy_within(a0..a0 + cnt, d[c]);
+        }
+        let (f0, f1) = fifo.as_slices();
+        ent[d[c] + cnt..d[c] + cnt + f0.len()].copy_from_slice(f0);
+        ent[d[c] + cnt + f0.len()..d[c + 1]].copy_from_slice(f1);
+    };
+    for c in (0..chunks.len()).rev().filter(|&c| d[c] > chunks[c].0) {
+        place(c, &mut ent);
+    }
+    for c in (0..chunks.len()).filter(|&c| d[c] <= chunks[c].0) {
+        place(c, &mut ent);
+    }
+    ent.truncate(total);
+    ent.shrink_to_fit();
+    ent
 }
 
 /// One exponent register of a phase-estimation schedule.
@@ -1125,8 +1147,10 @@ pub fn initial<T: Real>(lay: &GeLayout, n_mod: u64, c: usize) -> Arr<T> {
     v
 }
 
-/// Mixes `(N, g, window)` into an outcome-stream seed.
-fn outcome_seed(n_mod: u64, g: u64, k: u64) -> u64 {
+/// Mixes `(N, g, window index)` into the seed of the window's
+/// measurement-based-uncomputation outcome stream (the stream [`run`],
+/// [`distribution`] and [`schedule_counts`] use for window `k`).
+pub fn outcome_seed(n_mod: u64, g: u64, k: u64) -> u64 {
     n_mod.wrapping_mul(0x2545_F491_4F6C_DD1D) ^ g.rotate_left(17) ^ k.wrapping_mul(0x9E37_79B9)
 }
 
@@ -1165,6 +1189,7 @@ pub fn run<T: Real>(
             r.windows += 1;
             st.prof[0] += t0.elapsed().as_secs_f64();
             let mut wa = st.window(&wp, w);
+            let n_branches = wa.branches();
             let tm = std::time::Instant::now();
             let final_window = last_reg && k + 1 == wins.len();
             // the joint distribution of the window's w bits in one pass,
@@ -1209,8 +1234,7 @@ pub fn run<T: Real>(
             st.prof[4] += tm.elapsed().as_secs_f64() - t_joint;
             if std::env::var_os("QSIM_GE_PROFILE").is_some() {
                 eprintln!(
-                    "[ge window {k}] in={} joint {:.3}s finish {:.3}s out={}",
-                    r.peak_branches,
+                    "[ge window {k}] branches={n_branches} joint {:.3}s finish {:.3}s out={}",
                     t_joint,
                     tm.elapsed().as_secs_f64() - t_joint,
                     st.psi.len()
@@ -1632,6 +1656,37 @@ pub fn eh_run<T: Real>(
     (r, f)
 }
 
+/// Classical step of Shor's algorithm run on an odd-order base
+/// `g = h^(2^k) mod N` (Miller's reduction). Given `r = ord(g)` (as found
+/// by order finding on `g`, verified here: `g^r = 1`), `2^k·r` is a
+/// multiple of `ord(h)`, so `x = h^r` satisfies `x^(2^k) = 1`. Squaring
+/// `x` until it reaches 1 exposes a square root of 1; if it is not `±1`,
+/// `gcd(x − 1, N)` is a proper factor. Returns `None` when `h^r = 1` or
+/// the root is `−1` (for `N = pq` this happens when `ord_p(h)` and
+/// `ord_q(h)` have the same 2-adic valuation). Purely classical; it uses
+/// nothing but `N`, `h`, `k` and the measured order.
+pub fn factor_from_power_order(n_mod: u64, h: u64, k: usize, r: u64) -> Option<u64> {
+    if r == 0 || pow_mod(pow2k(h, k, n_mod), r, n_mod) != 1 {
+        return None;
+    }
+    let mut x = pow_mod(h, r, n_mod);
+    if x == 1 {
+        return None;
+    }
+    for _ in 0..k {
+        let x2 = mul_mod(x, x, n_mod);
+        if x2 == 1 {
+            if x == n_mod - 1 {
+                return None;
+            }
+            let f = gcd(x - 1, n_mod);
+            return (f > 1 && f < n_mod).then_some(f);
+        }
+        x = x2;
+    }
+    None
+}
+
 /// One Shor order-finding run with exponent windows; returns the run and
 /// `(order, factor)` from the standard post-processing.
 pub fn shor_run<T: Real>(
@@ -1882,6 +1937,106 @@ mod tests {
                 assert!(good * 10 >= tot * 7, "N={n_mod} c={c}: {good}/{tot}");
             }
         }
+    }
+
+    /// Miller's reduction from the order of `h^(2^k)`: every base of
+    /// N = 35 and N = 1 005 973 either factors N or is one of the bases
+    /// for which it provably cannot (`ord_p(h)`, `ord_q(h)` with equal
+    /// 2-adic valuation), and a wrong order is rejected.
+    #[test]
+    fn factor_from_power_order_splits_n() {
+        for (n_mod, p, q) in [(35u64, 5u64, 7u64), (1_005_973, 997, 1009)] {
+            let k = crate::shor::work_bits(n_mod);
+            let ord = |a: u64, m: u64| {
+                let (mut x, mut e) = (a % m, 1u64);
+                while x != 1 {
+                    x = mul_mod(x, a, m);
+                    e += 1;
+                }
+                e
+            };
+            let v2 = |x: u64| x.trailing_zeros();
+            let (mut ok, mut tried) = (0, 0);
+            for h in (2..n_mod - 1).filter(|&h| gcd(h, n_mod) == 1).take(300) {
+                let g = pow2k(h, k, n_mod);
+                let r = ord(g, n_mod);
+                assert_eq!(r % 2, 1);
+                let f = factor_from_power_order(n_mod, h, k, r);
+                let can = v2(ord(h % p, p)) != v2(ord(h % q, q));
+                assert_eq!(f.is_some(), can, "N={n_mod} h={h}");
+                if let Some(f) = f {
+                    assert!(f == p || f == q);
+                    ok += 1;
+                }
+                tried += 1;
+                if r > 1 {
+                    assert_eq!(factor_from_power_order(n_mod, h, k, r + 2), None);
+                }
+            }
+            assert!(ok * 2 > tried, "N={n_mod}: {ok}/{tried}");
+        }
+    }
+
+    /// The in-place window finish (FIFO spill and chunk compaction) gives
+    /// exactly the state the out-of-place `materialize` gives, on every
+    /// window of sampled Shor and EH runs, including the windows where the
+    /// support grows (the FIFO path) and with several chunk layouts.
+    #[test]
+    fn finish_in_place_equals_materialize() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        let cases = [
+            // (N, base, Shor or EH-odd, w_e)
+            (1_005_973u64, 980_062u64, false, 1usize),
+            (1_005_973, 980_062, false, 2),
+            (10_161_323, 9_899_614, false, 1),
+            (10_161_323, 9_899_614, true, 1),
+            (10_161_323, 9_899_614, true, 2),
+        ];
+        let mut grew = 0;
+        for (n_mod, a, eh, we) in cases {
+            let o = GeOpts {
+                we,
+                wm: 3,
+                mbu: MbuOpts::LOOKUPS,
+                coset: 0,
+            };
+            let n = crate::shor::work_bits(n_mod);
+            let regs = if eh {
+                eh_regs(n_mod, pow2k(a, n, n_mod))
+            } else {
+                shor_regs(n_mod, a)
+            };
+            let lay = GeLayout::new(n, &o);
+            let mut st = GeState::<f32>::basis(1);
+            let mut rng = StdRng::seed_from_u64(n_mod ^ we as u64);
+            let mut wi = 0u64;
+            for reg in &regs {
+                let mut y = 0u128;
+                for (i0, w) in windows(reg.len, o.we) {
+                    let g = pow2k(reg.base, reg.len - i0 - w, n_mod);
+                    let mut oc = Outcomes::new(outcome_seed(n_mod, g, wi), 0);
+                    wi += 1;
+                    let wp = WindowProg::new(&lay, &window_block(&lay, g, n_mod, &o, &mut oc));
+                    let n_in = st.psi.len();
+                    let mut wa = st.window(&wp, w);
+                    for j in 0..w {
+                        let phi = correction(i0 + j, y);
+                        let (p0, p1) = wa.probs(phi);
+                        let bit = rng.random::<f64>() * (p0 + p1) < p1;
+                        if bit {
+                            y |= 1 << (i0 + j);
+                        }
+                        wa.collapse(phi, bit, if bit { p1 } else { p0 } / (p0 + p1));
+                    }
+                    let want = wa.clone().materialize().pop().unwrap();
+                    st.finish(wa);
+                    assert_eq!(st.psi, want, "N={n_mod} eh={eh} we={we} window {wi}");
+                    grew += usize::from(st.psi.len() > n_in);
+                }
+            }
+        }
+        assert!(grew > 20, "only {grew} windows grew the support");
     }
 
     #[test]
