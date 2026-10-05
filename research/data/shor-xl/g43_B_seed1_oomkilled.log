@@ -1,0 +1,41 @@
+== 2026-10-05 12:32:22 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 4911456443897 1 1 4 lookups eh-odd f32 3
+before: load average: 33.50, 28.79, 27.03  | avail 11 GB, used 11 GB
+[ge window 0] branches=2 joint 0.000s finish 0.000s out=2
+[ge window 1] branches=4 joint 0.000s finish 0.000s out=4
+[ge window 2] branches=8 joint 0.000s finish 0.000s out=8
+[ge window 3] branches=16 joint 0.000s finish 0.000s out=16
+[ge window 4] branches=32 joint 0.000s finish 0.000s out=32
+[ge window 5] branches=64 joint 0.000s finish 0.000s out=64
+[ge window 6] branches=128 joint 0.000s finish 0.000s out=128
+[ge window 7] branches=256 joint 0.000s finish 0.000s out=256
+[ge window 8] branches=512 joint 0.000s finish 0.000s out=512
+[ge window 9] branches=1024 joint 0.000s finish 0.000s out=1024
+[ge window 10] branches=2048 joint 0.000s finish 0.000s out=2048
+[ge window 11] branches=4096 joint 0.000s finish 0.000s out=4096
+[ge window 12] branches=8192 joint 0.000s finish 0.000s out=8192
+[ge window 13] branches=16384 joint 0.000s finish 0.000s out=16384
+[ge window 14] branches=32768 joint 0.000s finish 0.000s out=32768
+[ge window 15] branches=65536 joint 0.000s finish 0.000s out=65536
+[ge window 16] branches=131072 joint 0.001s finish 0.001s out=131072
+[ge window 17] branches=262144 joint 0.001s finish 0.005s out=262144
+[ge window 18] branches=524288 joint 0.002s finish 0.013s out=524288
+[ge window 19] branches=1048576 joint 0.003s finish 0.022s out=1048576
+[ge window 20] branches=2097152 joint 0.012s finish 0.038s out=2097152
+[ge window 21] branches=4194304 joint 0.023s finish 0.069s out=4194304
+[ge window 0] branches=8388608 joint 0.021s finish 0.139s out=8388608
+[ge window 1] branches=16777216 joint 0.045s finish 0.168s out=16777216
+[ge window 2] branches=33554432 joint 0.076s finish 0.382s out=33554432
+[ge window 3] branches=67108864 joint 0.100s finish 0.274s out=44451625
+[ge window 4] branches=88903250 joint 0.163s finish 0.591s out=88903250
+[ge window 5] branches=177806500 joint 0.237s finish 0.680s out=115574445
+[ge window 6] branches=231148890 joint 0.248s finish 0.400s out=115574445
+[ge window 7] branches=231148890 joint 0.248s finish 0.428s out=115574445
+[ge window 8] branches=231148890 joint 0.216s finish 0.369s out=115574445
+[ge window 9] branches=231148890 joint 0.206s finish 0.363s out=115574445
+[ge window 10] branches=231148890 joint 0.219s finish 0.408s out=115574445
+[ge window 11] branches=231148890 joint 0.256s finish 0.381s out=115574445
+[ge window 12] branches=231148890 joint 0.262s finish 0.423s out=115574445
+[ge window 13] branches=231148890 joint 0.235s finish 0.391s out=115574445
+Command terminated by signal 9
+wall 52.86 s  user 412.17 s  sys 9.60 s  maxrss 3648536 KB
+after:  load average: 36.60, 30.49, 27.71  | avail 3 GB, used 19 GB
