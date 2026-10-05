@@ -192,7 +192,19 @@ fn option_sets() -> Vec<GraphOptions> {
     let mut o = GraphOptions::default();
     o.block.schedule_diag = false;
     o.block.simd = false;
+    o.patch_bind = false;
     v.push(o);
+    // dense fusion forced on every group, with L1 tiling, both bind modes
+    for patch in [true, false] {
+        let mut o = GraphOptions::default();
+        o.block.dense_fusion = 3;
+        o.block.dense_min_ops = 1;
+        o.block.l1_tile_bytes = 256;
+        o.block.small_n = 3;
+        o.block.block_bytes = 256;
+        o.patch_bind = patch;
+        v.push(o);
+    }
     v
 }
 
