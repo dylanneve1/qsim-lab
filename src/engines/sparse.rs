@@ -289,19 +289,36 @@ impl SparseState {
     }
 
     /// Projects qubit `q` onto `outcome` and renormalises; returns the
-    /// probability of that outcome.
+    /// probability of that outcome (relative to the current norm).
+    ///
+    /// The kept branches are rescaled by their own total weight, so the
+    /// state is normalised afterwards whatever its norm before. (Until
+    /// exp/shor-xl the outcome-0 probability was taken as `1 − P(1)`, which
+    /// doubled any norm error at every outcome-0 collapse of a `P = 1/2`
+    /// qubit; long measurement-based-uncomputation circuits drifted by
+    /// ~1e-9 that way. Test: `sparse_collapse_keeps_the_state_normalised`.)
     pub fn collapse(&mut self, q: usize, outcome: bool) -> f64 {
-        let p1 = self.prob_one(q);
-        let p = if outcome { p1 } else { 1.0 - p1 };
-        assert!(p > 0.0, "cannot collapse onto a zero-probability outcome");
+        self.check_q(q);
         let bit = 1u64 << q;
         let want = if outcome { bit } else { 0 };
-        let k = 1.0 / p.sqrt();
+        let (mut kept, mut total) = (0.0f64, 0.0f64);
+        for (i, a) in &self.amps {
+            let w = a.norm_sqr();
+            total += w;
+            if i & bit == want {
+                kept += w;
+            }
+        }
+        assert!(
+            kept > 0.0,
+            "cannot collapse onto a zero-probability outcome"
+        );
+        let k = 1.0 / kept.sqrt();
         self.amps.retain(|i, a| {
             *a *= k;
             i & bit == want
         });
-        p
+        kept / total
     }
 
     /// Draws `shots` basis indices from `|a_x|^2` without collapsing the

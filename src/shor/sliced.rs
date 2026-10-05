@@ -37,6 +37,13 @@
 //! order of `a`. For a generic semiprime and random base `r ≈ N/c`, so this
 //! is exponential in the bit length — it is the sparse state of the real
 //! circuit, made fast, not a factoring speed-up.
+//!
+//! # Instruction-set tiers
+//!
+//! The step loop runs as an explicit AVX-512 kernel (one `VPTERNLOGQ` per
+//! 512-bit word and step), the same loop compiled for AVX2, or the portable
+//! loop, chosen at run time ([`SliceIsa`]); all tiers compute identical bits
+//! (differential tests below). Measurements: research/shor/shor-xl.md §4.
 
 use super::{Instance, Oracle, OrderFindingState};
 use crate::circuit::{Circuit, Op};
