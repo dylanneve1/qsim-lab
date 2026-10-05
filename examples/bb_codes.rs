@@ -14,7 +14,7 @@
 //! with `k > 0`: exact `d` when `d_lower == d_upper`.
 use qsim_lab::qec::bb_search::{enumerate_codes, groups_of_order, AbelianGroup};
 use qsim_lab::qec::bicycle::{
-    distance_upper_bound, logical_masks, two_block_roots, DistanceOpts, TwoBlockCode,
+    code_distance, distance_upper_bound, logical_masks, two_block_roots, DistanceOpts, TwoBlockCode,
 };
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -333,9 +333,17 @@ fn main() {
             let tk = t.elapsed().as_secs_f64();
             let t = Instant::now();
             let d = c.distance(&o);
+            let ds = t.elapsed().as_secs_f64();
+            // BOTH=1: also the other CSS distance (equal for abelian groups)
+            let other = if std::env::var("BOTH").is_ok() {
+                let r = code_distance(&c.hz(), &c.hx(), Some(c.order()), &o);
+                format!(",\"d2_lower\":{},\"d2_upper\":{}", r.lower, r.upper)
+            } else {
+                String::new()
+            };
             println!(
-                "{{\"l\":{l},\"m\":{m},\"A\":\"{}\",\"B\":\"{}\",\"n\":{},\"k\":{k},\"d_lower\":{},\"d_upper\":{},\"nodes\":{},\"k_s\":{tk:.6},\"d_s\":{:.3}}}",
-                a[4], a[5], c.n(), d.lower, d.upper, d.nodes, t.elapsed().as_secs_f64()
+                "{{\"l\":{l},\"m\":{m},\"A\":\"{}\",\"B\":\"{}\",\"n\":{},\"k\":{k},\"d_lower\":{},\"d_upper\":{},\"nodes\":{},\"k_s\":{tk:.6},\"d_s\":{ds:.3}{other}}}",
+                a[4], a[5], c.n(), d.lower, d.upper, d.nodes
             );
         }
         "search" => search(&a[2..]),
