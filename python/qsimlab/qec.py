@@ -244,7 +244,7 @@ def repetition_code_memory(
     return c
 
 
-# Exact schedules from research/colour-global.md (one row per plaquette, steps
+# Exact schedules from research/qec/colour-global.md (one row per plaquette, steps
 # for positions a..f, 0 = absent). d = 9: circuit distance 8 (K-F: 7) in
 # K-F's 6+6-layer design space; d = 11: 7+7 layers, circuit distance 10.
 _GLOBAL_SCHEDULES = {
@@ -290,7 +290,7 @@ def color_code_schedule(d: int, schedule: Any = "kf") -> Tuple[List[List[int]], 
 
     ``schedule``: ``"kf"`` (Kishony–Fowler's colour-dependent schedule),
     ``"tri"`` (Lee et al.'s uniform tri-optimal), ``"global"`` (the exact
-    global-search schedules of ``research/colour-global.md``: ``d = 9``,
+    global-search schedules of ``research/qec/colour-global.md``: ``d = 9``,
     circuit distance 8, and ``d = 11`` with 7+7 layers, circuit distance 10),
     a path to a ``.sched`` file (one line per plaquette: steps for positions
     a..f, 0 for absent ones, optional trailing ``F`` = flag it), or a
@@ -333,11 +333,11 @@ def color_code_memory(
     The round structure is Kishony–Fowler's (arXiv:2603.28852): ``CX
     data→aux`` over the schedule's layers, ``M``, ``RX``, ``CX aux→data`` over
     the same layers, ``MX``, ``R``; built by the engine's
-    ``qsim_lab::qec::color`` (the circuits of ``research/qec-r4.md`` and
-    ``research/colour-global.md``). ``schedule``: see
+    ``qsim_lab::qec::color`` (the circuits of ``research/qec/qec-r4.md`` and
+    ``research/qec/colour-global.md``). ``schedule``: see
     :func:`color_code_schedule`. ``flags``: ``False``, ``True`` /
     ``"boundary"`` (a flag qubit on every boundary-touching plaquette, the
-    hook-free boundary of ``research/colour-flags.md``), or plaquette indices
+    hook-free boundary of ``research/qec/colour-flags.md``), or plaquette indices
     / a boolean mask. Default noise is ``"cnot"`` (K–F's headline model).
 
     >>> c, lay = color_code_memory(5, 2, p=1e-3, return_layout=True)
@@ -382,7 +382,7 @@ class DetectorSampler:
     """A compiled detection-event sampler for a noisy Clifford circuit.
 
     ``engine``: ``"fast"`` (the Poisson-hit FastSampler of
-    ``research/fast-sampler.md``), ``"symphase"`` (the plain SymPhase
+    ``research/qec/fast-sampler.md``), ``"symphase"`` (the plain SymPhase
     sampler: same distribution, slower) or ``"auto"`` (FastSampler, falling
     back to SymPhase with a :attr:`note` if it rejects the circuit). Compile
     once, sample many times:

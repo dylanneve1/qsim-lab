@@ -71,7 +71,7 @@ def rewrite_target(t, old_file, new_file, pairs):
 
 def keep_if_already_new(m, new):
     """Replace a mention unless it is already the tail of NEW (idempotence when
-    NEW ends with OLD, e.g. foo -> tools/foo)."""
+    NEW ends with OLD, e.g. <old> -> tools/<old>)."""
     s, i, old = m.string, m.start(), m.group(0)
     if new.endswith(old) and s[max(0, i - (len(new) - len(old))):m.end()] == new:
         return old
