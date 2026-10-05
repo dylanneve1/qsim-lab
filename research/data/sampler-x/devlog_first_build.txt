@@ -1,0 +1,34 @@
+# First build of the backward compiler (commit-to-be, before the frame sampler), Xeon, under the bench lock,
+# 1-min load 22-27 (other users' builds and multi-threaded jobs): development numbers, not quoted as results.
+#
+# quick_profile.sh: bench-x <B_d{d}_p0.001.stim> 1024 shots, min of 5 reps IN ONE PROCESS (warm memory), seconds
+d=3 parse=0.000032 compile=0.000015 tables=0.000033 notables=0.000008 sample_tables=0.000002 sample_notables=0.000006 sample_simd=0.000002 rows=25 groups=189 hits_per_shot=0.19 table_bytes=10128
+d=5 parse=0.000065 compile=0.000053 tables=0.000115 notables=0.000013 sample_tables=0.000008 sample_notables=0.000022 sample_simd=0.000008 rows=121 groups=935 hits_per_shot=0.94 table_bytes=55040
+d=7 parse=0.000114 compile=0.000149 tables=0.000396 notables=0.000023 sample_tables=0.000022 sample_notables=0.000059 sample_simd=0.000025 rows=337 groups=2625 hits_per_shot=2.63 table_bytes=160496
+d=11 parse=0.000254 compile=0.000541 tables=0.001415 notables=0.000064 sample_tables=0.000079 sample_notables=0.000210 sample_simd=0.000092 rows=1321 groups=10373 hits_per_shot=10.38 table_bytes=655952
+d=15 parse=0.000490 compile=0.001419 tables=0.003986 notables=0.000144 sample_tables=0.000233 sample_notables=0.000554 sample_simd=0.000337 rows=3361 groups=26505 hits_per_shot=26.52 table_bytes=1702320
+d=21 parse=0.000863 compile=0.003914 tables=0.010141 notables=0.000434 sample_tables=0.000827 sample_notables=0.001424 sample_simd=0.001073 rows=9241 groups=73143 hits_per_shot=73.19 table_bytes=4755072
+d=25 parse=0.000830 compile=0.004803 tables=0.011171 notables=0.000555 sample_tables=0.001198 sample_notables=0.001913 sample_simd=0.001300 rows=15601 groups=123675 hits_per_shot=123.76 table_bytes=8079200
+#
+# same, FIRST rep in a fresh process (cold memory: page faults), 128 shots, two processes each
+d=15 read=0.000075 parse=0.000523 compile=0.003060 tables=0.009277 notables=0.000190
+d=15 read=0.000067 parse=0.000580 compile=0.002661 tables=0.004609 notables=0.000174
+d=25 read=0.000151 parse=0.001443 compile=0.012473 tables=0.025830 notables=0.000758
+d=25 read=0.000150 parse=0.001461 compile=0.012909 tables=0.021991 notables=0.000773
+#
+# e2e.py quick look, p = 0.001, min of 7, whole process (wtime), load 23: Stim native vs sample-x (auto) and
+# sample-x with tables forced on
+3 128 stim 1.41 ms x 0.79 ms x_tables 0.79 ms ratio 1.79 load 23
+3 1024 stim 1.49 ms x 0.76 ms x_tables 0.80 ms ratio 1.95 load 23
+5 128 stim 1.50 ms x 0.95 ms x_tables 1.05 ms ratio 1.58 load 23
+5 1024 stim 1.72 ms x 1.00 ms x_tables 1.08 ms ratio 1.72 load 23
+7 128 stim 1.75 ms x 1.16 ms x_tables 1.55 ms ratio 1.51 load 23
+7 1024 stim 2.12 ms x 1.27 ms x_tables 1.56 ms ratio 1.67 load 23
+11 128 stim 2.33 ms x 2.33 ms x_tables 3.77 ms ratio 1.00 load 23
+11 1024 stim 3.59 ms x 2.60 ms x_tables 3.98 ms ratio 1.38 load 23
+15 128 stim 2.56 ms x 4.46 ms x_tables 7.88 ms ratio 0.58 load 23
+15 1024 stim 6.20 ms x 4.83 ms x_tables 8.32 ms ratio 1.28 load 23
+21 128 stim 5.85 ms x 10.37 ms x_tables 21.10 ms ratio 0.56 load 23
+21 1024 stim 15.17 ms x 12.33 ms x_tables 22.79 ms ratio 1.23 load 23
+25 128 stim 8.30 ms x 16.82 ms x_tables 36.30 ms ratio 0.49 load 23
+25 1024 stim 23.05 ms x 20.24 ms x_tables 38.08 ms ratio 1.14 load 23

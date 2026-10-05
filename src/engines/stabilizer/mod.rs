@@ -38,7 +38,9 @@
 //!   popcounts per product instead of two per word.
 
 pub mod bitmatrix;
+pub mod detector_compiler;
 pub mod fast_sampler;
+pub mod frame_sampler;
 mod ref_bitmatrix;
 #[doc(hidden)]
 pub mod reference;
