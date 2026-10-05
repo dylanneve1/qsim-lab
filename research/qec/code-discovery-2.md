@@ -249,10 +249,10 @@ Foundation qLDPC challenge board on 2026-07-14 (`codes/288-16-16.json`, a 2BGA c
 C12 ⋊ C12 found by simulated annealing, d = 16 as an upper bound from 600 k randomized trials); (ii) at
 weight 9 there is a quantum Tanner code (Leverrier, Rozendaal & Zémor, arXiv:2512.20532, QDistRnd
 estimate), and at weight 7 Qian & Li's [[288,16,18]] (arXiv:2608.08996) is better. What is new here is
-the exact distance (two independent proofs), the presentation above, and the fact that the search
-finds no weight-6 2BGA code over any group of order 144 with k = 16 and d > 16 (all twelve classes
-with d > 12 have d = 16 exactly). We also ran the C verifier on the challenge's own code
-(`cert/ch288`, see §4).
+the exact distance (two independent proofs), the presentation above, and the observation that over
+the groups of order 144 the search completed (§5) every k = 16 class with d > 12 has d = 16 exactly
+and none has more. The challenge's own code (C12 ⋊ C12 = SmallGroup(144,76), not yet reached by our
+search) was also run through `mwlogical.c` from its posted check matrices (§4).
 
 ### 4.2 The [[192,12,14]] code, explicitly
 
@@ -351,22 +351,40 @@ OSD order 10) on the Z sector, exactly as in the first study.
 
 ## 8. Reproduce
 
+Files in [`research/data/code-discovery-2/`](../data/code-discovery-2/):
+
+| file | what |
+|---|---|
+| `export_groups.g` | GAP: one table file per order (groups, multiplication tables, automorphism generators) |
+| `known_codes.py`, `threshold.tsv`, `threshold_search.tsv` | the known-code threshold T(n, k): final (all sources) and as used by the search |
+| `lin_pryadko_2bga_w6.tsv`, `qldpc_challenge_w6.tsv` | best weight-6 codes per (n, k) of the Lin–Pryadko dataset; weight-≤6 CSS codes of the challenge board |
+| `search_w6.tsv.xz`, `search_w6.log`, `search_w6_groups.txt` | merged search output (one line per connected class with k > 0), per-group summaries, completed groups |
+| `merge_runs.py`, `results_tables.py`, `analyze.py` | merging the restarted runs, §5 tables, quick summaries |
+| `verify_code.py`, `mwlogical.c`, `certificates/` | independent k / witness check, independent exact lower bound, check supports of every claimed code |
+| `code_288_from_presentation.py`, `code_192_from_presentation.py`, `describe_288.g`, `describe_192.g`, `describe_code.g`, `perm_rep.g` | presentations and permutation representations |
+| `atb_codes.g`, `compare_code.py` | Aydin–Tamo–Barg cover codes in our numbering; placing a code against the frontier |
+| `novelty_288.md`, `novelty_192.md` | the two literature checks |
+| `ler/*.json`, `ler_table.py` | circuit-level runs and their table |
+
 ```text
-# groups (GAP 4.15.1 with SmallGroups; ~1 min): one file per order N, 1000 groups
-gap -q research/data/code-discovery-2/export_groups.g      # after: ExportOrder(N, dir) for N = 6..150
-python3 research/data/code-discovery-2/known_codes.py > threshold.tsv     # T(n, k)
+# groups (GAP 4.15.1 with SmallGroups, ~1 min): Read("export_groups.g"); ExportOrder(N, dir) for N = 6..150
+python3 research/data/code-discovery-2/known_codes.py > threshold.tsv
 cargo build --release --example group_codes
 G=target/release/examples/group_codes
-$G search threshold.tsv 4 200000000 groups/*.txt > w6.jsonl 2> w6.log    # all 1000 groups
-python3 research/data/code-discovery-2/analyze.py --out summary w6.jsonl w6.log
+$G search threshold.tsv 4 200000000 groups/*.txt > w6.jsonl 2> w6.log
+python3 research/data/code-discovery-2/results_tables.py w6.jsonl w6.log threshold.tsv
 
-# the headline code, three ways
-$G params groups/144.txt 167 0,9,83 0,51,90                                # Rust: [[288,16,16]], 4 s
-python3 research/data/code-discovery-2/code_288_from_presentation.py p288 # presentation only: k = 16
+# the codes
+$G params groups/112.txt 20 0,7,40 0,15,45            # [[224,18,12]]
+$G params groups/144.txt 184 0,9,62 0,16,117          # [[288,34,8]]
+$G params groups/144.txt 167 0,9,83 0,51,90           # [[288,16,16]], 4 s
+python3 research/data/code-discovery-2/code_288_from_presentation.py p288
 gcc -O2 -o mwlogical research/data/code-discovery-2/mwlogical.c
-./mwlogical 15 < p288_Zlogicals.txt; ./mwlogical 15 < p288_Xlogicals.txt  # "none <= 15", ~1 min each
-./mwlogical 16 < p288_Zlogicals.txt                                        # finds a weight-16 logical
-cargo test --release --test group_codes new_code                           # group-free pins, 7 s
-```
+./mwlogical 15 < p288_Zlogicals.txt; ./mwlogical 15 < p288_Xlogicals.txt   # "none <= 15"
+./mwlogical 11 < research/data/code-discovery-2/certificates/n224_k18_d12_SG112-20_Zlogicals.txt
+cargo test --release --test group_codes                # pins every code from permutations, ~10 s
 
-The certificate inputs for all five new codes are in `certificates/` (run `mwlogical d-1 < file`).
+# circuit level (8 rounds, p = 0.4 %, 4096 shots, BP+OSD-CS order 10, Z memory)
+$G ler groups/144.txt 167 0,9,83 0,51,90 ibm 8 0.004 4096 31 1 10
+cargo run --release --example bb_codes -- ler 12 12 "1+x+x^2y^3" "1+y+x^3y^8" ibm 8 0.004 4096 31 1 10
+```
