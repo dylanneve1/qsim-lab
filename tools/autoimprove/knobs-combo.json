@@ -1,0 +1,77 @@
+{
+ "comment": "Knob sweep on top of combo6 (la-nophase-r3 + tls-scratch + pair-cx-v2-r3): do slots / tiling interact with lookahead planning?",
+ "binary": "cand-combo6",
+ "suite": [
+  [
+   "qft",
+   22,
+   "f32"
+  ],
+  [
+   "qft",
+   22,
+   "f64"
+  ],
+  [
+   "brick",
+   22,
+   "f32"
+  ],
+  [
+   "brick",
+   22,
+   "f64"
+  ],
+  [
+   "clifft",
+   22,
+   "f32"
+  ],
+  [
+   "clifft",
+   22,
+   "f64"
+  ],
+  [
+   "qft",
+   24,
+   "f32"
+  ],
+  [
+   "qft",
+   24,
+   "f64"
+  ],
+  [
+   "brick",
+   24,
+   "f32"
+  ],
+  [
+   "brick",
+   24,
+   "f64"
+  ],
+  [
+   "clifft",
+   24,
+   "f32"
+  ],
+  [
+   "clifft",
+   24,
+   "f64"
+  ]
+ ],
+ "configs": [
+  {
+   "slots": 5
+  },
+  {
+   "slots": 7
+  },
+  {
+   "tile_kib": 64
+  }
+ ]
+}

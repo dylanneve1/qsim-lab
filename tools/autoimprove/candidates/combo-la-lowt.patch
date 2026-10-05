@@ -1,0 +1,168 @@
+# slug: combo-la-lowt
+# family: combo
+# parent: plan-lookahead + low-t-chunks
+# idea: both accepted patches together (they touch disjoint code: stage planner vs bit-0/1 kernels)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..f251e06 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -61,6 +61,16 @@ impl KOp {
+         }
+     }
+ 
++    /// Bit mask of the qubits the op acts on non-diagonally (controls and
++    /// phases are diagonal).
++    fn non_diag(&self) -> usize {
++        match *self {
++            KOp::U1 { q, .. } => 1 << q,
++            KOp::Phase { .. } => 0,
++            KOp::Swap { a, b } => (1 << a) | (1 << b),
++        }
++    }
++
+     /// Bit mask of the qubits that must be inner (in the cache block).
+     fn needs_inner(&self) -> usize {
+         match *self {
+@@ -363,22 +373,44 @@ pub fn plan_stages(ops: &[KOp], n: usize, l: usize, slots: usize) -> Vec<Stage>
+             ops,
+         }
+     };
++    // Each stage takes, in order, every remaining op that fits its slots and
++    // commutes with every op it skipped (two ops commute unless one acts
++    // non-diagonally on a qubit the other touches; with the skipped ops'
++    // masks OR-ed together this test is exact and O(1)). Skipped ops keep
++    // their order and form the input of the next stage. The scan stops
++    // `LOOKAHEAD` ops after the first skip, bounding the work per stage.
++    const LOOKAHEAD: usize = 1024;
+     let mut stages = Vec::new();
+-    let mut hi = 0usize;
+-    let mut cur: Vec<KOp> = Vec::new();
+-    for op in ops {
+-        let need = op.needs_inner() & !low;
+-        let merged = hi | need;
+-        if merged.count_ones() as usize > slots {
+-            stages.push(finish(hi, std::mem::take(&mut cur)));
+-            hi = need;
+-        } else {
+-            hi = merged;
++    let mut rest: Vec<KOp> = ops.to_vec();
++    while !rest.is_empty() {
++        let mut hi = 0usize;
++        let mut cur: Vec<KOp> = Vec::new();
++        let mut skipped: Vec<KOp> = Vec::new();
++        let (mut sk_nd, mut sk_touch) = (0usize, 0usize);
++        let mut first_skip = None;
++        for (i, op) in rest.iter().enumerate() {
++            if first_skip.is_some_and(|f| i > f + LOOKAHEAD) {
++                skipped.extend_from_slice(&rest[i..]);
++                break;
++            }
++            let need = op.needs_inner() & !low;
++            let merged = hi | need;
++            let (nd, touch) = (op.non_diag(), op.touches());
++            let commutes = nd & sk_touch == 0 && touch & sk_nd == 0;
++            // the first op of a stage is always taken (as before: with fewer
++            // slots than it needs, the stage gets a slightly bigger block)
++            if cur.is_empty() || (commutes && merged.count_ones() as usize <= slots) {
++                hi = merged;
++                cur.push(*op);
++            } else {
++                first_skip.get_or_insert(i);
++                sk_nd |= nd;
++                sk_touch |= touch;
++                skipped.push(*op);
++            }
+         }
+-        cur.push(*op);
+-    }
+-    if !cur.is_empty() {
+         stages.push(finish(hi, cur));
++        rest = skipped;
+     }
+     stages
+ }
+@@ -1062,43 +1094,41 @@ fn u1_slices<T: Real, const F: bool>(
+     }
+ }
+ 
+-/// Uncontrolled 2x2 gate on target bit `TB < 2`: the pairs lie inside
+-/// aligned groups of 8, handled with fixed index maps so the four pairs of a
+-/// group are computed as one short vector (about 2x faster than walking
+-/// runs of length 1 or 2).
++/// Uncontrolled 2x2 gate on target bit 0 (`CH = 2, S = 1`) or 1
++/// (`CH = 4, S = 2`): the buffer is viewed as fixed-size arrays of `CH`
++/// amplitudes, pairs `(j, j + S)` inside each, so the compiler sees a
++/// constant-stride interleaved access (NEON `ld2`/`st2`-style) instead of
++/// per-group index maps.
+ #[inline(always)]
+-fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(
++fn u1_low<T: Real, const F: bool, const CH: usize, const S: usize, const K: u8>(
+     re: &mut [T],
+     im: &mut [T],
+     m: &[T; 8],
+ ) {
+-    let s = 1usize << TB;
+-    let lo: [usize; 4] = std::array::from_fn(|k| ((k >> TB) << (TB + 1)) | (k & (s - 1)));
+     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
+-    for (gr, gi) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
+-        let xr: [T; 4] = std::array::from_fn(|k| gr[lo[k]]);
+-        let xi: [T; 4] = std::array::from_fn(|k| gi[lo[k]]);
+-        let yr: [T; 4] = std::array::from_fn(|k| gr[lo[k] + s]);
+-        let yi: [T; 4] = std::array::from_fn(|k| gi[lo[k] + s]);
+-        for k in 0..4 {
++    let (r2, _) = re.as_chunks_mut::<CH>();
++    let (i2, _) = im.as_chunks_mut::<CH>();
++    for (gr, gi) in r2.iter_mut().zip(i2.iter_mut()) {
++        for j in 0..S {
++            let (xr, xi, yr, yi) = (gr[j], gi[j], gr[j + S], gi[j + S]);
+             let (ar, ai, br, bi) = match K {
+-                0 => (yr[k], yi[k], xr[k], xi[k]),
++                0 => (yr, yi, xr, xi),
+                 1 => (
+-                    fma::<T, F>(m0r, xr[k], m1r * yr[k]),
+-                    fma::<T, F>(m0r, xi[k], m1r * yi[k]),
+-                    fma::<T, F>(m2r, xr[k], m3r * yr[k]),
+-                    fma::<T, F>(m2r, xi[k], m3r * yi[k]),
++                    fma::<T, F>(m0r, xr, m1r * yr),
++                    fma::<T, F>(m0r, xi, m1r * yi),
++                    fma::<T, F>(m2r, xr, m3r * yr),
++                    fma::<T, F>(m2r, xi, m3r * yi),
+                 ),
+                 _ => {
+-                    let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr[k], xi[k], yr[k], yi[k]);
+-                    let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr[k], xi[k], yr[k], yi[k]);
++                    let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
++                    let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
+                     (a, b, c, d)
+                 }
+             };
+-            gr[lo[k]] = ar;
+-            gi[lo[k]] = ai;
+-            gr[lo[k] + s] = br;
+-            gi[lo[k] + s] = bi;
++            gr[j] = ar;
++            gi[j] = ai;
++            gr[j + S] = br;
++            gi[j + S] = bi;
+         }
+     }
+ }
+@@ -1117,12 +1147,12 @@ fn apply_u1<T: Real, const F: bool>(
+     let fixed = cin | s;
+     if cin == 0 && t < 2 && l >= 3 {
+         match (t, kind) {
+-            (0, UKind::X) => u1_group8::<T, F, 0, 0>(re, im, m),
+-            (0, UKind::Real) => u1_group8::<T, F, 0, 1>(re, im, m),
+-            (0, UKind::Complex) => u1_group8::<T, F, 0, 2>(re, im, m),
+-            (_, UKind::X) => u1_group8::<T, F, 1, 0>(re, im, m),
+-            (_, UKind::Real) => u1_group8::<T, F, 1, 1>(re, im, m),
+-            (_, UKind::Complex) => u1_group8::<T, F, 1, 2>(re, im, m),
++            (0, UKind::X) => u1_low::<T, F, 2, 1, 0>(re, im, m),
++            (0, UKind::Real) => u1_low::<T, F, 2, 1, 1>(re, im, m),
++            (0, UKind::Complex) => u1_low::<T, F, 2, 1, 2>(re, im, m),
++            (_, UKind::X) => u1_low::<T, F, 4, 2, 0>(re, im, m),
++            (_, UKind::Real) => u1_low::<T, F, 4, 2, 1>(re, im, m),
++            (_, UKind::Complex) => u1_low::<T, F, 4, 2, 2>(re, im, m),
+         }
+         return;
+     }
