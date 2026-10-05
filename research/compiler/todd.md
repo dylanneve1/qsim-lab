@@ -7,7 +7,11 @@ rough wall times, which are labelled as such.
 
 ## Headline
 
-RESULTS_PLACEHOLDER
+**Status: in progress.** This branch was stopped (5 Oct 2026) before its benchmark table and
+headline were written. The optimiser and its exact verifiers are merged; three quality/consistency
+tests are `#[ignore]`d with their reasons (`two_overlapping_toffolis_reduce`,
+`hadamard_free_ccz_networks_reach_known_counts`, `benchmark_circuits_are_exact_and_do_not_regress`).
+No T-count claim is made yet.
 
 ## Literature check (best published T-counts, October 2026)
 
