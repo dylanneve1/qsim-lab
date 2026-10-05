@@ -327,12 +327,78 @@ fn relabel(g: &Gate, m: &[usize]) -> Gate {
     }
 }
 
+fn is_diagonal_gate(g: &Gate) -> bool {
+    matches!(
+        g,
+        Gate::I(_)
+            | Gate::Z(_)
+            | Gate::S(_)
+            | Gate::Sdg(_)
+            | Gate::T(_)
+            | Gate::Tdg(_)
+            | Gate::Rz(..)
+            | Gate::Phase(..)
+            | Gate::Cz(..)
+            | Gate::CPhase(..)
+    )
+}
+
+/// The backward light cone of a Pauli string, refined by commutation: a
+/// diagonal gate whose qubits all carry a diagonal factor (`Z` or `I`) of
+/// the Heisenberg-evolved observable commutes with it and is dropped. (The
+/// observable stays a product of its original `Z`/`I` factors on every
+/// qubit no kept gate has touched, so the test is exact.) Returns the kept
+/// gates relabelled onto the cone and the cone.
+pub fn pauli_light_cone(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Circuit, Vec<usize>), SimError> {
+    require_unitary(c)?;
+    let n = c.num_qubits;
+    let mut live = vec![false; n];
+    let mut diag = vec![true; n];
+    for &(q, p) in pauli {
+        if q >= n {
+            return Err(SimError::QubitOutOfRange {
+                qubit: q,
+                num_qubits: n,
+            });
+        }
+        live[q] = true;
+        diag[q] = p == Pauli::Z;
+    }
+    let gates: Vec<Gate> = c.gates().copied().collect();
+    let mut keep = vec![false; gates.len()];
+    for (k, g) in gates.iter().enumerate().rev() {
+        let qs = g.qubits();
+        if !qs.iter().any(|&q| live[q]) {
+            continue;
+        }
+        if is_diagonal_gate(g) && qs.iter().all(|&q| diag[q]) {
+            continue; // commutes with the observable
+        }
+        keep[k] = true;
+        for q in qs {
+            live[q] = true;
+            diag[q] = false;
+        }
+    }
+    let cone: Vec<usize> = (0..n).filter(|&q| live[q]).collect();
+    let mut map = vec![usize::MAX; n];
+    for (i, &q) in cone.iter().enumerate() {
+        map[q] = i;
+    }
+    let mut out = Circuit::new(cone.len());
+    for (k, g) in gates.iter().enumerate() {
+        if keep[k] {
+            out.gate(relabel(g, &map));
+        }
+    }
+    Ok((out, cone))
+}
+
 /// The doubled circuit `C_cone · P · C_cone†` of `<0|C† P C|0>` after the
-/// light-cone reduction, and the cone.
+/// light-cone reduction ([`pauli_light_cone`]), and the cone.
 pub fn expectation_circuit(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Circuit, Vec<usize>), SimError> {
-    let support: Vec<usize> = pauli.iter().map(|&(q, _)| q).collect();
     let mut seen = vec![false; c.num_qubits];
-    for &q in &support {
+    for &q in pauli.iter().map(|(q, _)| q) {
         if q < seen.len() && seen[q] {
             return Err(SimError::NotSupported {
                 what: "tn: a qubit appears twice in the Pauli string",
@@ -342,7 +408,7 @@ pub fn expectation_circuit(c: &Circuit, pauli: &[(usize, Pauli)]) -> Result<(Cir
             seen[q] = true;
         }
     }
-    let (cone_c, cone) = light_cone(c, &support)?;
+    let (cone_c, cone) = pauli_light_cone(c, pauli)?;
     let mut d = cone_c.clone();
     for &(q, p) in pauli {
         let local = cone.iter().position(|&x| x == q).expect("support is in the cone");

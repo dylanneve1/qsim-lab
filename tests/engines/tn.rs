@@ -573,3 +573,57 @@ fn tree_search_reports_consistent_costs() {
     assert!(p.stats.log10_sliced_flops + 1e-9 >= p.stats.log10_flops);
     assert!(p.stats.overhead >= 1.0 - 1e-9);
 }
+
+#[test]
+fn big_tensor_kernels_match_the_reference() {
+    // all-open outputs of 11-13 qubits make intermediates of 2^11+ entries,
+    // so the single-pass big-times-rank-2 kernels run (Auto), next to the
+    // permute plan and the loop plan
+    let mut rng = StdRng::seed_from_u64(0x7e57_000a);
+    for n in [11usize, 12, 13] {
+        let circ = random_any(&mut rng, n, 6 * n);
+        let brick = brickwork(&mut rng, n, 6, n % 2 == 0);
+        for c in [&circ, &brick] {
+            for strategy in [PairStrategy::Auto, PairStrategy::Permute, PairStrategy::Loops] {
+                let o = TnOptions {
+                    strategy,
+                    ..opts()
+                };
+                check_all_amplitudes(c, &o, TOL);
+            }
+            let o = TnOptions {
+                precision: Precision::F32,
+                ..opts()
+            };
+            check_all_amplitudes(c, &o, TOL32);
+        }
+    }
+}
+
+#[test]
+fn light_cone_drops_diagonal_gates_that_commute_with_z() {
+    let o = opts();
+    let mut c = Circuit::new(6);
+    for q in 0..6 {
+        c.h(q);
+    }
+    c.cnot(0, 1).cnot(1, 2).ry(2, 0.7).cnot(2, 3).rx(3, 0.4);
+    // trailing diagonal gates around qubit 3
+    c.cz(3, 4).cphase(2, 3, 0.9).rz(3, 1.3).t(5).cz(4, 5);
+    let r = reference(&c);
+    // Z3: every trailing diagonal gate commutes; the cone is the causal cone
+    // of the non-diagonal part (qubits 0..=3)
+    let (cone_c, cone) = tn::pauli_light_cone(&c, &[(3, Pauli::Z)]).unwrap();
+    assert_eq!(cone, vec![0, 1, 2, 3]);
+    assert!(cone_c.gates().all(|g| !matches!(g, Gate::Cz(..) | Gate::CPhase(..) | Gate::Rz(..))));
+    let (v, rep) = expectation(&c, &[(3, Pauli::Z)], &o).unwrap();
+    assert!((v - r.pauli_expectation("IIIZII")).abs() <= TOL);
+    assert_eq!(rep.qubits, 4);
+    // X3 does not commute with them: they stay and the cone grows
+    let (v, rep) = expectation(&c, &[(3, Pauli::X)], &o).unwrap();
+    assert!((v - r.pauli_expectation("IIIXII")).abs() <= TOL);
+    assert!(rep.qubits >= 5);
+    // Z3 Z4: still diagonal, the CZ(3,4) commutes
+    let (v, _) = expectation(&c, &[(3, Pauli::Z), (4, Pauli::Z)], &o).unwrap();
+    assert!((v - r.pauli_expectation("IIIZZI")).abs() <= TOL);
+}
