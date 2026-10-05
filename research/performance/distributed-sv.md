@@ -21,7 +21,7 @@ and scripts: `research/data/distributed/`.
   session (the VPS firewall drops other ports and sshd forbids port
   forwarding; the Mac is behind NAT and Tailscale is stopped on it): RTT
   56 ms, Mac->VPS 6.1 MiB/s, VPS->Mac 26 MiB/s. Every swap moves half of the
-  VPS's share each way, so the Mac uplink sets the pace. QFT-28 f32: **67.7 s
+  VPS's share each way, so the Mac uplink sets the pace. QFT-28 f32: **67.5 s
   distributed vs 0.83 s in RAM on the Mac and 4.5 s out-of-core on the Mac's
   SSD** (15x worse than OOC, 82x worse than RAM). The same code over loopback
   TCP takes 1.73 s, so >97% of the WAN time is the link.
