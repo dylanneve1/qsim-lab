@@ -1,4 +1,4 @@
-//! Two-node distributed state vector driver (see `qsim_lab::dist` and
+//! Two-node distributed state vector driver (see `qsim_lab::engines::dist` and
 //! `research/performance/distributed-sv.md`).
 //!
 //! Both nodes run the same command line except for `--node` and the
@@ -25,13 +25,13 @@
 
 use num_complex::{Complex, Complex64};
 use qsim_lab::algorithms;
-use qsim_lab::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::dist::{
+use qsim_lab::engines::blocked::BlockConfig;
+use qsim_lab::engines::dist::{
     barrier, fingerprint, handshake, plan_circuit, DistConfig, DistState, DistStep, Link, PipeLink,
     PlanOptions, TcpLink,
 };
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;

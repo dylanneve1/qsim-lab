@@ -9,7 +9,7 @@
 //!
 //! * **Local gates** (every non-diagonal qubit of the gate is local) run on
 //!   each owned rank independently with the cache-blocked kernels of
-//!   [`crate::blocked`]. A global qubit may appear in a *diagonal or control*
+//!   [`crate::engines::blocked`]. A global qubit may appear in a *diagonal or control*
 //!   role ([`needs_local`]): inside rank `r` it has the fixed value
 //!   `bit(r, p - L)`, so the gate is *specialised* per rank (a `CPhase` with
 //!   one global qubit becomes a `Phase` or nothing, a `Cnot` with a global
@@ -37,12 +37,12 @@
 //! specialisation are exact (index moves and multiplication by the same
 //! diagonal entries the kernels would use).
 
-use crate::blocked::{BlockConfig, BlockedChunkExecutor};
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::engines::blocked::{BlockConfig, BlockedChunkExecutor};
+use crate::engines::ooc::remap_gate;
+use crate::engines::ooc_window::permute_bits;
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::ooc::remap_gate;
-use crate::ooc_window::permute_bits;
-use crate::statevector::Real;
 use num_complex::{Complex, Complex64};
 use rayon::prelude::*;
 use std::io::{self, Read, Write};

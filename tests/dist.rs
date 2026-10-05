@@ -1,5 +1,5 @@
 //! Differential tests for the two-node distributed state vector
-//! (`qsim_lab::dist`) against the single-node reference state vector and the
+//! (`qsim_lab::engines::dist`) against the single-node reference state vector and the
 //! independent audit reference (`tests/audit_common`).
 
 mod audit_common;
@@ -9,12 +9,12 @@ use num_complex::{Complex, Complex64};
 use proptest::prelude::*;
 use qsim_lab::algorithms;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::dist::{
+use qsim_lab::engines::dist::{
     chan_pair, fingerprint, handshake, needs_local, plan_circuit, DistConfig, DistPlan, DistState,
     DistStep, Link, PlanOptions, TcpLink,
 };
+use qsim_lab::engines::statevector::{Real, StateVector};
 use qsim_lab::gate::Gate;
-use qsim_lab::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::net::TcpListener;
