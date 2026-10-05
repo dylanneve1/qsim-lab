@@ -54,21 +54,45 @@ All engines share one circuit representation (`Circuit`, OpenQASM 2 and
 
 | engine | module | best for |
 |---|---|---|
-| cache-blocked state vector (AVX2 / NEON FMA, diagonal batching, dense 2-qubit fusion) | `statevector`, `blocked` | any circuit up to RAM |
-| out-of-core state vector | `ooc`, `ooc_window` | states larger than RAM |
-| Metal GPU state vector (f32, macOS, `--features metal`) | `metal_sv` | 20–29 qubits on Apple silicon |
-| stabilizer tableau, SymPhase and FastSampler | `stabilizer` | Clifford circuits, QEC sampling |
-| rotation frame / compressed state / magic recycling | `adaptive`, `pauli_frame`, `magic_atlas` | Clifford+T with low active dimension |
-| sparse state vector | `sparse` | low-superposition circuits |
+| cache-blocked state vector (AVX2 / NEON FMA, diagonal batching, dense 2-qubit fusion) | `engines::{statevector, blocked, dense_fusion}` | any circuit up to RAM |
+| out-of-core state vector | `engines::{ooc, ooc_window}` | states larger than RAM |
+| Metal GPU state vector (f32, macOS, `--features metal`) | `engines::metal_sv` | 20–29 qubits on Apple silicon |
+| stabilizer tableau, SymPhase and FastSampler | `engines::stabilizer` | Clifford circuits, QEC sampling |
+| rotation frame / compressed state / magic recycling | `engines::{adaptive, pauli_frame, pauli_path}`, `magic_atlas` | Clifford+T with low active dimension |
+| sparse state vector | `engines::sparse` | low-superposition circuits |
 | bit-sliced reversible branches (with exact measurement-based uncompute) | `shor` | gate-level Shor and arithmetic |
-| matrix product state | `mps` | low entanglement |
-| Hybrid Schrödinger–Feynman | `hsf` | wide, shallow circuits |
-| monitored Clifford+T | `monitored` | circuits with mid-circuit measurement |
+| matrix product state | `engines::mps` | low entanglement |
+| Hybrid Schrödinger–Feynman | `engines::hsf` | wide, shallow circuits |
+| monitored Clifford+T | `engines::monitored` | circuits with mid-circuit measurement |
 
 Supporting tools: DAG compiler passes (peephole, light cone, components,
 repeat-block fast paths, phase folding) in `compile` and `dag`; QEC circuits,
 detector error models, an exact circuit-distance solver and a BP+OSD decoder in
-`qec`; and the cost-model planner in `planner` and `mps_cost`.
+`qec`; and the cost-model planner in `planner` and `engines::mps_cost`.
+
+## Architecture
+
+```
+src/
+  lib.rs            crate root: re-exports Circuit, Gate, Simulator and the main engine types
+  circuit.rs gate.rs noise.rs algorithms.rs       circuit IR, gate set, noise channels, textbook circuits
+  io/               qasm (OpenQASM 2.0), stim (.stim import/export)
+  engines/          exact simulators: statevector, blocked (+ dense_fusion), ooc, metal_sv,
+                    sparse, stabilizer/, pauli_path, pauli_frame, adaptive, stab_rank,
+                    mps (+ mps_cost), hsf, spd, monitored/
+  compile/ dag.rs graph/                          circuit passes, DAG IR, compile-once graph compiler
+  planner.rs pipeline.rs simulability.rs magic_atlas/   engine choice and the single entry point
+  shor/             gate-level Shor: arith, ripple, window, superopt, mbu, ge, sliced, fused, noisy
+  qec/ ft/ chem.rs  error correction, fault-tolerant Shor, chemistry workloads
+  bench/            timing harnesses behind `qsim bench` / `qsim adaptive`
+  main.rs           the `qsim` CLI
+python/             PyO3 bindings (`qsimlab`), built with maturin
+tests/              integration tests; tests/audit_common is the independent reference simulator
+```
+
+Engines live under `qsim_lab::engines::*`. The older flat paths
+(`qsim_lab::statevector`, `qsim_lab::shor_ge`, `qsim_lab::qasm`, ...) remain as
+hidden re-exports, so existing code keeps compiling.
 
 ## Building and running
 
