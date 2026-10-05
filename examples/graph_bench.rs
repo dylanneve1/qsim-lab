@@ -662,6 +662,53 @@ fn partition_bench(na: usize, nb: usize, da: usize, db: usize, cuts: usize, dead
     }
 }
 
+/// How much of each family a k-qubit dense-fusion cost rule would fuse:
+/// blocks of at most k qubits (the dedup blocking = greedy fusion
+/// grouping) that hold at least 2^k dense single-qubit gates (the rule of
+/// `BlockConfig::dense_min_ops`, from the measured kernel cost: a dense
+/// k-qubit pass costs about as much as 2^k single-qubit passes).
+fn fusable_bench() {
+    use qsim_lab::graph::dedup::analyse;
+    let dense1 = |op: &POp| match op {
+        POp::Rx(..) | POp::Ry(..) | POp::U(..) => true,
+        POp::Fixed(g) => {
+            g.arity() == 1
+                && g.diagonal_1q().is_none()
+                && !matches!(g, Gate::X(_) | Gate::Y(_) | Gate::I(_))
+        }
+        _ => false,
+    };
+    for fam in [
+        "trotter",
+        "qaoa",
+        "hea",
+        "pauli",
+        "adder",
+        "window",
+        "qft",
+        "brickwork",
+    ] {
+        let (pc, _) = dedup_family(fam);
+        let mut row = format!("{fam:9}");
+        for k in [2usize, 3, 4, 5] {
+            let d = analyse(&pc, k);
+            let (mut blocks, mut ops) = (0, 0);
+            for b in &d.blocks {
+                let m = b.ops.iter().filter(|&&i| dense1(&pc.ops[i])).count();
+                if b.qubits.len() == k && m >= 1 << k {
+                    blocks += 1;
+                    ops += b.ops.len();
+                }
+            }
+            row += &format!(
+                " | k={k}: {blocks} blocks, {:.1}% of ops",
+                100.0 * ops as f64 / d.total_ops.max(1) as f64
+            );
+        }
+        println!("{row}");
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let pipe = std::env::var("PIPE").is_ok();
@@ -708,6 +755,7 @@ fn main() {
             }
         }
         Some("dedup") => dedup_bench(),
+        Some("fusable") => fusable_bench(),
         Some("partition") => {
             let a: Vec<usize> = args[2..7].iter().map(|x| x.parse().unwrap()).collect();
             let dl: f64 = args.get(7).map_or(30.0, |x| x.parse().unwrap());
