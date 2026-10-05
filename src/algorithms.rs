@@ -1,5 +1,6 @@
 //! Textbook circuits and algorithms used by the examples, CLI and tests.
 
+use crate::blocked::{lower_gate, KOp};
 use crate::circuit::Circuit;
 use crate::statevector::{Real, StateVector};
 use rand::Rng;
@@ -98,8 +99,18 @@ pub fn qft_into(c: &mut Circuit, qs: &[usize], inverse: bool) {
 /// before measurement.
 pub fn grover<T: Real, R: Rng + ?Sized>(n: usize, marked: usize, rng: &mut R) -> (usize, f64) {
     assert!(n >= 2 && marked < (1 << n));
-    let all: Vec<usize> = (0..n).collect();
     let iterations = ((PI / 4.0) * ((1u64 << n) as f64).sqrt()).floor() as usize;
+    let s = grover_state::<T>(n, marked, iterations);
+    let p = s.amplitude(marked).norm_sqr();
+    let found = s.sample(1, rng)[0];
+    (found, p)
+}
+
+/// The state after the initial Hadamards and `iterations` Grover
+/// iterations (oracle marking `marked`, then the diffuser), applied gate by
+/// gate with the multi-controlled Z as one diagonal op.
+pub fn grover_state<T: Real>(n: usize, marked: usize, iterations: usize) -> StateVector<T> {
+    let all: Vec<usize> = (0..n).collect();
     let mut s = StateVector::<T>::new(n);
     let had = |s: &mut StateVector<T>| {
         for q in 0..n {
@@ -126,9 +137,44 @@ pub fn grover<T: Real, R: Rng + ?Sized>(n: usize, marked: usize, rng: &mut R) ->
         flip_zeros(&mut s, 0);
         had(&mut s);
     }
-    let p = s.amplitude(marked).norm_sqr();
-    let found = s.sample(1, rng)[0];
-    (found, p)
+    s
+}
+
+/// [`grover_state`] as executor IR for the cache-blocked executor
+/// (`StateVector::apply_kops_blocked`), op for op: the multi-controlled Z
+/// on all `n` qubits is a single diagonal [`KOp::Phase`] term.
+pub fn grover_kops(n: usize, marked: usize, iterations: usize) -> Vec<KOp> {
+    let all = (1usize << n) - 1;
+    let mut ops: Vec<KOp> = Vec::new();
+    let mcz = KOp::Phase {
+        mask: all,
+        pat: all,
+        f: num_complex::Complex64::new(-1.0, 0.0),
+    };
+    let had = |ops: &mut Vec<KOp>| {
+        for q in 0..n {
+            lower_gate(&crate::Gate::H(q), ops);
+        }
+    };
+    let flip_zeros = |ops: &mut Vec<KOp>, pattern: usize| {
+        for q in 0..n {
+            if (pattern >> q) & 1 == 0 {
+                lower_gate(&crate::Gate::X(q), ops);
+            }
+        }
+    };
+    had(&mut ops);
+    for _ in 0..iterations {
+        flip_zeros(&mut ops, marked);
+        ops.push(mcz);
+        flip_zeros(&mut ops, marked);
+        had(&mut ops);
+        flip_zeros(&mut ops, 0);
+        ops.push(mcz);
+        flip_zeros(&mut ops, 0);
+        had(&mut ops);
+    }
+    ops
 }
 
 /// Greatest common divisor.

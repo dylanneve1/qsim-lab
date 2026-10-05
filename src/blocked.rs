@@ -25,6 +25,7 @@
 //!    pass by a product of per-bit factor tables (see [`DiagBlock`]).
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
+use crate::dense_kernels as dk;
 use crate::gate::{mat2_mul, Gate, Mat2};
 use crate::statevector::{Real, StateVector};
 use num_complex::{Complex, Complex64};
@@ -254,7 +255,7 @@ pub struct BlockConfig {
     /// **Off by default: known to give wrong amplitudes.** The audit found a
     /// 10-gate, 5-qubit circuit (`Y(0) CX(0,4) Rx(0,π/4) Z H X S Z T H` on
     /// qubit 0) where enabling it changes amplitudes by 0.26; see
-    /// `tests/blocked.rs::split_phases_regression` and `research/sv.md`.
+    /// `tests/blocked.rs::split_phases_regression` and `research/performance/sv.md`.
     /// Do not enable until that is fixed.
     pub split_phases: bool,
     /// Reorder diagonal terms within a stage (they commute with every op
@@ -274,17 +275,38 @@ pub struct BlockConfig {
     /// commuting neighbours, so the result agrees with the untiled
     /// executor to rounding error.
     pub l1_tile_bytes: usize,
+    /// Dense k-qubit fusion inside each stage (`crate::dense_fusion`):
+    /// groups of gates on at most this many cached qubits are multiplied
+    /// into one dense `2^k x 2^k` unitary applied in one pass, when the cost
+    /// rule (`dense_min_ops`) says it pays. `0`/`1` = off, `2` or `3` =
+    /// maximum width. Default: 2 on aarch64 (M1 Pro: 1.5-2.1x on circuits
+    /// of generic 2-qubit unitaries, bit-identical elsewhere), off on other
+    /// targets (not yet measured on x86_64); `research/performance/dense-fusion.md`.
+    /// Agrees with the unfused executor to rounding error.
+    pub dense_fusion: usize,
+    /// Cost rule of dense fusion: a group on `k` qubits is fused only if it
+    /// contains at least this many uncontrolled 1-qubit gates; `0` (the
+    /// default) = `2^k`; `1` = fuse every group of two or more gates (see
+    /// `dense_fusion::fuse_stage`).
+    pub dense_min_ops: usize,
 }
 
 /// Default block size. 256 KiB on x86_64 (half of a typical 512 KiB L2).
 /// On aarch64 1 MiB: on an Apple M1 Pro (12 MiB L2 per performance
 /// cluster) a sweep of 256 KiB..4 MiB put 1 MiB best or within 7% of best
 /// for every QFT and brickwork case at 22-28 qubits, and never slower than
-/// 256 KiB (1.01-1.31x faster; `research/mac-m1.md`).
+/// 256 KiB (1.01-1.31x faster; `research/performance/mac-m1.md`).
 #[cfg(target_arch = "aarch64")]
 const DEFAULT_BLOCK_BYTES: usize = 1 << 20;
 #[cfg(not(target_arch = "aarch64"))]
 const DEFAULT_BLOCK_BYTES: usize = 256 << 10;
+
+/// Default dense-fusion width: on for aarch64, where it was measured
+/// (`research/performance/dense-fusion.md`); off elsewhere until measured.
+#[cfg(target_arch = "aarch64")]
+const DEFAULT_DENSE_FUSION: usize = 2;
+#[cfg(not(target_arch = "aarch64"))]
+const DEFAULT_DENSE_FUSION: usize = 0;
 
 impl Default for BlockConfig {
     fn default() -> Self {
@@ -297,6 +319,8 @@ impl Default for BlockConfig {
             schedule_diag: true,
             simd: true,
             l1_tile_bytes: 0,
+            dense_fusion: DEFAULT_DENSE_FUSION,
+            dense_min_ops: 0,
         }
     }
 }
@@ -542,6 +566,14 @@ enum LOp<T: Real> {
         b: usize,
     },
     Diag(DiagBlock),
+    /// Dense `2^k x 2^k` unitary (`k` = 2 or 3) on buffer bits `t[..k]`
+    /// (ascending); `re`/`im` row-major.
+    Dense {
+        k: usize,
+        t: [usize; 3],
+        re: Vec<T>,
+        im: Vec<T>,
+    },
 }
 
 /// A block of executor ops compiled for one register size
@@ -788,6 +820,90 @@ fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
     }
 }
 
+/// Like [`prepare`], with dense fusion: fused groups become
+/// [`LOp::Dense`], runs of other ops are prepared as usual.
+fn prepare_fused<T: Real>(st: &Stage, n: usize, max_k: usize, min_ops: usize) -> Prepared<T> {
+    use crate::dense_fusion::{fuse_stage, FusedOp};
+    let mut pos = vec![None; n];
+    let mut inner_mask = 0usize;
+    for (j, &q) in st.inner.iter().enumerate() {
+        pos[q] = Some(j);
+        inner_mask |= 1 << q;
+    }
+    let fused = fuse_stage(&st.ops, n, inner_mask, max_k, min_ops);
+    if !fused.iter().any(|f| matches!(f, FusedOp::Dense(_))) {
+        // Nothing fused: keep the original order (rejected groups come out
+        // commuted, which would only change rounding and diagonal grouping).
+        return prepare::<T>(st, n);
+    }
+    let mut ops = Vec::new();
+    let mut run: Vec<KOp> = Vec::new();
+    let flush = |run: &mut Vec<KOp>, ops: &mut Vec<LOp<T>>| {
+        if !run.is_empty() {
+            let st = Stage {
+                inner: st.inner.clone(),
+                ops: std::mem::take(run),
+            };
+            ops.extend(prepare::<T>(&st, n).ops);
+        }
+    };
+    for f in fused {
+        match f {
+            FusedOp::Plain(op) => run.push(op),
+            FusedOp::Dense(d) => {
+                flush(&mut run, &mut ops);
+                let k = d.qs.len();
+                let mut t = [0usize; 3];
+                for (j, &q) in d.qs.iter().enumerate() {
+                    // `inner` is ascending, so buffer bits stay ascending
+                    t[j] = pos[q].expect("dense target is inner");
+                }
+                ops.push(LOp::Dense {
+                    k,
+                    t,
+                    re: d.mat.iter().map(|z| T::from_f64(z.re)).collect(),
+                    im: d.mat.iter().map(|z| T::from_f64(z.im)).collect(),
+                });
+            }
+        }
+    }
+    flush(&mut run, &mut ops);
+    Prepared {
+        l: st.inner.len(),
+        inner_mask,
+        ops,
+        tile: None,
+    }
+}
+
+/// Prepares one stage with every per-stage option of `cfg`: diagonal
+/// scheduling, dense fusion and nested L1 tiling.
+fn prepare_stage<T: Real>(st: &Stage, n: usize, cfg: &BlockConfig) -> Prepared<T> {
+    let scheduled;
+    let st = if cfg.schedule_diag {
+        scheduled = Stage {
+            inner: st.inner.clone(),
+            ops: schedule_diag(&st.ops),
+        };
+        &scheduled
+    } else {
+        st
+    };
+    let mut p = if cfg.dense_fusion >= 2 {
+        prepare_fused::<T>(st, n, cfg.dense_fusion.min(3), cfg.dense_min_ops)
+    } else {
+        prepare::<T>(st, n)
+    };
+    let k = cfg.tile_bits(p.l, std::mem::size_of::<Complex<T>>());
+    if k > 0 {
+        p.tile = Some(TilePlan {
+            k,
+            segs: tile_segments(&p.ops, k),
+        });
+    }
+    p
+}
+
 // ----- nested L1 tiling -----------------------------------------------------
 
 /// `(non-diagonal target bits, all buffer bits involved)` of an op.
@@ -807,6 +923,10 @@ fn lop_masks<T: Real>(op: &LOp<T>) -> (usize, usize) {
             }
             (0, sup)
         }
+        LOp::Dense { k, t, .. } => {
+            let m = t[..*k].iter().map(|&b| 1usize << b).sum();
+            (m, m)
+        }
     }
 }
 
@@ -818,7 +938,7 @@ fn tile_local<T: Real>(op: &LOp<T>, k: usize) -> bool {
     match op {
         LOp::U1 { t, .. } => (1usize << t) < lim,
         LOp::Swap { b, .. } => (1usize << b) < lim,
-        LOp::Diag(_) => lop_masks(op).1 < lim,
+        LOp::Diag(_) | LOp::Dense { .. } => lop_masks(op).1 < lim,
     }
 }
 
@@ -1365,7 +1485,7 @@ pub fn simd_available() -> bool {
 /// Optional per-kernel time accounting (env `QSIM_PROF`), for profiling.
 mod prof {
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-    pub const NAMES: [&str; 8] = [
+    pub const NAMES: [&str; 9] = [
         "u1 x",
         "u1 real",
         "u1 complex",
@@ -1374,9 +1494,10 @@ mod prof {
         "diag",
         "load",
         "store",
+        "dense",
     ];
     pub static ON: AtomicBool = AtomicBool::new(false);
-    pub static NS: [AtomicU64; 8] = [const { AtomicU64::new(0) }; 8];
+    pub static NS: [AtomicU64; 9] = [const { AtomicU64::new(0) }; 9];
     #[inline]
     pub fn on() -> bool {
         ON.load(Ordering::Relaxed)
@@ -1423,6 +1544,10 @@ fn apply_lop<T: Real, const F: bool>(
                 apply_diag_group::<T, F>(v, l, g, base, sc);
             }
         }
+        LOp::Dense { k, t, re, im } => match k {
+            2 => dk::apply_dense::<T, F, 2, 4>(v.re, v.im, l, [t[0], t[1]], re, im),
+            _ => dk::apply_dense::<T, F, 3, 8>(v.re, v.im, l, [t[0], t[1], t[2]], re, im),
+        },
     }
 }
 
@@ -1514,6 +1639,7 @@ fn run_ops_prof<T: Real, const F: bool>(
             }
             LOp::Swap { .. } => 4,
             LOp::Diag(_) => 5,
+            LOp::Dense { .. } => 8,
         };
         prof::add(k, t0);
     }
@@ -1701,30 +1827,59 @@ pub fn tile_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> TileStat
     let mut out = TileStats::default();
     for st in plan_stages(ops, n, l, cfg.slots) {
         out.stages += 1;
-        let p = if cfg.schedule_diag {
-            prepare::<T>(
-                &Stage {
-                    inner: st.inner.clone(),
-                    ops: schedule_diag(&st.ops),
-                },
-                n,
-            )
-        } else {
-            prepare::<T>(&st, n)
-        };
-        let k = cfg.tile_bits(p.l, elem);
-        out.tile_bits = k;
-        if k == 0 {
+        let p = prepare_stage::<T>(&st, n, cfg);
+        let Some(tp) = &p.tile else {
             out.full_ops += p.ops.len();
             continue;
-        }
-        for sg in tile_segments(&p.ops, k) {
+        };
+        out.tile_bits = tp.k;
+        for sg in &tp.segs {
             match sg {
                 Seg::Tile(r) => {
                     out.runs += 1;
                     out.tiled_ops += r.len();
                 }
                 Seg::Full(_) => out.full_ops += 1,
+            }
+        }
+    }
+    out
+}
+
+/// What dense fusion does to a gate sequence (see [`fusion_stats`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FusionStats {
+    /// Number of stages.
+    pub stages: usize,
+    /// Block-level ops executed (one pass over the block each; a diagonal
+    /// block counts once).
+    pub passes: usize,
+    /// Of which dense 2-qubit and 3-qubit ops.
+    pub dense2: usize,
+    pub dense3: usize,
+}
+
+/// Plans `ops` exactly as [`StateVector::apply_kops_blocked`] does and
+/// counts passes and dense ops per stage.
+pub fn fusion_stats<T: Real>(ops: &[KOp], n: usize, cfg: &BlockConfig) -> FusionStats {
+    let fused;
+    let ops = if cfg.fuse_1q {
+        fused = fuse_1q(ops, n, cfg.split_phases);
+        &fused[..]
+    } else {
+        ops
+    };
+    let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
+    let mut out = FusionStats::default();
+    for st in plan_stages(ops, n, l, cfg.slots) {
+        out.stages += 1;
+        let p = prepare_stage::<T>(&st, n, cfg);
+        out.passes += p.ops.len();
+        for o in &p.ops {
+            match o {
+                LOp::Dense { k: 2, .. } => out.dense2 += 1,
+                LOp::Dense { .. } => out.dense3 += 1,
+                _ => {}
             }
         }
     }
@@ -1753,24 +1908,7 @@ impl<T: Real> StateVector<T> {
         let amps = self.amplitudes_mut();
         for st in &stages {
             let t0 = std::time::Instant::now();
-            let mut p = if cfg.schedule_diag {
-                prepare::<T>(
-                    &Stage {
-                        inner: st.inner.clone(),
-                        ops: schedule_diag(&st.ops),
-                    },
-                    n,
-                )
-            } else {
-                prepare::<T>(st, n)
-            };
-            let k = cfg.tile_bits(p.l, std::mem::size_of::<Complex<T>>());
-            if k > 0 {
-                p.tile = Some(TilePlan {
-                    k,
-                    segs: tile_segments(&p.ops, k),
-                });
-            }
+            let p = prepare_stage::<T>(st, n, cfg);
             let t1 = std::time::Instant::now();
             run_stage(amps, n, &p, simd);
             if trace {
@@ -1826,19 +1964,7 @@ impl<T: Real> StateVector<T> {
         let l = cfg.block_bits(n, std::mem::size_of::<Complex<T>>());
         let stages = plan_stages(ops, n, l, cfg.slots)
             .into_iter()
-            .map(|st| {
-                if cfg.schedule_diag {
-                    prepare::<T>(
-                        &Stage {
-                            inner: st.inner.clone(),
-                            ops: schedule_diag(&st.ops),
-                        },
-                        n,
-                    )
-                } else {
-                    prepare::<T>(&st, n)
-                }
-            })
+            .map(|st| prepare_stage::<T>(&st, n, cfg))
             .collect();
         CompiledKOps {
             n,
@@ -1926,19 +2052,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
         let stages = plan_stages(ops, c, l, cfg.slots);
         let prepared = stages
             .into_iter()
-            .map(|st| {
-                if cfg.schedule_diag {
-                    prepare::<T>(
-                        &Stage {
-                            inner: st.inner.clone(),
-                            ops: schedule_diag(&st.ops),
-                        },
-                        c,
-                    )
-                } else {
-                    prepare::<T>(&st, c)
-                }
-            })
+            .map(|st| prepare_stage::<T>(&st, c, cfg))
             .collect();
         BlockedChunkExecutor {
             c,

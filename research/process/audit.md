@@ -649,6 +649,9 @@ algorithm (graph-like Clifford simplification + phase teleportation, PyZX
 salvageable beyond the idea: the pivot rule appears to omit the π on common
 neighbours and the tracker/fusion bookkeeping is unverified. A future
 attempt should start from `compile::phasefold` and this harness.
+The branch was deleted from GitHub on 4 Oct 2026 without merging any code;
+it survives as `archive/exp/zx` (ed45cc6) in the stale-branches bundle
+(`research/process/ARCHIVE.md`).
 
 ### Integration — exp/r4-integrated
 main fb30f56 + exp/repeat-r4 + exp/phasepoly-r4: merges without conflicts
