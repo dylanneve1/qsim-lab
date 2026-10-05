@@ -1,0 +1,198 @@
+# Code discovery 2: weight-6 two-block codes over every group of order ≤ 150, and coset codes
+
+Branch `exp/qldpc-x` (base `main` 6b21728), 5 October 2026. Machine: the shared 16-vCPU Xeon (Emerald
+Rapids) box; searches ran with at most 4 worker threads under `nice -n 15` while other users kept the
+1-minute load at 15–50, so no timing here is a benchmark.
+
+- Code: `src/qec/group_algebra.rs` (finite groups from multiplication tables, two-block group-algebra
+  codes over any group, coset codes, enumeration up to equivalence, exact distance with automorphism
+  roots); `src/qec/bb_circuit.rs` (the depth-7 syndrome circuits now take any group through the
+  `TwoBlockLayout` trait); `examples/group_codes.rs` (`search`, `csearch`, `params`, `cparams`,
+  `cdist`, `schedsearch`, `ler`).
+- Tests: `tests/qec/group_codes.rs`.
+- Data and scripts: [`research/data/code-discovery-2/`](../data/code-discovery-2/).
+- Literature: [`literature.md`](../data/code-discovery/literature.md) now has a 2026-10-05
+  supplement (489 rows from 17 more papers, non-abelian and coset two-block codes included).
+
+**Headline (draft; search still running).**
+
+- An exhaustive search of weight-6 two-block group-algebra codes over **every group of order ≤ 150**
+  that the first study did not cover (1000 groups: all non-abelian ones and the abelian ones of rank
+  ≥ 3) finds codes beyond the published frontier, including the 2026 non-abelian and coset codes:
+  - **[[288,16,16]]**, k·d²/n = **14.22**, over SmallGroup(144,167) = Z6 × (C3 ⋊ D8) (and three other
+    groups of order 144). The best published weight-6 code with n ≤ 288 in our tables is
+    [[254,14,16]] (14.11); [[288,16,16]] also strictly dominates the published [[288,16,12]] codes.
+  - **[[192,12,14]]**, k·d²/n = **12.25**, over SmallGroup(96,17) = C3 ⋊ (Q8 ⋊ C4). The best published
+    weight-6 value with n ≤ 192 is the gross code's 12.0; it also dominates the 2026 [[216,12,14]].
+  - New Pareto points that do not raise k·d²/n: [[192,16,12]], [[200,16,12]] (over D10 × D10) and
+    [[224,18,12]] (dominating the published [[294,18,10]] and [[252,14,12]]).
+- Every claimed code is certified twice: the exact symmetry-rooted branch and bound in Rust (both CSS
+  sectors), and an independent C program (`mwlogical.c`, all roots, no symmetry) that proves no
+  nontrivial logical of weight < d exists in either sector, with k and weight-d witnesses checked by an
+  independent Python script. For [[288,16,16]] the C search visits 3.7·10⁸ / 3.8·10⁸ nodes (41 s /
+  46 s) per sector.
+
+---
+
+## 1. Why non-abelian groups, and what changed in the literature
+
+The first study ([code-discovery.md](code-discovery.md)) searched every weight-6 two-block code over
+every abelian group of rank ≤ 2 with n ≤ 300 and found nothing above the published k·d²/n frontier.
+Three directions were left open: non-abelian groups, rank-3 abelian groups, and higher weights.
+
+The literature check for this study (supplement in `literature.md`) found that 2026 papers have
+started to use exactly the first two:
+
+| code | family | source | k·d²/n |
+|---|---|---|---|
+| [[224,12,16]] | coset code, G = C7 × ((C4 × C4) ⋊ C2) (order 224), H = C2 not normal | Aydin, Tamo & Barg, arXiv:2606.17268 | 13.71 |
+| [[280,12,16]] | two-block group-algebra (2BGA) code over C14 × D10 (order 140) | same | 10.97 |
+| [[168,16,10]] | 2BGA over C14 × S3 (order 84) | same | 9.52 |
+| [[216,12,14]] | 2BGA over Z2 × Z2 × ((Z3 × Z3) ⋊ Z3) or Z6 × Z6 × Z3 (order 108) | Hirasaki & Lee, arXiv:2607.28621 (polynomials not printed) | 10.89 |
+| [[96,8,10]] | coset code, G of order 384, H = C8 | Aydin, Tamo & Barg | 8.33 |
+| [[336,12,20]] | 2BGA over a quotient of Z84 ⋊ Z4 (order 168), n > 300 | Qian & Li, arXiv:2608.08996 | 14.29 |
+
+So the published weight-6 frontier now contains non-abelian codes, and "new" has to be judged against
+it. Lin & Pryadko's 2BGA paper (arXiv:2306.16400), the obvious earlier source, turned out to have no
+weight-6 table (all three of its tables are weight 8).
+
+**Reproduction of three of these codes.** The cover codes of Aydin, Tamo & Barg are given as indices
+into GAP's `Elements(G)`; `atb_codes.g` rebuilds them in our numbering and `group_codes params`
+computes them exactly:
+
+| code | group | k | d_Z / d_X (exact) | time | independent check (`verify_code.py`) |
+|---|---|---|---|---|---|
+| [[168,16,10]] | SmallGroup(84,13) = C14 × S3 | 16 | 10 / 10 | 0.36 s | no logical of weight ≤ 9 in either sector (325 k nodes each, 4.4 s) |
+| [[280,12,16]] | SmallGroup(140,9) = C14 × D10 | 12 | 16 / 16 | 6.8 M nodes | — |
+| [[112,12,8]] | SmallGroup(56,8) = C28 × C2 | 12 | 8 / 8 | 0.15 s | no logical of weight ≤ 7 (0.2 s) |
+
+The [[112,12,8]] code over C28 × C2 is the same group and parameters as the "connected [[112,12,8]]"
+of the first study, which therefore appeared in print (as a 2-cover of a [[56,12,4]] code) in 2026.
+Their coset codes index GAP 4.14's `LeftCosets`, which GAP 4.15.1 (the version used here) does not
+have, so those rows could not be rebuilt from their indices.
+
+## 2. Codes, equivalences and the enumeration
+
+**Convention** (`group_algebra.rs`). A group `G` of order N is a multiplication table with identity 0.
+For 3-element subsets A, B of G the code has n = 2N qubits in two blocks L, R and
+
+```text
+X-check g:  L{g a : a in A}       R{b g : b in B}
+Z-check h:  L{b^-1 h : b in B}    R{h a^-1 : a in A}
+```
+
+A multiplies from the right and B from the left, so both overlaps of X-check g and Z-check h count the
+solutions of h = b g a and every pair of checks commutes. For abelian G = Z_l × Z_m this is exactly
+the `qec::bicycle` convention (`H_X = [A|B]`, `H_Z = [Bᵀ|Aᵀ]`, test `matches_bicycle_on_abelian_groups`);
+writing elements as their inverses gives Lin & Pryadko's left-A / right-B convention.
+
+**Equivalences.** Each map below is a relabelling of qubits and checks (the proofs are one line each,
+in the module docs), so it preserves [[n,k,d]]:
+
+- two-sided translations of A and of B, *independently*: A → uAw, B → vBt;
+- an automorphism of G applied to both;
+- (A, B) → (B⁻¹, A⁻¹) (sectors kept), and (A, B) → (B, A), (A, B) → (A⁻¹, B⁻¹) (X and Z exchanged).
+
+For non-abelian G the first item is much stronger than in the abelian case: A can be conjugated
+without touching B. A *T-class* is a class of subsets under two-sided translation; its members that
+contain the identity are the sets c(S s⁻¹) (c an inner automorphism, s ∈ S). There are about
+N·|Z(G)|/6 T-classes of 3-subsets, against about N²/6 for an abelian group, so a non-abelian group of
+order 144 has only a few thousand inequivalent weight-6 codes.
+
+**Enumeration** (`Enumeration`): all T-classes, then the orbits of pairs of T-classes under the
+automorphism generators (from GAP), the swap and the inversion, by union-find. The test
+`enumeration_matches_brute_force_orbits` checks, for S3, D4, Z3 ⋊ Z4, Z7 ⋊ Z3, Z6 and Z3 × Z3, that the
+number of orbits equals the number of orbits of *all* pairs of 3-subsets under the generators of the
+equivalence group (an independent union-find over up to 1.8 M pairs) and that [[n,k,d]] is constant on
+random pairs of one orbit; `equivalences_preserve_parameters` applies random equivalences to random
+codes and checks (k, d_Z, d_X) transform as claimed.
+
+**Which groups.** GAP 4.15.1 `SmallGroups` (`export_groups.g`): every group of order 6 ≤ N ≤ 150 that
+is
+- not a 2-group: for a 2-group F₂[G] is local, so an odd-weight element is a unit, H_X and H_Z have
+  full rank N and k = 0;
+- not abelian of rank ≤ 2 (done in the first study);
+- generated by at most 4 elements (`SmallGeneratingSet`): otherwise ⟨A⟩⟨B⟩ ≠ G and the code is a
+  disjoint union of smaller codes.
+
+That is **1000 groups** (non-abelian ones and abelian ones of rank ≥ 3), 226 of them of order 96 and
+191 of order 144.
+
+**Distance.** k is n − rank H_X − rank H_Z over GF(2) (both ranks computed: for non-abelian G they need
+not be equal a priori). Both CSS distances are computed, d = min(d_Z, d_X). The exact search is the
+connected-cluster branch and bound of `qec::bicycle`. For abelian groups translations act transitively
+on each block and two roots suffice; for non-abelian groups they do not. The code automorphisms used
+are L x → t⁻¹xw, R x → vxu⁻¹ for uAw = A and vBt = B; every candidate is checked against the check
+sets before use, and the search is rooted at one qubit per orbit (each root banning the earlier
+orbits). `symmetric_roots_match_plain_and_brute_force` compares this with the all-roots search and
+with brute force on random non-abelian codes.
+
+**Threshold.** A code is *new* only if no known weight-6 code dominates it. `known_codes.py` collects
+the published weight-6 frontier (the merged table of `literature.md` plus every weight-6 row of the
+two-block sections of its 2026 supplement, taking listed upper bounds at face value), the exact
+abelian frontier of the first study, and every direct sum of up to five of these, and writes
+T(n, k) = max d′ over known [[n′, k′, d′]] with n′ ≤ n and k′ ≥ k. A code [[n, k, d]] is beyond the
+known frontier iff d > T(n, k).
+
+**Classification** (`group_codes search`). For each inequivalent connected class with k > 0 (k ≤ 128):
+a randomized information-set search in both sectors (10 iterations, then 90 more unless a logical of
+weight < T was already found); if it finds a nontrivial logical of weight ≤ T the class is `below`
+(< T) or `le_T` (= T, an upper bound only). Otherwise one exhaustive DFS level at weight T in both
+sectors decides: a logical of weight ≤ T, or none, in which case the class is `new` and its distance is
+computed exactly from T + 1. `undecided` means the DFS hit its node limit (2·10⁸ per level).
+The first 300 groups (orders 6–150, smallest first within each worker) ran with an earlier, slower
+rule that also proved ties exactly (`tie` = exhaustive proof that d = T); its output is kept.
+
+## 3. Coset codes over Z_m × K
+
+Aydin, Tamo & Barg's coset codes generalise 2BGA codes: the qubits and checks are the cosets of a
+subgroup H (non-normal, otherwise the code is the 2BGA code of G/H), A ⊂ G acts on one side and
+B ⊂ N_G(H) on the other. In this module's convention (`CosetCode`; right cosets Hx):
+
+```text
+X-check Hg:  L{H g a}       R{H b g}
+Z-check Hh:  L{H b^-1 h}    R{H h a^-1}
+```
+
+Both overlaps count the pairs with H b g a = H h, so the checks commute (b normalises H, so left
+multiplication by b is well defined on right cosets). The anti-isomorphism x → x⁻¹ maps their
+left-coset convention onto this one with the same A and B; checks with H = {1} reproduce `GroupCode`
+and checks with H normal reproduce the 2BGA code of G/H (`tests/qec/group_codes.rs::coset_codes`,
+which also compares symmetry-rooted and plain distance searches on random coset codes).
+
+Most of their coset codes have the form G = Z_m × K with H ≤ K, e.g. the [[224,12,16]] code
+(m = 7, K = (C4 × C4) ⋊ C2 of order 32, H = C2) and [[186,10,14]] (m = 31, K = S3). `group_codes
+csearch` enumerates exactly this family: for every non-abelian K of order ≤ 32 (2-groups included,
+since with m odd they can give k > 0), every non-normal cyclic H ≤ K of order ≤ 2 up to Aut(K), and
+every m with N = m·[K:H] in range, all pairs (T-class of A in G, T-class of B in N_G(H)/H), with
+equivalent pairs merged under the automorphisms of Z_m and the automorphism generators of K that fix
+H. Pairs whose checks repeat a coset (weight < 6) are dropped. Classification as in §2.
+
+## 4. Certification of new codes
+
+A class is reported `new` by the search only after an exhaustive DFS proves that neither sector has a
+nontrivial logical of weight ≤ T(n, k); its exact distance is then computed from T + 1. Every code
+claimed below is then checked again by methods that share no code with the search:
+
+1. **Rust exact distance** (`group_codes params`): k by GF(2) rank, d_Z and d_X by the
+   symmetry-rooted branch and bound, with a minimum-weight logical of each type as witness.
+2. **Independent lower bound** (`mwlogical.c`, C, written separately): all 2N qubits as roots in
+   order, earlier roots banned, no symmetry, only the trivial counting bound; it proves that no
+   nontrivial logical of weight ≤ d − 1 exists in each sector. Input files in
+   [`certificates/`](../data/code-discovery-2/certificates/) (check supports in plain text, built by
+   the Python script from the GAP table), run log `mwlogical_runs.txt`.
+3. **Independent k and upper bound** (`verify_code.py`, Python): builds H_X, H_Z from the group table,
+   checks that all checks commute, computes k by its own elimination, and checks that each Rust
+   witness is in ker H and outside the row space of the other check matrix.
+4. **Group-free reconstruction** (`tests/qec/group_codes.rs`): each code is rebuilt from a faithful
+   permutation representation of its group (degree 10–15, from GAP's
+   `SmallerDegreePermutationRepresentation`) and its [[n,k,d]] recomputed exactly; this checks that the
+   claimed parameters do not depend on our GAP export or element numbering.
+
+| code | group (GAP id) | k (Rust / Python) | d_Z, d_X (Rust, nodes) | C: no logical ≤ d − 1 (nodes per sector) | witnesses (Python) |
+|---|---|---|---|---|---|
+| [[288,16,16]] | SmallGroup(144,167) = Z6 × (C3 ⋊ D8) | 16 / 16 | 16, 16 (1.1·10⁷) | ≤ 15: 3.7·10⁸ / 3.8·10⁸ (41 s / 46 s) | weight 16 / 16, nontrivial |
+| [[192,12,14]] | SmallGroup(96,17) = C3 ⋊ (Q8 ⋊ C4) | 12 / 12 | 14, 14 (1.0·10⁶) | ≤ 13: 2.9·10⁷ / 2.8·10⁷ | 14 / 14 |
+| [[192,16,12]] | SmallGroup(96,12) = C3 ⋊ ((C4 × C4) ⋊ C2) | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 3.0·10⁶ / 2.8·10⁶ | 12 / 12 |
+| [[200,16,12]] | SmallGroup(100,13) = D10 × D10 | 16 / 16 | 12, 12 (1.1·10⁵) | ≤ 11: 2.8·10⁶ / 2.7·10⁶ | 12 / 12 |
+| [[224,18,12]] | SmallGroup(112,20) = C7 × ((C4 × C2) ⋊ C2) | 18 / 18 | 12, 12 (9.8·10⁴) | ≤ 11: 3.5·10⁶ / 3.6·10⁶ | 12 / 12 |
