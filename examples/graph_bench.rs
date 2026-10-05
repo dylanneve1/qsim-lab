@@ -716,9 +716,11 @@ fn fold_bench() {
     use qsim_lab::{shor_ripple, shor_window};
     let wrap = |c: &qsim_lab::Circuit| ParamCircuit::from_circuit(c).unwrap();
     // control qubit prepared by `pre` (X: classical input, H: superposed)
-    let with = |pre: Gate, c: qsim_lab::Circuit| {
+    // and x = 1 (the first multiplication of Shor's algorithm)
+    let with = |pre: Gate, x0: usize, c: qsim_lab::Circuit| {
         let mut p = ParamCircuit::new(c.num_qubits, 0);
         p.gate(pre);
+        p.gate(Gate::X(x0));
         p.ops.extend(wrap(&c).ops);
         p
     };
@@ -741,11 +743,19 @@ fn fold_bench() {
         ),
         (
             "window ctrl=|1>",
-            with(Gate::X(wl.ctrl), shor_window::controlled_ua(&wl, 7, 15)),
+            with(
+                Gate::X(wl.ctrl),
+                wl.x[0],
+                shor_window::controlled_ua(&wl, 7, 15),
+            ),
         ),
         (
             "window ctrl=|+>",
-            with(Gate::H(wl.ctrl), shor_window::controlled_ua(&wl, 7, 15)),
+            with(
+                Gate::H(wl.ctrl),
+                wl.x[0],
+                shor_window::controlled_ua(&wl, 7, 15),
+            ),
         ),
         ("trotter n=16 s=10", trotter(16, 10).0),
         ("qaoa n=16 p=3", qaoa(16, 3).0),
