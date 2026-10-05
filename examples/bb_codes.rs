@@ -6,6 +6,7 @@
 //! bb_codes schedules <l> <m> <A> <B>
 //! bb_codes ler <l> <m> <A> <B> <sched|ibm> <rounds> <p> <shots> <seed> [threads] [osd_order] [x]
 //! bb_codes cdist <l> <m> <A> <B> <sched|ibm> <rounds> [max_w] [node_limit] [x]
+//! bb_codes schedsearch <l> <m> <A> <B> <rounds> <max_w> [node_limit] [stride]
 //! ```
 //! `search` enumerates every inequivalent two-block code over every abelian
 //! group of rank <= 2 and order `N` in `[Nmin, Nmax]` (`N % workers ==
@@ -177,6 +178,101 @@ fn ler(a: &[String]) {
     );
 }
 
+/// Circuit distance of the sector DEM of `m`, using the translation symmetry
+/// of the circuit: mechanisms are grouped into orbits under the group
+/// (detector `r N + h -> r N + (h + g)`), one root per orbit, each root
+/// banning all earlier orbits. Falls back to observable-mechanism roots if
+/// two mechanisms share a detector set. Returns (lower, upper or None, nodes).
+fn circuit_distance(
+    c: &TwoBlockCode,
+    m: &BbMemory,
+    max_w: usize,
+    limit: u64,
+) -> (usize, Option<usize>, u64, usize) {
+    let (_sdet, dm) = sector_dem(m);
+    let nn = c.order();
+    let ncol = dm.cols.len();
+    let mut h = Gf2Mat::zeros(dm.num_detectors, ncol);
+    for (j, col) in dm.cols.iter().enumerate() {
+        for &i in col {
+            h.flip(i as usize, j);
+        }
+    }
+    let masks: Vec<u128> = dm.obs.iter().map(|&o| o as u128).collect();
+    let mut index: HashMap<Vec<u32>, usize> = HashMap::new();
+    let mut unique = true;
+    for (j, col) in dm.cols.iter().enumerate() {
+        if index.insert(col.clone(), j).is_some() {
+            unique = false;
+        }
+    }
+    let shift = |col: &[u32], gi: usize, gj: usize| -> Vec<u32> {
+        let mut v: Vec<u32> = col
+            .iter()
+            .map(|&d| {
+                let (r, hh) = (d as usize / nn, d as usize % nn);
+                let (i, j) = (hh / c.m, hh % c.m);
+                (r * nn + ((i + gi) % c.l) * c.m + (j + gj) % c.m) as u32
+            })
+            .collect();
+        v.sort_unstable();
+        v
+    };
+    let mut orbit = vec![usize::MAX; ncol];
+    let mut reps: Vec<Vec<usize>> = Vec::new();
+    if unique {
+        'outer: for j0 in 0..ncol {
+            if orbit[j0] != usize::MAX {
+                continue;
+            }
+            let id = reps.len();
+            let mut members = vec![j0];
+            orbit[j0] = id;
+            let mut st = vec![j0];
+            while let Some(j) = st.pop() {
+                for (gi, gj) in [(1, 0), (0, 1)] {
+                    match index.get(&shift(&dm.cols[j], gi, gj)) {
+                        Some(&t) => {
+                            if orbit[t] == usize::MAX {
+                                orbit[t] = id;
+                                members.push(t);
+                                st.push(t);
+                            }
+                        }
+                        None => {
+                            unique = false;
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+            reps.push(members);
+        }
+    }
+    let roots: Vec<(usize, Vec<usize>)> = if unique {
+        let mut banned = Vec::new();
+        let mut roots = Vec::new();
+        for mem in &reps {
+            roots.push((mem[0], banned.clone()));
+            banned.extend_from_slice(mem);
+        }
+        roots
+    } else {
+        let obs_mechs: Vec<usize> = (0..ncol).filter(|&j| dm.obs[j] != 0).collect();
+        obs_mechs
+            .iter()
+            .enumerate()
+            .map(|(i, &j)| (j, obs_mechs[..i].to_vec()))
+            .collect()
+    };
+    let (out, nodes) = min_weight_logical(&h, &masks, &roots, 1, max_w, limit);
+    match out {
+        SearchOutcome::Found(w, _) => (w, Some(w), nodes, ncol),
+        SearchOutcome::NoneUpTo(w) => (w + 1, None, nodes, ncol),
+        SearchOutcome::Aborted { proven } => (proven + 1, None, nodes, ncol),
+    }
+}
+
 fn cdist(a: &[String]) {
     let (c, s) = code_and_sched(a);
     let rounds: usize = a[5].parse().unwrap();
@@ -185,139 +281,35 @@ fn cdist(a: &[String]) {
     let x_basis = a.get(8).is_some_and(|s| s == "x");
     let t0 = Instant::now();
     let m = memory(&c, &s, rounds, 0.001, x_basis);
-    let (_sdet, dm) = sector_dem(&m);
-    let mut h = Gf2Mat::zeros(dm.num_detectors, dm.cols.len());
-    for (j, col) in dm.cols.iter().enumerate() {
-        for &i in col {
-            h.flip(i as usize, j);
-        }
-    }
-    let masks: Vec<u128> = dm.obs.iter().map(|&o| o as u128).collect();
-    // roots: observable-flipping mechanisms, each banning the earlier ones
-    let obs_mechs: Vec<usize> = (0..dm.cols.len()).filter(|&j| dm.obs[j] != 0).collect();
-    let roots: Vec<(usize, Vec<usize>)> = obs_mechs
-        .iter()
-        .enumerate()
-        .map(|(i, &j)| (j, obs_mechs[..i].to_vec()))
-        .collect();
-    let (out, nodes) = min_weight_logical(&h, &masks, &roots, 1, max_w, limit);
-    let (lo, up) = match &out {
-        SearchOutcome::Found(w, _) => (*w, *w),
-        SearchOutcome::NoneUpTo(w) => (*w + 1, usize::MAX),
-        SearchOutcome::Aborted { proven } => (*proven + 1, usize::MAX),
-    };
+    let (lo, up, nodes, ncol) = circuit_distance(&c, &m, max_w, limit);
     println!(
-        "{{\"n\":{},\"sched\":\"{}\",\"rounds\":{rounds},\"basis\":\"{}\",\"mechanisms\":{},\"dcirc_lo\":{lo},\"dcirc_up\":{},\"nodes\":{nodes},\"s\":{:.1}}}",
-        c.n(), s.spec(), if x_basis { "x" } else { "z" }, dm.cols.len(),
-        if up == usize::MAX { "null".to_string() } else { up.to_string() },
+        "{{\"n\":{},\"sched\":\"{}\",\"rounds\":{rounds},\"basis\":\"{}\",\"mechanisms\":{ncol},\"dcirc_lo\":{lo},\"dcirc_up\":{},\"nodes\":{nodes},\"s\":{:.1}}}",
+        c.n(), s.spec(), if x_basis { "x" } else { "z" },
+        up.map_or("null".to_string(), |u| u.to_string()),
         t0.elapsed().as_secs_f64()
     );
 }
 
-fn main() {
-    let a: Vec<String> = std::env::args().collect();
-    match a[1].as_str() {
-        "params" => {
-            let l: usize = a[2].parse().unwrap();
-            let m: usize = a[3].parse().unwrap();
-            let c = TwoBlockCode::parse(l, m, &a[4], &a[5]);
-            let mut o = DistanceOpts::default();
-            if let Some(w) = a.get(6) {
-                o.max_weight = w.parse().unwrap();
-            }
-            if let Some(w) = a.get(7) {
-                o.node_limit = w.parse().unwrap();
-            }
-            let t = Instant::now();
-            let k = c.k();
-            let tk = t.elapsed().as_secs_f64();
-            let t = Instant::now();
-            let d = c.distance(&o);
-            println!(
-                "{{\"l\":{l},\"m\":{m},\"A\":\"{}\",\"B\":\"{}\",\"n\":{},\"k\":{k},\"d_lower\":{},\"d_upper\":{},\"nodes\":{},\"k_s\":{tk:.6},\"d_s\":{:.3}}}",
-                a[4], a[5], c.n(), d.lower, d.upper, d.nodes, t.elapsed().as_secs_f64()
-            );
-        }
-        "search" => search(&a[2..]),
-        "schedules" => {
-            let c = TwoBlockCode::parse(a[2].parse().unwrap(), a[3].parse().unwrap(), &a[4], &a[5]);
-            let v = valid_schedules(&c);
-            println!(
-                "{} valid; ibm valid: {}",
-                v.len(),
-                schedule_valid(&c, &IBM_SCHEDULE)
-            );
-            for s in v.iter().take(20) {
-                println!("{}", s.spec());
-            }
-        }
-        "ler" => ler(&a[2..]),
-        "cdist" => cdist(&a[2..]),
-        x => panic!("unknown command {x}"),
-    }
-}
-
-fn search(a: &[String]) {
-    let p = |i: usize| a[i].parse::<usize>().unwrap();
-    let (nmin, nmax, wa, wb, worker, workers) = (p(0), p(1), p(2), p(3), p(4), p(5));
-    let node_limit: u64 = a.get(6).map_or(200_000_000, |s| s.parse().unwrap());
-    let out = std::io::stdout();
-    let mut out = out.lock();
-    for nn in nmin..=nmax {
-        if nn % workers != worker {
-            continue;
-        }
-        for (l, m) in groups_of_order(nn) {
-            let t0 = Instant::now();
-            let g = AbelianGroup::new(l, m);
-            let mut best: HashMap<usize, usize> = HashMap::new();
-            let mut rng = StdRng::seed_from_u64((nn * 1000 + m) as u64);
-            let (mut exact, mut pruned, mut aborted) = (0u64, 0u64, 0u64);
-            let (ranked, found) = enumerate_codes(&g, wa, wb, |c| {
-                let code = c.code();
-                if c.k > 128 {
-                    let (pa, pb) = code.poly_strings();
-                    writeln!(out, "{{\"n\":{},\"k\":{},\"d_lo\":0,\"d_up\":0,\"l\":{l},\"m\":{m},\"wa\":{wa},\"wb\":{wb},\"A\":\"{pa}\",\"B\":\"{pb}\",\"skipped\":true}}", 2 * nn, c.k).unwrap();
-                    return;
-                }
-                let (hx, hz) = (code.hx(), code.hz());
-                let (masks, k) = logical_masks(&hx, &hz);
-                assert_eq!(k, c.k);
-                let (ub, _) = distance_upper_bound(&hx, &masks, 30, &mut rng);
-                let b = best.get(&k).copied().unwrap_or(0);
-                // only a strictly better d can change the frontier
-                let (lo, up) = if ub <= b {
-                    pruned += 1;
-                    (0, ub)
-                } else {
-                    let o = DistanceOpts {
-                        max_weight: ub,
-                        node_limit,
-                        ub_iters: 30,
-                        seed: 7,
-                    };
-                    let r = code_distance(&hx, &hz, Some(nn), &o);
-                    if r.lower == r.upper {
-                        exact += 1;
-                        best.insert(k, b.max(r.lower));
-                    } else {
-                        aborted += 1;
-                    }
-                    (r.lower, r.upper)
-                };
-                let (pa, pb) = code.poly_strings();
-                writeln!(
-                    out,
-                    "{{\"n\":{},\"k\":{k},\"d_lo\":{lo},\"d_up\":{up},\"l\":{l},\"m\":{m},\"wa\":{wa},\"wb\":{wb},\"A\":\"{pa}\",\"B\":\"{pb}\"}}",
-                    2 * nn
-                )
-                .unwrap();
-            });
-            eprintln!(
-                "N={nn} G=Z{l}xZ{m} |Aut|={} ranked={ranked} classes={found} exact={exact} pruned={pruned} aborted={aborted} t={:.1}s",
-                g.auts.len(),
-                t0.elapsed().as_secs_f64()
-            );
-        }
+/// For every valid schedule: circuit distance in both bases (`rounds`
+/// cycles, weights up to `max_w`); prints one JSON line per schedule.
+fn schedsearch(a: &[String]) {
+    let c = TwoBlockCode::parse(a[0].parse().unwrap(), a[1].parse().unwrap(), &a[2], &a[3]);
+    let rounds: usize = a[4].parse().unwrap();
+    let max_w: usize = a[5].parse().unwrap();
+    let limit: u64 = a.get(6).map_or(200_000_000, |s| s.parse().unwrap());
+    let stride: usize = a.get(7).map_or(1, |s| s.parse().unwrap());
+    let all = valid_schedules(&c);
+    eprintln!("{} valid schedules", all.len());
+    for s in all.iter().step_by(stride) {
+        let t0 = Instant::now();
+        let mz = memory(&c, s, rounds, 0.001, false);
+        let (zl, zu, zn, _) = circuit_distance(&c, &mz, max_w, limit);
+        let mx = memory(&c, s, rounds, 0.001, true);
+        let (xl, xu, xn, _) = circuit_distance(&c, &mx, max_w, limit);
+        let f = |u: Option<usize>| u.map_or("null".to_string(), |u| u.to_string());
+        println!(
+            "{{\"sched\":\"{}\",\"z_lo\":{zl},\"z_up\":{},\"x_lo\":{xl},\"x_up\":{},\"nodes\":{},\"s\":{:.1}}}",
+            s.spec(), f(zu), f(xu), zn + xn, t0.elapsed().as_secs_f64()
+        );
     }
 }
