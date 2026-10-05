@@ -163,3 +163,112 @@ class BpOsdCore:
     num_observables: int
     num_mechanisms: int
     def decode_packed(self, syndromes: Any, threads: Optional[int] = ...) -> Tuple[Any, int, int]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.shor (python/src/shor.rs; public wrapper: qsimlab.shor)
+
+class _ShorModule:
+    ORACLES: List[str]
+    def factor(
+        self,
+        n: int,
+        kind: str,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        base: Optional[int] = ...,
+        f32: bool = ...,
+        seed: int = ...,
+        tries: int = ...,
+        budget: int = ...,
+        engine: str = ...,
+        trace: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def resource_counts(
+        self,
+        n: int,
+        kind: str,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        base: Optional[int] = ...,
+        per_round: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def oracle_circuit(
+        self, n: int, a: int, kind: str, window: Optional[int] = ...
+    ) -> Dict[str, Any]: ...
+    def shor_circuit(self, n: int, a: int, kind: str, window: Optional[int] = ...) -> CircuitCore: ...
+    def exact_distribution(
+        self,
+        n: int,
+        a: int,
+        kind: str,
+        window: Optional[int] = ...,
+        prune: float = ...,
+        threads: Optional[int] = ...,
+    ) -> Any: ...
+    def predict_support(
+        self,
+        n: int,
+        a: int,
+        kind: str = ...,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        f32: bool = ...,
+    ) -> Dict[str, Any]: ...
+    def number_theory(
+        self, n: int, a: Optional[int]
+    ) -> Tuple[Optional[int], int, List[Tuple[int, int]]]: ...
+    def noisy_trajectories(
+        self,
+        n: int,
+        a: int,
+        p: float,
+        noise: str = ...,
+        trajectories: int = ...,
+        kind: str = ...,
+        window: Optional[int] = ...,
+        seed: int = ...,
+        faults: Optional[int] = ...,
+        cap: int = ...,
+        reset_ancillas: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.analysis (python/src/analysis.rs; public wrapper: qsimlab.analysis)
+
+class _AnalysisModule:
+    def magic_profile(
+        self,
+        circuit: CircuitCore,
+        checkpoints: int = ...,
+        entanglement: bool = ...,
+        cut: Optional[int] = ...,
+        support: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def state_magic(self, state: Any, threads: Optional[int] = ...) -> Tuple[float, float]: ...
+    def branching_rank(
+        self,
+        circuit: CircuitCore,
+        max_terms: int = ...,
+        pair_merge: int = ...,
+        state: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def features(
+        self, circuit: CircuitCore, hsf: bool = ..., threads: Optional[int] = ...
+    ) -> Dict[str, Any]: ...
+    def monitored(
+        self,
+        circuit: CircuitCore,
+        seed: int = ...,
+        exact: bool = ...,
+        max_d: int = ...,
+        cuts: Optional[Sequence[Sequence[int]]] = ...,
+        entropy_every: int = ...,
+        max_cost_log2: int = ...,
+        state: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
