@@ -13,6 +13,10 @@
 //! tn_bench json NETWORK.json [same flags]
 //!     a network written by research/data/tn/cotengra_on_network.py (structure;
 //!     entries from the .arrays.json sidecar when present, else random)
+//! tn_bench svcal FAMILY N DEPTH SEED [--reps R]
+//!     state-vector evolution time here vs the planner's M1 model (machine ratio)
+//! tn_bench plan FAMILY N DEPTH SEED [--mem-gb G]
+//!     planner::amplitudes of one basis state with and without Engine::Tn
 //! tn_bench calib FAMILY N DEPTH SEED [same flags]
 //!     one random instance (FAMILY = brick | sycpat | qaoa | rqc): path cost and
 //!     contraction time for the planner's cost model
@@ -131,11 +135,12 @@ fn options(a: &Args) -> TnOptions {
             max_secs: a.num("--secs", 60.0),
             target_log2_size: a.get("--target").map(|s| s.parse().unwrap()),
             reconf: !a.has("--no-reconf"),
-            reconf_k: a.num("--reconf-k", 8),
+            reconf_k: a.num("--reconf-k", 10),
             greedy: !a.has("--bisect"),
             bisect: !a.has("--greedy"),
             seed: a.num("--seed", 0x7e55_0001u64),
-            refine_top: a.num("--refine", 4),
+            refine_top: a.num("--refine", 8),
+            polish_k: a.num("--polish", 12),
         },
         threads: a.num("--threads", 0),
         strategy: match a.get("--strategy").as_deref() {
@@ -450,9 +455,26 @@ fn ising(a: &Args) {
     if let Some(s) = a.get("--steps") {
         steps = s.parse().unwrap();
     }
-    let mut model = KickedIsing::new(lat, steps, theta);
-    model.final_rx = final_rx;
-    let c = model.to_circuit();
+    // RZZ(-pi/2) as Phase(-pi/2) Phase(-pi/2) CPhase(pi): the same circuit
+    // as KickedIsing::to_circuit up to a global phase (which cancels in
+    // <O>), written with diagonal gates so the light cone can drop the ones
+    // that commute with a Z-type observable
+    let model = KickedIsing::new(lat, steps, theta);
+    let n = model.lattice.n;
+    let mut c = Circuit::new(n);
+    for _ in 0..steps {
+        for q in 0..n {
+            c.rx(q, theta);
+        }
+        for &(x, y) in &model.lattice.edges {
+            c.phase(x, -FRAC_PI_2).phase(y, -FRAC_PI_2).cphase(x, y, PI);
+        }
+    }
+    if final_rx {
+        for q in 0..n {
+            c.rx(q, theta);
+        }
+    }
     let t0 = Instant::now();
     let mut total = 0.0;
     for (term, w) in &obs.terms {
@@ -485,12 +507,8 @@ fn ising(a: &Args) {
     }
 }
 
-/// Random instances for the cost model.
-fn calib(a: &Args) {
-    let fam = a.0[1].as_str();
-    let n: usize = a.0[2].parse().unwrap();
-    let depth: usize = a.0[3].parse().unwrap();
-    let seed: u64 = a.0[4].parse().unwrap();
+/// One random instance of a calibration family.
+fn build_family(fam: &str, n: usize, depth: usize, seed: u64) -> (Circuit, u128) {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut c = Circuit::new(n);
     match fam {
@@ -583,9 +601,86 @@ fn calib(a: &Args) {
         }
     }
     let x: u128 = rng.random::<u128>() & if n >= 128 { u128::MAX } else { (1u128 << n) - 1 };
+    (c, x)
+}
+
+/// Random instances for the cost model.
+fn calib(a: &Args) {
+    let fam = a.0[1].as_str();
+    let n: usize = a.0[2].parse().unwrap();
+    let depth: usize = a.0[3].parse().unwrap();
+    let seed: u64 = a.0[4].parse().unwrap();
+    let (c, x) = build_family(fam, n, depth, seed);
     let nw = Network::amplitude(&c, &tn::bits_of(x, n), &[]).expect("network");
     let label = format!("{fam}:n={n},d={depth},s={seed}");
     run(&label, nw, a);
+}
+
+/// State-vector evolution time on this machine against the planner's
+/// M1-fitted evolution model (the machine-speed ratio kappa).
+fn svcal(a: &Args) {
+    let fam = a.0[1].as_str();
+    let n: usize = a.0[2].parse().unwrap();
+    let depth: usize = a.0[3].parse().unwrap();
+    let seed: u64 = a.0[4].parse().unwrap();
+    let (c, _) = build_family(fam, n, depth, seed);
+    let m = qsim_lab::planner::CostModel::mac_m1().state[0];
+    let sv_l = (c.num_gates().max(1) as f64).log2() + n as f64;
+    let pred = (m.a + m.b * sv_l).exp2();
+    let reps: usize = a.num("--reps", 3);
+    let mut best = f64::INFINITY;
+    for _ in 0..reps {
+        let t0 = Instant::now();
+        let mut sv = qsim_lab::StateVectorF64::try_new(n).expect("state");
+        sv.apply_circuit_blocked(&c, &qsim_lab::engines::blocked::BlockConfig::default())
+            .expect("evolve");
+        best = best.min(t0.elapsed().as_secs_f64());
+        std::hint::black_box(sv.amplitude(0));
+    }
+    println!(
+        "{{\"stage\":\"svcal\",\"label\":\"{fam}:n={n},d={depth},s={seed}\",\"gates\":{},\"secs\":{best:.5},\"m1_model_secs\":{pred:.5},\"ratio\":{:.4},\"threads\":{},\"load\":\"{}\"}}",
+        c.num_gates(),
+        best / pred,
+        rayon::current_num_threads(),
+        load()
+    );
+}
+
+/// End to end: the planner's amplitude request with and without the TN
+/// candidate, both timed here.
+fn plan_cmd(a: &Args) {
+    let fam = a.0[1].as_str();
+    let n: usize = a.0[2].parse().unwrap();
+    let depth: usize = a.0[3].parse().unwrap();
+    let seed: u64 = a.0[4].parse().unwrap();
+    let (c, x) = build_family(fam, n, depth, seed);
+    let mem_gb: f64 = a.num("--mem-gb", 1.0);
+    for tn_on in [true, false] {
+        qsim_lab::planner::clear_cache();
+        let cfg = qsim_lab::planner::PlannerConfig {
+            tn: tn_on,
+            cache: false,
+            mem_bytes: (mem_gb * (1u64 << 30) as f64) as u128,
+            ..Default::default()
+        };
+        let t0 = Instant::now();
+        let r = qsim_lab::planner::amplitudes(&c, &[x], &cfg);
+        let secs = t0.elapsed().as_secs_f64();
+        match r {
+            Ok(r) => println!(
+                "{{\"stage\":\"plan\",\"label\":\"{fam}:n={n},d={depth},s={seed}\",\"tn\":{tn_on},\"engine\":\"{}\",\"secs\":{secs:.5},\"plan_secs\":{:.5},\"aborted\":{},\"value\":[{:.12e},{:.12e}],\"load\":\"{}\"}}",
+                r.engine.name(),
+                r.plan_secs,
+                r.aborted.len(),
+                r.amplitudes[0].re,
+                r.amplitudes[0].im,
+                load()
+            ),
+            Err(e) => println!(
+                "{{\"stage\":\"plan\",\"label\":\"{fam}:n={n},d={depth},s={seed}\",\"tn\":{tn_on},\"error\":\"{e}\",\"secs\":{secs:.5}}}"
+            ),
+        }
+    }
 }
 
 fn main() {
@@ -595,6 +690,8 @@ fn main() {
         Some("ising") => ising(&a),
         Some("calib") => calib(&a),
         Some("json") => json_cmd(&a),
+        Some("svcal") => svcal(&a),
+        Some("plan") => plan_cmd(&a),
         _ => eprintln!("usage: see the module docs of examples/tn_bench.rs"),
     }
 }

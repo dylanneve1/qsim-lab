@@ -738,7 +738,9 @@ impl PHg {
     /// Multilevel bisection with imbalance `eps`.
     fn bisect(&self, eps: f64, rng: &mut StdRng) -> Vec<u8> {
         let total: f64 = self.vw.iter().sum();
-        let maxw = (total * (1.0 + eps) / 2.0).max(total / 2.0 + 1.0);
+        let maxw = (total * (1.0 + eps) / 2.0)
+            .max(total / 2.0 + 1.0)
+            .min((0.95 * total).max(total / 2.0 + 1.0));
         let mut levels: Vec<(PHg, Vec<u32>)> = Vec::new();
         {
             let mut cur: &PHg = self;
@@ -788,8 +790,15 @@ impl RoundTo for f64 {
 /// Bisection hyper-parameters.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BisectParams {
-    /// Allowed imbalance of the two sides (0 = perfectly balanced).
+    /// Allowed imbalance of the two sides at the top level (0 = perfectly
+    /// balanced; each side keeps at least 5 % of the tensors).
     pub imbalance: f64,
+    /// Depth dependence of the imbalance (cotengra's `imbalance_decay`): for
+    /// a sub-network holding a fraction `s` of all tensors the imbalance is
+    /// `s^d · imbalance` for `d ≥ 0`, else `1 − s^(−d) (1 − imbalance)`.
+    pub imbalance_decay: f64,
+    /// Relative noise on the index weights of every partition.
+    pub jitter: f64,
     /// Sub-networks of at most this many tensors are finished greedily.
     pub cutoff: usize,
     /// Greedy parameters for the small sub-networks.
@@ -800,6 +809,8 @@ impl Default for BisectParams {
     fn default() -> Self {
         BisectParams {
             imbalance: 0.2,
+            imbalance_decay: 0.0,
+            jitter: 0.0,
             cutoff: 12,
             greedy: GreedyParams::default(),
         }
@@ -832,11 +843,22 @@ fn bisect_rec(
         let pins = &local[&i];
         if pins.len() >= 2 {
             nets.push(pins.clone());
-            nw.push(hg.log2dim[i as usize]);
+            let j = if p.jitter > 0.0 {
+                1.0 + p.jitter * (rng.random::<f64>() - 0.5)
+            } else {
+                1.0
+            };
+            nw.push(hg.log2dim[i as usize] * j);
         }
     }
     let ph = PHg::new(vec![1.0; leaves.len()], nets, nw);
-    let part = ph.bisect(p.imbalance, rng);
+    let s = leaves.len() as f64 / hg.n_leaves() as f64;
+    let eps = if p.imbalance_decay >= 0.0 {
+        s.powf(p.imbalance_decay) * p.imbalance
+    } else {
+        1.0 - s.powf(-p.imbalance_decay) * (1.0 - p.imbalance.min(1.0))
+    };
+    let part = ph.bisect(eps.clamp(0.001, 0.9), rng);
     let (mut l0, mut l1) = (Vec::new(), Vec::new());
     for (v, &l) in leaves.iter().enumerate() {
         if part[v] == 0 {
@@ -1178,6 +1200,8 @@ pub struct PathOptions {
     pub seed: u64,
     /// Number of best trees to refine.
     pub refine_top: usize,
+    /// Frontier size of a final reconfiguration of the winning tree (0: none).
+    pub polish_k: usize,
 }
 
 impl Default for PathOptions {
@@ -1187,11 +1211,12 @@ impl Default for PathOptions {
             max_secs: 30.0,
             target_log2_size: None,
             reconf: true,
-            reconf_k: 8,
+            reconf_k: 10,
             greedy: true,
             bisect: true,
             seed: 0x7e55_0001,
-            refine_top: 4,
+            refine_top: 8,
+            polish_k: 12,
         }
     }
 }
@@ -1204,6 +1229,8 @@ impl PathOptions {
             trials: 8,
             max_secs: 1.0,
             refine_top: 1,
+            reconf_k: 8,
+            polish_k: 0,
             ..Default::default()
         }
     }
@@ -1266,8 +1293,11 @@ impl TrialParams {
             temperature: rng.random_range(0.0..1.0f64).powi(2),
         };
         let bisect = (method == "bisect").then(|| BisectParams {
-            imbalance: rng.random_range(0.0..0.6f64).powi(2) + 0.01,
-            cutoff: rng.random_range(4..=24),
+            // log-uniform in [0.01, 0.9]
+            imbalance: (rng.random_range(0.01f64.ln()..0.9f64.ln())).exp(),
+            imbalance_decay: rng.random_range(-3.0..3.0),
+            jitter: rng.random_range(0.0..0.5),
+            cutoff: rng.random_range(4..=32),
             greedy: GreedyParams {
                 alpha: rng.random_range(0.0..1.2),
                 temperature: rng.random_range(0.0..0.5f64).powi(2),
@@ -1288,6 +1318,8 @@ impl TrialParams {
         };
         let bisect = self.bisect.map(|b| BisectParams {
             imbalance: j(b.imbalance, 0.005, 0.9),
+            imbalance_decay: j(b.imbalance_decay, -5.0, 5.0),
+            jitter: j(b.jitter, 0.0, 1.0),
             cutoff: ((b.cutoff as f64) * j(1.0, 0.5, 2.0)).round().clamp(2.0, 40.0) as usize,
             greedy: GreedyParams {
                 alpha: j(b.greedy.alpha, 0.0, 2.0),
@@ -1471,6 +1503,19 @@ pub fn search(hg: &Hypergraph, opts: &PathOptions) -> Path {
         .min_by(|a, b| a.0.total_cmp(&b.0))
         .expect("at least one trial")
         .1;
+    if opts.reconf && opts.polish_k > opts.reconf_k {
+        let tc = tree_cost(hg, &best.tree, &best.sliced);
+        let lim = opts.target_log2_size.map(|_| tc.log2_max);
+        reconfigure(hg, &mut best.tree, &best.sliced, opts.polish_k, lim, 2);
+        let tc = tree_cost(hg, &best.tree, &best.sliced);
+        let un = tree_cost(hg, &best.tree, &[]);
+        let l2 = std::f64::consts::LOG10_2;
+        best.stats.log10_flops = un.log2_total * l2;
+        best.stats.log2_max_size = un.log2_max;
+        best.stats.log10_sliced_flops = tc.log10_total();
+        best.stats.log2_sliced_max_size = tc.log2_max;
+        best.stats.overhead = ((tc.log2_total + tc.log2_slices) - un.log2_total).exp2();
+    }
     best.stats.secs = t0.elapsed().as_secs_f64();
     best
 }

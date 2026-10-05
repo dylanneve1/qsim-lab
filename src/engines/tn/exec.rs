@@ -65,6 +65,9 @@ impl Scalar for Complex<f32> {
 
 /// Below this many entries permutations and GEMMs run on the calling thread.
 const PAR_MIN: usize = 1 << 16;
+/// Big-times-rank-2 contractions of at least this many entries use the
+/// single-pass kernels of [`FastPlan`].
+const FAST_MIN: usize = 1 << 10;
 
 /// Copies `dst[j...] = src[base + Σ_j coord_j · sstr_j]` for the row-major
 /// destination of shape `dims`.
@@ -200,6 +203,159 @@ struct PairPlan {
     /// Loop-over-GEMM plan (no permutation); used instead of the fields
     /// above when set.
     lp: Option<LoopPlan>,
+    /// Single-pass kernel for a big tensor times a rank-1/2 tensor; used
+    /// instead of everything above when set.
+    fast: Option<FastPlan>,
+}
+
+/// A big tensor A (layout `la`) times a small tensor B with at most two
+/// dimension-2 indices: one streaming pass over A, no GEMM, no permutation.
+#[derive(Clone, Copy, Debug)]
+enum FastPlan {
+    /// `B[x]`, `x` kept: `out = A · B[x]` (layout unchanged).
+    Diag1 { sx: usize },
+    /// `B[x]`, `x` summed: `out = Σ_x A · B[x]` (axis `x` removed).
+    Reduce1 { sx: usize },
+    /// `B[x, y]`, both kept: `out = A · B[x, y]` (layout unchanged);
+    /// `bx`, `by` are B's strides of `x` and `y`.
+    Diag2 { sx: usize, sy: usize, bx: usize, by: usize },
+    /// `B[x, y]`, `x` summed, `y` kept and in A: axis `x` removed.
+    Reduce2 { sx: usize, sy: usize, bx: usize, by: usize },
+    /// `B[x, y]`, `x` summed, `y` new: `y` replaces `x` in place (a gate).
+    Gate { sx: usize, bx: usize, by: usize },
+    /// `B[x, y]`, `x` kept, `y` new: `y` appended as the fastest axis.
+    Expand { sx: usize, bx: usize, by: usize },
+}
+
+/// Classifies a big-times-small contraction for [`FastPlan`]; returns the
+/// plan and the output layout.
+fn fast_plan(la: &[Ix], lb: &[Ix], keep: &[Ix], dim: &dyn Fn(Ix) -> usize) -> Option<(FastPlan, Vec<Ix>)> {
+    if lb.is_empty() || lb.len() > 2 || lb.iter().any(|&i| dim(i) != 2) {
+        return None;
+    }
+    let dims_a: Vec<usize> = la.iter().map(|&i| dim(i)).collect();
+    let sa = row_major_strides(&dims_a);
+    let pos = |i: Ix| la.iter().position(|&x| x == i);
+    let kept = |i: Ix| keep.contains(&i);
+    let without = |x: Ix| la.iter().copied().filter(|&i| i != x).collect::<Vec<_>>();
+    if lb.len() == 1 {
+        let x = lb[0];
+        let px = pos(x)?;
+        return Some(if kept(x) {
+            (FastPlan::Diag1 { sx: sa[px] }, la.to_vec())
+        } else {
+            (FastPlan::Reduce1 { sx: sa[px] }, without(x))
+        });
+    }
+    // B laid out [u, v]: B[u][v] at 2u + v
+    for (x, y, bx, by) in [(lb[0], lb[1], 2usize, 1usize), (lb[1], lb[0], 1, 2)] {
+        match (pos(x), pos(y)) {
+            (Some(px), Some(py)) => {
+                if kept(x) && kept(y) {
+                    return Some((FastPlan::Diag2 { sx: sa[px], sy: sa[py], bx, by }, la.to_vec()));
+                }
+                if !kept(x) && kept(y) {
+                    return Some((
+                        FastPlan::Reduce2 { sx: sa[px], sy: sa[py], bx, by },
+                        without(x),
+                    ));
+                }
+            }
+            (Some(px), None) => {
+                if kept(x) {
+                    let mut out = la.to_vec();
+                    out.push(y);
+                    return Some((FastPlan::Expand { sx: sa[px], bx, by }, out));
+                }
+                let out = la.iter().map(|&i| if i == x { y } else { i }).collect();
+                return Some((FastPlan::Gate { sx: sa[px], bx, by }, out));
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Runs a [`FastPlan`]: `a` is the big input, `b` the small one.
+fn run_fast<T: Scalar>(f: &FastPlan, a: &[T], b: &[T], out: &mut [T], par: bool) {
+    let threads = rayon::current_num_threads();
+    let len = a.len();
+    // splits [0, n) into chunks aligned to `align` for the closure
+    let chunked = |n: usize, align: usize, out: &mut [T], per: &(dyn Fn(usize, &mut [T]) + Sync)| {
+        if par && n >= PAR_MIN {
+            let c = (n / (4 * threads)).max(align).div_ceil(align) * align;
+            out.par_chunks_mut(c).enumerate().for_each(|(k, o)| per(k * c, o));
+        } else {
+            per(0, out);
+        }
+    };
+    match *f {
+        FastPlan::Diag1 { sx } => {
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let i = st + j;
+                    *z = a[i] * b[(i / sx) & 1];
+                }
+            };
+            chunked(len, 1, out, &per);
+        }
+        FastPlan::Diag2 { sx, sy, bx, by } => {
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let i = st + j;
+                    *z = a[i] * b[((i / sx) & 1) * bx + ((i / sy) & 1) * by];
+                }
+            };
+            chunked(len, 1, out, &per);
+        }
+        FastPlan::Reduce1 { sx } => {
+            // out index j <-> A index with a 0 inserted at x
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let jj = st + j;
+                    let i0 = (jj / sx) * 2 * sx + jj % sx;
+                    *z = a[i0] * b[0] + a[i0 + sx] * b[1];
+                }
+            };
+            chunked(len / 2, 1, out, &per);
+        }
+        FastPlan::Reduce2 { sx, sy, bx, by } => {
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let jj = st + j;
+                    let i0 = (jj / sx) * 2 * sx + jj % sx;
+                    let yv = ((i0 / sy) & 1) * by;
+                    *z = a[i0] * b[yv] + a[i0 + sx] * b[bx + yv];
+                }
+            };
+            chunked(len / 2, 1, out, &per);
+        }
+        FastPlan::Gate { sx, bx, by } => {
+            // out[.. y ..] = Σ_x B[x, y] A[.. x ..]; bxy = B[x, y]
+            let (b00, b10, b01, b11) = (b[0], b[bx], b[by], b[bx + by]);
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let i = st + j;
+                    let y = (i / sx) & 1;
+                    let i0 = i - y * sx;
+                    let (a0, a1) = (a[i0], a[i0 + sx]);
+                    // B[x=0, y] a0 + B[x=1, y] a1
+                    *z = if y == 0 { b00 * a0 + b10 * a1 } else { b01 * a0 + b11 * a1 };
+                }
+            };
+            chunked(len, 1, out, &per);
+        }
+        FastPlan::Expand { sx, bx, by } => {
+            let per = |st: usize, o: &mut [T]| {
+                for (j, z) in o.iter_mut().enumerate() {
+                    let k = st + j;
+                    let (i, y) = (k >> 1, k & 1);
+                    *z = a[i] * b[((i / sx) & 1) * bx + y * by];
+                }
+            };
+            chunked(2 * len, 2, out, &per);
+        }
+    }
 }
 
 /// A contraction as strided GEMM blocks: rows = one run of A's free
@@ -498,6 +654,34 @@ impl ExecPlan {
                 .filter(|p| !b_sum.contains(p))
                 .map(|p| lb[p])
                 .collect();
+            if strategy == PairStrategy::Auto && a_sum.is_empty() && len[a as usize] >= FAST_MIN {
+                if let Some((fp, out)) = fast_plan(&la, &lb, &keep, &dim) {
+                    debug_assert!(same_set(&out, &keep), "fast layout {out:?} vs keep {keep:?}");
+                    len[v as usize] = out.iter().map(|&i| dim(i)).product();
+                    layout[v as usize] = out;
+                    pair[v as usize] = Some(PairPlan {
+                        a,
+                        b,
+                        a_full_dims,
+                        b_full_dims,
+                        a_dims: la.iter().map(|&i| dim(i)).collect(),
+                        b_dims: lb.iter().map(|&i| dim(i)).collect(),
+                        a_sum,
+                        b_sum,
+                        a_perm: None,
+                        b_perm: None,
+                        nbatch: 1,
+                        m: 1,
+                        k: 1,
+                        n: 1,
+                        a_kfirst: false,
+                        b_kfirst: false,
+                        lp: None,
+                        fast: Some(fp),
+                    });
+                    continue;
+                }
+            }
             if strategy != PairStrategy::Permute {
                 let (lp, out) = loop_plan(&la, &lb, &keep, &dim);
                 let work = lp.rows * lp.inner * lp.cols;
@@ -526,6 +710,7 @@ impl ExecPlan {
                         a_kfirst: false,
                         b_kfirst: false,
                         lp: Some(lp),
+                        fast: None,
                     });
                     continue;
                 }
@@ -600,6 +785,7 @@ impl ExecPlan {
                 a_kfirst,
                 b_kfirst,
                 lp: None,
+                fast: None,
             });
         }
         let root = tree.root();
@@ -887,6 +1073,10 @@ impl ExecPlan {
             b_red = sum_out(b, &p.b_full_dims, &p.b_sum);
             &b_red[..]
         };
+        if let Some(f) = &p.fast {
+            run_fast(f, a, b, out, par_perm);
+            return;
+        }
         if let Some(lp) = &p.lp {
             run_loops(lp, a, b, out, par, par_perm);
             return;
