@@ -51,6 +51,8 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | Example | Produces | Notebook |
 |---|---|---|
 | [ge_shor](ge_shor.rs) | Gidney–Ekerå windowing / Ekerå–Håstad / coset runs | [ge-shor.md](../research/shor/ge-shor.md) |
+| [ft_shor](ft_shor.rs) | Fault-tolerant vs unencoded Shor (N = 15) under circuit-level noise | [ft-shor.md](../research/shor/ft-shor.md) |
+| [ft_exrec](ft_exrec.rs) | Per-gadget logical failure rates (1-exRec style), levels 1 and 2 | [ft-shor.md](../research/shor/ft-shor.md) |
 | [mbu_counts](mbu_counts.rs) | Whole-run gate/Toffoli/measurement counts, measurement-based oracles | [mbu-shor.md](../research/shor/mbu-shor.md) |
 | [superopt_counts](superopt_counts.rs) | Oracle gate/Toffoli counts per superoptimisation | [superopt.md](../research/shor/superopt.md) |
 | [shor_noise](shor_noise.rs) | Noisy gate-level Shor trajectories at scale | [shor-noise.md](../research/shor/shor-noise.md) |
@@ -79,4 +81,6 @@ Dump intermediate data so independent (Python) checks can verify a claim.
 |---|---|
 | [audit_dump_shor_rounds](audit_dump_shor_rounds.rs) | [audit.md](../research/process/audit.md) §16 |
 | [audit_dump_states](audit_dump_states.rs) | [audit.md](../research/process/audit.md) §16 |
+| [ft_cleancheck](ft_cleancheck.rs) | [ft-shor.md](../research/shor/ft-shor.md) (clean vs faulty histograms, `data/ft-shor/clean_checks.txt`) |
+| [ft_flagdebug](ft_flagdebug.rs) | [ft-shor.md](../research/shor/ft-shor.md) (first logical fault per run) |
 | [audit_shor_r4](audit_shor_r4.rs) | [shor-r4-audit.md](../research/shor/shor-r4-audit.md) |

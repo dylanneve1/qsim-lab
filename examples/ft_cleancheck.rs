@@ -1,3 +1,6 @@
+//! Clean-vs-faulty outcome histograms of the level-1 fault-tolerant Shor run (N = 15, a = 7)
+//! under raw injection: `ft_cleancheck <p> <runs> <seed>` (research/shor/ft-shor.md,
+//! data in research/data/ft-shor/clean_checks.txt).
 use qsim_lab::ft::core::Noise;
 use qsim_lab::ft::logical::{Checked, Encoded, MagicMode};
 use qsim_lab::ft::machine::FtConfig;

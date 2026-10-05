@@ -19,6 +19,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [mbu-shor.md](shor/mbu-shor.md) | Measurement-based uncomputation in the exact gate-level simulation |
 | [ge-shor.md](shor/ge-shor.md) | Gidney–Ekerå techniques: windowing, Ekerå–Håstad, coset representation |
 | [shor-noise.md](shor/shor-noise.md) | Gate-level Shor under circuit noise, measured at scale |
+| [ft-shor.md](shor/ft-shor.md) | Shor on error-corrected (concatenated Steane) qubits, simulated end to end at the gate level |
 | [shor-r4-audit.md](shor/shor-r4-audit.md) | Independent audit of the round-4 31-bit results |
 
 ## Quantum error correction — [`qec/`](qec/)
@@ -44,6 +45,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [planner.md](simulability/planner.md) | Planner v0, and predicting the cost of exact MPS |
 | [planner-v2.md](simulability/planner-v2.md) | Planner v2: samples, amplitudes, cheaper planning |
 | [adaptive.md](simulability/adaptive.md) | Adaptive representation switching (`src/adaptive.rs`) |
+| [spoof-utility.md](simulability/spoof-utility.md) | Classical (laptop) reproduction of IBM's 127-qubit kicked-Ising utility experiment with sparse Pauli dynamics; 433/1121-qubit lattices |
 
 ## Engine performance — [`performance/`](performance/)
 
@@ -77,6 +79,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [theory-shor.md](theory/theory-shor.md) | Theorems behind the round-4 Shor observations (support law, borrowed magic, noise windows) |
 | [theory-coset.md](theory/theory-coset.md) | Coset-representation error in the Gidney–Ekerå Shor circuit |
 | [theory-rank.md](theory/theory-rank.md) | Low stabilizer rank in algorithm circuits: branching-rank invariant and an exact engine |
+| [stabrank-lower.md](theory/stabrank-lower.md) | Stabilizer-rank lower bounds: state of the art, exact small-n values, a plateau lemma |
 | [theory-colour.md](theory/theory-colour.md) | Single-auxiliary syndrome extraction for the triangular colour code |
 | [transition-theory.md](theory/transition-theory.md) | Why ν_eff ≈ 2.5: the transition as the Clifford MIPT in a noise field |
 
