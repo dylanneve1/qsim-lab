@@ -1,0 +1,16 @@
+# slug: mut-diaglo
+# family: mutant (must be rejected by the gate)
+# idea: diagonal per-bit factor accumulated with `=` instead of `*=` (wrong only when two active terms of one diagonal group hit the same bit)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..c790f3e 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -1248,7 +1248,7 @@ fn apply_diag_group<T: Real, const F: bool>(
+         any = true;
+         match t.bit {
+             None => s *= t.f,
+-            Some((j, v)) => e[j][v as usize] *= t.f,
++            Some((j, v)) => e[j][v as usize] = t.f,
+         }
+     }
+     if !any {

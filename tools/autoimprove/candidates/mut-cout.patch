@@ -1,0 +1,16 @@
+# slug: mut-cout
+# family: mutant (must be rejected by the gate)
+# idea: outer-control test `base & cout == cout` weakened to `!= 0` (wrong only for gates with two or more out-of-block controls, e.g. a Toffoli whose controls are both outer)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..9c03182 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -1413,7 +1413,7 @@ fn apply_lop<T: Real, const F: bool>(
+             cin,
+             cout,
+         } => {
+-            if base & cout == *cout {
++            if base & cout != 0 || *cout == 0 {
+                 apply_u1::<T, F>(v, l, *t, m, *kind, *cin);
+             }
+         }

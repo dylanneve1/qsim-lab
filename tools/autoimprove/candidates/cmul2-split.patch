@@ -1,0 +1,31 @@
+# slug: cmul2-split
+# family: kernel
+# idea: cmul2 as two independent 2-deep FMA chains + add (shorter dependency chain, more ILP)
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..74f5adb 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -981,17 +981,12 @@ fn u1_kernel<T: Real, const F: bool>(
+ #[inline(always)]
+ fn cmul2<T: Real, const F: bool>(m: [T; 4], xr: T, xi: T, yr: T, yi: T) -> (T, T) {
+     let [m0r, m0i, m1r, m1i] = m;
+-    let re = fma::<T, F>(
+-        m0r,
+-        xr,
+-        fma::<T, F>(-m0i, xi, fma::<T, F>(m1r, yr, -(m1i * yi))),
+-    );
+-    let im = fma::<T, F>(
+-        m0r,
+-        xi,
+-        fma::<T, F>(m0i, xr, fma::<T, F>(m1r, yi, m1i * yr)),
+-    );
+-    (re, im)
++    // two independent two-deep chains instead of one four-deep chain
++    let re0 = fma::<T, F>(m0r, xr, -(m0i * xi));
++    let re1 = fma::<T, F>(m1r, yr, -(m1i * yi));
++    let im0 = fma::<T, F>(m0r, xi, m0i * xr);
++    let im1 = fma::<T, F>(m1r, yi, m1i * yr);
++    (re0 + re1, im0 + im1)
+ }
+ 
+ /// Splits `v` into `v[lo..lo+run]` and `v[hi..hi+run]` (`lo + run <= hi`).

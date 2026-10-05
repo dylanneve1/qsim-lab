@@ -1,0 +1,92 @@
+# slug: low-t-chunks
+# family: kernel
+# idea: uncontrolled 1q gates on buffer bits 0/1 via as_chunks_mut::<2|4> fixed arrays (constant-stride interleave the vectoriser can turn into ld2/st2) instead of u1_group8's gather/scatter index maps; profile: low-bit 1q ops cost ~3x a normal sweep
+diff --git a/src/blocked.rs b/src/blocked.rs
+index 4245329..f0b8a9f 100644
+--- a/src/blocked.rs
++++ b/src/blocked.rs
+@@ -1062,43 +1062,41 @@ fn u1_slices<T: Real, const F: bool>(
+     }
+ }
+ 
+-/// Uncontrolled 2x2 gate on target bit `TB < 2`: the pairs lie inside
+-/// aligned groups of 8, handled with fixed index maps so the four pairs of a
+-/// group are computed as one short vector (about 2x faster than walking
+-/// runs of length 1 or 2).
++/// Uncontrolled 2x2 gate on target bit 0 (`CH = 2, S = 1`) or 1
++/// (`CH = 4, S = 2`): the buffer is viewed as fixed-size arrays of `CH`
++/// amplitudes, pairs `(j, j + S)` inside each, so the compiler sees a
++/// constant-stride interleaved access (NEON `ld2`/`st2`-style) instead of
++/// per-group index maps.
+ #[inline(always)]
+-fn u1_group8<T: Real, const F: bool, const TB: usize, const K: u8>(
++fn u1_low<T: Real, const F: bool, const CH: usize, const S: usize, const K: u8>(
+     re: &mut [T],
+     im: &mut [T],
+     m: &[T; 8],
+ ) {
+-    let s = 1usize << TB;
+-    let lo: [usize; 4] = std::array::from_fn(|k| ((k >> TB) << (TB + 1)) | (k & (s - 1)));
+     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
+-    for (gr, gi) in re.chunks_exact_mut(8).zip(im.chunks_exact_mut(8)) {
+-        let xr: [T; 4] = std::array::from_fn(|k| gr[lo[k]]);
+-        let xi: [T; 4] = std::array::from_fn(|k| gi[lo[k]]);
+-        let yr: [T; 4] = std::array::from_fn(|k| gr[lo[k] + s]);
+-        let yi: [T; 4] = std::array::from_fn(|k| gi[lo[k] + s]);
+-        for k in 0..4 {
++    let (r2, _) = re.as_chunks_mut::<CH>();
++    let (i2, _) = im.as_chunks_mut::<CH>();
++    for (gr, gi) in r2.iter_mut().zip(i2.iter_mut()) {
++        for j in 0..S {
++            let (xr, xi, yr, yi) = (gr[j], gi[j], gr[j + S], gi[j + S]);
+             let (ar, ai, br, bi) = match K {
+-                0 => (yr[k], yi[k], xr[k], xi[k]),
++                0 => (yr, yi, xr, xi),
+                 1 => (
+-                    fma::<T, F>(m0r, xr[k], m1r * yr[k]),
+-                    fma::<T, F>(m0r, xi[k], m1r * yi[k]),
+-                    fma::<T, F>(m2r, xr[k], m3r * yr[k]),
+-                    fma::<T, F>(m2r, xi[k], m3r * yi[k]),
++                    fma::<T, F>(m0r, xr, m1r * yr),
++                    fma::<T, F>(m0r, xi, m1r * yi),
++                    fma::<T, F>(m2r, xr, m3r * yr),
++                    fma::<T, F>(m2r, xi, m3r * yi),
+                 ),
+                 _ => {
+-                    let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr[k], xi[k], yr[k], yi[k]);
+-                    let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr[k], xi[k], yr[k], yi[k]);
++                    let (a, b) = cmul2::<T, F>([m0r, m0i, m1r, m1i], xr, xi, yr, yi);
++                    let (c, d) = cmul2::<T, F>([m2r, m2i, m3r, m3i], xr, xi, yr, yi);
+                     (a, b, c, d)
+                 }
+             };
+-            gr[lo[k]] = ar;
+-            gi[lo[k]] = ai;
+-            gr[lo[k] + s] = br;
+-            gi[lo[k] + s] = bi;
++            gr[j] = ar;
++            gi[j] = ai;
++            gr[j + S] = br;
++            gi[j + S] = bi;
+         }
+     }
+ }
+@@ -1117,12 +1115,12 @@ fn apply_u1<T: Real, const F: bool>(
+     let fixed = cin | s;
+     if cin == 0 && t < 2 && l >= 3 {
+         match (t, kind) {
+-            (0, UKind::X) => u1_group8::<T, F, 0, 0>(re, im, m),
+-            (0, UKind::Real) => u1_group8::<T, F, 0, 1>(re, im, m),
+-            (0, UKind::Complex) => u1_group8::<T, F, 0, 2>(re, im, m),
+-            (_, UKind::X) => u1_group8::<T, F, 1, 0>(re, im, m),
+-            (_, UKind::Real) => u1_group8::<T, F, 1, 1>(re, im, m),
+-            (_, UKind::Complex) => u1_group8::<T, F, 1, 2>(re, im, m),
++            (0, UKind::X) => u1_low::<T, F, 2, 1, 0>(re, im, m),
++            (0, UKind::Real) => u1_low::<T, F, 2, 1, 1>(re, im, m),
++            (0, UKind::Complex) => u1_low::<T, F, 2, 1, 2>(re, im, m),
++            (_, UKind::X) => u1_low::<T, F, 4, 2, 0>(re, im, m),
++            (_, UKind::Real) => u1_low::<T, F, 4, 2, 1>(re, im, m),
++            (_, UKind::Complex) => u1_low::<T, F, 4, 2, 2>(re, im, m),
+         }
+         return;
+     }
