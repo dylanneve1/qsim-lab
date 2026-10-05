@@ -189,10 +189,13 @@ fn product(fs: &[Fac], params: &[f64]) -> Mat2 {
 /// Statistics of a compilation.
 #[derive(Clone, Debug, Default)]
 pub struct GraphStats {
+    /// Ops of the input parameterised circuit.
     pub ops_in: usize,
+    /// Ops kept after the observable's light cone and diagonal-suffix pruning.
     pub ops_after_cone: usize,
     /// `(qubits, executor ops, stages, parameter-dependent stages)` per part.
     pub parts: Vec<(usize, usize, usize, usize)>,
+    /// Seconds spent compiling.
     pub compile_secs: f64,
     /// The phase-region rewrite was applied.
     pub rewritten: bool,
@@ -849,10 +852,12 @@ impl CompiledCircuit {
         })
     }
 
+    /// What the compilation did.
     pub fn stats(&self) -> &GraphStats {
         &self.stats
     }
 
+    /// Length of the parameter vector `bind` expects.
     pub fn num_params(&self) -> usize {
         self.num_params
     }

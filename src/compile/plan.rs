@@ -25,13 +25,20 @@ use std::collections::BTreeMap;
 /// Which passes to run (all on by default; switch off for ablations).
 #[derive(Clone, Copy, Debug)]
 pub struct PlanOptions {
+    /// Commutation-aware peephole optimisation (cancellations and merges).
     pub peephole: bool,
     /// Phase folding (merge Z-rotations on equal parities) after the first
     /// peephole. Off by default.
     pub phase_fold: bool,
+    /// Drop gates outside the backward light cone of the qubits whose outcomes are needed.
     pub light_cone: bool,
+    /// Move a trailing permutation (monomial) suffix before terminal measurements
+    ///  into classical post-processing of the sampled bit strings.
     pub suffix: bool,
+    /// Split the circuit into independent components (disjoint qubit sets).
     pub split: bool,
+    /// Absorb each component's leading Clifford prefix with one
+    ///  stabilizer-to-state-vector pass instead of gate-by-gate application.
     pub clifford_prefix: bool,
     /// Turn SWAPs into wire relabelling.
     pub swap_elim: bool,
@@ -58,8 +65,11 @@ pub struct PlanOptions {
 /// `d <= max_active` and `d + margin <= n`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AdaptiveRule {
+    /// Smallest component (qubits) eligible for the compressed state.
     pub min_qubits: usize,
+    /// Required gap between the component size `n` and its active register `d`.
     pub margin: usize,
+    /// Largest active register `d` (qubits) the compressed state may allocate.
     pub max_active: usize,
 }
 
@@ -127,7 +137,9 @@ impl PlanOptions {
 pub enum Backend {
     /// No gates: the component stays in `|0...0>`.
     Idle,
+    /// Stabilizer tableau (Clifford component).
     Tableau,
+    /// Dense state vector.
     StateVector,
     /// Compressed state of a Clifford+T component (see [`AdaptiveRule`]);
     /// terminal sampling and expectation values only.
@@ -150,6 +162,7 @@ pub struct Component {
     pub qubits: Vec<usize>,
     /// The ops on these qubits, relabelled to `0..qubits.len()`.
     pub circuit: Circuit,
+    /// Backend chosen for this component.
     pub backend: Backend,
     /// Local qubits whose final bit is needed (terminal plans).
     pub needed: Vec<usize>,
@@ -158,10 +171,13 @@ pub struct Component {
 /// What the compiler did, for reporting.
 #[derive(Clone, Debug, Default)]
 pub struct CompileStats {
+    /// Gates in the input circuit.
     pub gates_in: usize,
+    /// Gates after the first peephole (and phase folding, when enabled).
     pub gates_after_peephole: usize,
     /// After SWAP elimination, state propagation and a second peephole.
     pub gates_after_state_prop: usize,
+    /// Gates left for component splitting, after the light-cone pass where it applies.
     pub gates_after_light_cone: usize,
     /// Permutation gates moved into classical post-processing.
     pub suffix_gates: usize,
@@ -199,6 +215,7 @@ pub struct SamplingPlan {
     kind: Kind,
     comps: Vec<Component>,
     opts: PlanOptions,
+    /// What the compiler did.
     pub stats: CompileStats,
 }
 
@@ -525,6 +542,7 @@ fn sample_component<T: Real, R: Rng>(
 }
 
 impl SamplingPlan {
+    /// The independent components, in compile order.
     pub fn components(&self) -> &[Component] {
         &self.comps
     }
@@ -869,6 +887,7 @@ pub struct UnitaryPlan {
     pub global_phase: f64,
     comps: Vec<Component>,
     use_prefix: bool,
+    /// What the compiler did.
     pub stats: CompileStats,
 }
 
@@ -932,6 +951,7 @@ pub struct FactoredState<T: Real> {
 }
 
 impl UnitaryPlan {
+    /// The independent components, in compile order.
     pub fn components(&self) -> &[Component] {
         &self.comps
     }
