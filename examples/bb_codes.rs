@@ -384,7 +384,7 @@ fn search(a: &[String]) {
                 let (hx, hz) = (code.hx(), code.hz());
                 let (masks, k) = logical_masks(&hx, &hz);
                 assert_eq!(k, c.k);
-                let (ub, _) = distance_upper_bound(&hx, &masks, 10, &mut rng);
+                let (ub, _) = distance_upper_bound(&hx, &masks, 40, &mut rng);
                 cands.push((k, ub, code));
             });
             // pass 2: most promising first; a class is decided exactly only
@@ -398,6 +398,12 @@ fn search(a: &[String]) {
                 let b = best.get(&k).copied().unwrap_or(0);
                 let (hx, hz) = (code.hx(), code.hz());
                 let (masks, _) = logical_masks(&hx, &hz);
+                // tighten the bound before any exhaustive work
+                let ub = if ub > b && b > 0 {
+                    ub.min(distance_upper_bound(&hx, &masks, 400, &mut rng).0)
+                } else {
+                    ub
+                };
                 let (lo, up) = if ub <= b {
                     pruned += 1;
                     (0, ub)
