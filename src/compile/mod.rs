@@ -26,6 +26,7 @@ pub mod plan;
 pub mod repeat;
 pub mod stabsv;
 pub mod stateprop;
+pub mod todd;
 
 pub use peephole::{optimize, Optimized, PeepholeOptions};
 pub use phasefold::{phase_fold, phase_fold_with_stats, PhaseFoldStats};

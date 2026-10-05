@@ -152,6 +152,10 @@ name = "phasefold"
 path = "tests/compiler/phasefold.rs"
 
 [[test]]
+name = "todd"
+path = "tests/compiler/todd.rs"
+
+[[test]]
 name = "pipeline"
 path = "tests/compiler/pipeline.rs"
 
