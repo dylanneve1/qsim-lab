@@ -2,3 +2,34 @@
 Mem:           32088       10321        7641       10493       14125       10813
 #### eh-odd-NW-B  reps=2  2026-10-05 13:31:09 IST
 -- eh-odd-NW-B arm A rep 1
+== 2026-10-05 13:31:09 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 1 4 lookups eh-odd f32
+before: load average: 51.81, 55.78, 49.39  | avail 10 GB, used 10 GB
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=165  windows=60  toffoli=351697  gates=1480218  meas=82033  fixups=26563  steps=1520967  peak_support=71582595  peak_branches=143165190  gate_branch_ops=1.209e14
+time 125.272 s  (build 0.222, eval 51.677, sort 55.087, probs 6.496, new state 11.611)
+wall 125.28 s  user 873.63 s  sys 19.38 s  maxrss 2258508 KB
+after:  load average: 48.00, 53.15, 49.25  | avail 13 GB, used 7 GB
+-- eh-odd-NW-B arm B rep 1
+== 2026-10-05 13:33:14 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 1 4 lookups eh-odd f32
+before: load average: 48.00, 53.15, 49.25  | avail 13 GB, used 7 GB
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=165  windows=60  toffoli=351697  gates=1480218  meas=82033  fixups=26563  steps=1520967  peak_support=71582595  peak_branches=143165190  gate_branch_ops=1.209e14
+time 112.225 s  (build 0.212, eval 38.384, sort 55.400, probs 6.347, new state 11.636)
+wall 112.23 s  user 725.79 s  sys 18.97 s  maxrss 2258836 KB
+after:  load average: 46.00, 51.03, 48.93  | avail 12 GB, used 8 GB
+-- eh-odd-NW-B arm A rep 2
+== 2026-10-05 13:35:06 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 1 4 lookups eh-odd f32
+before: load average: 46.00, 51.03, 48.93  | avail 12 GB, used 8 GB
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=165  windows=60  toffoli=351697  gates=1480218  meas=82033  fixups=26563  steps=1520967  peak_support=71582595  peak_branches=143165190  gate_branch_ops=1.209e14
+time 130.130 s  (build 0.213, eval 52.515, sort 58.834, probs 6.427, new state 11.926)
+wall 130.13 s  user 876.12 s  sys 20.41 s  maxrss 2258816 KB
+after:  load average: 47.16, 49.86, 48.78  | avail 11 GB, used 8 GB
+-- eh-odd-NW-B arm B rep 2
+== 2026-10-05 13:37:17 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 1 4 lookups eh-odd f32
+before: load average: 47.16, 49.86, 48.78  | avail 11 GB, used 8 GB
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=165  windows=60  toffoli=351697  gates=1480218  meas=82033  fixups=26563  steps=1520967  peak_support=71582595  peak_branches=143165190  gate_branch_ops=1.209e14
+time 113.660 s  (build 0.240, eval 38.039, sort 57.745, probs 6.119, new state 11.333)
+wall 113.67 s  user 734.76 s  sys 19.02 s  maxrss 2258996 KB
+after:  load average: 44.20, 48.31, 48.37  | avail 13 GB, used 7 GB
