@@ -228,7 +228,9 @@ fn fixed_faults_match_sparse_on_a_path() {
                     let (p, flip) = s.round(&nc, i, y, &fi, usize::MAX).unwrap();
                     let (pr, flip_r) = ref_round(&mut r, &nc, i, y, &fi);
                     assert_eq!(flip, flip_r);
-                    assert!((p - pr).abs() < 1e-12, "N={n} k={k} round {i}: {p} vs {pr}");
+                    // two independent engines over t rounds: round-off accumulates to ~1e-12
+                    // (the reference renormalises by the kept weight after each collapse)
+                    assert!((p - pr).abs() < 1e-10, "N={n} k={k} round {i}: {p} vs {pr}");
                     let bit = if p < 1e-9 {
                         false
                     } else if p > 1.0 - 1e-9 {
