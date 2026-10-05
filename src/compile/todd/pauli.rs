@@ -688,7 +688,13 @@ pub fn optimize_pauli(c: &super::PhaseCircuit, opts: &super::ToddOptions) -> (cr
                 }
             }
             let new = if opts.todd {
-                super::best_todd(&cols, n, opts.restarts, opts.seed ^ (gi as u64).wrapping_mul(0x2545_F491_4F6C_DD1D))
+                super::best_todd(
+                    &cols,
+                    n,
+                    opts.restarts,
+                    opts.lns_rounds,
+                    opts.seed ^ (gi as u64).wrapping_mul(0x2545_F491_4F6C_DD1D),
+                )
             } else {
                 super::tensor::clean(cols.clone())
             };

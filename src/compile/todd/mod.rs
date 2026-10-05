@@ -739,6 +739,9 @@ pub struct ToddOptions {
     /// Pauli-frame mode only: push Clifford rotations created by merging
     /// to the end (conjugating later rotations) and merge again.
     pub absorb_cliffords: bool,
+    /// Rounds of large-neighbourhood search ([`tensor::lns`]) per group
+    /// after the restarts (0: none).
+    pub lns_rounds: usize,
 }
 
 impl Default for ToddOptions {
@@ -750,6 +753,7 @@ impl Default for ToddOptions {
             reassign_passes: 0,
             reassign_seconds: 60.0,
             absorb_cliffords: true,
+            lns_rounds: 0,
         }
     }
 }
@@ -908,7 +912,25 @@ fn reassign(
 }
 
 /// Best TODD result over `restarts` randomised runs plus one deterministic run.
-fn best_todd(cols: &[Bits], d: usize, restarts: usize, seed: u64) -> Vec<Bits> {
+fn best_todd(cols: &[Bits], d: usize, restarts: usize, lns_rounds: usize, seed: u64) -> Vec<Bits> {
+    let first = best_of_restarts(cols, d, restarts, seed);
+    if lns_rounds == 0 || first.len() < 2 {
+        return first;
+    }
+    // independent LNS chains in parallel, best kept
+    let chains = rayon::current_num_threads().clamp(1, 8);
+    (0..chains)
+        .into_par_iter()
+        .map(|c| {
+            let mut rng = StdRng::seed_from_u64(seed ^ 0x51ED_270B_2738_6A5B ^ (c as u64) << 32);
+            tensor::lns(first.clone(), d, lns_rounds, &mut rng)
+        })
+        .min_by_key(|v| v.len())
+        .unwrap_or(first)
+}
+
+/// Best of one deterministic TODD run and `restarts` randomised ones.
+fn best_of_restarts(cols: &[Bits], d: usize, restarts: usize, seed: u64) -> Vec<Bits> {
     let det = todd(cols.to_vec(), d, &ToddParams::default(), &mut StdRng::seed_from_u64(seed));
     if restarts == 0 {
         return det;
@@ -1035,7 +1057,13 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
             let (lin, cst) = &snapshots[&s];
             let (cols, extra, global) = slot_columns(ids, &sc, lin, cst);
             let new = if opts.todd {
-                best_todd(&cols, n, opts.restarts, opts.seed ^ (s as u64).wrapping_mul(0x51_7CC1_B727_220A))
+                best_todd(
+                    &cols,
+                    n,
+                    opts.restarts,
+                    opts.lns_rounds,
+                    opts.seed ^ (s as u64).wrapping_mul(0x51_7CC1_B727_220A),
+                )
             } else {
                 tensor::clean(cols.clone())
             };

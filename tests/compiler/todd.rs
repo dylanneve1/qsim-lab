@@ -446,3 +446,41 @@ fn hadamard_rewrites_are_exact() {
     }
     assert!(removed_total > 100, "rules fired only {removed_total} times");
 }
+
+/// The record circuits committed in `research/data/todd/outputs/` are
+/// re-verified against the originals from scratch: T-count, then the
+/// path-sum identity when the Hadamards match, else exact simulation of
+/// every basis input (all records with a changed Hadamard structure have
+/// n ≤ 20).
+#[test]
+fn committed_record_circuits_verify() {
+    let dir = format!("{}/research/data/todd/outputs", env!("CARGO_MANIFEST_DIR"));
+    let Ok(listing) = std::fs::read_to_string(format!("{dir}/records.txt")) else {
+        panic!("{dir}/records.txt missing");
+    };
+    let mut checked = 0;
+    for line in listing.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        let (name, t_claim) = (f[0], f[1].parse::<usize>().unwrap());
+        let orig = PhaseCircuit::from_qc(&parse_qc(&data(name)).unwrap());
+        let text = std::fs::read_to_string(format!("{dir}/{name}.qc")).unwrap();
+        let out_qc = parse_qc(&text).unwrap();
+        assert_eq!(out_qc.num_qubits(), orig.num_qubits, "{name}: no ancillas added");
+        assert_eq!(out_qc.t_count(), t_claim, "{name}: T-count");
+        let out = out_qc.to_circuit();
+        let n = orig.num_qubits;
+        let vo = vgates_from_circuit(&out).unwrap();
+        let a = path_sum(n, &orig.to_vgates(), None);
+        let b = path_sum(n, &vo, None);
+        if equivalent(&a, &b).is_none() {
+            assert!(n <= 20, "{name}: needs the path-sum identity");
+            let inputs: Vec<u128> = (0..(1u128 << n)).collect();
+            assert!(
+                basis_equivalent(n, &orig.to_vgates(), &vo, &inputs).is_ok(),
+                "{name}: exact basis-state check"
+            );
+        }
+        checked += 1;
+    }
+    assert!(checked >= 2);
+}

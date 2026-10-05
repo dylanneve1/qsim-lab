@@ -389,6 +389,76 @@ fn find_reduction<R: Rng>(
     None
 }
 
+/// A random signature-preserving update `A → A + z yᵀ` that need not
+/// lower the column count (it may raise it by one): `z` is the sum of two
+/// random columns, `y` a random nonzero element of the admissible space.
+/// Used to leave a TODD fixed point before reducing again.
+pub fn random_neutral_move<R: Rng>(cols: &[Bits], d: usize, rng: &mut R) -> Option<Vec<Bits>> {
+    let m = cols.len();
+    if m < 2 {
+        return None;
+    }
+    let sys = System::build(cols, d);
+    for _ in 0..8 {
+        let a = rng.random_range(0..m);
+        let b = rng.random_range(0..m);
+        if a == b {
+            continue;
+        }
+        let mut z = cols[a].clone();
+        z.xor_with(&cols[b]);
+        if z.is_zero() {
+            continue;
+        }
+        let sols = sys.z_solutions(&z);
+        let family: Vec<&Bits> = sys.k0.iter().chain(sols.iter()).collect();
+        if family.is_empty() {
+            continue;
+        }
+        let mut y = Bits::zeros(m);
+        while y.is_zero() {
+            for f in &family {
+                if rng.random_bool(0.5) {
+                    y.xor_with(f);
+                }
+            }
+        }
+        let mut out = cols.to_vec();
+        apply(&mut out, &z, &y);
+        return Some(out);
+    }
+    None
+}
+
+/// Large-neighbourhood search: from `start` (already TODD-reduced),
+/// repeatedly apply one to three random neutral moves and a randomised
+/// TODD, keeping the result when it has no more columns (ties accepted, so
+/// the search drifts across plateaus). Returns the smallest list seen.
+pub fn lns<R: Rng>(start: Vec<Bits>, d: usize, rounds: usize, rng: &mut R) -> Vec<Bits> {
+    let mut cur = start;
+    let mut best = cur.clone();
+    let params = ToddParams {
+        randomize: true,
+        ..Default::default()
+    };
+    for _ in 0..rounds {
+        let mut cand = cur.clone();
+        for _ in 0..rng.random_range(1..=3) {
+            if let Some(next) = random_neutral_move(&cand, d, rng) {
+                cand = next;
+            }
+        }
+        let cand = todd(cand, d, &params, rng);
+        if cand.len() <= cur.len() {
+            cur = cand;
+            if cur.len() < best.len() {
+                best = cur.clone();
+            }
+        }
+    }
+    best
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,6 +514,21 @@ mod tests {
             assert_eq!(signature(&out, d), signature(&cols, d), "trial {trial}");
             let corr = clifford_correction(&cols, &out, d).expect("same signature");
             assert!(corr.iter().all(|(_, k)| k % 2 == 0));
+        }
+    }
+
+    #[test]
+    fn lns_keeps_signature() {
+        let mut rng = StdRng::seed_from_u64(11);
+        for trial in 0..10 {
+            let d = 4 + trial % 3;
+            let cols: Vec<Bits> = (0..12)
+                .map(|_| Bits(vec![rng.random_range(1..(1u64 << d))]))
+                .collect();
+            let start = todd(cols.clone(), d, &ToddParams::default(), &mut rng);
+            let out = lns(start.clone(), d, 20, &mut rng);
+            assert!(out.len() <= start.len());
+            assert_eq!(signature(&out, d), signature(&cols, d));
         }
     }
 
