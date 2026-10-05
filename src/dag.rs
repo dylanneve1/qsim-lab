@@ -93,7 +93,14 @@ impl fmt::Display for DagError {
     }
 }
 
-impl std::error::Error for DagError {}
+impl std::error::Error for DagError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            DagError::Sim(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl From<SimError> for DagError {
     fn from(e: SimError) -> Self {
