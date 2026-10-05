@@ -1,0 +1,37 @@
+== 2026-10-05 11:46:49 IST  threads=16(default)  /dev/shm/qsim/target-shor-xl/release/examples/ge_shor run 549755813701 1 2 3 lookups eh-odd f32 3
+before: load average: 19.02, 20.33, 15.11  | avail 16 GB, used 7 GB
+[ge window 0] in=0 joint 0.000s finish 0.000s out=4
+[ge window 1] in=0 joint 0.001s finish 0.002s out=16
+[ge window 2] in=0 joint 0.000s finish 0.000s out=64
+[ge window 3] in=0 joint 0.000s finish 0.000s out=256
+[ge window 4] in=0 joint 0.000s finish 0.000s out=1024
+[ge window 5] in=0 joint 0.000s finish 0.000s out=4096
+[ge window 6] in=0 joint 0.000s finish 0.000s out=16384
+[ge window 7] in=0 joint 0.000s finish 0.001s out=65536
+[ge window 8] in=0 joint 0.001s finish 0.011s out=262144
+[ge window 9] in=0 joint 0.003s finish 0.029s out=1048576
+[ge window 0] in=0 joint 0.015s finish 0.126s out=4194304
+[ge window 1] in=0 joint 0.051s finish 0.274s out=16092506
+[ge window 2] in=0 joint 0.161s finish 0.599s out=37643002
+[ge window 3] in=0 joint 0.317s finish 1.261s out=71582595
+[ge window 4] in=0 joint 0.365s finish 0.438s out=71582595
+[ge window 5] in=0 joint 0.439s finish 0.503s out=71582595
+[ge window 6] in=0 joint 0.425s finish 0.476s out=71582595
+[ge window 7] in=0 joint 0.482s finish 0.518s out=71582595
+[ge window 8] in=0 joint 0.470s finish 0.518s out=71582595
+[ge window 9] in=0 joint 0.488s finish 0.543s out=71582595
+[ge window 10] in=0 joint 0.427s finish 0.518s out=71582595
+[ge window 11] in=0 joint 0.550s finish 0.555s out=71582595
+[ge window 12] in=0 joint 0.494s finish 0.542s out=71582595
+[ge window 13] in=0 joint 0.463s finish 0.504s out=71582595
+[ge window 14] in=0 joint 0.437s finish 0.486s out=71582595
+[ge window 15] in=0 joint 0.465s finish 0.512s out=71582595
+[ge window 16] in=0 joint 0.465s finish 0.522s out=71582595
+[ge window 17] in=0 joint 0.440s finish 0.528s out=71582595
+[ge window 18] in=0 joint 0.488s finish 0.513s out=71582595
+[ge window 19] in=0 joint 0.495s finish 0.000s out=0
+EH run 1  N=549755813701  h=535596708274  g=345241646758  m=20  exponent bits=60  j=1046455110769  k=358190  factors=Some((712321, 771781))
+qubits=166  windows=30  toffoli=235280  gates=1069881  meas=56258  fixups=20497  steps=1098077  peak_support=71582595  peak_branches=286330380  gate_branch_ops=1.716e14
+time 178.329 s  (build 0.135, eval 87.891, sort 72.116, probs 7.944, new state 9.981)
+wall 178.33 s  user 1289.99 s  sys 26.10 s  maxrss 4731316 KB
+after:  load average: 47.95, 33.26, 21.03  | avail 13 GB, used 10 GB
