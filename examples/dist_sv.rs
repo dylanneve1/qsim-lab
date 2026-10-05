@@ -24,7 +24,7 @@ use qsim_lab::algorithms;
 use qsim_lab::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
 use qsim_lab::dist::{
-    barrier, fingerprint, handshake, plan_circuit, DistConfig, DistState, DistStep, Link,
+    barrier, fingerprint, handshake, plan_circuit, DistConfig, DistState, DistStep, Link, PipeLink,
     PlanOptions, TcpLink,
 };
 use qsim_lab::statevector::{Real, StateVector};
@@ -32,7 +32,10 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::fs::File;
 use std::net::TcpListener;
+use std::os::fd::FromRawFd;
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 fn args() -> (String, HashMap<String, String>) {
@@ -67,15 +70,81 @@ fn workload(name: &str, n: usize, depth: usize) -> Circuit {
     }
 }
 
-fn connect(kv: &HashMap<String, String>) -> TcpLink {
+/// The link to the other node, and the spawned peer process (if any).
+struct Conn {
+    link: Box<dyn Link>,
+    child: Option<Child>,
+    /// Our stdout is the link (`--stdio 1`): report on stderr instead.
+    stdio: bool,
+}
+
+impl Conn {
+    fn report(&self, line: &str) {
+        if self.stdio {
+            eprintln!("{line}");
+        } else {
+            println!("{line}");
+        }
+    }
+    fn finish(mut self) {
+        drop(self.link);
+        if let Some(c) = self.child.as_mut() {
+            let st = c.wait().expect("wait for peer");
+            assert!(st.success(), "peer exited with {st}");
+        }
+    }
+}
+
+/// `--listen ADDR` / `--connect ADDR` (TCP), `--stdio 1` (our stdin/stdout,
+/// when started by the peer through `ssh host cmd`), or `--spawn CMD` (start
+/// the peer with `sh -c CMD` and talk over its stdin/stdout).
+fn connect(kv: &HashMap<String, String>) -> Conn {
+    let tcp = |link: TcpLink| Conn {
+        link: Box::new(link),
+        child: None,
+        stdio: false,
+    };
     if let Some(a) = kv.get("listen") {
         let l = TcpListener::bind(a).expect("bind");
         eprintln!("listening on {a}");
-        TcpLink::accept(&l).expect("accept")
+        tcp(TcpLink::accept(&l).expect("accept"))
     } else if let Some(a) = kv.get("connect") {
-        TcpLink::connect(a.as_str(), Duration::from_secs(120)).expect("connect")
+        tcp(TcpLink::connect(a.as_str(), Duration::from_secs(120)).expect("connect"))
+    } else if kv.get("stdio").map(|s| s.as_str()) == Some("1") {
+        // SAFETY: fds 0 and 1 are open for the life of the process and are
+        // used only through these handles from here on.
+        let (r, w) = unsafe { (File::from_raw_fd(0), File::from_raw_fd(1)) };
+        Conn {
+            link: Box::new(PipeLink::new(r, w)),
+            child: None,
+            stdio: true,
+        }
+    } else if let Some(cmd) = kv.get("spawn") {
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn peer");
+        let r = child.stdout.take().unwrap();
+        let w = child.stdin.take().unwrap();
+        Conn {
+            link: Box::new(PipeLink::new(r, w)),
+            child: Some(child),
+            stdio: false,
+        }
     } else {
-        panic!("need --listen or --connect")
+        panic!("need --listen, --connect, --stdio 1 or --spawn CMD")
+    }
+}
+
+/// Node role for the link benchmark: the side that listens or spawns is 0.
+fn role(kv: &HashMap<String, String>) -> u8 {
+    if kv.contains_key("listen") || kv.contains_key("spawn") {
+        0
+    } else {
+        1
     }
 }
 
@@ -88,11 +157,12 @@ fn opts(kv: &HashMap<String, String>) -> PlanOptions {
 }
 
 fn link_bench(kv: &HashMap<String, String>) {
-    let mut link = connect(kv);
-    let me: u8 = if kv.contains_key("listen") { 0 } else { 1 };
+    let mut conn = connect(kv);
+    let link: &mut dyn Link = conn.link.as_mut();
+    let me = role(kv);
     let mb: usize = get(kv, "mb", 64);
     let pings: usize = get(kv, "pings", 40);
-    barrier(&mut link).unwrap();
+    barrier(link).unwrap();
     // Latency: node 0 pings.
     let mut rtts = Vec::new();
     let mut b = [0u8; 8];
@@ -109,8 +179,7 @@ fn link_bench(kv: &HashMap<String, String>) {
     }
     let bytes = mb << 20;
     let blk = vec![0x5Au8; 1 << 20];
-    let mut rbuf = vec![0u8; 1 << 20];
-    let mut one_way = |link: &mut TcpLink, sender: bool| -> f64 {
+    let one_way = |link: &mut dyn Link, sender: bool| -> f64 {
         barrier(link).unwrap();
         let t = Instant::now();
         if sender {
@@ -120,6 +189,7 @@ fn link_bench(kv: &HashMap<String, String>) {
             let mut ack = [0u8; 1];
             link.recv_exact(&mut ack).unwrap();
         } else {
+            let mut rbuf = vec![0u8; 1 << 20];
             for _ in 0..mb {
                 link.recv_exact(&mut rbuf).unwrap();
             }
@@ -127,9 +197,9 @@ fn link_bench(kv: &HashMap<String, String>) {
         }
         bytes as f64 / t.elapsed().as_secs_f64() / 1048576.0
     };
-    let up = one_way(&mut link, me == 1); // node 1 -> node 0
-    let down = one_way(&mut link, me == 0); // node 0 -> node 1
-    barrier(&mut link).unwrap();
+    let up = one_way(link, me == 1); // node 1 -> node 0
+    let down = one_way(link, me == 0); // node 0 -> node 1
+    barrier(link).unwrap();
     let t = Instant::now();
     {
         let (w, r) = link.split();
@@ -146,14 +216,16 @@ fn link_bench(kv: &HashMap<String, String>) {
             }
         });
     }
-    barrier(&mut link).unwrap();
+    barrier(link).unwrap();
     let duplex = bytes as f64 / t.elapsed().as_secs_f64() / 1048576.0;
     rtts.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let med = rtts.get(rtts.len() / 2).copied().unwrap_or(f64::NAN);
-    println!(
+    let line = format!(
         "link node={me} mb={mb} rtt_ms_med={med:.3} rtt_ms_min={:.3} node1_to_node0_MiBps={up:.1} node0_to_node1_MiBps={down:.1} duplex_each_way_MiBps={duplex:.1}",
         rtts.first().copied().unwrap_or(f64::NAN)
     );
+    conn.report(&line);
+    conn.finish();
 }
 
 /// Max |amp - QFT|x>| over this node's amplitudes, in the current layout.
@@ -229,21 +301,20 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
     let o = opts(kv);
     let plan = plan_circuit(&circ, l, &o).expect("plan");
     let plan_ms = t.elapsed().as_secs_f64() * 1e3;
-    let mut link = connect(kv);
+    let mut conn = connect(kv);
+    let link: &mut dyn Link = conn.link.as_mut();
     let fp = fingerprint(&plan, &owner, std::mem::size_of::<Complex<T>>());
-    handshake(&mut link, node, fp).expect("handshake");
+    handshake(link, node, fp).expect("handshake");
     let mut st = DistState::<T>::new_basis(n, l, node, owner.clone(), &plan.initial_v2p, x, cfg);
     let local_gib = st.local_bytes() as f64 / (1u64 << 30) as f64;
-    barrier(&mut link).unwrap();
+    barrier(link).unwrap();
     let t0 = Instant::now();
     if verbose == 1 {
         for (i, step) in plan.steps.iter().enumerate() {
             let ts = Instant::now();
             match step {
                 DistStep::Local(g) => st.apply_local(g),
-                DistStep::Swap { local, global } => {
-                    st.swap_qubits(*local, *global, &mut link).unwrap()
-                }
+                DistStep::Swap { local, global } => st.swap_qubits(*local, *global, link).unwrap(),
                 DistStep::Relabel(p) => st.relabel(p),
                 DistStep::Rename { a, b } => st.rename(*a, *b),
             }
@@ -261,11 +332,11 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
             );
         }
     } else {
-        st.run(&plan, &mut link).expect("run");
+        st.run(&plan, link).expect("run");
     }
-    barrier(&mut link).unwrap();
+    barrier(link).unwrap();
     let wall = t0.elapsed().as_secs_f64();
-    let norm = st.norm_sqr(&mut link).unwrap();
+    let norm = st.norm_sqr(link).unwrap();
     let err = if verify == "qft" {
         let e = qft_error(&st, x);
         // max over both nodes
@@ -278,7 +349,7 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
     };
     let s = st.stats();
     let owner_s: String = owner.iter().map(|o| (b'0' + o) as char).collect();
-    println!(
+    let line = format!(
         "dist node={node} workload={wl} n={n} prec={prec} L={l} owner={owner_s} restore={} free={} fold={} \
          plan_swaps={} plan_runs={} folded={} plan_ms={plan_ms:.1} local_gib={local_gib:.3} cross_pairs={} local_pairs={} \
          sent_mib={:.1} recv_mib={:.1} wall_s={wall:.3} compute_s={:.3} exchange_s={:.3} local_swap_s={:.3} \
@@ -297,6 +368,9 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
         s.exchange.as_secs_f64(),
         s.local_swap.as_secs_f64(),
     );
+    drop(st);
+    conn.report(&line);
+    conn.finish();
 }
 
 fn plan_only(kv: &HashMap<String, String>) {
