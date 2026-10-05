@@ -829,7 +829,11 @@ fn prepare_mapped<T: Real>(st: &Stage, n: usize) -> (Prepared<T>, Vec<OpLoc>) {
                 }
                 let lop = ops.len();
                 let mut tl = Vec::new();
-                ops.push(LOp::Diag(build_diag_block(&st.ops[start..i], &pos, &mut tl)));
+                ops.push(LOp::Diag(build_diag_block(
+                    &st.ops[start..i],
+                    &pos,
+                    &mut tl,
+                )));
                 locs.extend(
                     tl.into_iter()
                         .map(|(group, term)| OpLoc::Phase { lop, group, term }),

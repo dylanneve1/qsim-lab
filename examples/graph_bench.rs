@@ -190,6 +190,19 @@ fn bind_bench(w: &str, n: usize, p: usize, binds: usize, pipe: bool) {
             }
         });
         best[1] = best[1].min(tb / binds as f64);
+        let (t, _) = time(|| {
+            ps.iter()
+                .map(|p| {
+                    CompiledCircuit::compile(&pc, Some(&o), &opts)
+                        .unwrap()
+                        .bind(p)
+                        .unwrap()
+                        .expectation()
+                        .unwrap()
+                })
+                .sum::<f64>()
+        });
+        best[7] = best[7].min(t / binds as f64);
         let (t, a) = time(|| {
             ps.iter()
                 .map(|p| cc.bind(p).unwrap().expectation().unwrap())
@@ -218,13 +231,15 @@ fn bind_bench(w: &str, n: usize, p: usize, binds: usize, pipe: bool) {
     let cc = CompiledCircuit::compile(&pc, Some(&o), &opts).unwrap();
     let st = cc.stats();
     println!(
-        "{w} n={n} p={p} ops={} cone={} parts={:?} binds={binds} | compile {:.3}ms bind {:.1}us | per-bind: compiled {:.3}ms baseline {:.3}ms ({:.2}x) | sweep: compiled-par {:.3}ms baseline-par {:.3}ms ({:.2}x) vs serial baseline {:.2}x{}",
+        "{w} n={n} p={p} ops={} cone={} parts={:?} binds={binds} | compile {:.3}ms bind {:.1}us | per-bind: compiled {:.3}ms recompile {:.3}ms ({:.2}x) baseline {:.3}ms ({:.2}x) | sweep: compiled-par {:.3}ms baseline-par {:.3}ms ({:.2}x) vs serial baseline {:.2}x{}",
         pc.ops.len(),
         st.ops_after_cone,
         st.parts,
         best[0] * 1e3,
         best[1] * 1e6,
         best[2] * 1e3,
+        best[7] * 1e3,
+        best[7] / best[2],
         best[3] * 1e3,
         best[3] / best[2],
         best[4] * 1e3,

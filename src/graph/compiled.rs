@@ -25,8 +25,8 @@
 use super::observable::{diagonal_expectation, pauli_expectation, Observable};
 use super::param::{Angle, POp, ParamCircuit};
 use crate::blocked::{
-    lower_gate, plan_stages, prepare_stage, run_prepared_stage, schedule_diag_order, BlockConfig,
-    KOp, PreparedStage, Stage,
+    lower_gate, plan_stages, prepare_stage_cfg, prepare_stage_mapped, run_prepared_stage,
+    schedule_diag_order, BlockConfig, KOp, OpLoc, PreparedStage, Stage,
 };
 use crate::circuit::SimError;
 use crate::gate::{mat2_mul, Gate, Mat2};
@@ -55,6 +55,9 @@ pub struct GraphOptions {
     /// Phase gadgets (`POp::ZString`) up to this width become diagonal
     /// terms; wider ones run as CNOT ladders.
     pub max_zstring: usize,
+    /// Bind by patching numbers into the prepared stages in place (`false`:
+    /// re-prepare every parameter-dependent stage on each bind).
+    pub patch_bind: bool,
 }
 
 impl Default for GraphOptions {
@@ -67,6 +70,7 @@ impl Default for GraphOptions {
             block: BlockConfig::default(),
             mem_bytes: MAX_STATE_BYTES,
             max_zstring: 6,
+            patch_bind: true,
         }
     }
 }
@@ -154,7 +158,16 @@ struct DenseProgram {
     recipes: Vec<(usize, Recipe)>,
     stages: Vec<(Vec<usize>, Vec<usize>)>, // (inner, kop order)
     param_stage: Vec<bool>,
+    /// Constant stages, prepared with every executor option.
     prepared: Vec<Option<PreparedStage<f64>>>,
+    /// Parameter-dependent stages: prepared once (ops in schedule order,
+    /// no fusion) with the location of every op, patched on bind.
+    templates: Vec<Option<PreparedStage<f64>>>,
+    /// `(stage, location)` of every recipe's op.
+    recipe_loc: Vec<(usize, OpLoc)>,
+    /// Patch numbers in place (`false`: re-prepare bound stages).
+    patch: bool,
+    block: BlockConfig,
     /// Global phase `c · e^{i a}` from the ops (diagonal runs add theirs on bind).
     global: (Complex64, Angle),
     /// First parameter-dependent stage, and the state just before it.
@@ -389,6 +402,10 @@ impl DenseProgram {
             stages,
             param_stage,
             prepared: Vec::new(),
+            templates: Vec::new(),
+            recipe_loc: Vec::new(),
+            patch: opts.patch_bind,
+            block: opts.block.clone(),
             global,
             prefix_end: 0,
             prefix_state: None,
@@ -397,6 +414,40 @@ impl DenseProgram {
         prog.prepared = (0..prog.stages.len())
             .map(|s| (!prog.param_stage[s]).then(|| prog.prepare(s, &prog.kops)))
             .collect();
+        // where each parameter-dependent op lands in its stage
+        let mut at = vec![(usize::MAX, usize::MAX); prog.kops.len()];
+        for (s, (_, order)) in prog.stages.iter().enumerate() {
+            for (j, &k) in order.iter().enumerate() {
+                at[k] = (s, j);
+            }
+        }
+        let mut templates: Vec<Option<PreparedStage<f64>>> = vec![None; prog.stages.len()];
+        let mut locs: Vec<Vec<OpLoc>> = vec![Vec::new(); prog.stages.len()];
+        if prog.patch {
+            for s in 0..prog.stages.len() {
+                if prog.param_stage[s] {
+                    let (inner, order) = &prog.stages[s];
+                    let (p, l) = prepare_stage_mapped(
+                        &Stage {
+                            inner: inner.clone(),
+                            ops: order.iter().map(|&k| prog.kops[k]).collect(),
+                        },
+                        n,
+                    );
+                    templates[s] = Some(p);
+                    locs[s] = l;
+                }
+            }
+            prog.recipe_loc = prog
+                .recipes
+                .iter()
+                .map(|(k, _)| {
+                    let (s, j) = at[*k];
+                    (s, locs[s][j])
+                })
+                .collect();
+        }
+        prog.templates = templates;
         prog.prefix_end = prog
             .param_stage
             .iter()
@@ -419,16 +470,41 @@ impl DenseProgram {
 
     fn prepare(&self, s: usize, kops: &[KOp]) -> PreparedStage<f64> {
         let (inner, order) = &self.stages[s];
-        prepare_stage(
+        prepare_stage_cfg(
             &Stage {
                 inner: inner.clone(),
                 ops: order.iter().map(|&k| kops[k]).collect(),
             },
             self.n,
+            &self.block,
         )
     }
 
+    /// Bind by patching the prepared templates in place.
+    fn bind_patch(&self, params: &[f64]) -> BoundPart {
+        let mut phase = self.global.0 * Complex64::from_polar(1.0, self.global.1.eval(params));
+        let mut stages = self.templates.clone();
+        for ((_, r), &(s, loc)) in self.recipes.iter().zip(&self.recipe_loc) {
+            let st = stages[s].as_mut().expect("template");
+            match r {
+                Recipe::U1(fs) => st.set_u1(loc, &product(fs, params)),
+                Recipe::DiagRun(fs) => {
+                    let m = product(fs, params);
+                    phase *= m[0][0];
+                    st.set_phase(loc, m[1][1] / m[0][0]);
+                }
+                Recipe::Phase(c, a) => {
+                    st.set_phase(loc, c * Complex64::from_polar(1.0, a.eval(params)))
+                }
+            }
+        }
+        BoundPart { stages, phase }
+    }
+
     fn bind(&self, params: &[f64]) -> BoundPart {
+        if self.patch {
+            return self.bind_patch(params);
+        }
         let mut kops = self.kops.clone();
         let mut phase = self.global.0 * Complex64::from_polar(1.0, self.global.1.eval(params));
         for (k, r) in &self.recipes {
@@ -662,24 +738,23 @@ impl CompiledCircuit {
         })
     }
 
-    /// `<obs>` at every parameter vector (parallel over the vectors when the
-    /// parts are small enough to run on one thread each).
+    /// `<obs>` at every parameter vector. Binds run in parallel (each on
+    /// its own state, the executor parallelises inside) as long as one
+    /// state per worker fits in [`GraphOptions::mem_bytes`]-sized budget of
+    /// 1 GiB; otherwise one after the other.
     pub fn sweep_expectation(&self, params: &[Vec<f64>]) -> Result<Vec<f64>, SimError> {
-        let small = self
+        let per: u128 = self
             .parts
             .iter()
-            .all(|(g, _)| g.len() <= self.parts_small_n());
+            .map(|(g, _)| 2 * state_bytes::<f64>(g.len()))
+            .sum();
+        let workers = rayon::current_num_threads() as u128;
         let one = |p: &Vec<f64>| self.bind(p)?.expectation();
-        if small {
+        if per * workers <= MAX_STATE_BYTES {
             params.par_iter().map(one).collect()
         } else {
             params.iter().map(one).collect()
         }
-    }
-
-    fn parts_small_n(&self) -> usize {
-        // registers that the executor runs as a single block on one thread
-        14
     }
 }
 
