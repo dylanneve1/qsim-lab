@@ -116,7 +116,10 @@ fn run_pair<T: Real, L: Link + 'static>(
     let nrm1 = h.join().unwrap();
     assert!((nrm - nrm1).abs() < 1e-12);
     let direct: f64 = out.iter().map(|a| a.norm_sqr().to_f64()).sum();
-    assert!((nrm - direct).abs() < 1e-5, "norm {nrm} vs gathered {direct}");
+    assert!(
+        (nrm - direct).abs() < 1e-5,
+        "norm {nrm} vs gathered {direct}"
+    );
     out
 }
 
@@ -286,7 +289,11 @@ fn every_gate_on_global_qubits() {
                     let plan = plan_circuit(&circ, l, &opts).unwrap();
                     let got = run_pair::<f64, _>(&plan, &owner, 0, chan_pair(), &small_cfg());
                     let d = max_diff(&got, &want);
-                    assert!(d < 1e-12, "{:?} owner={owner:?} fold={fold}: {d:e}", proto(&assign));
+                    assert!(
+                        d < 1e-12,
+                        "{:?} owner={owner:?} fold={fold}: {d:e}",
+                        proto(&assign)
+                    );
                     cases += 1;
                 }
             }
@@ -317,6 +324,9 @@ fn plan_respects_roles() {
                     }
                     DistStep::Swap { local, global } => {
                         assert!(*local < l && *global >= l && *global < n)
+                    }
+                    DistStep::Relabel(pairs) => {
+                        assert!(pairs.iter().all(|&(a, b)| a < l && b < l && a != b))
                     }
                 }
             }
