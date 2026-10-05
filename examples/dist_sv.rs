@@ -267,8 +267,8 @@ fn qft_error<T: Real>(st: &DistState<T>, x: usize) -> f64 {
     st.owned()
         .map(|(r, d)| {
             let mut rp = 0;
-            for p in lb..n {
-                rp |= ((r >> (p - lb)) & 1) << p2v[p];
+            for (j, &v) in p2v[lb..].iter().enumerate() {
+                rp |= ((r >> j) & 1) << v;
             }
             d.par_iter()
                 .enumerate()
