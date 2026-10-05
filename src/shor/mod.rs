@@ -22,6 +22,7 @@
 //! register `x` is qubits `1..=n`; the gate-level oracle adds `n + 1` qubits
 //! for the Fourier-space accumulator `b` and one ancilla.
 
+pub mod approx;
 pub mod arith;
 pub mod fused;
 pub mod ge;
