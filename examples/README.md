@@ -51,7 +51,7 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 
 | Example | Produces | Notebook |
 |---|---|---|
-| [ge_shor](ge_shor.rs) | Gidney–Ekerå windowing / Ekerå–Håstad / coset runs | [ge-shor.md](../research/shor/ge-shor.md) |
+| [ge_shor](ge_shor.rs) | Gidney–Ekerå windowing / Ekerå–Håstad / coset runs; odd-order-base EH and Shor runs, block dumps, slice-kernel benchmark | [ge-shor.md](../research/shor/ge-shor.md), [shor-xl.md](../research/shor/shor-xl.md) |
 | [ft_shor](ft_shor.rs) | Fault-tolerant vs unencoded Shor (N = 15) under circuit-level noise | [ft-shor.md](../research/shor/ft-shor.md) |
 | [ft_exrec](ft_exrec.rs) | Per-gadget logical failure rates (1-exRec style), levels 1 and 2 | [ft-shor.md](../research/shor/ft-shor.md) |
 | [mbu_counts](mbu_counts.rs) | Whole-run gate/Toffoli/measurement counts, measurement-based oracles | [mbu-shor.md](../research/shor/mbu-shor.md) |

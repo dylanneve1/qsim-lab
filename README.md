@@ -20,6 +20,7 @@ audit before merge (see [research/process/audit.md](research/process/audit.md)).
 | result | number | notebook |
 |---|---|---|
 | Gate-level Shor, generic semiprime | 31-bit N = 1 537 596 787 factored by exact simulation of the full X/CNOT/Toffoli circuit (132 qubits); 77 s on an M1 Pro with Ekerå–Håstad | [shor.md](research/shor/shor.md), [ge-shor.md](research/shor/ge-shor.md) |
+| Gate-level Shor, larger N whose support is small | 39-bit N = 549 755 813 701 (Willsch et al. 2023's largest) and a 43-bit generator N factored by exact simulation of every gate of an Ekerå–Håstad circuit (165 / 181 qubits) on one 16-vCPU VM: 100 s / 190 s (loaded machine), 2.3 / 3.6 GB; cost set by the support ord(g) = 7.2·10⁷ / 1.2·10⁸, which is small for these two N, not by N | [shor-xl.md](research/shor/shor-xl.md) |
 | Shor circuit size at 31 bits | 1.70 M → 1.04 M gates (superoptimised oracle); Toffolis 528 k → 46–61 k with measurement-based uncompute and Gidney–Ekerå techniques (within ~4 % of GE19's own construction at this size) | [superopt.md](research/shor/superopt.md), [mbu-shor.md](research/shor/mbu-shor.md), [ge-shor.md](research/shor/ge-shor.md) |
 | Shor under noise | one random depolarizing fault is fatal with probability 0.716 ± 0.004; success halves at 5.5 × 10⁻⁷ per location at 24 bits | [shor-noise.md](research/shor/shor-noise.md) |
 | Detector sampling vs Stim 1.16 | 9–12× faster than natively built AVX2 Stim on x86 (≥ 10⁵ shots), identical output distribution; Stim still wins small jobs | [fast-sampler.md](research/qec/fast-sampler.md), [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) |
@@ -30,9 +31,13 @@ audit before merge (see [research/process/audit.md](research/process/audit.md)).
 
 Context and caveats for every row are in the linked notebooks. In particular,
 the Shor results are exact simulation of a compilable circuit whose cost grows
-with the multiplicative order r; they are not a factoring speed-up, and the
-largest gate-level Shor simulation we know of (Willsch et al. 2023, 39-bit N
-on a GPU supercomputer) is larger.
+with the multiplicative order r (for generic N, exponentially in the bit
+length); they are not a factoring speed-up. Willsch et al. 2023 simulated
+Shor's algorithm for N up to 39 bits on a GPU supercomputer with a 40-qubit
+state vector (modular multiplication applied as a permutation), at a cost that
+does not depend on the order; our gate-level runs reach that N and a 43-bit N
+only because the supports of those instances are small, and both N are
+classically weak (Pollard's p − 1).
 
 ## Theorems (with proofs and executable checks)
 
@@ -164,7 +169,7 @@ Wheels for Linux x86_64/aarch64 and macOS arm64 are built by
 
 All notebooks with one-line summaries: [research/README.md](research/README.md). House rules for code, tests and notebooks: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **Shor:** [shor.md](research/shor/shor.md) · [shor-r4-audit.md](research/shor/shor-r4-audit.md) · [superopt.md](research/shor/superopt.md) · [mbu-shor.md](research/shor/mbu-shor.md) · [ge-shor.md](research/shor/ge-shor.md) · [shor-noise.md](research/shor/shor-noise.md) · [noise-oracles.md](research/shor/noise-oracles.md) · [ft-shor.md](research/shor/ft-shor.md) · [theory-shor.md](research/theory/theory-shor.md) · [theory-coset.md](research/theory/theory-coset.md)
+- **Shor:** [shor.md](research/shor/shor.md) · [shor-r4-audit.md](research/shor/shor-r4-audit.md) · [superopt.md](research/shor/superopt.md) · [mbu-shor.md](research/shor/mbu-shor.md) · [ge-shor.md](research/shor/ge-shor.md) · [shor-xl.md](research/shor/shor-xl.md) · [shor-noise.md](research/shor/shor-noise.md) · [noise-oracles.md](research/shor/noise-oracles.md) · [ft-shor.md](research/shor/ft-shor.md) · [theory-shor.md](research/theory/theory-shor.md) · [theory-coset.md](research/theory/theory-coset.md)
 - **QEC:** [qec.md](research/qec/qec.md) · [qec-r4.md](research/qec/qec-r4.md) · [schedules.md](research/qec/schedules.md) · [colour-global.md](research/qec/colour-global.md) · [colour-flags.md](research/qec/colour-flags.md) · [theory-colour.md](research/theory/theory-colour.md) · [fast-sampler.md](research/qec/fast-sampler.md) · [fast-sampler-audit.md](research/qec/fast-sampler-audit.md) · [neural-decoder.md](research/qec/neural-decoder.md) · [alphaqubit-lite.md](research/qec/alphaqubit-lite.md) · [code-discovery.md](research/qec/code-discovery.md) · [stab.md](research/performance/stab.md)
 - **Simulability, magic and physics:** [simulability.md](research/simulability/simulability.md) · [planner.md](research/simulability/planner.md) · [planner-v2.md](research/simulability/planner-v2.md) · [magic-atlas.md](research/simulability/magic-atlas.md) · [magic-transition.md](research/simulability/magic-transition.md) · [lowmagic-chem.md](research/simulability/lowmagic-chem.md) · [transition-theory.md](research/theory/transition-theory.md) · [theory-rank.md](research/theory/theory-rank.md) · [stabrank-lower.md](research/theory/stabrank-lower.md) · [adaptive.md](research/simulability/adaptive.md) · [pauli.md](research/performance/pauli.md) · [spoof-utility.md](research/simulability/spoof-utility.md)
 - **Performance:** [sv.md](research/performance/sv.md) · [mac-m1.md](research/performance/mac-m1.md) · [metal.md](research/performance/metal.md) · [ooc.md](research/performance/ooc.md) · [hsf.md](research/performance/hsf.md) · [mps.md](research/performance/mps.md) · [sv-monomial.md](research/performance/sv-monomial.md) · [autoimprove.md](research/performance/autoimprove.md) · [dense-fusion.md](research/performance/dense-fusion.md)
