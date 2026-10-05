@@ -19,12 +19,12 @@ Branch `exp/code-discovery`.
   - Two Pareto points are not in any table we found and are not matched by direct sums of published codes: **[[168,14,10]]** and **[[300,16,14]]** (polynomials below). Both have lower k·d²/n than their published neighbours.
   - A third code, **[[112,12,8]]**, has the same parameters as two copies of the published [[56,6,8]].
 - **Circuit level: the same parameters do not mean the same performance.**
-  - Setup: depth-7 CNOT schedules (IBM's generalised), uniform circuit noise, BP+OSD-CS(10), Z memory.
-  - The connected **[[112,12,8]] has 4–9× lower logical error per logical qubit than the published [[56,6,8]]** (that is, than two copies of it, which is the same qubit overhead n/k = 9.3 and the same d):
+  - Setup: depth-7 CNOT schedules (IBM's generalised), uniform circuit noise, BP+OSD-CS (order 10 unless stated), Z memory.
+  - The connected **[[112,12,8]] has 4–10× lower logical error per logical qubit than the published [[56,6,8]]** (that is, than two copies of it, which is the same qubit overhead n/k = 9.3 and the same d):
     - p = 0.3%: 3.9×;
-    - p = 0.2%: 5.8×;
-    - p = 0.15%: 9.4×.
-  - The gap grows as p falls: the local slopes are 4.7 vs 3.0.
+    - p = 0.2%: 5.3–6.0× at OSD order 10/40/100;
+    - p = 0.15%: 9.4–9.6×.
+  - The ratio holds at every OSD width tried, although the absolute rates fall about 6× from order 10 to order 100.
   - **No depth-7 schedule of this shape keeps d_circ = 8 for [[56,6,8]].** 75 of the 936 valid schedules do for [[112,12,8]].
   - [[168,14,10]] has the same n/k = 12 as the gross code. At p = 0.3% it has 5.0e-5 failures per logical qubit per round against the gross code's 6.6e-5. The 95% intervals barely overlap. Its d is 10 against 12, so the gross code must win at lower p; we could not afford the shot counts to show the crossover. The published [[170,16,10]] does as well as [[168,14,10]] (4.8e-5) at a better n/k, so [[168,14,10]] is new but not better.
 - **Tools.**
@@ -131,16 +131,17 @@ Both are verified exactly: k by rank, and d in both CSS sectors by the exact sea
 
 ### 3.2 Literature upper bounds, certified
 
-Published entries listed only as upper bounds, and our own node-limit aborts, were re-run with `params` and no practical node limit (3·10¹⁰ nodes).
+Published entries listed only as upper bounds, and our own node-limit aborts, were re-run with `params` and no practical node limit (3·10¹⁰ nodes). Raw data: `certify.jsonl`. The frontier files include these results via `certified.jsonl`.
 
 | published entry | as a Z_N code (A ; B) | result | nodes | time |
 |---|---|---|---|---|
 | [[266,6,≤22]] (twisted torus) | Z133: 1+x⁵+x¹⁰⁹ ; 1+x¹⁹+x²⁵ | **d = 22 exactly** | 2.8·10⁹ | 503 s |
 | [[280,6,≤22]] (twisted torus) | Z140: 1+x¹⁶+x³¹ ; 1+x⁵+x²² | **d = 22 exactly** | 2.2·10⁹ | 324 s |
 | [[300,8,≤22]] (twisted torus) | Z150: 1+x⁴⁹+x⁹³ ; 1+x²+x⁹ | **d = 22 exactly** | 3.0·10⁹ | 399 s |
-__CERTMORE__
+| [[234,4,≤22]] (GB, Liang T5–8) | Z117: 1+x¹³+x²⁹ ; 1+x+x²⁰ | **d = 22 exactly** | 2.8·10⁹ | 350 s |
+| [[264,4,≤22]], [[288,4,≤24]] and the other k = 4 twisted-torus entries | — | not run (out of time) | | |
 
-These three upper bounds of Liang et al. are tight. For the other classes at the same (n, k), our search left some undecided (ISD bound 22–24), so "no better code exists at that (n, k)" is not claimed. The twisted-torus codes were mapped to `Z_N` via `Z²/Λ ≅ Z_N` (all three Λ have coprime entries). For example `Z²/⟨(0,7),(19,2)⟩ → Z133` with `x → 5`, `y → 19`, giving f = 1 + x + x⁻¹y⁻¹ → {0, 5, 109}. k was checked to match the paper in every case.
+These four upper bounds of Liang et al. are tight. For the other classes at the same (n, k), our search left some undecided (ISD bound 22–24), so "no better code exists at that (n, k)" is not claimed. The twisted-torus codes were mapped to `Z_N` via `Z²/Λ ≅ Z_N` (each Λ has coprime entries). For example `Z²/⟨(0,7),(19,2)⟩ → Z133` with `x → 5`, `y → 19`, giving f = 1 + x + x⁻¹y⁻¹ → {0, 5, 109}. k was checked to match the paper in every case.
 
 
 ## 4. Circuit level
@@ -182,7 +183,7 @@ Raw data: `sched_*.jsonl`.
   - Z-sector DEM, merged by (detectors, observable mask).
 - **Failure** means any of the k observables is wrong.
 - **Per-round rate:** `1 − (1 − p_L)^{1/rounds}`, with Wilson 95% intervals.
-- Single-threaded runs on the Mac.
+- Single-threaded runs on the Mac. Raw data: `ler.jsonl`. Plot: `ler_112_vs_56.png`, per-logical error vs p for both codes at OSD 10/40/100/250.
 
 | code | schedule (d_circ Z/X) | basis | rounds | p | shots | fails | block p_L per round [95% CI] | per logical qubit per round | OSD calls | decode s |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -203,42 +204,32 @@ Raw data: `sched_*.jsonl`.
 | **[[168,14,10]]** | IBM | Z | 10 | 0.3% | 16,384 | 114 | 6.98e-4 [5.81, 8.38] | 4.99e-5 | 79% | 460 |
 | [[170,16,10]] published GB | IBM | Z | 10 | 0.3% | 16,384 | 126 | 7.72e-4 [6.48, 9.19] | 4.82e-5 | 79% | 421 |
 
-**Decoder sensitivity.** OSD order 40 instead of 10, same seeds' structure:
+**Decoder sensitivity.** BP+OSD-CS with a larger OSD combination width, at the best schedules, Z memory, 8 rounds:
 
-| code | p | shots | fails | block p_L per round [95% CI] | per logical qubit | OSD order |
+| code | p | OSD order | shots | fails | block p_L per round [95% CI] | per logical qubit |
 |---|---|---|---|---|---|---|
-| [[56,6,8]] | 0.2% | 40,960 | 151 | 4.62e-4 [3.94, 5.41] | 7.69e-5 | 40 |
-| **[[112,12,8]]** | 0.2% | 40,960 | 50 | 1.53e-4 [1.16, 2.01] | 1.27e-5 | 40 |
-| [[56,6,8]] | 0.15% | 81,920 | 91 | 1.39e-4 [1.13, 1.71] | 2.32e-5 | 40 |
-__OSD40MORE__
+| [[56,6,8]] | 0.2% | 10 | 40,960 | 414 | 1.27e-3 [1.15, 1.40] | 2.12e-4 |
+| [[56,6,8]] | 0.2% | 40 | 40,960 | 151 | 4.62e-4 [3.94, 5.41] | 7.69e-5 |
+| [[56,6,8]] | 0.2% | 100 | 40,960 | 71 | 2.17e-4 [1.72, 2.73] | 3.61e-5 |
+| [[56,6,8]] | 0.2% | 250 | 40,960 | 60 | 1.83e-4 [1.42, 2.36] | 3.05e-5 |
+| **[[112,12,8]]** | 0.2% | 10 | 20,480 | 72 | 4.40e-4 [3.50, 5.54] | 3.67e-5 |
+| **[[112,12,8]]** | 0.2% | 40 | 40,960 | 50 | 1.53e-4 [1.16, 2.01] | 1.27e-5 |
+| **[[112,12,8]]** | 0.2% | 100 | 40,960 | 27 | 8.24e-5 [5.66, 12.0] | 6.87e-6 |
+| [[56,6,8]] | 0.15% | 40 | 81,920 | 91 | 1.39e-4 [1.13, 1.71] | 2.32e-5 |
+| **[[112,12,8]]** | 0.15% | 40 | 81,920 | 19 | 2.90e-5 [1.86, 4.53] | 2.42e-6 |
 
-A stronger OSD helps both codes about 2.8× at p = 0.2%. The ratio per logical qubit stays at 6.0× (OSD-40) against 5.8× (OSD-10), so the advantage of the connected code does not come from a decoder weakness specific to [[56,6,8]].
+- The OSD-10 numbers above overstate both codes' error rates by about 6×. With order 100–250, [[56,6,8]] is nearly converged: order 250 gains only 15% over order 100.
+- At equal decoder settings the per-logical ratio is stable:
 
-Ratios, two copies of [[56,6,8]] over [[112,12,8]] (best schedule of each; per logical qubit at equal n/k = 9.33 and equal d = 8):
+| p | OSD order | ratio |
+|---|---|---|
+| 0.2% | 10 | 5.8× |
+| 0.2% | 40 | 6.0× |
+| 0.2% | 100 | 5.3× [2.9, 9.7] |
+| 0.15% | 40 | 9.6× |
 
-| p | ratio [95% range from the CIs] |
-|---|---|
-| 0.3% | 3.9× [3.4, 4.6] |
-| 0.2% | 5.8× [4.2, 8.0] |
-| 0.15% | 9.4× [6.8, 13.1] |
-
-The gap widens as p falls. The fitted local slopes from p = 0.2% to 0.15% are about 3.0 for [[56,6,8]] and 4.7 for [[112,12,8]], so it is a difference in effective distance, not a constant factor.
-
-
-**Reading the table.**
-- **[[112,12,8]] vs the published [[56,6,8]]** (two copies have the same n, k and d):
-  - p = 0.3%: two copies of [[56,6,8]] fail at ≈ 2 × 5.5e-3 = 1.1e-2 per round; [[112,12,8]] fails at 2.7e-3.
-  - p = 0.2%: 2.5e-3 vs 4.2e-4.
-  - Per logical qubit that is **4× and 6× lower** at identical overhead, and the intervals are far apart.
-  - The two schedules of [[112,12,8]] (d_circ 7 and 8) give the same rate. The gain is therefore not only circuit distance: the connected code has fewer low-weight failure paths that BP+OSD misses.
-  - X memory gives the same picture.
-- **[[112,12,8]] vs IBM's [[72,12,6]]**, same k: 1.9× (p = 0.3%) and 3.0× (p = 0.2%) lower block error, for 1.56× the qubits.
-- **[[168,14,10]] vs gross [[144,12,12]] vs [[170,16,10]]** at p = 0.3%, per logical qubit per round:
-  - [[168,14,10]]: 5.0e-5 [4.2, 6.0];
-  - gross: 6.6e-5 [5.6, 7.7];
-  - [[170,16,10]]: 4.8e-5 [4.1, 5.7].
-  - At this p, all three are within a factor of 1.4. The d = 10 codes are not worse than the gross code here, but the gross code's d = 12 will dominate at lower p.
-  - We did not measure the crossover. The gross code at p = 0.2% needs about 10⁶ 12-round shots at roughly 25 ms each, which is out of budget.
+- Even [[56,6,8]] at order 250 is 4.4× worse than [[112,12,8]] at order 100.
+- So the advantage of the connected code is not a decoder artefact at these settings. It could shrink with a much stronger decoder (an ML or tensor-network decoder was not tried), but it survives a 25× increase in OSD width.
 
 ## 5. Caveats
 

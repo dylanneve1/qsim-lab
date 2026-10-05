@@ -1,4 +1,4 @@
-indecomposable codes with exact d: 3491; decomposable (copies of a smaller code, dropped): 1473; bounded only: 65; k>128 skipped: 37
+indecomposable codes with exact d: 3502; decomposable (copies of a smaller code, dropped): 1473; bounded only: 65; k>128 skipped: 37
 
 | n | k | d | kd^2/n | group | A | B | literature status |
 |---|---|---|---|---|---|---|---|
@@ -77,12 +77,12 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 | 168 | 14 | 10 | 8.33 | Z42xZ2 | `1 + x + x^5 y` | `1 + x^2 y + x^31 y` | **new Pareto point** (not dominated by any published code or direct sum); dominates lit [[186,14,10]] |
 | 168 | 20 | 6 | 4.29 | Z42xZ2 | `1 + x + x^5 y` | `1 + x^4 + x^20` | dominated by [[124,20,6]], [[144,24,6]], [[162,24,6]]; dominates lit [[252,20,4]] |
 | 170 | 16 | 10 | 9.41 | Z85 | `1 + x + x^16` | `1 + x^4 + x^64` | published; dominates lit [[186,14,10]] |
-| 174 | 4 | 16 | 5.89 | Z87 | `1 + x + x^2` | `1 + x^7 + x^23` | dominated by [[144,4,16]], [[154,6,16]], [[156,4,16]] |
+| 174 | 4 | 18 | 7.45 | Z87 | `1 + x^2 + x^13` | `1 + x^29 + x^70` | published; dominates lit [[192,4,18]], [[198,4,18]] |
 | 180 | 4 | 18 | 7.20 | Z90 | `1 + x + x^5` | `1 + x^14 + x^37` | dominated by [[174,4,18]]; dominates lit [[192,4,18]], [[198,4,18]] |
 | 180 | 8 | 16 | 11.38 | Z90 | `1 + x + x^4` | `1 + x^23 + x^62` | published; dominates lit [[192,8,16]], [[198,8,16]] |
 | 180 | 12 | 10 | 6.67 | Z30xZ3 | `1 + x + x^2 y` | `1 + x^4 + x^8 y` | dominated by [[126,12,10]], [[144,12,12]], [[170,16,10]] |
 | 180 | 16 | 2 | 0.36 | Z30xZ3 | `1 + y + y^2` | `1 + x + x^4` | dominated by [[60,16,4]], [[108,16,6]], [[120,16,6]] |
-| 182 | 6 | 16 | 8.44 | Z91 | `1 + x + x^3` | `1 + x^5 + x^25` | dominated by [[154,6,16]], [[180,8,16]], [[182,6,18]] |
+| 182 | 6 | 18 | 10.68 | Z91 | `1 + x^9 + x^13` | `1 + x + x^38` | published; dominates lit [[192,4,18]], [[196,6,18]], [[198,4,18]] |
 | 186 | 4 | 18 | 6.97 | Z93 | `1 + x + x^5` | `1 + x^7 + x^68` | dominated by [[174,4,18]], [[182,6,18]]; dominates lit [[192,4,18]], [[198,4,18]] |
 | 186 | 10 | 14 | 10.54 | Z93 | `1 + x + x^12` | `1 + x^8 + x^34` | published |
 | 186 | 14 | 10 | 7.53 | Z93 | `1 + x + x^14` | `1 + x^4 + x^56` | published |
@@ -94,16 +94,19 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 | 196 | 18 | 8 | 5.88 | Z14xZ7 | `1 + y + x^7 y^3` | `1 + x + x^3` | published; dominates lit [[292,18,8]] |
 | 198 | 4 | 18 | 6.55 | Z99 | `1 + x + x^5` | `1 + x^4 + x^23` | published |
 | 198 | 8 | 16 | 10.34 | Z33xZ3 | `1 + y + x^3 y^2` | `1 + x + x^14` | published |
-| 204 | 4 | 18 | 6.35 | Z102 | `1 + x + x^5` | `1 + x^4 + x^29` | dominated by [[174,4,18]], [[182,6,18]], [[192,4,18]] |
+| 204 | 4 | 20 | 7.84 | Z102 | `1 + x^16 + x^35` | `1 + x + x^11` | published; dominates lit [[216,4,20]], [[222,4,20]], [[228,4,20]] |
 | 210 | 6 | 18 | 9.26 | Z105 | `1 + x + x^3` | `1 + x^9 + x^83` | dominated by [[182,6,18]], [[196,6,18]] |
 | 210 | 10 | 16 | 12.19 | Z105 | `1 + x + x^5` | `1 + x^11 + x^34` | published |
 | 210 | 14 | 12 | 9.60 | Z105 | `1 + x + x^12` | `1 + x^16 + x^87` | published; dominates lit [[216,12,12]], [[252,14,12]] |
 | 210 | 24 | 4 | 1.83 | Z105 | `1 + x^7 + x^28` | `1 + x^15 + x^45` | dominated by [[144,24,6]], [[162,24,6]]; dominates lit [[252,20,4]] |
+| 216 | 4 | 20 | 7.41 | Z108 | `1 + x^14 + x^22` | `1 + x + x^20` | published; dominates lit [[222,4,20]], [[228,4,20]] |
 | 216 | 8 | 18 | 12.00 | Z54xZ2 | `1 + x + x^2 y` | `1 + x^10 y + x^23 y` | published; dominates lit [[234,8,18]], [[240,8,18]] |
 | 216 | 12 | 12 | 8.00 | Z18xZ6 | `1 + y + x^3 y^2` | `1 + x + x^2 y^3` | published |
-| 222 | 4 | 18 | 5.84 | Z111 | `1 + x + x^5` | `1 + x^11 + x^40` | dominated by [[174,4,18]], [[182,6,18]], [[192,4,18]] |
-| 224 | 6 | 18 | 8.68 | Z112 | `1 + x + x^5` | `1 + x^22 + x^75` | dominated by [[182,6,18]], [[196,6,18]], [[216,8,18]] |
+| 222 | 4 | 20 | 7.21 | Z111 | `1 + x + x^68` | `1 + x^5 + x^37` | published; dominates lit [[228,4,20]] |
+| 224 | 6 | 20 | 10.71 | Z112 | `1 + x^3 + x^22` | `1 + x + x^31` | published; dominates lit [[228,4,20]], [[238,6,20]] |
 | 224 | 18 | 6 | 2.89 | Z28xZ4 | `1 + x + x^3 y` | `1 + x^3 y^3 + x^15 y^2` | dominated by [[124,20,6]], [[144,24,6]], [[162,24,6]] |
+| 228 | 4 | 20 | 7.02 | Z114 | `1 + x^22 + x^47` | `1 + x^2 + x^43` | published |
+| 234 | 4 | 22 | 8.27 | Z117 | `1 + x^13 + x^29` | `1 + x + x^20` | published (lit d was a bound); dominates lit [[246,4,22*]], [[258,4,22*]], [[264,4,22*]] |
 | 234 | 8 | 18 | 11.08 | Z39xZ3 | `1 + x + x^5` | `1 + x y + x^23 y^2` | published; dominates lit [[240,8,18]] |
 | 238 | 6 | 20 | 10.08 | Z119 | `1 + x + x^5` | `1 + x^11 + x^90` | published |
 | 240 | 8 | 18 | 10.80 | Z120 | `1 + x + x^4` | `1 + x^9 + x^82` | published |
@@ -115,10 +118,11 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 | 252 | 16 | 8 | 4.06 | Z126 | `1 + x + x^8` | `1 + x^2 + x^79` | dominated by [[150,16,8]], [[170,16,10]], [[196,18,8]] |
 | 254 | 14 | 16 | 14.11 | Z127 | `1 + x + x^7` | `1 + x^9 + x^90` | published |
 | 264 | 8 | 20 | 12.12 | Z66xZ2 | `1 + x + x^2 y` | `1 + x^11 + x^49 y` | published; dominates lit [[270,8,20]] |
-| 266 | 6 | 20 | 9.02 | Z133 | `1 + x + x^5` | `1 + x^19 + x^50` | dominated by [[224,6,20]], [[238,6,20]], [[264,8,20]] |
+| 266 | 6 | 22 | 10.92 | Z133 | `1 + x^5 + x^109` | `1 + x^19 + x^25` | published (lit d was a bound); dominates lit [[280,6,22*]] |
 | 270 | 8 | 20 | 11.85 | Z135 | `1 + x + x^12` | `1 + x^17 + x^54` | published |
 | 270 | 12 | 16 | 11.38 | Z45xZ3 | `1 + x + x^2 y` | `1 + x^4 + x^38 y` | dominated by [[252,12,16]], [[254,14,16]] |
 | 270 | 16 | 6 | 2.13 | Z45xZ3 | `1 + y + x^15 y^2` | `1 + x + x^4` | dominated by [[108,16,6]], [[120,16,6]], [[124,20,6]] |
+| 280 | 6 | 22 | 10.37 | Z140 | `1 + x^16 + x^31` | `1 + x^5 + x^22` | published (lit d was a bound) |
 | 288 | 8 | 20 | 11.11 | Z72xZ2 | `1 + x + x^2 y` | `1 + x^11 + x^55 y` | dominated by [[264,8,20]], [[270,8,20]] |
 | 288 | 12 | 18 | 13.50 | Z36xZ4 | `1 + x + x^2 y` | `1 + x^5 + x^25 y^3` | published |
 | 288 | 16 | 12 | 8.00 | Z36xZ4 | `1 + x + x^2 y` | `1 + x^8 y^2 + x^22 y^2` | dominated by [[288,24,12]] |
@@ -128,7 +132,7 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 | 294 | 12 | 14 | 8.00 | Z147 | `1 + x^3 + x^15` | `1 + x^7 + x^56` | dominated by [[252,12,16]], [[254,14,16]], [[288,12,18]] |
 | 294 | 22 | 10 | 7.48 | Z21xZ7 | `1 + x + x^5` | `1 + x y + x^5 y^5` | dominated by [[288,24,12]]; dominates lit [[294,18,10]] |
 | 294 | 30 | 4 | 1.63 | Z21xZ7 | `1 + y + y^3` | `1 + x + x^5` | dominated by [[288,32,6]] |
-| 300 | 8 | 20 | 10.67 | Z150 | `1 + x + x^12` | `1 + x^14 + x^86` | dominated by [[264,8,20]], [[270,8,20]], [[294,10,20]] |
+| 300 | 8 | 22 | 12.91 | Z150 | `1 + x^49 + x^93` | `1 + x^2 + x^9` | published (lit d was a bound) |
 | 300 | 16 | 14 | 10.45 | Z30xZ5 | `1 + y + x^5 y^3` | `1 + x + x^4` | **new Pareto point** (not dominated by any published code or direct sum) |
 
 ## Literature frontier entries vs this search
@@ -200,43 +204,43 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 - [[168,8,14]]: matched/exceeded at same n; dominated by ours [(162, 8, 14)]
 - [[168,10,12]]: matched/exceeded at same n; dominated by ours [(144, 12, 12)]
 - [[170,16,10]]: matched/exceeded at same n
-- [[174,4,18]]: NOT reached in this space
+- [[174,4,18]]: matched/exceeded at same n
 - [[180,8,16]]: matched/exceeded at same n
-- [[182,6,18]]: NOT reached in this space
+- [[182,6,18]]: matched/exceeded at same n
 - [[186,10,14]]: matched/exceeded at same n
 - [[186,14,10]]: matched/exceeded at same n; dominated by ours [(168, 14, 10), (170, 16, 10)]
-- [[192,4,18]]: matched/exceeded at same n; dominated by ours [(180, 4, 18), (186, 4, 18)]
+- [[192,4,18]]: matched/exceeded at same n; dominated by ours [(174, 4, 18), (180, 4, 18), (182, 6, 18)]
 - [[192,8,16]]: matched/exceeded at same n; dominated by ours [(180, 8, 16)]
-- [[196,6,18]]: matched/exceeded at same n
+- [[196,6,18]]: matched/exceeded at same n; dominated by ours [(182, 6, 18)]
 - [[196,18,8]]: matched/exceeded at same n
-- [[198,4,18]]: matched/exceeded at same n; dominated by ours [(180, 4, 18), (192, 4, 18), (196, 6, 18)]
+- [[198,4,18]]: matched/exceeded at same n; dominated by ours [(174, 4, 18), (180, 4, 18), (192, 4, 18)]
 - [[198,8,16]]: matched/exceeded at same n; dominated by ours [(180, 8, 16), (192, 8, 16)]
-- [[204,4,20]]: NOT reached in this space
+- [[204,4,20]]: matched/exceeded at same n
 - [[210,10,16]]: matched/exceeded at same n
 - [[210,14,12]]: matched/exceeded at same n
-- [[216,4,20]]: NOT reached in this space
+- [[216,4,20]]: matched/exceeded at same n; dominated by ours [(204, 4, 20)]
 - [[216,8,18]]: matched/exceeded at same n
 - [[216,12,12]]: matched/exceeded at same n; dominated by ours [(144, 12, 12), (192, 12, 12), (210, 14, 12)]
-- [[222,4,20]]: NOT reached in this space
-- [[224,6,20]]: NOT reached in this space
-- [[228,4,20]]: NOT reached in this space
-- [[234,4,22*]]: NOT reached in this space
+- [[222,4,20]]: matched/exceeded at same n; dominated by ours [(204, 4, 20), (216, 4, 20)]
+- [[224,6,20]]: matched/exceeded at same n
+- [[228,4,20]]: matched/exceeded at same n; dominated by ours [(204, 4, 20), (216, 4, 20), (224, 6, 20)]
+- [[234,4,22*]]: matched/exceeded at same n
 - [[234,8,18]]: matched/exceeded at same n; dominated by ours [(216, 8, 18)]
-- [[238,6,20]]: matched/exceeded at same n
+- [[238,6,20]]: matched/exceeded at same n; dominated by ours [(224, 6, 20)]
 - [[240,8,18]]: matched/exceeded at same n; dominated by ours [(216, 8, 18), (234, 8, 18)]
-- [[246,4,22*]]: NOT reached in this space
+- [[246,4,22*]]: NOT reached in this space; dominated by ours [(234, 4, 22)]
 - [[248,10,18]]: matched/exceeded at same n
 - [[252,12,16]]: matched/exceeded at same n
 - [[252,14,12]]: matched/exceeded at same n; dominated by ours [(210, 14, 12)]
 - [[252,20,4]]: NOT reached in this space; dominated by ours [(168, 20, 6), (210, 24, 4)]
 - [[254,14,16]]: matched/exceeded at same n
-- [[258,4,22*]]: NOT reached in this space
-- [[264,4,22*]]: NOT reached in this space
+- [[258,4,22*]]: NOT reached in this space; dominated by ours [(234, 4, 22)]
+- [[264,4,22*]]: NOT reached in this space; dominated by ours [(234, 4, 22)]
 - [[264,8,20]]: matched/exceeded at same n
-- [[266,6,22*]]: NOT reached in this space
+- [[266,6,22*]]: matched/exceeded at same n
 - [[270,8,20]]: matched/exceeded at same n; dominated by ours [(264, 8, 20)]
 - [[276,4,24*]]: NOT reached in this space
-- [[280,6,22*]]: NOT reached in this space
+- [[280,6,22*]]: matched/exceeded at same n; dominated by ours [(266, 6, 22)]
 - [[282,4,24*]]: NOT reached in this space
 - [[288,4,24*]]: NOT reached in this space
 - [[288,12,18]]: matched/exceeded at same n
@@ -245,4 +249,4 @@ indecomposable codes with exact d: 3491; decomposable (copies of a smaller code,
 - [[292,18,8]]: matched/exceeded at same n; dominated by ours [(196, 18, 8)]
 - [[294,10,20]]: matched/exceeded at same n
 - [[294,18,10]]: matched/exceeded at same n; dominated by ours [(294, 22, 10)]
-- [[300,8,22*]]: NOT reached in this space
+- [[300,8,22*]]: matched/exceeded at same n
