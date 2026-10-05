@@ -6,7 +6,7 @@ Branch `exp/code-discovery`.
   - `src/qec/bb_search.rs`: enumeration up to equivalence.
   - `src/qec/bb_circuit.rs`: depth-7 syndrome circuits and schedule validity.
   - `examples/bb_codes.rs`: CLI with `params`, `search`, `schedules`, `schedsearch`, `cdist`, `ler`.
-- Tests: `tests/bicycle_codes.rs` pins published parameters. There are also unit tests in all three modules, including a brute-force check that the enumeration is complete.
+- Tests: `tests/qec/bicycle_codes.rs` pins published parameters. There are also unit tests in all three modules, including a brute-force check that the enumeration is complete.
 - Data and scripts: [`research/data/code-discovery/`](../data/code-discovery/) (`search_w6_all.jsonl` is stored as `.xz`; run `tools/datafiles.py unpack` before re-running `frontier.py`). `literature.md` is a 341-entry table of published BB/GB/2BGA codes from 21 papers. It was compiled by a sub-agent, with every polynomial copied verbatim.
 - Compute: all runs were on the Mac (M1 Pro) with ≤ 2 workers and no GPU. The Mac was shared, with load 8–16.
 

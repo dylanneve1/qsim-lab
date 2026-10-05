@@ -70,7 +70,7 @@ tools/datafiles.py verify     # integrity check only
 ```
 
 Unpacked originals are listed in [.gitignore](.gitignore), so `git status`
-stays clean. Rust tests that read data directly (`tests/planner.rs` reads
+stays clean. Rust tests that read data directly (`tests/simulability/planner.rs` reads
 `simulability/raw/*.csv`) use files that are kept uncompressed. To compress
 new large output: `tools/datafiles.py pack path/to/file.csv` (or
 `tools/datafiles.py pack` to sweep every tracked text file over 200 kB).

@@ -1,6 +1,6 @@
 # Metal (Apple GPU) backend for the dense state vector, f32 (round 4, 4 Oct 2026)
 
-Branch `exp/metal`. The code sits behind the `metal` cargo feature and only compiles on macOS: `src/engines/metal_sv.rs` (host), `src/engines/metal_sv.metal` (kernels), `tests/metal.rs`, `examples/metal_bench.rs`. Raw data and scripts are in `research/data/metal/`.
+Branch `exp/metal`. The code sits behind the `metal` cargo feature and only compiles on macOS: `src/engines/metal_sv.rs` (host), `src/engines/metal_sv.metal` (kernels), `tests/engines/metal.rs`, `examples/metal_bench.rs`. Raw data and scripts are in `research/data/metal/`.
 
 ## Verdict
 
@@ -74,7 +74,7 @@ Two stage kernels:
 
 **Kernel compilation.** The offline Metal compiler is *not* installed on this Mac: `xcrun metal` fails with "missing Metal Toolchain" and would need `xcodebuild -downloadComponent MetalToolchain`. The backend therefore compiles its MSL source at run time with `MTLDevice newLibraryWithSource:`, which is part of macOS, so nothing was installed. Each `(kernel, tg_bits, threads)` pipeline is compiled on first use, which takes tens of ms. That cost lands in the first repetition and is excluded by the min.
 
-**Bindings.** The `metal` crate 0.32 is an optional dependency under `[target.'cfg(target_os = "macos")'.dependencies]`, enabled by `--features metal`. `src/lib.rs` declares `#[cfg(all(feature = "metal", target_os = "macos"))] pub mod metal_sv;`. `tests/metal.rs` is cfg-gated the same way, and `examples/metal_bench.rs` has `required-features = ["metal"]` plus a stub `main` off macOS. Builds without the feature, and all non-macOS builds, are unchanged. Without the feature, `cargo check --lib --tests` is clean on the Mac. On the VPS the Linux build wasn't run (out of RAM); the gating is the standard target-specific optional-dependency pattern.
+**Bindings.** The `metal` crate 0.32 is an optional dependency under `[target.'cfg(target_os = "macos")'.dependencies]`, enabled by `--features metal`. `src/lib.rs` declares `#[cfg(all(feature = "metal", target_os = "macos"))] pub mod metal_sv;`. `tests/engines/metal.rs` is cfg-gated the same way, and `examples/metal_bench.rs` has `required-features = ["metal"]` plus a stub `main` off macOS. Builds without the feature, and all non-macOS builds, are unchanged. Without the feature, `cargo check --lib --tests` is clean on the Mac. On the VPS the Linux build wasn't run (out of RAM); the gating is the standard target-specific optional-dependency pattern.
 
 Usage:
 ```rust
@@ -87,7 +87,7 @@ let amps: &[num_complex::Complex32] = st.amplitudes();   // zero-copy
 
 ## Correctness
 
-`tests/metal.rs` has 6 tests, all green on the M1 Pro. They compare against the independent f64 `audit_common::RefSv` with tolerance **1e-5** (f32):
+`tests/engines/metal.rs` has 6 tests, all green on the M1 Pro. They compare against the independent f64 `audit_common::RefSv` with tolerance **1e-5** (f32):
 - **Random circuits, n = 1..16.** The circuits mix `random_circuit` (every `Gate` it draws, including Toffoli, SWAP, CPhase, CZ, Rx/Ry/Rz, edge angles and edge qubits) with Sx, Sxdg, U, I, ISwap and ISwapdg. The test's own reference for those extra gates uses textbook matrices and is itself checked against RefSv. Each circuit is checked under 22 configurations, plus the naive path:
   - the default register kernel;
   - 8 shared-memory shapes covering batch widths 1-4;

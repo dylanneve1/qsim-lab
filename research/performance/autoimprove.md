@@ -251,7 +251,7 @@ so it would not have caught this. Two fixes went in:
   `compile_kops`, `BlockedChunkExecutor`, `tile_stats`, `fusion_stats`). The graph compiler
   and Metal keep the order-preserving planner. They could adopt the lookahead if they map
   ops by index rather than by range.
-* **The harness** now also runs `tests/graph.rs`, `tests/ooc.rs` and `tests/pipeline.rs` as
+* **The harness** now also runs `tests/compiler/graph.rs`, `tests/engines/ooc.rs` and `tests/compiler/pipeline.rs` as
   module tests, since those drive the planner and prepared stages from outside.
 
 The pair kernel is rebased the same way. Pairing happens in `prepare` only, never in the

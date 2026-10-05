@@ -140,7 +140,7 @@ lower bound (ĉ = 0) changes S₁ by ≤ 0.013 absolute and d by ≤ 0.02 (colum
 dirty for ≥ 3 rounds.
 
 **Validation.**
-* *Exact, fixed fault patterns* (`tests/shor_noise.rs`): for every control
+* *Exact, fixed fault patterns* (`tests/shor/shor_noise.rs`): for every control
   site × every Pauli in an early, middle and late round, plus 30–40 random
   1–4-fault patterns, the exact distribution of the recorded integer (whole
   measurement tree) equals an independent gate-by-gate reference that applies
@@ -405,7 +405,7 @@ removing persistent ancilla dirt (reset) or biasing noise towards Z.
   `run_trajectory(_opts)`, `trajectory_distribution` (exact, small N),
   `reference_circuit(_opts)` (stock noise ops, for validation);
   `src/shor/sliced.rs` gains `eval_raw_unchecked` (same AVX2 dispatch).
-* `tests/shor_noise.rs` (5 tests), lib tests `shor::noisy::tests` (2).
+* `tests/shor/shor_noise.rs` (5 tests), lib tests `shor::noisy::tests` (2).
 * `examples/shor_noise.rs` (one CSV row per trajectory: recorded y, metrics,
   support trace, every fault as round/site/gate/qubit/register/Pauli),
   `examples/shor_noise_validate.rs`.

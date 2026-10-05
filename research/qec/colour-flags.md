@@ -1,6 +1,6 @@
 # Colour-code flags: full circuit distance as real circuits, and what it buys
 
-Branch `exp/colour-flags` (from `main` = e7e102d). Code: `src/qec/color.rs` (`memory_flagged`, `flag_slots`, `resources`, `parse_schedule_spec`), `examples/color_search.rs`, `examples/color_ler.rs`, `tests/colour_flags.rs`. Data and scripts: `research/data/colour-flags/`.
+Branch `exp/colour-flags` (from `main` = e7e102d). Code: `src/qec/color.rs` (`memory_flagged`, `flag_slots`, `resources`, `parse_schedule_spec`), `examples/color_search.rs`, `examples/color_ler.rs`, `tests/qec/colour_flags.rs`. Data and scripts: `research/data/colour-flags/`.
 
 This follows `research/qec/colour-global.md` §6. There, full circuit distance d for the triangular 6.6.6 colour code (Kishony–Fowler (K–F) layout, arXiv:2603.28852) needed every boundary-touching plaquette (3d − 6 of them) to be hook-free, plus a 7th CNOT layer from d = 9. Those schedules were checked only in an idealised symbolic model (flagged hooks treated as *absent*, flag CNOTs not in the timing). The Rust generator had no flag qubits. Noise is the noisy-CNOT model (`DEPOLARIZE2(p)` after every CNOT) unless stated. Memory runs over d rounds.
 
@@ -29,7 +29,7 @@ This follows `research/qec/colour-global.md` §6. There, full circuit distance d
 
 ## 1. Construction: one flag qubit per boundary plaquette
 
-`ColorCode::memory_flagged(schedule, flagged, rounds, noise, basis)`. With no flags the circuit is op-for-op identical to `memory_basis`; `tests/colour_flags.rs::no_flags_is_the_unflagged_circuit` checks this.
+`ColorCode::memory_flagged(schedule, flagged, rounds, noise, basis)`. With no flags the circuit is op-for-op identical to `memory_basis`; `tests/qec/colour_flags.rs::no_flags_is_the_unflagged_circuit` checks this.
 
 Each flagged plaquette p gets one flag qubit. It is reset and measured in the same moments as p's auxiliary and serves both halves of every round:
 
@@ -87,11 +87,11 @@ Z- and X-basis memory, noisy-CNOT model. "Ours" is the exact branch and bound (`
 | 11 | 1 | Z | **11** (all 45 plaquettes flagged, 27 min) | | | |
 
 Also checked:
-- **Detectors are deterministic**, flags included. Both bases, both noise models, 1–2 rounds, at d = 5, 7, for HF and for K–F + boundary flags (`tests/colour_flags.rs`). Stim also builds every exported DEM, and it rejects non-deterministic detectors.
+- **Detectors are deterministic**, flags included. Both bases, both noise models, 1–2 rounds, at d = 5, 7, for HF and for K–F + boundary flags (`tests/qec/colour_flags.rs`). Stim also builds every exported DEM, and it rejects non-deterministic detectors.
 - **K–F's own schedule + the same boundary flags** reaches 5 at d = 5, but only **6 at d = 7** (7 rounds) and **8 at d = 9** (1 round). Flags alone are not enough: the schedule has to change too, as colour-global's model said.
 - The minimum-weight count N_min of the HF circuits is large (61,573 at d = 9 over 1 round, against K–F's 36 at weight 7). Most weight-d logicals are plain boundary strings, repeated over space-time positions. N_min was not optimised. A second d = 7 schedule found by the flag-aware search (§3; `d7_fpk_T6.sched`) has 68,091 against 80,664 over 7 rounds, so the count is mostly intrinsic.
 
-Pinned in `tests/colour_flags.rs`:
+Pinned in `tests/qec/colour_flags.rs`:
 - d = 5 over 5 rounds, both bases;
 - d = 7 over 1 round, both bases;
 - K–F + flags = 6 at d = 7;

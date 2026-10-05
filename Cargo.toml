@@ -7,6 +7,10 @@ license = "MIT"
 description = "An educational quantum circuit simulator with state-vector, stabilizer, Pauli-path (Clifford+T) and MPS backends"
 repository = "https://github.com/dylanneve1/qsim-lab"
 readme = "README.md"
+# Integration tests live in tests/<area>/<name>.rs and are listed as [[test]]
+# targets below (binary name = file name, so `cargo test --test <name>` and
+# tools/ci_shard.py keep working). Top-level tests/*.rs files are still
+# auto-discovered (tools/autoimprove drops its gate test there).
 keywords = ["quantum", "simulator", "stabilizer", "mps"]
 categories = ["science", "simulation"]
 # Lab notebooks and their data stay in the repository, not in packages (crate
@@ -46,6 +50,242 @@ metal = ["dep:metal"]
 [[example]]
 name = "metal_bench"
 required-features = ["metal"]
+
+[[test]]
+name = "algorithms"
+path = "tests/core/algorithms.rs"
+
+[[test]]
+name = "cross_check"
+path = "tests/core/cross_check.rs"
+
+[[test]]
+name = "differential_fuzz"
+path = "tests/core/differential_fuzz.rs"
+
+[[test]]
+name = "identities"
+path = "tests/core/identities.rs"
+
+[[test]]
+name = "new_gates_and_qasm"
+path = "tests/core/new_gates_and_qasm.rs"
+
+[[test]]
+name = "noise"
+path = "tests/core/noise.rs"
+
+[[test]]
+name = "properties"
+path = "tests/core/properties.rs"
+
+[[test]]
+name = "stim_io"
+path = "tests/core/stim_io.rs"
+
+[[test]]
+name = "adaptive"
+path = "tests/engines/adaptive.rs"
+
+[[test]]
+name = "blocked"
+path = "tests/engines/blocked.rs"
+
+[[test]]
+name = "dense_fusion"
+path = "tests/engines/dense_fusion.rs"
+
+[[test]]
+name = "fast_sampler"
+path = "tests/engines/fast_sampler.rs"
+
+[[test]]
+name = "hsf"
+path = "tests/engines/hsf.rs"
+
+[[test]]
+name = "l1_tiling"
+path = "tests/engines/l1_tiling.rs"
+
+[[test]]
+name = "metal"
+path = "tests/engines/metal.rs"
+
+[[test]]
+name = "ooc"
+path = "tests/engines/ooc.rs"
+
+[[test]]
+name = "pauli_frame"
+path = "tests/engines/pauli_frame.rs"
+
+[[test]]
+name = "simd"
+path = "tests/engines/simd.rs"
+
+[[test]]
+name = "spd"
+path = "tests/engines/spd.rs"
+
+[[test]]
+name = "stab_exact"
+path = "tests/engines/stab_exact.rs"
+
+[[test]]
+name = "symphase"
+path = "tests/engines/symphase.rs"
+
+[[test]]
+name = "compile"
+path = "tests/compiler/compile.rs"
+
+[[test]]
+name = "dag"
+path = "tests/compiler/dag.rs"
+
+[[test]]
+name = "graph"
+path = "tests/compiler/graph.rs"
+
+[[test]]
+name = "phasefold"
+path = "tests/compiler/phasefold.rs"
+
+[[test]]
+name = "pipeline"
+path = "tests/compiler/pipeline.rs"
+
+[[test]]
+name = "repeat"
+path = "tests/compiler/repeat.rs"
+
+[[test]]
+name = "lowmagic_chem"
+path = "tests/simulability/lowmagic_chem.rs"
+
+[[test]]
+name = "magic_atlas"
+path = "tests/simulability/magic_atlas.rs"
+
+[[test]]
+name = "magic_transition"
+path = "tests/simulability/magic_transition.rs"
+
+[[test]]
+name = "planner"
+path = "tests/simulability/planner.rs"
+
+[[test]]
+name = "planner_v2"
+path = "tests/simulability/planner_v2.rs"
+
+[[test]]
+name = "simulability"
+path = "tests/simulability/simulability.rs"
+
+[[test]]
+name = "ft_shor"
+path = "tests/shor/ft_shor.rs"
+
+[[test]]
+name = "ge_shor"
+path = "tests/shor/ge_shor.rs"
+
+[[test]]
+name = "mbu_shor"
+path = "tests/shor/mbu_shor.rs"
+
+[[test]]
+name = "noise_oracles"
+path = "tests/shor/noise_oracles.rs"
+
+[[test]]
+name = "shor_noise"
+path = "tests/shor/shor_noise.rs"
+
+[[test]]
+name = "shor_r4_audit"
+path = "tests/shor/shor_r4_audit.rs"
+
+[[test]]
+name = "shor_scale"
+path = "tests/shor/shor_scale.rs"
+
+[[test]]
+name = "superopt"
+path = "tests/shor/superopt.rs"
+
+[[test]]
+name = "bicycle_codes"
+path = "tests/qec/bicycle_codes.rs"
+
+[[test]]
+name = "color_code"
+path = "tests/qec/color_code.rs"
+
+[[test]]
+name = "colour_flags"
+path = "tests/qec/colour_flags.rs"
+
+[[test]]
+name = "colour_global"
+path = "tests/qec/colour_global.rs"
+
+[[test]]
+name = "qec_dem_audit"
+path = "tests/qec/qec_dem_audit.rs"
+
+[[test]]
+name = "repetition"
+path = "tests/qec/repetition.rs"
+
+[[test]]
+name = "surface"
+path = "tests/qec/surface.rs"
+
+[[test]]
+name = "stabrank_lower"
+path = "tests/theory/stabrank_lower.rs"
+
+[[test]]
+name = "theory_colour"
+path = "tests/theory/theory_colour.rs"
+
+[[test]]
+name = "theory_coset"
+path = "tests/theory/theory_coset.rs"
+
+[[test]]
+name = "theory_rank"
+path = "tests/theory/theory_rank.rs"
+
+[[test]]
+name = "theory_shor"
+path = "tests/theory/theory_shor.rs"
+
+[[test]]
+name = "theory_shor_mbu"
+path = "tests/theory/theory_shor_mbu.rs"
+
+[[test]]
+name = "theory_shor_opt"
+path = "tests/theory/theory_shor_opt.rs"
+
+[[test]]
+name = "audit_phasefold"
+path = "tests/audit/audit_phasefold.rs"
+
+[[test]]
+name = "audit_r4_compose"
+path = "tests/audit/audit_r4_compose.rs"
+
+[[test]]
+name = "audit_r4b"
+path = "tests/audit/audit_r4b.rs"
+
+[[test]]
+name = "audit_repeat"
+path = "tests/audit/audit_repeat.rs"
 
 [dev-dependencies]
 proptest = "1"

@@ -8,7 +8,7 @@ with changing angles) and simulates `B^r` faster than `r` copies, exactly.
 Code: `src/compile/repeat/{mod,cliff,exec,workloads}.rs`, plan-reuse API in
 `src/engines/blocked.rs` (`compile_kops` / `run_compiled`), pipeline option
 `pipeline::simulate_with(.., &SimOptions { repeat: Some(..) })` (default off;
-`simulate()` is unchanged and a test pins that). Tests: `tests/repeat.rs`
+`simulate()` is unchanged and a test pins that). Tests: `tests/compiler/repeat.rs`
 (20 tests, incl. 5 proptests). Bench: `examples/repeat_bench.rs`.
 Raw data: `research/data/repeat/`.
 
@@ -248,7 +248,7 @@ consumes the RNG in another order, so seeded outputs of `simulate` and
 (for deterministic circuits like the noiseless repetition code on `|0..0>` the
 outcomes are identical).
 
-## 4. Verification summary (`tests/repeat.rs`, all green)
+## 4. Verification summary (`tests/compiler/repeat.rs`, all green)
 * detection: Trotter, QAOA (param), Grover, QEC, nested repeats, shuffled
   copies; `to_circuit()` equals the original (state vector <1e-12);
 * (a) proptest vs gate-by-gate (<1e-12 up to phase) and map equality with signs;
@@ -303,7 +303,7 @@ Rebased onto main fb30f56 (clean textual rebase; one semantic fix:
 `run_stage` gained a `simd` argument on main, so `CompiledKOps` now records
 `cfg.simd && simd_available()` like the other executors).
 
-Independent differential fuzz `tests/audit_repeat.rs` (naive reference SV of
+Independent differential fuzz `tests/audit/audit_repeat.rs` (naive reference SV of
 `tests/audit_common`, branch-tree comparison in `tests/audit_r4/`):
 `run_dense` on hand-built programs (reps 0/1/2/3/7/64/513/4097/100003,
 nested repeats, `Param` nodes, diagonal / Clifford / general bodies, all six

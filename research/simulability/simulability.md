@@ -2,7 +2,7 @@
 
 Branch `exp/simulability`. Author: qsim-simulability agent (round 4, 3 Oct 2026).
 Code: `src/simulability.rs` (families, features, engine runners), `examples/simulability.rs` (CLI),
-`tests/simulability.rs`, `research/data/simulability/{driver.py, run_mac.sh, refeature.py, fit.py}`.
+`tests/simulability/simulability.rs`, `research/data/simulability/{driver.py, run_mac.sh, refeature.py, fit.py}`.
 Data:
 - `research/data/simulability/raw/{grid}.csv`: Mac, request `<Z^{⊗n}>`; authoritative.
 - `raw/{grid}.mid2.csv`: the same instances with the request `<Z_{n/2−1} Z_{n/2}>`.
@@ -35,7 +35,7 @@ The result does not depend on the request or the kernel build:
 from `raw/*.csv` with `fit.py` and an independent per-family scoring. (2) `support_bound` (the
 `sup` feature) was not a valid upper bound: a Toffoli with one constant control whose target and
 other-control forms cancelled was marked constant, under-counting (`H1 CX12 CCX012 CX21 H1`: true
-support 2², bound 2¹). Fixed on exp/r4-audit2 (`tests/audit_r4b.rs`, 4,000-circuit fuzz against the
+support 2², bound 2¹). Fixed on exp/r4-audit2 (`tests/audit/audit_r4b.rs`, 4,000-circuit fuzz against the
 state vector); recomputing `sup` for all 60 Toffoli instances of this dataset and all 96 Toffoli rows
 of the magic atlas changes no value, so no number here moves.
 
@@ -127,7 +127,7 @@ to ≤ 1e-10. MPS agrees to ≤ 1.8e-7. That gap is the cost of its numerical-ra
 singular-value weight 1e-14, runs rejected if total discarded weight > 1e-10). Setting the cutoff
 to 0 is not an option: it keeps numerically zero singular values, and the bond then grows to the
 crossing bound. "Exact MPS" therefore always means "exact to the SVD's numerical rank".
-`tests/simulability.rs` checks every engine against the state vector on all four families. It also
+`tests/simulability/simulability.rs` checks every engine against the state vector on all four families. It also
 checks the MPS `Z`-product contraction, the bond and support bounds (as true upper bounds), and
 the soundness of the vanishing certificate (§6.1). The existing suites (cross_check,
 differential_fuzz, properties, adaptive, pauli_frame, …) still pass with the MPS change.

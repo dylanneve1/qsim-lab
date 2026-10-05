@@ -88,7 +88,7 @@ measurement flips (X after |0⟩, Z after |+⟩), single-qubit depolarizing afte
 Paulis, p/15 each) after every CNOT. No idle noise (as in `shor-noise`), no leakage,
 no coherent errors. Pauli-frame corrections are noiseless (they are classical).
 
-**Fault tolerance is tested, not assumed** (`ft::machine::tests`, `tests/ft_shor.rs`): every
+**Fault tolerance is tested, not assumed** (`ft::machine::tests`, `tests/shor/ft_shor.rs`): every
 single fault (each location × each Pauli) in the level-1 exRecs for preparation, EC,
 H/S/CNOT sequences, measurement, and the T gadget (with an ideal magic state) leaves no
 logical error; 300 random three-fault patterns in a level-2 CNOT+S exRec leave none. The
@@ -568,7 +568,7 @@ algorithm.
   real measurements), `logical.rs` (logical vector, `Encoded`, `Unencoded`, `Checked`,
   injection-error sampler), `shor.rs` (N = 15 and compiled N = 21 circuits, exact
   distributions).
-* `tests/ft_shor.rs` — frame vs dense (per shot, Clifford + EC; statistics, T gadgets),
+* `tests/shor/ft_shor.rs` — frame vs dense (per shot, Clifford + EC; statistics, T gadgets),
   T-gadget exRec single faults, noiseless encoded Shor, clean-run estimator.
 * `examples/ft_shor.rs` (runs), `examples/ft_exrec.rs` (gadget exRecs),
   `examples/ft_flagdebug.rs` (first logical fault per run), `examples/ft_cleancheck.rs`.

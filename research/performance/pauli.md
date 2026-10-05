@@ -99,7 +99,7 @@ number of branchings per path small. *Recommendation:* make the threshold
 relative, or 0, before anyone runs `t ≫ 100`. Speed was not distinguishable at
 this load.
 
-### Tests (all in `tests/pauli_frame.rs`; plus the existing suites)
+### Tests (all in `tests/engines/pauli_frame.rs`; plus the existing suites)
 
 Every test runs all 16 combinations of `prune × merge × parallel × fuse` and
 compares them against the state vector (tolerance 1e-9) and against the legacy

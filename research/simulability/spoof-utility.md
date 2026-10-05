@@ -130,7 +130,7 @@ Drivers:
 * `examples/spoof_patch.rs` runs truncated SPD against the exact state vector on
   heavy-hex patches at any depth.
 
-### Validation (`tests/spd.rs`, 8 tests, green on the M1; clippy `-D warnings` clean)
+### Validation (`tests/engines/spd.rs`, 8 tests, green on the M1; clippy `-D warnings` clean)
 
 * **Lattice.** `eagle_matches_published_coupling_map` also checks that the three
   published colour layers are perfect matchings. `larger_heavy_hex_lattices`:

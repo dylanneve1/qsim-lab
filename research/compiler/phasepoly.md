@@ -62,10 +62,10 @@ count.
 `PlanOptions::none()`). When true, `front_end` runs `peephole -> phase_fold
 -> peephole` before SWAP elimination and state propagation. `simulate()`
 (`pipeline::plan_options()`) does not set it, so its behaviour is unchanged
-(`tests/phasefold.rs::plan_option_keeps_simulate_identical` also compares
+(`tests/compiler/phasefold.rs::plan_option_keeps_simulate_identical` also compares
 amplitudes with the option on).
 
-## Exactness evidence (`tests/phasefold.rs`, proptest, 300 cases each)
+## Exactness evidence (`tests/compiler/phasefold.rs`, proptest, 300 cases each)
 - Full unitary, all `2^n` basis columns, n ≤ 4, random Clifford+T
   (`H,S,S†,T,T†,X,Y,Z,CNOT,CZ,SWAP`) and Clifford+Rz+extras (`Rz` with
   random angles, `CPhase`, `Ry`, `SX`, `Toffoli`).
@@ -191,7 +191,7 @@ timed runs), Rust stable, release profile.
 
 ## Audit, round 4 (3 Oct 2026, exp/phasepoly-r4)
 Rebased onto main fb30f56 cleanly. Independent differential fuzz
-`tests/audit_phasefold.rs` against the naive reference SV, comparing the whole
+`tests/audit/audit_phasefold.rs` against the naive reference SV, comparing the whole
 instrument (every measurement / reset / flip branch, unnormalised, global
 phase included): all gate kinds incl. iSWAP/SX/U/Toffoli/CPhase, Clifford+T
 up to 12 qubits, mid-circuit measurement, reset, classically controlled

@@ -2,7 +2,7 @@
 
 Branch `exp/theory-rank`. Author: qsim-theory-rank agent (round 4, 4 Oct 2026). Base: main 3919576.
 Code: `src/engines/stab_rank.rs` (engine, ~1,300 lines), `examples/theory_rank.rs` (`profile`, `verify`,
-`grover`), `tests/theory_rank.rs` (9 tests). Data: `research/data/theory-rank/` (`families.jsonl`,
+`grover`), `tests/theory/theory_rank.rs` (9 tests). Data: `research/data/theory-rank/` (`families.jsonl`,
 `scaling.jsonl`, `tables.md`, `grover_demo.txt`, `grover64.txt`, `grover128.txt`, driver scripts).
 
 ## Summary

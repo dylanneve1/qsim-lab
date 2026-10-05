@@ -1,7 +1,7 @@
 # Theorems behind the round-4 Shor observations (topic `theory-shor`, branch `exp/theory-shor`)
 
 Author: qsim-theory-shor agent, 4 Oct 2026, base main = e7e102d.
-Checks: `tests/theory_shor.rs` (12 tests, all green: `cargo test --release --test theory_shor`,
+Checks: `tests/theory/theory_shor.rs` (12 tests, all green: `cargo test --release --test theory_shor`,
 about 9 min on the loaded VPS with 2 threads) and `research/data/theory-shor/window_bounds.py`
 (→ `window_bounds.out`). Each test fails if its theorem is false. Where the arithmetic can be
 done exactly, it is: cyclotomic integers, integer divisibility, exact enumeration of measurement
@@ -111,7 +111,7 @@ on [0, 1]. Maximum: the last term B_{t−1} = r/2 if ν ≥ 2, = r_odd = r/2 if 
 i ≤ t − ν. If ν = 0 the maximum is r_odd = r. The peak statement follows from (a) and (c), applied to
 one round where B_i attains the maximum. ∎
 
-**Checks** (`tests/theory_shor.rs`):
+**Checks** (`tests/theory/theory_shor.rs`):
 
 * `t1_support_closed_form_equals_exact_cyclotomic`: the closed form of (b) equals the support computed
   **exactly in Z[ζ_{2^i}]** (coefficients reduced with ζ^(2^(i−1)) = −1, then a zero test) for **all**

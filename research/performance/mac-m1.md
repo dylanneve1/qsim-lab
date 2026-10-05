@@ -28,7 +28,7 @@ Best Mac config (f32 and f64): `simd` on (NEON FMA), `block_bytes = 1 MiB`, `slo
   - No correctness issue found.
 - **Cleanups (commit 4841de4)**:
   - removed 19 macOS `._*` resource-fork files that had been committed under `research/data/l1/`;
-  - added `tests/l1_tiling.rs::tiled_matches_audit_reference`, which differential-tests the tiled executor against the independent `audit_common::RefSv`: edge angles/qubits, SWAP/CCX/CPhase, n = 3..12, 7 geometries, portable and SIMD, f64 <= 1e-12 and f32 <= 1e-5;
+  - added `tests/engines/l1_tiling.rs::tiled_matches_audit_reference`, which differential-tests the tiled executor against the independent `audit_common::RefSv`: edge angles/qubits, SWAP/CCX/CPhase, n = 3..12, 7 geometries, portable and SIMD, f64 <= 1e-12 and f32 <= 1e-5;
   - `cargo fmt`, plus one clippy precedence warning in `examples/l1_micro.rs`.
 - **Tests**: full `cargo test --release` is green on the VPS (x86_64, AVX2 path, 25 test binaries + doc-tests) and on the Mac (aarch64, NEON path, 25 test binaries + doc-tests, 0 failures).
 
@@ -165,4 +165,4 @@ This is what merging exp/neon-fma-r4 gives on Apple silicon: **1.29-1.31x on bri
 
 ## 7. Status on main (4 Oct 2026, integration pass)
 
-The tiling code was merged to main behind its flag so the code and this negative result live together: `BlockConfig::l1_tile_bytes` stays **0 (off) by default** on both architectures. Rebased onto main 3a37671 (only conflict: this file, where main's version was already the superset), reviewed again (ops are reordered only across pairs that commute under the `schedule_diag` rule; `tile_local` requires every bit a diagonal block reads, and every target, to lie inside the tile), and gated with fmt, clippy `--all-targets -D warnings`, the full `cargo test --release` on x86_64 (53 test binaries, 541 passed, 0 failed) and the doc build. `tests/l1_tiling.rs` (incl. `tiled_matches_audit_reference` against `audit_common::RefSv`) and the tiling configs in `tests/blocked.rs` keep it tested. The original branches are archived (`research/process/ARCHIVE.md`).
+The tiling code was merged to main behind its flag so the code and this negative result live together: `BlockConfig::l1_tile_bytes` stays **0 (off) by default** on both architectures. Rebased onto main 3a37671 (only conflict: this file, where main's version was already the superset), reviewed again (ops are reordered only across pairs that commute under the `schedule_diag` rule; `tile_local` requires every bit a diagonal block reads, and every target, to lie inside the tile), and gated with fmt, clippy `--all-targets -D warnings`, the full `cargo test --release` on x86_64 (53 test binaries, 541 passed, 0 failed) and the doc build. `tests/engines/l1_tiling.rs` (incl. `tiled_matches_audit_reference` against `audit_common::RefSv`) and the tiling configs in `tests/engines/blocked.rs` keep it tested. The original branches are archived (`research/process/ARCHIVE.md`).

@@ -1,5 +1,5 @@
-//! Round-4 audit helpers (shared by `tests/audit_phasefold.rs` and
-//! `tests/audit_repeat.rs`): the naive reference of `tests/audit_common`
+//! Round-4 audit helpers (shared by `tests/audit/audit_phasefold.rs` and
+//! `tests/audit/audit_repeat.rs`): the naive reference of `tests/audit_common`
 //! extended to every gate, and an exact *instrument* comparison that
 //! enumerates every branch of measurements, resets and Pauli flips.
 #![allow(dead_code, clippy::needless_range_loop)]
