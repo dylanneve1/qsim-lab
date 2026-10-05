@@ -230,6 +230,42 @@ comparison favours qsim-lab. qsim and Aer times include their Python front ends.
 - The hook-safe CNOT order restores full distance; a standard-looking order gave d = 5 an effective
   distance of 3 (confirmed by fault injection).
 
+## 9. Gidney 2025's approximate modular exponentiation, simulated on every branch (`research/shor/approx-modexp.md`)
+
+**What.** The reference `approx_modexp` of Gidney 2025 (arXiv:2505.15917; code CC-BY-4.0,
+doi:10.5281/zenodo.15347487) — approximate residue arithmetic (Chevignard–Fouque–Schrottenloher),
+masking, measurement-based uncomputation with deferred "vent" phase corrections — simulated exactly
+on every branch of the exponent register and the mask, followed by the exact frequency-basis
+measurement. The paper's own verifier follows a few random classical trajectories and, in its words,
+cannot verify interference or masking. Scaled-down instances (n = 8–24 bits), not the paper's
+2048-bit regime.
+
+- **Correct on every branch.** All 2^m · 2^mask branches (up to 1.07·10⁹ per run; n = 8–14,
+  Shor-style and Ekerå–Håstad; all-0, all-1 and 8 random measurement-outcome streams each):
+  every ancilla returns to 0, every residue is exact, every branch ends with sign +1 (all
+  kickback from 1.4–4.6 k X-basis measurements per run cancelled, including the corrections
+  deferred from loop3 to unloop3). MOON_CORRECTNESS
+- **Independently checked.** The paper's own `approx_modexp`, run unchanged on a genuinely quantum
+  backend (full superposition, real X-basis measurements; no branches ever merge), agrees with the
+  simulator branch by branch and to 7·10⁻¹⁸ (Shor) / 3.5·10⁻¹⁸ (EH) in the output distribution
+  (n = 8); every table equals the paper's precomputation code (5 configurations); one loop4 step
+  and one loop3/unloop3 step pair compiled to X/CNOT/Toffoli (+ X-measurements, Z/CZ fix-ups)
+  equal the quint-level semantics on every input, also on the repo's dense reference state vector.
+- **Masking is necessary and, with it, the approximation is benign (interference).** At N = 899
+  (m = 14, f = 8) the unmasked approximate circuit's frequency distribution is at TV 0.78 from
+  exact arithmetic and loses 2.6× in success probability; with a mask of W values the distance
+  falls as 1/W (TV ≈ 0.65·(1 − F), far below the trace-distance bound √(1 − F)).
+  INTERFERENCE_RESULTS
+- **The paper's error analysis is pessimistic at these sizes, with one slip.** The deviation is a
+  constant bias plus a random walk of rounding errors (σ ≈ 0.3·√A for A accumulator additions;
+  E|δ − c| = 1.2–1.9 units against a worst case of 51–190 units in the paper's model). Eq. 28 omits
+  a factor 2 (`1 − |⟨ψ1|ψ̃1⟩|² ≤ 2ε/S`); the effect on the paper's 2048-bit estimate is negligible
+  (9.21 → 9.25–9.27 expected shots).
+- Caveats: scaled-down instances, not the paper's regime; exact QFT instead of the paper's
+  phase-gradient frequency measurement; finite sets of outcome streams; only two subroutine steps
+  compiled to gates. A toy-size corner case of the paper's prime search (pruning a prime that
+  divides N) is documented in the notebook.
+
 ## Honest notes
 
 - The adaptive-switching design is an independent rediscovery of **Clifft** (arXiv:2604.27058).

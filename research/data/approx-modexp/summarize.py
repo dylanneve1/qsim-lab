@@ -26,6 +26,7 @@ def verify_table(path: pathlib.Path) -> None:
     for line in path.read_text().splitlines():
         if line.startswith("N="):
             cur = kv(line)
+            cur["eh"] = "), (" in line
             cur["streams"] = 0
             cur["bad"] = [0, 0, 0, 0]
             rows.append(cur)
@@ -42,7 +43,7 @@ def verify_table(path: pathlib.Path) -> None:
             cur["mean_dev"] = d["mean_dev"]
             cur["md"] = d["max_mod_dev"]
     for r in rows:
-        mode = "EH" if "regs" in r and r["regs"].count("(") > 1 else "Shor"
+        mode = "EH" if r["eh"] else "Shor"
         print(
             f"| {r['N']} | {mode} | {r['m']} | {r['f']} | {r['mask']} | {r['ell']} | {r['|P|']} | {r['additions']} | "
             f"{int(r.get('branches', 0)):,} | {r['streams']} | {r['bad'][0]} | {r['bad'][1]} | {r['bad'][2]} | {r['bad'][3]} | "

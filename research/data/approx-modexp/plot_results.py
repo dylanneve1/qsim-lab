@@ -67,12 +67,45 @@ def sweep(name: str, xkey: str, xlabel: str) -> None:
     plt.close(fig)
 
 
+def dev_hists() -> None:
+    """Histograms of the deviation F~(e) - floor(f(e)/2^t) from out/verify.txt."""
+    p = OUT / "verify.txt"
+    if not p.exists():
+        return
+    import re
+
+    cur = None
+    fig, ax = plt.subplots(figsize=(7, 3.2))
+    for line in p.read_text().splitlines():
+        if line.startswith("N="):
+            cur = dict(re.findall(r"([A-Za-z_|]+)=([^ ]+)", line))
+            cur["eh"] = "), (" in line
+            cur["done"] = False
+        elif line.startswith("dev_hist") and cur is not None and not cur["done"]:
+            h = {int(k): int(v) for k, v in (x.split(":") for x in line.split()[1].split(","))}
+            n = sum(h.values())
+            ks = sorted(h)
+            mode = "EH" if cur["eh"] else "Shor"
+            ax.plot(ks, [h[k] / n for k in ks], "o-", ms=3, lw=0.8,
+                    label=f"N={cur['N']} {mode} A={cur['additions']}")
+            cur["done"] = True
+    ax.set_xlabel("δ(e) = F~(e) − ⌊f(e)/2^t⌋ (accumulator units)")
+    ax.set_ylabel("fraction of e")
+    ax.legend(fontsize=7)
+    fig.tight_layout()
+    fig.savefig(HERE / "deviation_hist.png", dpi=130)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     peaks("n10")
     peaks("n12")
-    sweep("sweep_mask_f10.csv", "mask", "mask bits (W = 2^mask of T)")
+    sweep("sweep_mask_n10_shor_m14.csv", "mask", "mask bits (N=899, Shor m=14, f=8)")
+    sweep("sweep_mask_f10.csv", "mask", "mask bits (N=3127, EH, f=10)")
+    sweep("sweep_mask_f10_shor.csv", "mask", "mask bits (N=3127, Shor m=22, f=10)")
     sweep("sweep_f_mask4.csv", "f", "accumulator bits f")
     sweep("sweep_w1.csv", "w1", "window1")
     sweep("sweep_w3.csv", "w3", "window3a = window3b")
     sweep("sweep_w4.csv", "w4", "window4")
+    dev_hists()
     print("plots written")

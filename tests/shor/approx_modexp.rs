@@ -40,7 +40,10 @@ fn clean(c: &ApproxConfig, o: &mut dyn Outcomes) -> Vec<u32> {
     assert_eq!(v.bad_residue, 0, "wrong residue: {v:?}");
     assert_eq!(v.bad_acc, 0, "accumulator not (s + F(e)) mod T: {v:?}");
     assert_eq!(v.bad_e, 0);
-    assert_eq!(v.bad_formula, 0, "F(e) differs from the table formula: {v:?}");
+    assert_eq!(
+        v.bad_formula, 0,
+        "F(e) differs from the table formula: {v:?}"
+    );
     ft
 }
 
@@ -168,7 +171,10 @@ fn gate_level_loop4_step_quantum_reference() {
             let out = loop4_key(&lay, k, (acc + trunc - table[k as usize]) % trunc) as u64;
             let b = s.amplitude(out);
             let ph = *phase.get_or_insert(b / (a * scale));
-            assert!((b - ph * a * scale).norm() < 1e-12, "trial {trial} k={k} acc={acc}");
+            assert!(
+                (b - ph * a * scale).norm() < 1e-12,
+                "trial {trial} k={k} acc={acc}"
+            );
         }
         assert!((phase.unwrap().norm() - 1.0).abs() < 1e-12);
     }
@@ -188,7 +194,9 @@ fn gate_level_loop3_pair_is_identity() {
         for trial in 0..16u64 {
             // a table like table3a: -(v · 2^{kb w3b} · k4b) mod p
             let mut rng = RandomOutcomes(trial * 13 + p);
-            let v: Vec<u64> = (0..1u64 << w3a).map(|_| 1 + rng.draw(16) % (p - 1)).collect();
+            let v: Vec<u64> = (0..1u64 << w3a)
+                .map(|_| 1 + rng.draw(16) % (p - 1))
+                .collect();
             let sh = rng.draw(8) % p;
             let t3a: Vec<u64> = (0..1u64 << (w3a + w3b))
                 .map(|addr| {
@@ -265,8 +273,22 @@ fn precompute_matches_paper_tables() {
         .map(|&x| x & 0xFFFF_FFFF)
         .collect();
     assert_eq!(t1, parse_list(&text, "table1"));
-    let t3a: Vec<u64> = c.table3a.iter().flatten().flatten().flatten().copied().collect();
-    let t3b: Vec<u64> = c.table3b.iter().flatten().flatten().flatten().copied().collect();
+    let t3a: Vec<u64> = c
+        .table3a
+        .iter()
+        .flatten()
+        .flatten()
+        .flatten()
+        .copied()
+        .collect();
+    let t3b: Vec<u64> = c
+        .table3b
+        .iter()
+        .flatten()
+        .flatten()
+        .flatten()
+        .copied()
+        .collect();
     let t3c: Vec<u64> = c.table3c.iter().flatten().copied().collect();
     let t4: Vec<u64> = c.table4.iter().flatten().flatten().copied().collect();
     assert_eq!(t3a, parse_list(&text, "table3a"));
@@ -292,13 +314,16 @@ fn distribution_matches_quantum_python_backend() {
     for seed in [3u64, 11] {
         let ft = clean(&c, &mut RandomOutcomes(seed));
         let (p, pv) = distribution(&ft, c.trunc, 1 << c.params.mask_bits, c.m, 0);
-        let err = p.iter().zip(&want).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        let err = p
+            .iter()
+            .zip(&want)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max);
         assert!(err < 1e-10, "max |P_rust − P_python| = {err:e}");
         assert!((p.iter().sum::<f64>() - 1.0).abs() < 1e-12);
         assert!((pv.iter().sum::<f64>() - 1.0).abs() < 1e-12);
     }
 }
-
 
 /// Runs resolved gate-level ops on the repo's independent dense reference
 /// state vector (`tests/audit_common`): real `H` + projection for every
@@ -312,7 +337,10 @@ fn refsv_check(nq: usize, ops: &[MbuOp], inputs: &[u64], want: impl Fn(u64) -> u
     let mut amps = Vec::new();
     let mut norm = 0.0;
     for &k in inputs {
-        let a = Complex64::new(rng.draw(20) as f64 / 1e6 - 0.5, rng.draw(20) as f64 / 1e6 - 0.5);
+        let a = Complex64::new(
+            rng.draw(20) as f64 / 1e6 - 0.5,
+            rng.draw(20) as f64 / 1e6 - 0.5,
+        );
         norm += a.norm_sqr();
         amps.push((k, a));
     }
@@ -344,7 +372,10 @@ fn refsv_check(nq: usize, ops: &[MbuOp], inputs: &[u64], want: impl Fn(u64) -> u
         assert!((b - ph * a).norm() < 1e-10, "input {k}");
         moved += b.norm_sqr();
     }
-    assert!((moved - 1.0).abs() < 1e-10, "probability left the expected support");
+    assert!(
+        (moved - 1.0).abs() < 1e-10,
+        "probability left the expected support"
+    );
 }
 
 /// The gate-level loop4 step on the dense reference state vector (16 qubits).
@@ -363,7 +394,10 @@ fn gate_level_loop4_step_dense_reference() {
             for acc in 0..trunc {
                 let key = loop4_key(&lay, k, acc) as u64;
                 inputs.push(key);
-                map.insert(key, loop4_key(&lay, k, (acc + trunc - table[k as usize]) % trunc) as u64);
+                map.insert(
+                    key,
+                    loop4_key(&lay, k, (acc + trunc - table[k as usize]) % trunc) as u64,
+                );
             }
         }
         refsv_check(lay.nq, &ops, &inputs, |k| map[&k], trial + 5);
@@ -379,19 +413,23 @@ fn gate_level_loop3_pair_dense_reference() {
     let lay = Loop3Layout::new(w3a, w3b, 4);
     assert_eq!(lay.nq, 18);
     for trial in 0..2u64 {
-        let t3a: Vec<u64> = (0..4u64).map(|a| (p - (3 + trial) * (a >> 1 | 1) * (a & 1) % p) % p).collect();
+        let t3a: Vec<u64> = (0..4u64)
+            .map(|a| (p - (3 + trial) * (a >> 1 | 1) * (a & 1) % p) % p)
+            .collect();
         let mut bits = RandomOutcomes(trial * 41 + 9);
         let ops = gate_loop3_pair(&lay, &t3a, p, &mut || bits.draw(1) == 1);
         let mut inputs = Vec::new();
         for l1 in 0..2u64 {
             for r in 0..2u64 {
                 for h in 0..p {
-                    let key = (r << lay.r[0]) | (l1 << lay.l1[0]) | lay
-                        .hel
-                        .iter()
-                        .enumerate()
-                        .map(|(i, &q)| ((h >> i) & 1) << q)
-                        .sum::<u64>();
+                    let key = (r << lay.r[0])
+                        | (l1 << lay.l1[0])
+                        | lay
+                            .hel
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &q)| ((h >> i) & 1) << q)
+                            .sum::<u64>();
                     inputs.push(key);
                 }
             }
@@ -418,7 +456,11 @@ fn tv_is_bounded_by_the_exact_fidelity() {
         let ft = clean(&c, &mut RandomOutcomes(9));
         let fi: Vec<u32> = (0..1u64 << c.m).map(|e| c.ideal_trunc(e) as u32).collect();
         let w = 1u64 << p.mask_bits;
-        let (ma, mb) = if p.regs.len() == 2 { (p.regs[0].0, p.regs[1].0) } else { (c.m, 0) };
+        let (ma, mb) = if p.regs.len() == 2 {
+            (p.regs[0].0, p.regs[1].0)
+        } else {
+            (c.m, 0)
+        };
         let (pa, _) = distribution(&ft, c.trunc, w, ma, mb);
         let (shift, ov) = best_shift(&ft, &fi, c.trunc, w);
         let (pi, _) = distribution(&shifted(&fi, shift, c.trunc), c.trunc, w, ma, mb);
@@ -432,7 +474,6 @@ fn tv_is_bounded_by_the_exact_fidelity() {
         assert!((ov - ov2).abs() < 1e-12, "{ov} vs {ov2}");
         assert!(ov + 1e-12 >= overlap(&ft, &fi, c.trunc, w));
         assert!((pa.iter().sum::<f64>() - 1.0).abs() < 1e-12);
-        let _ = paper_success(1, c.m, p.n_mod, p.generator);
     }
 }
 
@@ -487,10 +528,58 @@ fn masking_restores_interference() {
         succ.push((s(&pa), s(&pi)));
     }
     assert!(tvs[0] > 0.5, "no mask: TV {}", tvs[0]);
-    assert!(succ[0].0 < 0.6 * succ[0].1, "no mask: success {:?}", succ[0]);
+    assert!(
+        succ[0].0 < 0.6 * succ[0].1,
+        "no mask: success {:?}",
+        succ[0]
+    );
     for m in 3..=5 {
         assert!(tvs[m] < 0.6 * tvs[m - 1], "TV does not halve: {tvs:?}");
     }
     assert!(tvs[5] < 0.1, "{tvs:?}");
-    assert!(succ[5].0 > 0.9 * succ[5].1, "mask 2^5: success {:?}", succ[5]);
+    assert!(
+        succ[5].0 > 0.9 * succ[5].1,
+        "mask 2^5: success {:?}",
+        succ[5]
+    );
+}
+
+/// The "ideal Ekerå–Håstad distribution" used as reference (exact `f`, no
+/// mask, `distribution(f, N, 1, 2m, m)`) equals the textbook definition
+/// `P(j,k) = Σ_z |2^{−3m} Σ_{a,b: g^a y^{−b} = z} e^{−2πi(aj/2^{2m} + bk/2^m)}|²`
+/// evaluated by brute force (as `tests/shor/ge_shor.rs::eh_textbook`).
+#[test]
+fn unmasked_reference_is_the_textbook_eh_distribution() {
+    use qsim_lab::algorithms::pow_mod;
+    for (n_mod, g) in [(35u64, 2u64), (77, 3)] {
+        let p = ApproxParams::eh(n_mod, g, [2, 2, 2, 2], 6, 1);
+        let (ma, mb) = (p.regs[0].0, p.regs[1].0);
+        let yi = p.regs[1].1;
+        let (na, nb) = (1usize << ma, 1usize << mb);
+        let f: Vec<u32> = (0..na * nb)
+            .map(|e| {
+                let (a, b) = ((e % na) as u64, (e / na) as u64);
+                (pow_mod(g, a, n_mod) * pow_mod(yi, b, n_mod) % n_mod) as u32
+            })
+            .collect();
+        let (d, _) = distribution(&f, n_mod, 1, ma, mb);
+        let norm = 1.0 / (na * nb) as f64;
+        let mut worst = 0.0f64;
+        for k in 0..nb {
+            for j in 0..na {
+                let mut acc: std::collections::HashMap<u32, Complex64> = Default::default();
+                for b in 0..nb {
+                    for a in 0..na {
+                        let ph = -2.0
+                            * std::f64::consts::PI
+                            * ((a * j) as f64 / na as f64 + (b * k) as f64 / nb as f64);
+                        *acc.entry(f[a + na * b]).or_default() += Complex64::from_polar(norm, ph);
+                    }
+                }
+                let want: f64 = acc.values().map(|v| v.norm_sqr()).sum();
+                worst = worst.max((want - d[j + na * k]).abs());
+            }
+        }
+        assert!(worst < 1e-12, "N={n_mod}: {worst:e}");
+    }
 }
