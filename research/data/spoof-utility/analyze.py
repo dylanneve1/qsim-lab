@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analysis for research/spoof-utility.md.
+"""Analysis for research/simulability/spoof-utility.md.
 
 Inputs (all in this directory):
   campaign*.jsonl              SPD runs (examples/spoof_utility.rs output)

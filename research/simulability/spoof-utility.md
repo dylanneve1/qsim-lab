@@ -1,12 +1,17 @@
 # Spoofing "quantum utility" on a laptop: sparse Pauli dynamics for IBM's 127-qubit kicked-Ising experiment
 
-Branch `exp/spoof-utility`. Target: Kim et al., *Evidence for the utility of
-quantum computing before fault tolerance*, Nature **618**, 500 (2023). That
-paper ran 127-qubit kicked transverse-field Ising Trotter circuits on ibm_kyiv
-and reported zero-noise-extrapolated (ZNE) observables. This branch adds a
-Rust sparse-Pauli-dynamics (SPD) engine, `qsim_lab::spd`, and measures how far
-it gets on one M1 Pro laptop under the swarm budget: 2 worker threads, ≤ 3 GB
-per process, no GPU, a machine shared with other agents.
+**Provenance.** Branch `exp/spoof-utility`, rebased on `main` @ a62d359,
+4–5 Oct 2026. All builds and runs were on Dylan's MacBook Pro (M1 Pro, 8
+cores, 16 GB, macOS) with `RAYON_NUM_THREADS=2`, ≤ 3 GB per process and
+load 12–30 from other agents. The VPS was used for git only.
+
+**Target.** Kim et al., *Evidence for the utility of quantum computing before
+fault tolerance*, Nature **618**, 500 (2023). The paper ran 127-qubit kicked
+transverse-field Ising Trotter circuits on ibm_kyiv and reported
+zero-noise-extrapolated (ZNE) observables. This study adds a Rust
+sparse-Pauli-dynamics (SPD) engine, `qsim_lab::spd`, and measures how far it
+gets on one laptop under the swarm budget: 2 worker threads, ≤ 3 GB per
+process, no GPU.
 
 ## TL;DR
 
@@ -157,9 +162,9 @@ Drivers:
 
 ## 3. The 127-qubit figures
 
-![Kim et al. figures](data/spoof-utility/figures_kim.png)
+![Kim et al. figures](../data/spoof-utility/figures_kim.png)
 
-Every per-θ table is in [`data/spoof-utility/tables.md`](data/spoof-utility/tables.md).
+Every per-θ table is in [`data/spoof-utility/tables.md`](../data/spoof-utility/tables.md).
 Each row gives the SPD value, the δ-ladder difference, the norm deficit, the
 time, the reference, the ZNE value with its CI, and the difference.
 
@@ -198,7 +203,7 @@ The experiment's reported wall times were 4 h (Fig. 4a) and 9.5 h (Fig. 4b).
 
 ## 4. The 20-step point: where plain SPD loses
 
-![convergence](data/spoof-utility/convergence.png)
+![convergence](../data/spoof-utility/convergence.png)
 
 * **Left: 5 steps.** The error against exact references falls steadily with δ.
 * **Middle: `⟨Z_62⟩` at 20 steps vs δ**, with BP-TNS dotted. For
@@ -219,7 +224,7 @@ The experiment's reported wall times were 4 h (Fig. 4a) and 9.5 h (Fig. 4b).
 | 0.8 | 0.227 | 0.170 | 8e-1 | 3e-2 | 0.195 |
 | 1.0 | 0.019 | 0.011 | 1.0 | 2e-3 | 0.013 |
 
-![depth scan](data/spoof-utility/depth_scan.png)
+![depth scan](../data/spoof-utility/depth_scan.png)
 
 **Depth scan** (`⟨Z_62⟩(t)` against Tindall's BP-TNS dynamics):
 * θ = 0.6, δ = 3e-5: exact to 1e-4 through 6 steps, within 0.01 through
@@ -260,7 +265,7 @@ slower.
 
 ### Weight cap: an uncontrolled but effective fix
 
-![weight cap](data/spoof-utility/weight_cap.png)
+![weight cap](../data/spoof-utility/weight_cap.png)
 
 Weight truncation in the style of Rudolph et al. (LOWESA) and Shao et al.,
 added on top of δ = 1e-5. Each cell is the value with its error against
@@ -302,7 +307,7 @@ certified method.
 
 ## 5. Noise-aware SPD
 
-![noise](data/spoof-utility/noise.png)
+![noise](../data/spoof-utility/noise.png)
 
 **Model.** Uniform single-qubit depolarizing `p` after every ZZ layer, with
 readout folded in. `p` is fitted once, at θ = 0, where the dynamics is trivial
@@ -365,7 +370,7 @@ so the 127-qubit boundary is nearly invisible to `Z_62` at this depth. The
 same truncation bias as §4 applies to all three. Wider keys mean the
 1121-qubit run hits the 3 GB cap one δ step earlier at θ ≥ 0.7.
 
-![1121 map](data/spoof-utility/map_1121.png)
+![1121 map](../data/spoof-utility/map_1121.png)
 
 **Where the laptop is in control** (`map_1121.png`). This is the discarded weight
 for bulk `⟨Z_559⟩` on 1121 qubits, at the smallest δ that fits in 3 GB, across

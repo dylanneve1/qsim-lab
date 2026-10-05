@@ -39,6 +39,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`shor_r4_audit/`](shor_r4_audit/) | [shor-r4-audit.md](../shor/shor-r4-audit.md) |
 | [`simd/`](simd/) | [sv-monomial.md](../performance/sv-monomial.md) |
 | [`simulability/`](simulability/) | [simulability.md](../simulability/simulability.md) |
+| [`spoof-utility/`](spoof-utility/) | [spoof-utility.md](../simulability/spoof-utility.md) |
 | [`stab/`](stab/) | [stab.md](../performance/stab.md) |
 | [`superopt/`](superopt/) | [superopt.md](../shor/superopt.md) |
 | [`theory-colour/`](theory-colour/) | [theory-colour.md](../theory/theory-colour.md) |
