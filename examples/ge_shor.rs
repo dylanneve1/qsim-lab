@@ -78,6 +78,54 @@ fn print_run(r: &shor_ge::GeRun, secs: f64) {
     );
 }
 
+fn slicebench<const L: usize>(
+    prog: &qsim_lab::shor::sliced::SlicedProgram,
+    lay: &shor_ge::GeLayout,
+    n_mod: u64,
+    reps: usize,
+) {
+    use qsim_lab::shor::sliced::{SliceBuf, SliceIsa};
+    let mut rng = StdRng::seed_from_u64(99);
+    let mut w0 = vec![[0u64; L]; lay.nq + 2];
+    w0[lay.nq] = [u64::MAX; L];
+    for i in 0..64 * L {
+        let x = rng.random_range(0..n_mod);
+        for (j, &q) in lay.x.iter().enumerate() {
+            w0[q][i / 64] |= ((x >> j) & 1) << (i % 64);
+        }
+        for &q in &lay.e {
+            w0[q][i / 64] |= u64::from(rng.random::<bool>()) << (i % 64);
+        }
+    }
+    let mut want = None;
+    for isa in [SliceIsa::Scalar, SliceIsa::Avx2, SliceIsa::Avx512] {
+        if !isa.available() || (isa == SliceIsa::Avx512 && L % 8 != 0) {
+            continue;
+        }
+        let mut buf = SliceBuf::<L>::new(lay.nq + 2);
+        let mut best = f64::INFINITY;
+        for _ in 0..3 {
+            let t0 = Instant::now();
+            for _ in 0..reps {
+                buf.words().copy_from_slice(&w0);
+                prog.eval_with::<L>(isa, buf.words());
+            }
+            best = best.min(t0.elapsed().as_secs_f64());
+        }
+        let out = buf.words().to_vec();
+        match &want {
+            None => want = Some(out),
+            Some(wv) => assert!(*wv == out, "{isa:?} differs"),
+        }
+        let words = (reps * prog.len() * L) as f64;
+        println!(
+            "L={L:2} {isa:?}: {:.3} ns per step per 64-branch word, {:.3e} gate-branch ops/s per thread",
+            best / words * 1e9,
+            words * 64.0 / best
+        );
+    }
+}
+
 fn main() {
     let v: Vec<String> = std::env::args().collect();
     match v.get(1).map(String::as_str) {
@@ -233,6 +281,57 @@ fn main() {
                 }
             }
             panic!("window {want} out of range ({wi} windows)");
+        }
+        Some("slicebench") => {
+            // single-thread throughput of the slice evaluator per tier on one
+            // real window block (random valid inputs, 64·L branches per batch)
+            let n_mod: u64 = arg(&v, 2);
+            let seed: u64 = arg(&v, 3);
+            let o = GeOpts {
+                we: arg(&v, 4),
+                wm: arg(&v, 5),
+                mbu: mbu(&v[6]),
+                coset: 0,
+            };
+            let var = v[7].as_str();
+            let window: usize = arg(&v, 8);
+            let reps: usize = arg(&v, 9);
+            let (mut a, _) = base(n_mod, seed);
+            if var == "eh-odd" || var == "shor-odd" {
+                a = shor_ge::pow2k(a, shor::work_bits(n_mod), n_mod);
+            }
+            let regs = if var.starts_with("eh") {
+                shor_ge::eh_regs(n_mod, a)
+            } else {
+                shor_ge::shor_regs(n_mod, a)
+            };
+            let lay = shor_ge::GeLayout::new(shor::work_bits(n_mod), &o);
+            let (reg, i0, w) = regs
+                .iter()
+                .flat_map(|r| {
+                    shor_ge::windows(r.len, o.we)
+                        .into_iter()
+                        .map(move |(i0, w)| (r, i0, w))
+                })
+                .nth(window)
+                .expect("window index");
+            let g = shor_ge::pow2k(reg.base, reg.len - i0 - w, n_mod);
+            let mut oc = qsim_lab::shor::mbu::Outcomes::from_env(shor_ge::outcome_seed(
+                n_mod,
+                g,
+                window as u64,
+            ));
+            let ops = shor_ge::window_block(&lay, g, n_mod, &o, &mut oc);
+            let prog = qsim_lab::shor::sliced::SlicedProgram::compile_ops(lay.nq, &ops).unwrap();
+            println!(
+                "N={n_mod} window {window}: qubits={} steps={} reps={reps}",
+                lay.nq,
+                prog.len()
+            );
+            slicebench::<8>(&prog, &lay, n_mod, reps);
+            slicebench::<16>(&prog, &lay, n_mod, reps);
+            slicebench::<32>(&prog, &lay, n_mod, reps);
+            slicebench::<64>(&prog, &lay, n_mod, reps);
         }
         Some("counts") => {
             let n_mod: u64 = arg(&v, 2);
