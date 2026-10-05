@@ -36,6 +36,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [alphaqubit-lite.md](qec/alphaqubit-lite.md) | Open AlphaQubit-style recurrent-transformer decoder, pretrained on FastSampler, fine-tuned and tested on real Google Sycamore/Willow data |
 | [fast-sampler.md](qec/fast-sampler.md) | Fast detector sampling: Poisson hits into precomputed detector tables |
 | [fast-sampler-audit.md](qec/fast-sampler-audit.md) | Independent audit of the FastSampler speed and equivalence claims |
+| [sampler-x.md](qec/sampler-x.md) | Detector sampling faster than native Stim at every shot count: backward detector compiler (exactly the old tables), frame simulation for short runs, threads with per-batch streams, AVX-512 tried |
 | [code-discovery.md](qec/code-discovery.md) | Exhaustive search of weight-6 two-block (BB/GB/coprime-BB) codes, n ≤ 300: exact [[n,k,d]] frontier vs the literature, depth-7 schedules, circuit-level LER |
 
 ## Simulability, magic and engine choice — [`simulability/`](simulability/)

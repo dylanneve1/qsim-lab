@@ -168,6 +168,15 @@ impl Frame {
         }
     }
 
+    /// `x[q] ^= z[q]` (conjugation by sqrt(X) or its inverse: Z -> Y).
+    fn sx(&mut self, q: usize) {
+        let w = self.words;
+        let (z, x) = (&self.z[q * w..(q + 1) * w], &mut self.x[q * w..(q + 1) * w]);
+        for (a, b) in x.iter_mut().zip(z) {
+            *a ^= b;
+        }
+    }
+
     fn cnot(&mut self, c: usize, t: usize) {
         let w = self.words;
         Self::xor_line(&mut self.x, t, c, w);
@@ -204,10 +213,18 @@ impl Frame {
         match *g {
             Gate::H(a) => self.swap_xz(a),
             Gate::S(a) | Gate::Sdg(a) => self.s(a),
-            Gate::X(_) | Gate::Y(_) | Gate::Z(_) => {}
+            Gate::I(_) | Gate::X(_) | Gate::Y(_) | Gate::Z(_) => {}
+            Gate::Sx(a) | Gate::Sxdg(a) => self.sx(a),
             Gate::Cnot(c, t) => self.cnot(c, t),
             Gate::Cz(a, b) => self.cz(a, b),
             Gate::Swap(a, b) => self.swap(a, b),
+            // the tableau's decomposition: swap, cz, s(a), s(b)
+            Gate::ISwap(a, b) | Gate::ISwapdg(a, b) => {
+                self.swap(a, b);
+                self.cz(a, b);
+                self.s(a);
+                self.s(b);
+            }
             Gate::Phase(a, t) | Gate::Rz(a, t) => {
                 if (t / FRAC_PI_2).round().rem_euclid(2.0) == 1.0 {
                     self.s(a);

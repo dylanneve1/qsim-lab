@@ -53,9 +53,22 @@
 //! exactly, the per-group pattern frequencies and detector statistics
 //! against the old sampler, and `research/qec/fast-sampler.md` the 10^6-shot
 //! equivalence with Stim.
+//!
+//! # Construction and driving (`research/qec/sampler-x.md`)
+//!
+//! [`FastSampler::new`] builds from a `SymPhaseSampler` with the original
+//! table builder; [`FastSampler::from_columns`] builds from the columns of
+//! [`super::detector_compiler`] (a backward sweep, no symbolic frame) with a
+//! faster builder producing identical tables, or with no tables at all: the
+//! column path then uses the same blocked slot stream, so the output is
+//! bit-identical with or without tables. [`FastSampler::write_ptb64`] runs
+//! batches on several threads with per-batch random streams
+//! ([`batch_rng`]), so its output does not depend on the thread count.
 
+use super::detector_compiler::Columns;
 use super::symphase::{SymPhaseSampler, VarDist};
 use rand::RngCore;
+use std::io::Write;
 
 /// Groups with `p` above this go to the dense path.
 const RARE_P_MAX: f64 = 0.25;
@@ -100,7 +113,7 @@ const DEPOL2_MASK: [u8; 15] = {
 };
 
 /// All rare groups of one `(kind, p)`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Class {
     kind: Kind,
     p: f64,
@@ -137,6 +150,31 @@ struct BlockArgs<'a> {
     pois: &'a PoissonTable,
 }
 
+/// The blocked slot generator shared by the table and column paths: slots
+/// `0..range` are cut into blocks of `2^lb`; each block gets an independent
+/// `Poisson(mu_b)` count from `pois` and that many uniform slots within the
+/// block (so slots, hence table rows, come out walking forward); the last
+/// partial block gets a `Poisson` count from [`poisson`] and
+/// [`uniform_below`] slots. Both paths consume the random stream
+/// identically, so their outputs are bit-identical for the same stream.
+#[inline(always)]
+fn for_each_blocked_slot<R: RngCore + ?Sized>(a: &BlockArgs, rng: &mut R, mut hit: impl FnMut(u64)) {
+    let lb = a.lb;
+    let full = a.range >> lb;
+    for b in 0..full {
+        let k = a.pois.sample(rng.next_u64());
+        for _ in 0..k {
+            hit((b << lb) | (rng.next_u64() >> (64 - lb)));
+        }
+    }
+    let rem = a.range - (full << lb);
+    if rem > 0 {
+        for _ in 0..poisson(rng, a.rem_mu_per_slot * rem as f64) {
+            hit((full << lb) + uniform_below(rng, rem));
+        }
+    }
+}
+
 /// Blocked hit generation for one class with a padded table of width `K`
 /// (see [`Class`]): slot = `t * S + shot`, `t = group * m + pattern`.
 #[inline(always)]
@@ -148,18 +186,61 @@ fn blocked_hits<T: Copy + Into<u64>, R: RngCore + ?Sized, const K: usize>(
 ) {
     let shot_mask = (1u64 << a.shot_bits) - 1;
     let stride = a.stride;
-    let hit = |slot: u64, out: &mut [u64]| {
+    for_each_blocked_slot(a, rng, |slot| {
         let shot = slot & shot_mask;
         let t = (slot >> a.shot_bits) as usize;
         let base = (shot >> 6) as usize * stride;
         let bit = 1u64 << (shot & 63);
-        let e: &[T; K] = table[t * K..t * K + K].try_into().unwrap();
-        let o = &mut out[base..base + stride];
-        for &r in e {
-            // SAFETY: table rows are <= rows < stride = o.len()
-            unsafe {
-                *o.get_unchecked_mut(r.into() as usize) ^= bit;
+        debug_assert!(t * K + K <= table.len() && base + stride <= out.len());
+        // SAFETY: slot < range = entries << shot_bits, so t < entries and
+        // t * K + K <= table.len(); shot < 64 * words, so the block at
+        // `base` lies inside `out`; table rows are <= rows < stride
+        unsafe {
+            let e = table.as_ptr().add(t * K);
+            let o = out.as_mut_ptr().add(base);
+            for i in 0..K {
+                *o.add((*e.add(i)).into() as usize) ^= bit;
             }
+        }
+    });
+}
+
+/// [`blocked_hits`] for 4-row `u16` entries with AVX-512: per hit, the 4
+/// rows are widened to `u64` lanes (`vpmovzxwq`), the 4 output words
+/// gathered (`vpgatherqq`), XOR-ed with the shot bit and scattered back
+/// (`vpscatterqq`, AVX-512F + VL). Padding entries all point at the sink
+/// word; a scatter with repeated indices keeps the highest lane, and every
+/// lane for the sink holds the same value, so the real rows are exactly the
+/// scalar result. Same slot stream, so bit-identical to [`blocked_hits`].
+///
+/// # Safety
+/// The CPU must support AVX-512F and AVX-512VL; `table`, `out` and `a` must
+/// satisfy the invariants of [`blocked_hits`] with `K = 4`.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2,avx512f,avx512vl")]
+unsafe fn blocked_hits_avx512_k4<R: RngCore + ?Sized>(
+    table: &[u16],
+    a: &BlockArgs,
+    rng: &mut R,
+    out: &mut [u64],
+) {
+    use std::arch::x86_64::*;
+    let shot_mask = (1u64 << a.shot_bits) - 1;
+    let stride = a.stride;
+    let tp = table.as_ptr();
+    let op = out.as_mut_ptr();
+    let hit = |slot: u64| {
+        let shot = slot & shot_mask;
+        let t = (slot >> a.shot_bits) as usize;
+        let base = (shot >> 6) as usize * stride;
+        // SAFETY: as in blocked_hits (t < entries, block inside out)
+        unsafe {
+            let raw = _mm_loadl_epi64(tp.add(t * 4) as *const __m128i);
+            let idx = _mm256_cvtepu16_epi64(raw);
+            let bp = op.add(base) as *mut i64;
+            let g = _mm256_i64gather_epi64::<8>(bp, idx);
+            let x = _mm256_xor_si256(g, _mm256_set1_epi64x((1u64 << (shot & 63)) as i64));
+            _mm256_i64scatter_epi64::<8>(bp, idx, x);
         }
     };
     let lb = a.lb;
@@ -167,15 +248,68 @@ fn blocked_hits<T: Copy + Into<u64>, R: RngCore + ?Sized, const K: usize>(
     for b in 0..full {
         let k = a.pois.sample(rng.next_u64());
         for _ in 0..k {
-            hit((b << lb) | (rng.next_u64() >> (64 - lb)), out);
+            hit((b << lb) | (rng.next_u64() >> (64 - lb)));
         }
     }
     let rem = a.range - (full << lb);
     if rem > 0 {
         for _ in 0..poisson(rng, a.rem_mu_per_slot * rem as f64) {
-            hit((full << lb) + uniform_below(rng, rem), out);
+            hit((full << lb) + uniform_below(rng, rem));
         }
     }
+}
+
+/// Whether the AVX-512 hit kernel can run on this CPU.
+fn avx512_available() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::arch::is_x86_feature_detected!("avx2")
+            && std::arch::is_x86_feature_detected!("avx512f")
+            && std::arch::is_x86_feature_detected!("avx512vl")
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        false
+    }
+}
+
+/// The same slots as [`blocked_hits`], applied through the columns: a hit
+/// on `(group, pattern)` XORs the columns of the pattern's variables (rows
+/// in two of them cancel, so the net effect is the table entry). `M` is the
+/// number of patterns of the class.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn blocked_cols<R: RngCore + ?Sized, const M: u64>(
+    firsts: &[u32],
+    masks: &[u8],
+    col_start: &[u32],
+    col_rows: &[u32],
+    a: &BlockArgs,
+    rng: &mut R,
+    out: &mut [u64],
+) {
+    let shot_mask = (1u64 << a.shot_bits) - 1;
+    let stride = a.stride;
+    for_each_blocked_slot(a, rng, |slot| {
+        let shot = slot & shot_mask;
+        let t = slot >> a.shot_bits;
+        let g = t / M;
+        let mut mask = masks[(t - g * M) as usize];
+        let first = firsts[g as usize] as usize;
+        let base = (shot >> 6) as usize * stride;
+        let bit = 1u64 << (shot & 63);
+        let o = &mut out[base..base + stride];
+        while mask != 0 {
+            let v = first + mask.trailing_zeros() as usize;
+            for &r in &col_rows[col_start[v] as usize..col_start[v + 1] as usize] {
+                // SAFETY: column rows are < rows < stride = o.len()
+                unsafe {
+                    *o.get_unchecked_mut(r as usize) ^= bit;
+                }
+            }
+            mask &= mask - 1;
+        }
+    });
 }
 
 /// Widest padded hit-table entry.
@@ -190,14 +324,14 @@ const BLOCK_MEAN: f64 = 8.0;
 /// of `u` gives the starting `j`. Exact up to the f64 CDF (relative error
 /// ~1e-16) and the 2^-64 grid; the table stops where the remaining tail
 /// mass is below 2^-64.
-#[derive(Clone, Debug, Default)]
-struct PoissonTable {
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct PoissonTable {
     thresholds: Vec<u64>,
     guide: Vec<u16>,
 }
 
 impl PoissonTable {
-    fn new(mu: f64) -> PoissonTable {
+    pub(crate) fn new(mu: f64) -> PoissonTable {
         // pmf until it is negligible past the mode, renormalised so the last
         // threshold is exactly 2^64 (stored as u64::MAX)
         let mut pmf = vec![(-mu).exp()];
@@ -232,7 +366,7 @@ impl PoissonTable {
     }
 
     #[inline(always)]
-    fn sample(&self, u: u64) -> usize {
+    pub(crate) fn sample(&self, u: u64) -> usize {
         let mut k = self.guide[(u >> 56) as usize] as usize;
         // the last threshold is u64::MAX; u == u64::MAX (probability 2^-64)
         // stops there too
@@ -243,18 +377,274 @@ impl PoissonTable {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+/// Which hit-table builder [`FastSampler::assemble`] runs.
+#[derive(Clone, Copy)]
+enum Tables {
+    /// The original builder (sort and cancel per entry).
+    Reference,
+    /// The incidence-mask builder (same tables, built faster).
+    Fast,
+    /// No tables: every class samples through the columns.
+    None,
+}
+
+/// Variable masks of the patterns of `kind`, in table order.
+fn pattern_masks(kind: Kind) -> &'static [u8] {
+    match kind {
+        Kind::Flip => &[1],
+        Kind::Depol1 => &DEPOL1_MASK,
+        Kind::Depol2 => &DEPOL2_MASK,
+    }
+}
+
+/// Number of variables of a group of `kind`.
+fn kind_vars(kind: Kind) -> usize {
+    match kind {
+        Kind::Flip => 1,
+        Kind::Depol1 => 2,
+        Kind::Depol2 => 4,
+    }
+}
+
+/// `INPAT[c]` bit `t`: a row in the columns of the variables `c` (bit `k` =
+/// variable `k`) appears in pattern `t`'s entry iff it is in an odd number
+/// of that pattern's columns.
+const fn inpat_table(masks: &[u8]) -> [u16; 16] {
+    let mut out = [0u16; 16];
+    let mut c = 0;
+    while c < 16 {
+        let mut t = 0;
+        while t < masks.len() {
+            if (c as u8 & masks[t]).count_ones() % 2 == 1 {
+                out[c] |= 1 << t;
+            }
+            t += 1;
+        }
+        c += 1;
+    }
+    out
+}
+const INPAT_FLIP: [u16; 16] = inpat_table(&[1]);
+const INPAT_DEPOL1: [u16; 16] = inpat_table(&DEPOL1_MASK);
+const INPAT_DEPOL2: [u16; 16] = inpat_table(&DEPOL2_MASK);
+
+/// Blocked-generation constants of a class: blocks of `2^block_log2`
+/// slots averaging [`BLOCK_MEAN`] hits, and their Poisson table.
+fn block_params(c: &mut Class) {
+    let slot_rate = c.lambda / c.kind.patterns() as f64;
+    c.block_log2 = (BLOCK_MEAN / slot_rate).log2().round().clamp(4.0, 40.0) as u32;
+    c.pois = PoissonTable::new(slot_rate * (1u64 << c.block_log2) as f64);
+}
+
+/// Stores a finished table as `u16` rows when every row fits (and drops
+/// the `u32` copy; [`FastSampler::set_narrow`] and
+/// [`FastSampler::set_blocked`] rebuild it for the ablations that need it).
+fn finish_class(c: &mut Class, sink: u32) {
+    if sink < u16::MAX as u32 && !c.table.is_empty() {
+        c.table16 = c.table.iter().map(|&r| r as u16).collect();
+        c.table = Vec::new();
+    }
+}
+
+/// The original hit-table builder: per (group, pattern) entry, concatenate
+/// the pattern's columns, sort, cancel pairs.
+fn build_table_reference(c: &mut Class, col_start: &[u32], col_rows: &[u32], sink: u32) {
+    let masks = pattern_masks(c.kind);
+    // entries as CSR: XOR of the pattern's variable columns (rows
+    // appearing an odd number of times), in t = group * m + pattern order
+    let n_ent = c.firsts.len() * masks.len();
+    let mut ent_start = Vec::with_capacity(n_ent + 1);
+    ent_start.push(0usize);
+    let mut ent_rows: Vec<u32> = Vec::with_capacity(4 * n_ent);
+    let mut e: Vec<u32> = Vec::with_capacity(64);
+    for &f in &c.firsts {
+        for &mask in masks {
+            e.clear();
+            for k in 0..4 {
+                if mask >> k & 1 == 1 {
+                    let v = f as usize + k;
+                    e.extend_from_slice(&col_rows[col_start[v] as usize..col_start[v + 1] as usize]);
+                }
+            }
+            e.sort_unstable();
+            let base = ent_rows.len();
+            for &r in &e {
+                if ent_rows.len() > base && ent_rows.last() == Some(&r) {
+                    ent_rows.pop();
+                } else {
+                    ent_rows.push(r);
+                }
+            }
+            ent_start.push(ent_rows.len());
+        }
+    }
+    let stride = ent_start
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .max()
+        .unwrap_or(0)
+        .max(1);
+    if stride <= MAX_STRIDE {
+        c.stride = stride;
+        c.table = vec![sink; n_ent * stride];
+        for t in 0..n_ent {
+            let e = &ent_rows[ent_start[t]..ent_start[t + 1]];
+            c.table[t * stride..t * stride + e.len()].copy_from_slice(e);
+        }
+        finish_class(c, sink);
+    }
+}
+
+/// `out` = the sorted union of sorted `a` and `b`, entries `row << 4 |
+/// incidence`, with the incidence of equal rows OR-ed (branch-free merge).
+#[inline(always)]
+fn union_inc(a: &[u64], b: &[u64], out: &mut Vec<u64>) {
+    out.clear();
+    out.reserve(a.len() + b.len());
+    let (na, nb) = (a.len(), b.len());
+    let (mut i, mut j, mut k) = (0usize, 0usize, 0usize);
+    // SAFETY: i < na and j < nb inside the loop; k <= i + j <= na + nb is
+    // within the reserved capacity; set_len covers only written entries
+    unsafe {
+        let o = out.as_mut_ptr();
+        while i < na && j < nb {
+            let (x, y) = (*a.get_unchecked(i), *b.get_unchecked(j));
+            let (ta, tb) = ((x >> 4) <= (y >> 4), (y >> 4) <= (x >> 4));
+            *o.add(k) = (if ta { x } else { 0 }) | (if tb { y } else { 0 });
+            k += 1;
+            i += ta as usize;
+            j += tb as usize;
+        }
+        std::ptr::copy_nonoverlapping(a.as_ptr().add(i), o.add(k), na - i);
+        k += na - i;
+        std::ptr::copy_nonoverlapping(b.as_ptr().add(j), o.add(k), nb - j);
+        k += nb - j;
+        out.set_len(k);
+    }
+}
+
+/// The fast hit-table builder (same tables as [`build_table_reference`]):
+/// per group, the sorted union of its columns with an incidence nibble per
+/// row (which variables' columns contain it); a row belongs to pattern
+/// `t`'s entry iff `INPAT[incidence]` has bit `t`. One pass finds the
+/// stride, a second writes the entries in ascending row order.
+fn build_table_fast(c: &mut Class, col_start: &[u32], col_rows: &[u32], sink: u32) {
+    let masks = pattern_masks(c.kind);
+    let m = masks.len();
+    let nv = kind_vars(c.kind);
+    let inpat = match c.kind {
+        Kind::Flip => &INPAT_FLIP,
+        Kind::Depol1 => &INPAT_DEPOL1,
+        Kind::Depol2 => &INPAT_DEPOL2,
+    };
+    // pass 1: per-group universes (sorted rows + incidence) and the stride
+    let mut u_rows: Vec<u32> = Vec::with_capacity(c.firsts.len() * 2 * nv);
+    let mut u_inc: Vec<u8> = Vec::with_capacity(c.firsts.len() * 2 * nv);
+    let mut u_end: Vec<u32> = Vec::with_capacity(c.firsts.len());
+    let mut stride = 1usize;
+    let mut tagged: [Vec<u64>; 4] = Default::default();
+    let (mut ua, mut ub, mut u) = (Vec::new(), Vec::new(), Vec::new());
+    for &f in &c.firsts {
+        for (k, tg) in tagged.iter_mut().enumerate().take(nv) {
+            let v = f as usize + k;
+            tg.clear();
+            tg.extend(
+                col_rows[col_start[v] as usize..col_start[v + 1] as usize]
+                    .iter()
+                    .map(|&r| (r as u64) << 4 | 1 << k),
+            );
+        }
+        let uni: &[u64] = match nv {
+            1 => &tagged[0],
+            2 => {
+                union_inc(&tagged[0], &tagged[1], &mut u);
+                &u
+            }
+            _ => {
+                union_inc(&tagged[0], &tagged[1], &mut ua);
+                union_inc(&tagged[2], &tagged[3], &mut ub);
+                union_inc(&ua, &ub, &mut u);
+                &u
+            }
+        };
+        let mut counts = [0u8; 16];
+        for &e in uni {
+            u_rows.push((e >> 4) as u32);
+            let inc = (e & 15) as u8;
+            u_inc.push(inc);
+            let mut pats = inpat[inc as usize];
+            while pats != 0 {
+                let t = pats.trailing_zeros() as usize;
+                counts[t] = counts[t].saturating_add(1);
+                pats &= pats - 1;
+            }
+        }
+        stride = stride.max(*counts[..m].iter().max().unwrap() as usize);
+        u_end.push(u_rows.len() as u32);
+    }
+    if stride > MAX_STRIDE {
+        return;
+    }
+    // pass 2: write the entries (straight into u16 rows when they fit)
+    let n_ent = c.firsts.len() * m;
+    c.stride = stride;
+    if sink < u16::MAX as u32 {
+        c.table16 = write_entries(n_ent, stride, sink as u16, m, &u_end, &u_rows, &u_inc, inpat, |r| {
+            r as u16
+        });
+    } else {
+        c.table = write_entries(n_ent, stride, sink, m, &u_end, &u_rows, &u_inc, inpat, |r| r);
+    }
+}
+
+/// Pass 2 of [`build_table_fast`]: the padded entries from the per-group
+/// universes.
+#[allow(clippy::too_many_arguments)]
+fn write_entries<T: Copy>(
+    n_ent: usize,
+    stride: usize,
+    sink: T,
+    m: usize,
+    u_end: &[u32],
+    u_rows: &[u32],
+    u_inc: &[u8],
+    inpat: &[u16; 16],
+    conv: impl Fn(u32) -> T,
+) -> Vec<T> {
+    let mut table = vec![sink; n_ent * stride];
+    let mut start = 0usize;
+    for (gi, &end) in u_end.iter().enumerate() {
+        let mut cur = [0usize; 16];
+        let base = gi * m * stride;
+        for e in start..end as usize {
+            let row = conv(u_rows[e]);
+            let mut pats = inpat[u_inc[e] as usize];
+            while pats != 0 {
+                let t = pats.trailing_zeros() as usize;
+                table[base + t * stride + cur[t]] = row;
+                cur[t] += 1;
+                pats &= pats - 1;
+            }
+        }
+        start = end as usize;
+    }
+    table
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct DenseGroup {
     first: u32,
     dist: VarDist,
 }
 
 /// Batched sampler; see the module docs.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FastSampler {
     rows: usize,
     /// `!0` where the reference bit is 1.
     reference: Vec<u64>,
+    /// Every reference word is 0 (detection events): batches start zeroed.
+    reference_zero: bool,
     /// CSC of `A`: rows touched by variable `v` are
     /// `col_rows[col_start[v]..col_start[v + 1]]`.
     col_start: Vec<u32>,
@@ -265,6 +655,9 @@ pub struct FastSampler {
     blocked: bool,
     /// Use the `u16` tables where available (default).
     narrow: bool,
+    /// Use the AVX-512 gather/scatter kernel for 4-row `u16` entries
+    /// (off by default; see [`Self::set_simd`]).
+    simd: bool,
 }
 
 /// `lambda` of the hit model for a group with `m` non-identity patterns.
@@ -282,31 +675,47 @@ pub fn hit_identity_prob(lambda: f64, m: u64) -> f64 {
 
 impl FastSampler {
     /// Builds the batched sampler for `s` (any row set: raw measurements or
-    /// detector parities).
+    /// detector parities), with the original table builder (the reference
+    /// that [`Self::from_columns`]'s faster builder is tested against).
     pub fn new(s: &SymPhaseSampler) -> FastSampler {
-        let rows = s.num_measurements();
-        let nv = s.num_vars();
-        let mut col_start = vec![0u32; nv + 1];
-        for j in 0..rows {
-            for &v in s.row(j) {
-                col_start[v as usize + 1] += 1;
-            }
-        }
-        for i in 0..nv {
-            col_start[i + 1] += col_start[i];
-        }
-        let mut fill = col_start.clone();
-        let mut col_rows = vec![0u32; col_start[nv] as usize];
-        for j in 0..rows {
-            for &v in s.row(j) {
-                col_rows[fill[v as usize] as usize] = j as u32;
-                fill[v as usize] += 1;
-            }
-        }
+        let c = Columns::from_symphase(s);
+        let reference = s
+            .reference()
+            .iter()
+            .map(|&b| 0u64.wrapping_sub(b as u64))
+            .collect();
+        Self::assemble(c, reference, Tables::Reference)
+    }
+
+    /// Builds the sampler from a detector matrix in column form (e.g. from
+    /// [`super::detector_compiler::compile_stim`]); rows are reported
+    /// relative to the reference (all-zero offset). With `tables` the padded
+    /// (group, pattern) -> rows hit tables are built (fast sampling, about
+    /// one table entry per hit slot); without, every class samples through
+    /// the columns (no build cost: the better choice for small shot
+    /// counts). Same distribution either way; with `tables` the sampler is
+    /// identical (`==`) to [`Self::new`] on the equivalent `SymPhaseSampler`.
+    pub fn from_columns(c: Columns, tables: bool) -> FastSampler {
+        let reference = vec![0u64; c.rows];
+        Self::assemble(
+            c,
+            reference,
+            if tables { Tables::Fast } else { Tables::None },
+        )
+    }
+
+    fn assemble(c: Columns, reference: Vec<u64>, tables: Tables) -> FastSampler {
+        let rows = c.rows;
+        let Columns {
+            groups,
+            col_start,
+            col_rows,
+            ..
+        } = c;
         let mut classes: Vec<Class> = Vec::new();
         let sink = rows as u32;
         let mut dense = Vec::new();
-        for g in s.groups() {
+        for g in &groups {
             let (kind, p) = match g.dist {
                 VarDist::Flip(p) => (Kind::Flip, p),
                 VarDist::Depol1(p) => (Kind::Depol1, p),
@@ -345,75 +754,24 @@ impl FastSampler {
             }
         }
         for c in &mut classes {
-            let masks: &[u8] = match c.kind {
-                Kind::Flip => &[1],
-                Kind::Depol1 => &DEPOL1_MASK,
-                Kind::Depol2 => &DEPOL2_MASK,
-            };
-            // entries as CSR: XOR of the pattern's variable columns (rows
-            // appearing an odd number of times), in t = group * m + pattern order
-            let n_ent = c.firsts.len() * masks.len();
-            let mut ent_start = Vec::with_capacity(n_ent + 1);
-            ent_start.push(0usize);
-            let mut ent_rows: Vec<u32> = Vec::with_capacity(4 * n_ent);
-            let mut e: Vec<u32> = Vec::with_capacity(64);
-            for &f in &c.firsts {
-                for &mask in masks {
-                    e.clear();
-                    for k in 0..4 {
-                        if mask >> k & 1 == 1 {
-                            let v = f as usize + k;
-                            e.extend_from_slice(
-                                &col_rows[col_start[v] as usize..col_start[v + 1] as usize],
-                            );
-                        }
-                    }
-                    e.sort_unstable();
-                    let base = ent_rows.len();
-                    for &r in &e {
-                        if ent_rows.len() > base && ent_rows.last() == Some(&r) {
-                            ent_rows.pop();
-                        } else {
-                            ent_rows.push(r);
-                        }
-                    }
-                    ent_start.push(ent_rows.len());
-                }
-            }
-            let stride = ent_start
-                .windows(2)
-                .map(|w| w[1] - w[0])
-                .max()
-                .unwrap_or(0)
-                .max(1);
-            if stride <= MAX_STRIDE {
-                let slot_rate = c.lambda / c.kind.patterns() as f64;
-                c.block_log2 = (BLOCK_MEAN / slot_rate).log2().round().clamp(4.0, 40.0) as u32;
-                c.pois = PoissonTable::new(slot_rate * (1u64 << c.block_log2) as f64);
-                c.stride = stride;
-                c.table = vec![sink; n_ent * stride];
-                for t in 0..n_ent {
-                    let e = &ent_rows[ent_start[t]..ent_start[t + 1]];
-                    c.table[t * stride..t * stride + e.len()].copy_from_slice(e);
-                }
-                if sink < u16::MAX as u32 {
-                    c.table16 = c.table.iter().map(|&r| r as u16).collect();
-                }
+            block_params(c);
+            match tables {
+                Tables::Reference => build_table_reference(c, &col_start, &col_rows, sink),
+                Tables::Fast => build_table_fast(c, &col_start, &col_rows, sink),
+                Tables::None => {}
             }
         }
         FastSampler {
             rows,
-            reference: s
-                .reference()
-                .iter()
-                .map(|&b| 0u64.wrapping_sub(b as u64))
-                .collect(),
+            reference_zero: reference.iter().all(|&r| r == 0),
+            reference,
             col_start,
             col_rows,
             classes,
             dense,
             blocked: true,
             narrow: true,
+            simd: false,
         }
     }
 
@@ -432,9 +790,7 @@ impl FastSampler {
     /// `bytes` in Stim's ptb64 layout (little-endian `u64` per row).
     pub fn ptb64(&self, out: &[u64], blocks: usize, bytes: &mut Vec<u8>) {
         for blk in out.chunks_exact(self.stride()).take(blocks) {
-            for w in &blk[..self.rows] {
-                bytes.extend_from_slice(&w.to_le_bytes());
-            }
+            bytes.extend_from_slice(le_bytes(&blk[..self.rows]).as_ref());
         }
     }
 
@@ -464,7 +820,14 @@ impl FastSampler {
     pub fn hit_signatures(&self) -> Vec<Vec<u32>> {
         let mut set = std::collections::BTreeSet::new();
         for c in &self.classes {
-            for e in c.table.chunks(c.stride.max(1)) {
+            let wide;
+            let table: &[u32] = if c.table16.is_empty() {
+                &c.table
+            } else {
+                wide = c.table16.iter().map(|&r| r as u32).collect::<Vec<u32>>();
+                &wide
+            };
+            for e in table.chunks(c.stride.max(1)) {
                 let v: Vec<u32> = e
                     .iter()
                     .copied()
@@ -488,6 +851,9 @@ impl FastSampler {
             c.table16 = Vec::new();
             c.stride = 0;
         }
+        // the unblocked column path of the original ablation ("hits,
+        // columns"); `from_columns(.., false)` keeps blocked generation
+        self.blocked = false;
     }
 
     /// One global Poisson count per class and batch with uniform hits over
@@ -496,12 +862,37 @@ impl FastSampler {
     #[doc(hidden)]
     pub fn set_blocked(&mut self, on: bool) {
         self.blocked = on;
+        if !on {
+            self.ensure_u32_tables();
+        }
+    }
+
+    /// Rebuilds the `u32` copies of `u16`-only tables (for the ablation
+    /// paths that read them).
+    fn ensure_u32_tables(&mut self) {
+        for c in &mut self.classes {
+            if c.table.is_empty() && !c.table16.is_empty() {
+                c.table = c.table16.iter().map(|&r| r as u32).collect();
+            }
+        }
+    }
+
+    /// Uses the AVX-512 gather/scatter hit kernel for classes with 4-row
+    /// `u16` entries when the CPU has AVX-512F/VL (returns whether it will
+    /// be used). Same slot stream, so the output is bit-identical to the
+    /// scalar kernel; for the A/B in `research/qec/sampler-x.md`.
+    pub fn set_simd(&mut self, on: bool) -> bool {
+        self.simd = on && avx512_available();
+        self.simd
     }
 
     /// Use `u32` hit tables even where `u16` ones exist (ablation).
     #[doc(hidden)]
     pub fn set_narrow(&mut self, on: bool) {
         self.narrow = on;
+        if !on {
+            self.ensure_u32_tables();
+        }
     }
 
     /// Expected number of hits per shot on the rare path, and the mean number
@@ -544,6 +935,134 @@ impl FastSampler {
         }
     }
 
+    /// 64-shot words per batch used by [`Self::write_ptb64`] for a run of
+    /// `shots` shots: [`BATCH_WORDS`], or the smallest power of two that
+    /// covers a smaller run. It depends on `shots` only, so the output does
+    /// not depend on the thread count.
+    pub fn batch_words(shots: usize) -> usize {
+        shots
+            .div_ceil(64)
+            .next_power_of_two()
+            .clamp(1, BATCH_WORDS)
+    }
+
+    /// Writes the rows of the first `blocks` 64-shot blocks of `out` (as
+    /// filled by [`Self::sample_batch`]) to `w` in Stim's ptb64 layout,
+    /// without an intermediate copy on little-endian targets.
+    pub fn write_blocks<W: Write + ?Sized>(
+        &self,
+        out: &[u64],
+        blocks: usize,
+        w: &mut W,
+    ) -> std::io::Result<()> {
+        let views: Vec<std::borrow::Cow<'_, [u8]>> = out
+            .chunks_exact(self.stride())
+            .take(blocks)
+            .map(|blk| le_bytes(&blk[..self.rows]))
+            .collect();
+        let mut slices: Vec<std::io::IoSlice<'_>> =
+            views.iter().map(|v| std::io::IoSlice::new(v)).collect();
+        // write_all_vectored (one writev per batch where the writer allows)
+        let mut rest = &mut slices[..];
+        while !rest.is_empty() {
+            match w.write_vectored(rest) {
+                Ok(0) => return Err(std::io::ErrorKind::WriteZero.into()),
+                Ok(n) => std::io::IoSlice::advance_slices(&mut rest, n),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
+    /// Samples `shots` shots (rounded up to a multiple of 64) and writes them
+    /// to `w` in Stim's ptb64 layout (for detector samplers: detection
+    /// events, then observables), on `threads` worker threads.
+    ///
+    /// Seeding: batch `b` (shots `64 W b .. 64 W (b + 1)`, `W =
+    /// batch_words(shots)`) draws its random words from [`batch_rng`]`(seed,
+    /// b)`, i.e. words `b * 2^32, b * 2^32 + 1, ...` of one wyrand sequence
+    /// started at `splitmix64(seed)`. Batches are therefore disjoint segments
+    /// of a single stream (a batch uses far fewer than 2^32 words), and the
+    /// output is bit-identical for every thread count.
+    pub fn write_ptb64<W: Write + ?Sized>(
+        &self,
+        shots: usize,
+        seed: u64,
+        threads: usize,
+        w: &mut W,
+    ) -> std::io::Result<()> {
+        self.write_ptb64_with(shots, seed, threads, Self::batch_words(shots), 4 << 20, w)
+    }
+
+    /// [`Self::write_ptb64`] with the batch width (`words`, a power of two)
+    /// and the multi-threaded path's slab size (bytes of output per unit of
+    /// work) as parameters; for tests and the batch-size sweep. The output
+    /// depends on `words` (it partitions the random stream) but not on
+    /// `threads` or `slab_bytes`.
+    #[doc(hidden)]
+    pub fn write_ptb64_with<W: Write + ?Sized>(
+        &self,
+        shots: usize,
+        seed: u64,
+        threads: usize,
+        words: usize,
+        slab_bytes: usize,
+        w: &mut W,
+    ) -> std::io::Result<()> {
+        let groups = shots.div_ceil(64);
+        let batches = groups.div_ceil(words);
+        let stride = self.stride();
+        if threads <= 1 || batches <= 1 {
+            let mut out = vec![0u64; stride * words];
+            for b in 0..batches {
+                let mut rng = batch_rng(seed, b as u64);
+                self.sample_batch(&mut rng, &mut out);
+                self.write_blocks(&out, words.min(groups - b * words), w)?;
+            }
+            return Ok(());
+        }
+        // slabs of consecutive batches (about 4 MB of output each), sampled
+        // in rounds of `threads` slabs and written in order
+        let batch_bytes = (words * self.rows * 8).max(1);
+        let slab = (slab_bytes / batch_bytes).clamp(1, 1 << 16);
+        let nslabs = batches.div_ceil(slab);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .map_err(std::io::Error::other)?;
+        // one (sample buffer, output bytes) pair per worker slot, reused
+        // across rounds so pages are faulted in once
+        let mut bufs: Vec<(Vec<u64>, Vec<u8>)> = (0..threads.min(nslabs))
+            .map(|_| (Vec::new(), Vec::new()))
+            .collect();
+        let mut next = 0;
+        while next < nslabs {
+            let end = (next + threads).min(nslabs);
+            pool.install(|| {
+                use rayon::prelude::*;
+                bufs[..end - next]
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, (out, bytes))| {
+                        let sl = next + i;
+                        out.resize(stride * words, 0);
+                        bytes.clear();
+                        for b in sl * slab..((sl + 1) * slab).min(batches) {
+                            let mut rng = batch_rng(seed, b as u64);
+                            self.sample_batch(&mut rng, out);
+                            self.ptb64(out, words.min(groups - b * words), bytes);
+                        }
+                    })
+            });
+            for (_, bytes) in &bufs[..end - next] {
+                w.write_all(bytes)?;
+            }
+            next = end;
+        }
+        Ok(())
+    }
+
     /// Samples `64 * W` shots, `W = out.len() / stride()` (a power of two):
     /// `out[w * stride() + r]` bit `s` is row `r` of shot `64 w + s`; the
     /// last word of each block is scratch. [`Self::ptb64`] packs it into
@@ -556,8 +1075,12 @@ impl FastSampler {
             words.is_power_of_two(),
             "words per batch must be a power of two"
         );
-        for chunk in out.chunks_exact_mut(stride) {
-            chunk[..self.rows].copy_from_slice(&self.reference);
+        if self.reference_zero {
+            out.fill(0);
+        } else {
+            for chunk in out.chunks_exact_mut(stride) {
+                chunk[..self.rows].copy_from_slice(&self.reference);
+            }
         }
         let shot_bits = words.trailing_zeros() + 6;
         let shot_mask = (1u64 << shot_bits) - 1;
@@ -565,6 +1088,24 @@ impl FastSampler {
             let g = c.firsts.len() as u64;
             let m = c.kind.patterns();
             let range = (g * m) << shot_bits;
+            if self.blocked && c.stride == 0 {
+                let a = BlockArgs {
+                    range,
+                    shot_bits,
+                    stride,
+                    lb: c.block_log2,
+                    rem_mu_per_slot: c.lambda / m as f64,
+                    pois: &c.pois,
+                };
+                let (cs, cr) = (&self.col_start[..], &self.col_rows[..]);
+                let f = &c.firsts[..];
+                match c.kind {
+                    Kind::Flip => blocked_cols::<_, 1>(f, &[1], cs, cr, &a, rng, out),
+                    Kind::Depol1 => blocked_cols::<_, 3>(f, &DEPOL1_MASK, cs, cr, &a, rng, out),
+                    Kind::Depol2 => blocked_cols::<_, 15>(f, &DEPOL2_MASK, cs, cr, &a, rng, out),
+                }
+                continue;
+            }
             if c.stride > 0 && self.blocked {
                 let a = BlockArgs {
                     range,
@@ -587,6 +1128,13 @@ impl FastSampler {
                             _ => blocked_hits::<_, _, 8>($t, &a, rng, out),
                         }
                     };
+                }
+                #[cfg(target_arch = "x86_64")]
+                if self.simd && c.stride == 4 && self.narrow && !c.table16.is_empty() {
+                    // SAFETY: `simd` is only set when the CPU has AVX-512F/VL
+                    // (set_simd); invariants as for blocked_hits with K = 4
+                    unsafe { blocked_hits_avx512_k4(&c.table16, &a, rng, out) };
+                    continue;
                 }
                 if self.narrow && !c.table16.is_empty() {
                     go!(&c.table16[..])
@@ -796,6 +1344,44 @@ pub fn poisson<R: RngCore + ?Sized>(rng: &mut R, lam: f64) -> u64 {
     }
 }
 
+/// The ptb64 bytes of `words` (little-endian `u64` each): a view without a
+/// copy on little-endian targets.
+fn le_bytes(words: &[u64]) -> std::borrow::Cow<'_, [u8]> {
+    if cfg!(target_endian = "little") {
+        // SAFETY: u64 has no padding and every byte pattern is a valid u8;
+        // on little-endian targets these bytes are the little-endian encoding
+        std::borrow::Cow::Borrowed(unsafe {
+            std::slice::from_raw_parts(words.as_ptr() as *const u8, words.len() * 8)
+        })
+    } else {
+        std::borrow::Cow::Owned(words.iter().flat_map(|w| w.to_le_bytes()).collect())
+    }
+}
+
+/// Default 64-shot words per batch (1024 shots), see
+/// [`FastSampler::batch_words`].
+pub const BATCH_WORDS: usize = 16;
+
+/// The wyrand state increment.
+const WYRAND_INC: u64 = 0xa076_1d64_78bd_642f;
+
+/// splitmix64 (Steele, Lea and Flood's mixer): maps nearby seeds to
+/// unrelated 64-bit values.
+pub fn splitmix64(mut z: u64) -> u64 {
+    z = z.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
+}
+
+/// The random stream of batch `batch` under `seed` (see
+/// [`FastSampler::write_ptb64`]): wyrand started `batch * 2^32` steps into
+/// the sequence that starts at `splitmix64(seed)` (wyrand's state advances
+/// by a constant per word, so this is an exact jump-ahead).
+pub fn batch_rng(seed: u64, batch: u64) -> WyRand {
+    WyRand(splitmix64(seed).wrapping_add(batch.wrapping_mul(WYRAND_INC << 32)))
+}
+
 /// wyrand (Wang Yi, the PRNG of wyhash): one 64x64->128 multiply per
 /// output, 64-bit state (period 2^64). Offered next to `rand`'s
 /// Xoshiro256++ (`SmallRng`) for the PRNG comparison; Xoshiro256++ is the
@@ -806,7 +1392,7 @@ pub struct WyRand(pub u64);
 impl RngCore for WyRand {
     #[inline(always)]
     fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0xa076_1d64_78bd_642f);
+        self.0 = self.0.wrapping_add(WYRAND_INC);
         let t = (self.0 as u128) * ((self.0 ^ 0xe703_7ed1_a0b4_28db) as u128);
         ((t >> 64) as u64) ^ (t as u64)
     }

@@ -100,6 +100,14 @@ name = "fast_sampler"
 path = "tests/engines/fast_sampler.rs"
 
 [[test]]
+name = "detector_compiler"
+path = "tests/engines/detector_compiler.rs"
+
+[[test]]
+name = "frame_sampler"
+path = "tests/engines/frame_sampler.rs"
+
+[[test]]
 name = "hsf"
 path = "tests/engines/hsf.rs"
 
