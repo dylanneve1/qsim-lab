@@ -273,7 +273,14 @@ fn success_shor(m: usize, n_mod: u64, g: u64, d: &[f64], repo: bool) -> f64 {
         .sum()
 }
 
-fn success_eh(ma: usize, n_mod: u64, g: u64, ds: &[&[f64]], floor: f64) -> (Vec<f64>, f64) {
+fn success_eh(
+    ma: usize,
+    n_mod: u64,
+    g: u64,
+    ds: &[&[f64]],
+    floor: f64,
+    cands: usize,
+) -> (Vec<f64>, f64) {
     // one post-processing per (j, k) with mass above `floor` in any distribution
     let na = 1usize << ma;
     let size = ds[0].len();
@@ -284,7 +291,7 @@ fn success_eh(ma: usize, n_mod: u64, g: u64, ds: &[&[f64]], floor: f64) -> (Vec<
                 return false;
             }
             let (j, k) = ((idx % na) as u128, (idx / na) as u128);
-            ge::eh_postprocess(n_mod, g, j, k, 4096).0.is_some()
+            ge::eh_postprocess(n_mod, g, j, k, cands).0.is_some()
         })
         .collect();
     let succ = ds
@@ -364,7 +371,13 @@ fn cmd_dist(a: &HashMap<String, String>) {
         } else {
             None
         };
+        // the repo's order-finding post-processing (tries multiples of the
+        // convergent denominators) succeeds trivially at these sizes; opt-in
+        let with_repo = a.get("succ").map(String::as_str) == Some("repo");
         for (name, repo) in [("paper", false), ("repo", true)] {
+            if repo && !with_repo {
+                continue;
+            }
             let sa = success_shor(c.m, n_mod, g, &d.actual, repo);
             let si = success_shor(c.m, n_mod, g, &d.ideal, repo);
             let su = un.as_ref().map(|u| success_shor(c.m, n_mod, g, u, repo));
@@ -444,13 +457,18 @@ fn cmd_dist(a: &HashMap<String, String>) {
             );
         }
         if lb == mbits {
-            let (succ, skipped) = success_eh(ma, n_mod, g, &ds, 1e-13);
-            println!(
-                "success[eh] actual={:.10} ideal_masked={:.10} unmasked={} (mass below 1e-13 skipped <= {skipped:.2e})",
-                succ[0],
-                succ[1],
-                succ.get(2).map_or("-".into(), |x| format!("{x:.10}"))
-            );
+            // cands = 4096 (the repo's default) can brute-force d < 2^m at
+            // toy sizes (e.g. j = 0); a small budget is closer to the regime
+            // where that is impossible
+            for cands in [4096usize, get(a, "cands", 4usize)] {
+                let (succ, skipped) = success_eh(ma, n_mod, g, &ds, 1e-13, cands);
+                println!(
+                    "success[eh, max_cands={cands}] actual={:.10} ideal_masked={:.10} unmasked={} (mass below 1e-13 skipped <= {skipped:.2e})",
+                    succ[0],
+                    succ[1],
+                    succ.get(2).map_or("-".into(), |x| format!("{x:.10}"))
+                );
+            }
         }
     }
     if let Some(path) = a.get("dist_out") {
