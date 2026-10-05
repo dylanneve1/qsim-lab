@@ -66,6 +66,7 @@ Campaign and data-generation binaries; their output lives in `research/data/<stu
 | [theory_coset](theory_coset.rs) | Data for the coset-error theory | [theory-coset.md](../research/theory/theory-coset.md) |
 | [theory_rank](theory_rank.rs) | Branching-rank profiles and demos | [theory-rank.md](../research/theory/theory-rank.md) |
 | [schedule_search](schedule_search.rs) | Surface-code CNOT schedule search | [schedules.md](../research/qec/schedules.md) |
+| [bb_codes](bb_codes.rs) | Two-block (BB / GB / coprime-BB) codes: parameters, search, circuit-level LER | [code-discovery.md](../research/qec/code-discovery.md) |
 | [color_search](color_search.rs) | Colour-code schedule experiments | [qec-r4.md](../research/qec/qec-r4.md), [colour-global.md](../research/qec/colour-global.md) |
 | [color_ler](color_ler.rs) | Colour-code memory logical error rate (SymPhase + BP+OSD) | [colour-flags.md](../research/qec/colour-flags.md) |
 | [dem_distance](dem_distance.rs) | Exact minimum-weight logical of a DEM on stdin | [colour-global.md](../research/qec/colour-global.md) |
