@@ -127,7 +127,7 @@ Both are verified exactly: k by rank, and d in both CSS sectors by the exact sea
 - [[168,14,10]] is the smallest code there with k ≥ 14 and d ≥ 10 (the next is [[170,16,10]]);
 - [[300,16,14]] is the only code there with k ≥ 16 and d ≥ 14 at n ≤ 300, counting direct sums.
 
-**Best k·d²/n per n.** Wherever the frontier was decided, our best equals the literature's best, which is mostly Liang et al.'s twisted-torus and GB tables. Liang et al. claim optimality only inside the family `f = 1 + x + x^a y^b`, `g = 1 + y + x^c y^d`; this search extends that to all weight-6 abelian two-block codes. Above n ≈ 230 our decided best falls below the published value, but only at k ≤ 6: those are the k = 4/6 codes left undecided.
+**Best k·d²/n per n.** Wherever the frontier was decided, our best equals the literature's best, which is mostly Liang et al.'s twisted-torus and GB tables. Liang et al. claim optimality only inside the family `f = 1 + x + x^a y^b`, `g = 1 + y + x^c y^d`; this search extends that to all weight-6 abelian two-block codes. After the certification runs (§3.2), the only n where we have no decided value are n = 246, 258, 276 and 282. At those n the published best is a k = 4 code, which our run did not decide (k < `min_k`); see `frontier_w6.png`.
 
 ### 3.2 Literature upper bounds, certified
 
