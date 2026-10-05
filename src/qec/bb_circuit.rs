@@ -64,8 +64,8 @@ impl BbSchedule {
         format!("{}/{}", f(&self.sx), f(&self.sz))
     }
 
-    /// Parses `"-14350 2/35012 4-"` style specs (as printed by [`Self::spec`],
-    /// without spaces) or `ibm`.
+    /// Parses `"-143502/350124-"` style specs (as printed by [`Self::spec`],
+    /// seven characters per half, no spaces) or `ibm`.
     pub fn parse(s: &str) -> Self {
         if s == "ibm" {
             return IBM_SCHEDULE;

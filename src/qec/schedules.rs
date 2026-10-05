@@ -51,12 +51,12 @@ impl Permutation {
         result
     }
 
-    /// The standard Z-check order: NW, NE, SW, SE (= [0,1,2,3]).
+    /// The standard Z-check order: NW, NE, SW, SE (= `[0,1,2,3]`).
     pub fn standard_z() -> Self {
         Self([0, 1, 2, 3])
     }
 
-    /// The standard X-check order: NW, SW, NE, SE (= [0,2,1,3]).
+    /// The standard X-check order: NW, SW, NE, SE (= `[0,2,1,3]`).
     /// Hook pair is NE–SE (vertical), perpendicular to the X logical.
     pub fn standard_x() -> Self {
         Self([0, 2, 1, 3])
@@ -114,7 +114,7 @@ impl Schedule {
     /// Compass indices: NW=0, NE=1, SW=2, SE=3.
     /// Diagonal 1: {0, 3} (NW, SE). Diagonal 2: {1, 2} (NE, SW).
     /// To avoid two CNOTs touching the same data qubit at the same clock cycle,
-    /// at every step t in 0..4, z_perm[t] and x_perm[t] must either both belong
+    /// at every step t in 0..4, `z_perm[t]` and `x_perm[t]` must either both belong
     /// to Diagonal 1 or both belong to Diagonal 2.
     pub fn is_collision_free(&self) -> bool {
         for t in 0..4 {

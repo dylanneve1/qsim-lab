@@ -22,7 +22,7 @@
 //!    stage instead of once per gate.
 //! 4. Consecutive diagonal terms in a stage are applied together: they are
 //!    grouped by a "pivot" condition and each group is one multiplication
-//!    pass by a product of per-bit factor tables (see [`DiagBlock`]).
+//!    pass by a product of per-bit factor tables (see `DiagBlock`).
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::engines::dense_kernels as dk;
@@ -217,7 +217,7 @@ fn emit_1q(out: &mut Vec<KOp>, q: usize, m: Mat2, split: bool) {
 /// Multiplies together runs of uncontrolled single-qubit ops on the same
 /// qubit (products taken in f64). The result is the same unitary up to
 /// rounding. With `split`, a fused gate that is neither real nor diagonal is
-/// emitted as phase, real rotation, phase (see [`split_phases`]): the real
+/// emitted as phase, real rotation, phase (see `split_phases`): the real
 /// kernel needs 6 instead of 16 flops per amplitude and the phases merge
 /// with other diagonal terms.
 pub fn fuse_1q(ops: &[KOp], n: usize, split: bool) -> Vec<KOp> {
