@@ -24,7 +24,7 @@ for p in glob.glob(os.path.join(R, "refs", "*.dmrg.json")):
 
 def rows(pat):
     out = {}
-    for p in sorted(glob.glob(os.path.join(R, pat))):
+    for p in sorted(glob.glob(os.path.join(R, "runs", pat))):
         for line in open(p):
             r = json.loads(line)
             if "error" not in r:
