@@ -23,6 +23,11 @@
 //! 4. Consecutive diagonal terms in a stage are applied together: they are
 //!    grouped by a "pivot" condition and each group is one multiplication
 //!    pass by a product of per-bit factor tables (see `DiagBlock`).
+//! 5. The block kernels exist in three builds chosen at run time: portable,
+//!    fused multiply-add (AVX2+FMA on x86_64, NEON on aarch64) and, on CPUs
+//!    with AVX-512, explicit 512-bit kernels (the `avx512` submodule, notebook
+//!    `research/performance/avx512.md`), which also apply multi-group
+//!    diagonal blocks in a single pass (`DiagPass`).
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::engines::dense_kernels as dk;
@@ -30,6 +35,9 @@ use crate::engines::statevector::{Real, StateVector};
 use crate::gate::{mat2_mul, Gate, Mat2};
 use num_complex::{Complex, Complex64};
 use rayon::prelude::*;
+
+#[cfg(target_arch = "x86_64")]
+mod avx512;
 
 const C0: Complex64 = Complex64::new(0.0, 0.0);
 const C1: Complex64 = Complex64::new(1.0, 0.0);
@@ -286,8 +294,9 @@ pub struct BlockConfig {
     /// Reorder diagonal terms within a stage (they commute with every op
     /// not targeting their qubits) so they form as few passes as possible.
     pub schedule_diag: bool,
-    /// Use the fused-multiply-add kernels: on x86_64 the AVX2+FMA build of
-    /// the chunk kernels when the CPU has them (checked at run time; the
+    /// Use the SIMD kernels: on x86_64 the AVX-512 kernels when the CPU has
+    /// them and [`BlockConfig::avx512`] is set, else the AVX2+FMA build of
+    /// the chunk kernels when the CPU has those (checked at run time; the
     /// portable kernels are used otherwise); on aarch64 the same kernels
     /// with `mul_add` (NEON `fmla`, part of the baseline, no `unsafe`).
     /// Results agree with the portable path to rounding error.
@@ -305,8 +314,9 @@ pub struct BlockConfig {
     /// into one dense `2^k x 2^k` unitary applied in one pass, when the cost
     /// rule (`dense_min_ops`) says it pays. `0`/`1` = off, `2` or `3` =
     /// maximum width. Default: 2 on aarch64 (M1 Pro: 1.5-2.1x on circuits
-    /// of generic 2-qubit unitaries, bit-identical elsewhere), off on other
-    /// targets (not yet measured on x86_64); `research/performance/dense-fusion.md`.
+    /// of generic 2-qubit unitaries, bit-identical elsewhere;
+    /// `research/performance/dense-fusion.md`) and on x86_64 CPUs with
+    /// AVX-512 (`research/performance/avx512.md`), off on other targets.
     /// Agrees with the unfused executor to rounding error.
     pub dense_fusion: usize,
     /// Cost rule of dense fusion: a group on `k` qubits is fused only if it
@@ -314,9 +324,18 @@ pub struct BlockConfig {
     /// default) = `2^k`; `1` = fuse every group of two or more gates (see
     /// `dense_fusion::fuse_stage`).
     pub dense_min_ops: usize,
+    /// Use the AVX-512 kernels (x86_64, `simd` on): explicit 512-bit kernels
+    /// for 1-qubit gates at every target position, pairs and dense blocks,
+    /// the other kernels compiled with AVX-512 enabled. Only takes effect
+    /// when the CPU has AVX-512 F/DQ/VL/BW and the environment variable
+    /// `QSIM_NO_AVX512` is unset (see [`avx512_available`]); otherwise the
+    /// AVX2+FMA kernels run. Default on. Agrees with the other kernel sets
+    /// to rounding error (`research/performance/avx512.md`).
+    pub avx512: bool,
 }
 
-/// Default block size. 256 KiB on x86_64 (half of a typical 512 KiB L2).
+/// Default block size. 256 KiB on x86_64 (half of a typical 512 KiB L2;
+/// CPUs with AVX-512 use `AVX512_BLOCK_BYTES` instead).
 /// On aarch64 1 MiB: on an Apple M1 Pro (12 MiB L2 per performance
 /// cluster) a sweep of 256 KiB..4 MiB put 1 MiB best or within 7% of best
 /// for every QFT and brickwork case at 22-28 qubits, and never slower than
@@ -333,10 +352,24 @@ const DEFAULT_DENSE_FUSION: usize = 2;
 #[cfg(not(target_arch = "aarch64"))]
 const DEFAULT_DENSE_FUSION: usize = 0;
 
+/// Defaults on CPUs where the AVX-512 kernels run (see
+/// [`avx512_available`]): measured on a Xeon Gold 6548Y+ (L2 2 MB per core,
+/// `research/performance/avx512.md` §4): a 512 KiB block and dense 2-qubit
+/// fusion.
+const AVX512_BLOCK_BYTES: usize = 512 << 10;
+const AVX512_DENSE_FUSION: usize = 2;
+
 impl Default for BlockConfig {
+    /// The defaults; on x86_64 CPUs with AVX-512 (and `QSIM_NO_AVX512`
+    /// unset) the block size and dense-fusion width are the AVX-512 ones.
     fn default() -> Self {
+        let wide = avx512_available();
         BlockConfig {
-            block_bytes: DEFAULT_BLOCK_BYTES,
+            block_bytes: if wide {
+                AVX512_BLOCK_BYTES
+            } else {
+                DEFAULT_BLOCK_BYTES
+            },
             slots: 6,
             fuse_1q: true,
             small_n: 12,
@@ -344,8 +377,13 @@ impl Default for BlockConfig {
             schedule_diag: true,
             simd: true,
             l1_tile_bytes: 0,
-            dense_fusion: DEFAULT_DENSE_FUSION,
+            dense_fusion: if wide {
+                AVX512_DENSE_FUSION
+            } else {
+                DEFAULT_DENSE_FUSION
+            },
             dense_min_ops: 0,
+            avx512: true,
         }
     }
 }
@@ -628,6 +666,149 @@ struct DiagBlock {
     groups: Vec<DiagGroup>,
 }
 
+/// A diagonal term crossing the low-table/row split: factor `f` on the
+/// buffer indices whose low bit `a` equals `va` in rows `h` with
+/// `(h & hmask) == hpat`.
+#[derive(Clone, Copy, Debug)]
+struct Cross {
+    a: usize,
+    va: bool,
+    hmask: usize,
+    hpat: usize,
+    f: Complex64,
+}
+
+/// One diagonal term in buffer coordinates: factor `f` on the buffer
+/// indices `j` with `(j & imask) == ipat`, in chunks whose outer qubits
+/// satisfy `(base & omask) == opat`.
+#[derive(Clone, Copy, Debug)]
+struct FlatTerm {
+    imask: usize,
+    ipat: usize,
+    omask: usize,
+    opat: usize,
+    f: Complex64,
+}
+
+/// A diagonal block applied in a single pass over the buffer (AVX-512
+/// tier, built from a [`DiagBlock`] by [`diag_pass`]). Buffer index `j` =
+/// row `h` (bits `>= lo_bits`) and low part `x`; its factor is
+/// `lo[x] * hi[h] * prod(crossing terms active in row h on bit a of x)`.
+/// The tables hold the terms without outer condition; terms with one
+/// (`dynamic`) are folded in per chunk. The pivot-group form costs one pass
+/// per group (a layer of CZs on disjoint pairs: one per pair).
+#[derive(Clone, Debug)]
+struct DiagPass<T> {
+    lo_bits: usize,
+    lo: Vec<Complex64>,
+    lor: Vec<T>,
+    loi: Vec<T>,
+    hi: Vec<Complex64>,
+    cross: Vec<Cross>,
+    dynamic: Vec<FlatTerm>,
+    /// Every buffer bit a term reads.
+    support: usize,
+}
+
+/// The terms of a diagonal block with their conditions in buffer
+/// coordinates.
+fn flat_terms(d: &DiagBlock) -> Vec<FlatTerm> {
+    let mut v = Vec::new();
+    for g in &d.groups {
+        for t in &g.terms {
+            let (bm, bp) = match t.bit {
+                Some((j, val)) => (1usize << j, (val as usize) << j),
+                None => (0, 0),
+            };
+            v.push(FlatTerm {
+                imask: g.cmask | bm,
+                ipat: g.cpat | bp,
+                omask: t.omask,
+                opat: t.opat,
+                f: t.f,
+            });
+        }
+    }
+    v
+}
+
+/// Folds `t` into the tables (`lo` over the low `lo_bits` bits, `hi` over the
+/// rows, crossing terms into `cross`). `false` if it crosses the split with
+/// more than one low bit (not representable).
+fn fold_term(
+    t: &FlatTerm,
+    lo_bits: usize,
+    lo: &mut [Complex64],
+    hi: &mut [Complex64],
+    cross: &mut Vec<Cross>,
+) -> bool {
+    let lomask = (1usize << lo_bits) - 1;
+    let (lm, lp) = (t.imask & lomask, t.ipat & lomask);
+    let (hm, hp) = (t.imask >> lo_bits, t.ipat >> lo_bits);
+    if hm == 0 {
+        for (x, z) in lo.iter_mut().enumerate() {
+            if x & lm == lp {
+                *z *= t.f;
+            }
+        }
+    } else if lm == 0 {
+        for (h, z) in hi.iter_mut().enumerate() {
+            if h & hm == hp {
+                *z *= t.f;
+            }
+        }
+    } else if lm.count_ones() == 1 {
+        let a = lm.trailing_zeros() as usize;
+        cross.push(Cross {
+            a,
+            va: (lp >> a) & 1 == 1,
+            hmask: hm,
+            hpat: hp,
+            f: t.f,
+        });
+    } else {
+        return false;
+    }
+    true
+}
+
+/// Single-pass form of a diagonal block on a buffer of `2^l` amplitudes, or
+/// `None` when a term crosses the low/row split on two or more low bits
+/// (multi-controlled phases), where the pivot form is kept.
+fn diag_pass<T: Real>(d: &DiagBlock, l: usize) -> Option<DiagPass<T>> {
+    let lo_bits = l.min(LO_BITS);
+    let mut lo = vec![C1; 1 << lo_bits];
+    let mut hi = vec![C1; 1 << (l - lo_bits)];
+    let mut cross = Vec::new();
+    let mut dynamic = Vec::new();
+    let mut support = 0usize;
+    for t in flat_terms(d) {
+        support |= t.imask;
+        if t.omask == 0 {
+            if !fold_term(&t, lo_bits, &mut lo, &mut hi, &mut cross) {
+                return None;
+            }
+        } else {
+            let lomask = (1usize << lo_bits) - 1;
+            if t.imask & lomask != 0 && t.imask >> lo_bits != 0 && (t.imask & lomask).count_ones() > 1
+            {
+                return None;
+            }
+            dynamic.push(t);
+        }
+    }
+    Some(DiagPass {
+        lo_bits,
+        lor: lo.iter().map(|z| T::from_f64(z.re)).collect(),
+        loi: lo.iter().map(|z| T::from_f64(z.im)).collect(),
+        lo,
+        hi,
+        cross,
+        dynamic,
+        support,
+    })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum UKind {
     X,
@@ -662,6 +843,8 @@ enum LOp<T: Real> {
         cx: u8,
     },
     Diag(DiagBlock),
+    /// A diagonal block in single-pass form (AVX-512 tier only).
+    DiagPass(Box<DiagPass<T>>),
     /// Dense `2^k x 2^k` unitary (`k` = 2 or 3) on buffer bits `t[..k]`
     /// (ascending); `re`/`im` row-major.
     Dense {
@@ -677,8 +860,8 @@ enum LOp<T: Real> {
 pub struct CompiledKOps<T: Real> {
     n: usize,
     stages: Vec<Prepared<T>>,
-    /// Run with the AVX2+FMA kernels (`cfg.simd` and the CPU supports them).
-    simd: bool,
+    /// Kernel set, chosen from `cfg.simd` / `cfg.avx512` and the CPU.
+    isa: Isa,
 }
 
 #[derive(Clone)]
@@ -870,11 +1053,27 @@ fn build_diag_block(
     DiagBlock { groups }
 }
 
-fn prepare<T: Real>(st: &Stage, n: usize) -> Prepared<T> {
-    // Pairs only here, not in `prepare_mapped`: the graph compiler patches
-    // the mapped stages' U1 coefficients in place by `OpLoc`.
+/// `avx512`: the stage will run on the AVX-512 kernels, so also pair gates
+/// on the lowest buffer bits (the AVX-512 pair kernel handles bits inside a
+/// vector; the generic one would walk runs of length 1 or 2 there), and put
+/// diagonal blocks of two or more pivot groups in single-pass form.
+fn prepare<T: Real>(st: &Stage, n: usize, avx512: bool) -> Prepared<T> {
+    // Pairs and single-pass diagonals only here, not in `prepare_mapped`:
+    // the graph compiler patches the mapped stages' numbers in place by
+    // `OpLoc`.
     let mut p = prepare_mapped(st, n).0;
-    p.ops = pair_u1(p.ops);
+    p.ops = pair_u1(p.ops, avx512);
+    if avx512 && p.l >= 4 {
+        for op in p.ops.iter_mut() {
+            if let LOp::Diag(d) = op {
+                if d.groups.len() >= 2 {
+                    if let Some(dp) = diag_pass::<T>(d, p.l) {
+                        *op = LOp::DiagPass(Box::new(dp));
+                    }
+                }
+            }
+        }
+    }
     p
 }
 
@@ -943,7 +1142,13 @@ fn prepare_mapped<T: Real>(st: &Stage, n: usize) -> (Prepared<T>, Vec<OpLoc>) {
 
 /// Like [`prepare`], with dense fusion: fused groups become
 /// [`LOp::Dense`], runs of other ops are prepared as usual.
-fn prepare_fused<T: Real>(st: &Stage, n: usize, max_k: usize, min_ops: usize) -> Prepared<T> {
+fn prepare_fused<T: Real>(
+    st: &Stage,
+    n: usize,
+    max_k: usize,
+    min_ops: usize,
+    avx512: bool,
+) -> Prepared<T> {
     use crate::engines::dense_fusion::{fuse_stage, FusedOp};
     let mut pos = vec![None; n];
     let mut inner_mask = 0usize;
@@ -955,7 +1160,7 @@ fn prepare_fused<T: Real>(st: &Stage, n: usize, max_k: usize, min_ops: usize) ->
     if !fused.iter().any(|f| matches!(f, FusedOp::Dense(_))) {
         // Nothing fused: keep the original order (rejected groups come out
         // commuted, which would only change rounding and diagonal grouping).
-        return prepare::<T>(st, n);
+        return prepare::<T>(st, n, avx512);
     }
     let mut ops = Vec::new();
     let mut run: Vec<KOp> = Vec::new();
@@ -965,7 +1170,7 @@ fn prepare_fused<T: Real>(st: &Stage, n: usize, max_k: usize, min_ops: usize) ->
                 inner: st.inner.clone(),
                 ops: std::mem::take(run),
             };
-            ops.extend(prepare::<T>(&st, n).ops);
+            ops.extend(prepare::<T>(&st, n, avx512).ops);
         }
     };
     for f in fused {
@@ -1010,10 +1215,11 @@ fn prepare_stage<T: Real>(st: &Stage, n: usize, cfg: &BlockConfig) -> Prepared<T
     } else {
         st
     };
+    let avx512 = Isa::select(cfg.simd, cfg.avx512) == Isa::Avx512;
     let mut p = if cfg.dense_fusion >= 2 {
-        prepare_fused::<T>(st, n, cfg.dense_fusion.min(3), cfg.dense_min_ops)
+        prepare_fused::<T>(st, n, cfg.dense_fusion.min(3), cfg.dense_min_ops, avx512)
     } else {
-        prepare::<T>(st, n)
+        prepare::<T>(st, n, avx512)
     };
     let k = cfg.tile_bits(p.l, std::mem::size_of::<Complex<T>>());
     if k > 0 {
@@ -1026,11 +1232,11 @@ fn prepare_stage<T: Real>(st: &Stage, n: usize, cfg: &BlockConfig) -> Prepared<T
 }
 
 /// Merges adjacent uncontrolled 1-qubit gates on two distinct buffer bits
-/// (both outside `SMALL`) into one [`LOp::Pair`]: they commute, and the
-/// pair kernel applies both in a single sweep over the block instead of two.
-/// A CNOT (in-block control, no outer control) between the same two bits
-/// that immediately follows is folded in as a register permutation.
-fn pair_u1<T: Real>(ops: Vec<LOp<T>>) -> Vec<LOp<T>> {
+/// (both outside `SMALL` unless `low`) into one [`LOp::Pair`]: they commute,
+/// and the pair kernel applies both in a single sweep over the block instead
+/// of two. A CNOT (in-block control, no outer control) between the same two
+/// bits that immediately follows is folded in as a register permutation.
+fn pair_u1<T: Real>(ops: Vec<LOp<T>>, low: bool) -> Vec<LOp<T>> {
     let free = |op: &LOp<T>| match *op {
         LOp::U1 {
             t,
@@ -1038,7 +1244,7 @@ fn pair_u1<T: Real>(ops: Vec<LOp<T>>) -> Vec<LOp<T>> {
             kind,
             cin: 0,
             cout: 0,
-        } if (1usize << t) & SMALL == 0 => Some((t, m, kind)),
+        } if low || (1usize << t) & SMALL == 0 => Some((t, m, kind)),
         _ => None,
     };
     let mut out = Vec::with_capacity(ops.len());
@@ -1111,6 +1317,7 @@ fn lop_masks<T: Real>(op: &LOp<T>) -> (usize, usize) {
             }
             (0, sup)
         }
+        LOp::DiagPass(d) => (0, d.support),
         LOp::Dense { k, t, .. } => {
             let m = t[..*k].iter().map(|&b| 1usize << b).sum();
             (m, m)
@@ -1127,7 +1334,7 @@ fn tile_local<T: Real>(op: &LOp<T>, k: usize) -> bool {
         LOp::U1 { t, .. } => (1usize << t) < lim,
         LOp::Swap { b, .. } => (1usize << b) < lim,
         LOp::Pair { t2, .. } => (1usize << t2) < lim,
-        LOp::Diag(_) | LOp::Dense { .. } => lop_masks(op).1 < lim,
+        LOp::Diag(_) | LOp::DiagPass(_) | LOp::Dense { .. } => lop_masks(op).1 < lim,
     }
 }
 
@@ -1288,7 +1495,7 @@ pub fn run_prepared_stage<T: Real>(
     p: &PreparedStage<T>,
     simd: bool,
 ) {
-    run_stage(amps, n, &p.0, simd && simd_available());
+    run_stage(amps, n, &p.0, Isa::select(simd, true));
 }
 
 // ----- buffer kernels -----------------------------------------------------
@@ -1722,6 +1929,102 @@ struct DiagScratch<T> {
     hi: Vec<Complex64>,
     lor: Vec<T>,
     loi: Vec<T>,
+    cross: Vec<Cross>,
+}
+
+/// The tables of `d` for the chunk with outer bits `base`: the static ones,
+/// or copies in `sc` with the active outer-conditioned terms folded in. A
+/// term on a single low bit becomes a crossing factor active in every row,
+/// so the low table is only copied and re-rounded for terms on two or more
+/// low bits (multi-qubit phases with an outer control). Returns `(lor, loi,
+/// lo, hi, cross)`.
+#[allow(clippy::type_complexity)]
+fn diag_pass_tables<'a, T: Real>(
+    d: &'a DiagPass<T>,
+    base: usize,
+    sc: &'a mut DiagScratch<T>,
+) -> (&'a [T], &'a [T], &'a [Complex64], &'a [Complex64], &'a [Cross]) {
+    let active = |t: &&FlatTerm| base & t.omask == t.opat;
+    if !d.dynamic.iter().any(|t| active(&t)) {
+        return (&d.lor, &d.loi, &d.lo, &d.hi, &d.cross);
+    }
+    let lomask = (1usize << d.lo_bits) - 1;
+    let multi_lo = |t: &FlatTerm| t.imask >> d.lo_bits == 0 && (t.imask & lomask).count_ones() >= 2;
+    let need_lo = d.dynamic.iter().filter(active).any(multi_lo);
+    sc.hi.clear();
+    sc.hi.extend_from_slice(&d.hi);
+    sc.cross.clear();
+    sc.cross.extend_from_slice(&d.cross);
+    if need_lo {
+        sc.lo.clear();
+        sc.lo.extend_from_slice(&d.lo);
+    }
+    for t in d.dynamic.iter().filter(active) {
+        let lm = t.imask & lomask;
+        if t.imask >> d.lo_bits == 0 && lm.count_ones() == 1 {
+            let a = lm.trailing_zeros() as usize;
+            sc.cross.push(Cross {
+                a,
+                va: (t.ipat >> a) & 1 == 1,
+                hmask: 0,
+                hpat: 0,
+                f: t.f,
+            });
+        } else if t.imask == 0 {
+            // condition on outer qubits only: a factor on the whole chunk
+            for z in sc.hi.iter_mut() {
+                *z *= t.f;
+            }
+        } else {
+            // `diag_pass` checked that every dynamic term is representable;
+            // only multi-bit low terms touch `lo` (copied above in that case)
+            let lo: &mut [Complex64] = if need_lo { &mut sc.lo } else { &mut [] };
+            let ok = fold_term(t, d.lo_bits, lo, &mut sc.hi, &mut sc.cross);
+            debug_assert!(ok);
+        }
+    }
+    if !need_lo {
+        return (&d.lor, &d.loi, &d.lo, &sc.hi, &sc.cross);
+    }
+    sc.lor.clear();
+    sc.lor.extend(sc.lo.iter().map(|z| T::from_f64(z.re)));
+    sc.loi.clear();
+    sc.loi.extend(sc.lo.iter().map(|z| T::from_f64(z.im)));
+    (&sc.lor, &sc.loi, &sc.lo, &sc.hi, &sc.cross)
+}
+
+/// Generic (scalar-table) version of the single-pass diagonal kernel, used
+/// only where the AVX-512 kernel does not apply (views smaller than a
+/// vector): per row, the crossing terms' per-bit factors times the row
+/// factor form a table over the low bits.
+#[inline(always)]
+fn apply_diag_pass<T: Real, const F: bool>(
+    v: &mut View<T>,
+    l: usize,
+    d: &DiagPass<T>,
+    base: usize,
+    sc: &mut DiagScratch<T>,
+) {
+    let lo_bits = l.min(d.lo_bits);
+    let mut row = Vec::new();
+    let (_, _, lo, hi, cross) = diag_pass_tables(d, base, sc);
+    let View { re, im } = v;
+    for h in 0..1usize << (l - lo_bits) {
+        let mut e = [[C1; 2]; LO_BITS];
+        for c in cross {
+            if h & c.hmask == c.hpat {
+                e[c.a][c.va as usize] *= c.f;
+            }
+        }
+        product_table(&mut row, &e[..lo_bits], hi[h]);
+        for x in 0..1usize << lo_bits {
+            let f: Complex<T> = cvt(row[x] * lo[x]);
+            let j = (h << lo_bits) | x;
+            let (xr, xi) = (re[j], im[j]);
+            re[j] = fma::<T, F>(xr, f.re, -(xi * f.im));
+            im[j] = fma::<T, F>(xr, f.im, xi * f.re);
+        }
+    }
 }
 
 /// `a[k] *= (lr[k] + i li[k]) * h` on a run.
@@ -1831,29 +2134,58 @@ fn apply_diag_group<T: Real, const F: bool>(
     }
 }
 
-/// Runs the ops of a prepared stage on one buffer, using the AVX2+FMA build
-/// of the kernels when `simd` is set (see [`simd_available`]).
+/// Kernel set of a run: portable, fused multiply-add (AVX2+FMA on x86_64,
+/// NEON on aarch64), or AVX-512 (x86_64). Chosen once per run by
+/// [`Isa::select`]; only ever a set the running CPU supports.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Isa {
+    Portable,
+    Fma,
+    Avx512,
+}
+
+impl Isa {
+    /// The best kernel set allowed by `simd` / `avx512` (the
+    /// [`BlockConfig`] knobs) that the CPU supports.
+    fn select(simd: bool, avx512: bool) -> Isa {
+        if !simd {
+            Isa::Portable
+        } else if avx512 && avx512_available() {
+            Isa::Avx512
+        } else if simd_available() {
+            Isa::Fma
+        } else {
+            Isa::Portable
+        }
+    }
+}
+
+/// Runs the ops of a prepared stage on one buffer with the kernel set `isa`
+/// (see [`simd_available`], [`avx512_available`]).
 fn run_ops<T: Real>(
     p: &Prepared<T>,
     buf: &mut Buf<T>,
     base: usize,
     sc: &mut DiagScratch<T>,
-    simd: bool,
+    isa: Isa,
 ) {
     #[cfg(target_arch = "x86_64")]
-    if simd {
-        // SAFETY: `simd` is only ever true when `simd_available()` returned
-        // true, i.e. the running CPU supports AVX2 and FMA.
-        unsafe { return run_ops_avx2(p, buf, base, sc) };
+    match isa {
+        // SAFETY: `Isa::select` returns `Avx512` only when
+        // `avx512_available()` is true (AVX-512 F/DQ/VL/BW, AVX2, FMA).
+        Isa::Avx512 => unsafe { return avx512::run_ops(p, buf, base, sc) },
+        // SAFETY: `Fma` only when `simd_available()`, i.e. AVX2 and FMA.
+        Isa::Fma => unsafe { return run_ops_avx2(p, buf, base, sc) },
+        Isa::Portable => {}
     }
     #[cfg(target_arch = "aarch64")]
-    if simd {
+    if isa != Isa::Portable {
         // NEON with fused multiply-add is part of the aarch64 baseline, so
         // no target feature or run-time check is needed: `mul_add` lowers to
         // one `fmla`/`fmadd` and `simd_available()` is simply true.
         return run_ops_impl::<T, true>(p, buf, base, sc);
     }
-    let _ = simd;
+    let _ = isa;
     run_ops_impl::<T, false>(p, buf, base, sc);
 }
 
@@ -1886,6 +2218,30 @@ pub fn simd_available() -> bool {
         true
     }
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    {
+        false
+    }
+}
+
+/// Whether the AVX-512 kernels can run: x86_64 with AVX-512 F, DQ, VL and
+/// BW plus AVX2 and FMA detected at run time, and the environment variable
+/// `QSIM_NO_AVX512` unset (set it to force the AVX2+FMA kernels, e.g. for
+/// A/B timing). Checked once per process. Always false on other targets.
+pub fn avx512_available() -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        static A: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *A.get_or_init(|| {
+            std::env::var_os("QSIM_NO_AVX512").is_none()
+                && std::arch::is_x86_feature_detected!("avx512f")
+                && std::arch::is_x86_feature_detected!("avx512dq")
+                && std::arch::is_x86_feature_detected!("avx512vl")
+                && std::arch::is_x86_feature_detected!("avx512bw")
+                && std::arch::is_x86_feature_detected!("avx2")
+                && std::arch::is_x86_feature_detected!("fma")
+        })
+    }
+    #[cfg(not(target_arch = "x86_64"))]
     {
         false
     }
@@ -1979,6 +2335,7 @@ fn apply_lop<T: Real, const F: bool>(
                 apply_diag_group::<T, F>(v, l, g, base, sc);
             }
         }
+        LOp::DiagPass(d) => apply_diag_pass::<T, F>(v, l, d, base, sc),
         LOp::Dense { k, t, re, im } => match k {
             2 => dk::apply_dense::<T, F, 2, 4>(v.re, v.im, l, [t[0], t[1]], re, im),
             _ => dk::apply_dense::<T, F, 3, 8>(v.re, v.im, l, [t[0], t[1], t[2]], re, im),
@@ -2074,7 +2431,7 @@ fn run_ops_prof<T: Real, const F: bool>(
             }
             LOp::Swap { .. } => 4,
             LOp::Pair { .. } => 2,
-            LOp::Diag(_) => 5,
+            LOp::Diag(_) | LOp::DiagPass(_) => 5,
             LOp::Dense { .. } => 8,
         };
         prof::add(k, t0);
@@ -2156,6 +2513,30 @@ fn store_run<T: Real>(buf: &Buf<T>, off: usize, run: &mut [Complex<T>]) {
     }
 }
 
+/// [`load_run`] with the kernel set's best code.
+#[inline]
+fn load_isa<T: Real>(buf: &mut Buf<T>, off: usize, run: &[Complex<T>], isa: Isa) {
+    #[cfg(target_arch = "x86_64")]
+    if isa == Isa::Avx512 {
+        // SAFETY: `Avx512` is only selected when `avx512_available()`.
+        return unsafe { avx512::load_run(buf, off, run) };
+    }
+    let _ = isa;
+    load_run(buf, off, run)
+}
+
+/// [`store_run`] with the kernel set's best code.
+#[inline]
+fn store_isa<T: Real>(buf: &Buf<T>, off: usize, run: &mut [Complex<T>], isa: Isa) {
+    #[cfg(target_arch = "x86_64")]
+    if isa == Isa::Avx512 {
+        // SAFETY: as in `load_isa`.
+        return unsafe { avx512::store_run(buf, off, run) };
+    }
+    let _ = isa;
+    store_run(buf, off, run)
+}
+
 fn new_buf<T: Real>(l: usize) -> Buf<T> {
     Buf {
         re: vec![T::zero(); 1 << l],
@@ -2184,14 +2565,14 @@ fn with_scratch<T: Real, R>(l: usize, f: impl FnOnce(&mut Buf<T>, &mut DiagScrat
     r
 }
 
-fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: bool) {
+fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, isa: Isa) {
     let l = p.l;
     if l >= n {
         let mut buf = new_buf::<T>(l);
         let mut sc = DiagScratch::default();
-        load_run(&mut buf, 0, amps);
-        run_ops(p, &mut buf, 0, &mut sc, simd);
-        store_run(&buf, 0, amps);
+        load_isa(&mut buf, 0, amps, isa);
+        run_ops(p, &mut buf, 0, &mut sc, isa);
+        store_isa(&buf, 0, amps, isa);
         return;
     }
     let full = (1usize << n) - 1;
@@ -2203,13 +2584,13 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: 
             .for_each(|(c, chunk)| {
                 with_scratch::<T, _>(l, |buf, sc| {
                     let t0 = std::time::Instant::now();
-                    load_run(buf, 0, chunk);
+                    load_isa(buf, 0, chunk, isa);
                     if prof::on() {
                         prof::add(6, t0);
                     }
-                    run_ops(p, buf, c << l, sc, simd);
+                    run_ops(p, buf, c << l, sc, isa);
                     let t0 = std::time::Instant::now();
-                    store_run(buf, 0, chunk);
+                    store_isa(buf, 0, chunk, isa);
                     if prof::on() {
                         prof::add(7, t0);
                     }
@@ -2239,16 +2620,16 @@ fn run_stage<T: Real>(amps: &mut [Complex<T>], n: usize, p: &Prepared<T>, simd: 
                 let t0 = std::time::Instant::now();
                 for (r, run) in runs.iter().enumerate() {
                     let run = run.as_ref().expect("every run is assigned");
-                    load_run(buf, r << bc, run);
+                    load_isa(buf, r << bc, run, isa);
                 }
                 if prof::on() {
                     prof::add(6, t0);
                 }
-                run_ops(p, buf, deposit(c, outer_phys), sc, simd);
+                run_ops(p, buf, deposit(c, outer_phys), sc, isa);
                 let t0 = std::time::Instant::now();
                 for (r, run) in runs.iter_mut().enumerate() {
                     let run = run.as_mut().expect("every run is assigned");
-                    store_run(buf, r << bc, run);
+                    store_isa(buf, r << bc, run, isa);
                 }
                 if prof::on() {
                     prof::add(7, t0);
@@ -2365,13 +2746,13 @@ impl<T: Real> StateVector<T> {
             std::env::var_os("QSIM_PROF").is_some(),
             std::sync::atomic::Ordering::Relaxed,
         );
-        let simd = cfg.simd && simd_available();
+        let isa = Isa::select(cfg.simd, cfg.avx512);
         let amps = self.amplitudes_mut();
         for st in &stages {
             let t0 = std::time::Instant::now();
             let p = prepare_stage::<T>(st, n, cfg);
             let t1 = std::time::Instant::now();
-            run_stage(amps, n, &p, simd);
+            run_stage(amps, n, &p, isa);
             if trace {
                 let groups: Vec<usize> = p
                     .ops
@@ -2430,7 +2811,7 @@ impl<T: Real> StateVector<T> {
         CompiledKOps {
             n,
             stages,
-            simd: cfg.simd && simd_available(),
+            isa: Isa::select(cfg.simd, cfg.avx512),
         }
     }
 
@@ -2440,7 +2821,7 @@ impl<T: Real> StateVector<T> {
         let n = plan.n;
         let amps = self.amplitudes_mut();
         for p in &plan.stages {
-            run_stage(amps, n, p, plan.simd);
+            run_stage(amps, n, p, plan.isa);
         }
     }
 
@@ -2486,8 +2867,8 @@ impl<T: Real> StateVector<T> {
 pub struct BlockedChunkExecutor<T: Real> {
     c: usize,
     stages: Vec<Prepared<T>>,
-    /// Use the AVX2+FMA kernels (`cfg.simd` and the CPU supports them).
-    simd: bool,
+    /// Kernel set, chosen from `cfg.simd` / `cfg.avx512` and the CPU.
+    isa: Isa,
 }
 
 impl<T: Real> BlockedChunkExecutor<T> {
@@ -2518,7 +2899,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
         BlockedChunkExecutor {
             c,
             stages: prepared,
-            simd: cfg.simd && simd_available(),
+            isa: Isa::select(cfg.simd, cfg.avx512),
         }
     }
 
@@ -2526,7 +2907,7 @@ impl<T: Real> BlockedChunkExecutor<T> {
     pub fn apply_to_chunk(&self, chunk: &mut [Complex<T>]) {
         assert_eq!(chunk.len(), 1 << self.c);
         for p in &self.stages {
-            run_stage(chunk, self.c, p, self.simd);
+            run_stage(chunk, self.c, p, self.isa);
         }
     }
 }

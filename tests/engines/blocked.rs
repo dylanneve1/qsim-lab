@@ -69,6 +69,7 @@ fn configs() -> Vec<BlockConfig> {
             l1_tile_bytes: tile,
             dense_fusion: dense,
             dense_min_ops: 1,
+            avx512: true,
         });
     }
     v
