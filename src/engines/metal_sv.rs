@@ -378,7 +378,9 @@ impl MetalPlan {
 /// failure.
 #[derive(Debug)]
 pub enum MetalError {
+    /// The circuit failed gate validation.
     Sim(SimError),
+    /// Metal device, pipeline or buffer setup failed.
     Metal(String),
 }
 
@@ -391,7 +393,14 @@ impl std::fmt::Display for MetalError {
     }
 }
 
-impl std::error::Error for MetalError {}
+impl std::error::Error for MetalError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            MetalError::Sim(e) => Some(e),
+            MetalError::Metal(_) => None,
+        }
+    }
+}
 
 impl From<SimError> for MetalError {
     fn from(e: SimError) -> Self {

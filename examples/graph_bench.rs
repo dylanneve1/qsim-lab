@@ -437,7 +437,8 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
 }
 
 fn dedup_family(name: &str) -> (ParamCircuit, usize) {
-    use qsim_lab::{algorithms, shor_ripple, shor_window};
+    use qsim_lab::algorithms;
+    use qsim_lab::shor::{ripple, window};
     let wrap = |c: &qsim_lab::Circuit| ParamCircuit::from_circuit(c).unwrap();
     match name {
         "trotter" => (trotter(12, 50).0, 0),
@@ -445,12 +446,12 @@ fn dedup_family(name: &str) -> (ParamCircuit, usize) {
         "hea" => (hea(12, 6).0, 0),
         "pauli" => (pauli_trotter(12, 4).0, 0),
         "adder" => {
-            let lay = shor_ripple::RippleLayout::new(8);
-            (wrap(&shor_ripple::controlled_ua(&lay, lay.ctrl, 7, 221)), 0)
+            let lay = ripple::RippleLayout::new(8);
+            (wrap(&ripple::controlled_ua(&lay, lay.ctrl, 7, 221)), 0)
         }
         "window" => {
-            let lay = shor_window::WindowLayout::new(6, 3);
-            (wrap(&shor_window::controlled_ua(&lay, 7, 55)), 0)
+            let lay = window::WindowLayout::new(6, 3);
+            (wrap(&window::controlled_ua(&lay, 7, 55)), 0)
         }
         "qft" => (wrap(&algorithms::qft(16)), 0),
         "brickwork" => {
@@ -717,7 +718,7 @@ fn fusable_bench() {
 /// and off (full state, so nothing else removes the work).
 fn fold_bench() {
     use qsim_lab::graph::fold::fold_basis;
-    use qsim_lab::{shor_ripple, shor_window};
+    use qsim_lab::shor::{ripple, window};
     let wrap = |c: &qsim_lab::Circuit| ParamCircuit::from_circuit(c).unwrap();
     // control qubit prepared by `pre` (X: classical input, H: superposed)
     // and x = 1 (the first multiplication of Shor's algorithm)
@@ -728,15 +729,15 @@ fn fold_bench() {
         p.ops.extend(wrap(&c).ops);
         p
     };
-    let rl = shor_ripple::RippleLayout::new(4);
-    let wl = shor_window::WindowLayout::new(4, 2);
+    let rl = ripple::RippleLayout::new(4);
+    let wl = window::WindowLayout::new(4, 2);
     let cases: Vec<(&str, ParamCircuit)> = vec![
         (
             "adder ctrl=|1>",
             with(
                 Gate::X(rl.ctrl),
                 rl.x[0],
-                shor_ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
+                ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
             ),
         ),
         (
@@ -744,24 +745,16 @@ fn fold_bench() {
             with(
                 Gate::H(rl.ctrl),
                 rl.x[0],
-                shor_ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
+                ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
             ),
         ),
         (
             "window ctrl=|1>",
-            with(
-                Gate::X(wl.ctrl),
-                wl.x[0],
-                shor_window::controlled_ua(&wl, 7, 15),
-            ),
+            with(Gate::X(wl.ctrl), wl.x[0], window::controlled_ua(&wl, 7, 15)),
         ),
         (
             "window ctrl=|+>",
-            with(
-                Gate::H(wl.ctrl),
-                wl.x[0],
-                shor_window::controlled_ua(&wl, 7, 15),
-            ),
+            with(Gate::H(wl.ctrl), wl.x[0], window::controlled_ua(&wl, 7, 15)),
         ),
         ("trotter n=16 s=10", trotter(16, 10).0),
         ("qaoa n=16 p=3", qaoa(16, 3).0),
