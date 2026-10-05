@@ -18,10 +18,10 @@ mod audit_common;
 
 use audit_common::{random_circuit, RefSv};
 use num_complex::Complex64;
+use qsim_lab::engines::statevector::{sorted_uniforms, StateVectorF64};
 use qsim_lab::pipeline::{simulate, Budget, Output, Request};
 use qsim_lab::planner::{self, Engine, PlanRequest, PlannerConfig, Prepared};
 use qsim_lab::simulability::{build, Spec};
-use qsim_lab::statevector::{sorted_uniforms, StateVectorF64};
 use qsim_lab::{Circuit, Gate};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

@@ -5,9 +5,9 @@
 //! usage: bench_sv_blocked <qft|brick|ghz> <n> <f32|f64> [reps]
 
 use qsim_lab::algorithms;
-use qsim_lab::blocked::BlockConfig;
+use qsim_lab::engines::blocked::BlockConfig;
 use qsim_lab::circuit::Circuit;
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::time::Instant;

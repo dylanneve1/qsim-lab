@@ -1,7 +1,7 @@
 # Out-of-core state vector: fewer passes over disk
 
-Branch `exp/ooc-window` (on top of `exp/ooc`). Code: `src/ooc.rs` (engine, old
-"swap" scheduler), `src/ooc_window.rs` (new windowed scheduler), planner
+Branch `exp/ooc-window` (on top of `exp/ooc`). Code: `src/engines/ooc.rs` (engine, old
+"swap" scheduler), `src/engines/ooc_window.rs` (new windowed scheduler), planner
 `examples/ooc_plan.rs`, bench `examples/ooc_bench.rs`, tests `tests/ooc.rs`.
 
 ## Hypothesis

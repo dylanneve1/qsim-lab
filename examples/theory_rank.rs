@@ -6,8 +6,8 @@
 //! theory_rank grover  <n> <it> <seed> <samples>   # exact Grover, Toffoli-ladder oracle
 //! ```
 use num_complex::Complex64 as C64;
+use qsim_lab::engines::stab_rank::{bits, RankState};
 use qsim_lab::magic_atlas::{self, families, AtlasOptions};
-use qsim_lab::stab_rank::{bits, RankState};
 use qsim_lab::StateVector;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

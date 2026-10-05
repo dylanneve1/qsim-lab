@@ -22,14 +22,14 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::time::Instant;
 
+use qsim_lab::engines::stabilizer::fast_sampler::{FastSampler, WyRand};
+use qsim_lab::engines::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::qec::bb_circuit::{
     memory, schedule_valid, valid_schedules, BbMemory, BbSchedule, IBM_SCHEDULE,
 };
 use qsim_lab::qec::bicycle::{min_weight_logical, Gf2Mat, SearchOutcome};
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
 use qsim_lab::qec::color::circuit_dem;
-use qsim_lab::stabilizer::fast_sampler::{FastSampler, WyRand};
-use qsim_lab::stabilizer::symphase::SymPhaseSampler;
 use rand::RngCore;
 use rayon::prelude::*;
 

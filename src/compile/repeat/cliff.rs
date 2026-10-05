@@ -19,8 +19,8 @@
 
 use super::{Node, Program};
 use crate::circuit::Op;
+use crate::engines::stabilizer::Tableau;
 use crate::gate::{Gate, Mat2, Mat4};
-use crate::stabilizer::Tableau;
 use num_complex::Complex64;
 use rand::Rng;
 use std::mem::{discriminant, Discriminant};

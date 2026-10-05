@@ -17,10 +17,10 @@
 //!
 //! `cargo run --release --example noise_oracles_validate -- M_engine M_ref seed`
 
+use qsim_lab::shor::mbu::{self as shor_mbu, LOp, MbuLayout, MbuOpts};
 use qsim_lab::shor::noisy::{self, NoiseKind, NoisyCircuit};
 use qsim_lab::shor::noisy_gen::{self, GenCircuit};
 use qsim_lab::shor::{Instance, Oracle};
-use qsim_lab::shor_mbu::{self, LOp, MbuLayout, MbuOpts};
 use qsim_lab::{Gate, SparseState};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

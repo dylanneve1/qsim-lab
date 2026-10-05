@@ -6,10 +6,10 @@
 //!
 //! usage: superopt_counts N a w [peephole]
 use qsim_lab::compile::peephole;
+use qsim_lab::shor::ripple::gate_counts;
+use qsim_lab::shor::superopt::{controlled_ua, Opts};
+use qsim_lab::shor::window::WindowLayout;
 use qsim_lab::shor::{Instance, Oracle};
-use qsim_lab::shor_ripple::gate_counts;
-use qsim_lab::shor_superopt::{controlled_ua, Opts};
-use qsim_lab::shor_window::WindowLayout;
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -57,7 +57,7 @@ fn main() {
         // per-block counts for this n: lookups over all windows of the
         // round-0 multiplier, and one modular addition
         use qsim_lab::circuit::Circuit;
-        use qsim_lab::shor_superopt::{add_mod_reg, lookup_unary, FanoutPlan};
+        use qsim_lab::shor::superopt::{add_mod_reg, lookup_unary, FanoutPlan};
         let inst = Instance::new(n_mod, base, Oracle::Windowed(w));
         let lay = WindowLayout::new(inst.m, w);
         let n = inst.m;
@@ -73,7 +73,7 @@ fn main() {
             for (k, mode) in [0, 1, 2].iter().enumerate() {
                 let mut c = Circuit::new(lay.num_qubits());
                 match mode {
-                    0 => qsim_lab::shor_window::lookup(&mut c, 0, addr, &lay.and, &lay.l, &table),
+                    0 => qsim_lab::shor::window::lookup(&mut c, 0, addr, &lay.and, &lay.l, &table),
                     1 => lookup_unary(
                         &mut c,
                         0,
@@ -137,10 +137,10 @@ fn main() {
             let mut c = Circuit::new(lay.num_qubits());
             add_mod_reg(&mut c, &lay, n_mod, &o);
             let (g, t) = gate_counts(&c);
-            let p = qsim_lab::shor_superopt::reversible_peephole(&c);
+            let p = qsim_lab::shor::superopt::reversible_peephole(&c);
             let (gp, tp) = gate_counts(&p);
-            let sp = qsim_lab::shor_superopt::sat_peephole(&p, lay.k[0]);
-            let (gs, ts) = gate_counts(&qsim_lab::shor_superopt::reversible_peephole(&sp));
+            let sp = qsim_lab::shor::superopt::sat_peephole(&p, lay.k[0]);
+            let (gs, ts) = gate_counts(&qsim_lab::shor::superopt::reversible_peephole(&sp));
             println!("{name:36} gates={g} ccx={t}  | +peephole {gp}/{tp}  | +sat rules {gs}/{ts}");
         }
         return;

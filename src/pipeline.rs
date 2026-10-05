@@ -49,10 +49,10 @@ use crate::compile::plan::{
 use crate::compile::repeat::exec::ExecOptions;
 use crate::compile::repeat::{DetectOptions, Program};
 use crate::compile::validate;
+use crate::engines::statevector::StateVector;
+use crate::engines::statevector::{state_bytes, MAX_STATE_BYTES};
 use crate::gate::Gate;
 use crate::shor::Oracle;
-use crate::statevector::StateVector;
-use crate::statevector::{state_bytes, MAX_STATE_BYTES};
 use num_complex::Complex64;
 use rand::rngs::StdRng;
 use rand::SeedableRng;

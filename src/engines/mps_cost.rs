@@ -26,7 +26,7 @@
 //!     support, `2^{rank(affine forms on A) + #opaque on A}` (and `B`).
 //!
 //!   `Best` is the minimum of all of them.
-//! * [`replay`]: a symbolic re-run of [`crate::mps::Mps::apply_gate`]'s exact
+//! * [`replay`]: a symbolic re-run of [`crate::engines::mps::Mps::apply_gate`]'s exact
 //!   control flow (orthogonality-centre moves, SWAP routing, Toffoli
 //!   decomposition) that tracks only bond dimensions. Every SVD keeps
 //!   `min(2 dl, 2 dr, bound)`, so the replayed bond profile upper-bounds the
@@ -35,8 +35,8 @@
 //!   the real counts exactly (tested); fed a bound it predicts them.
 
 use crate::circuit::{Circuit, Op, SimError};
+use crate::engines::mps::{matmul_work, qr_work, svd_work, MpsStats};
 use crate::gate::{is_multiple_of_half_pi, Gate};
-use crate::mps::{matmul_work, qr_work, svd_work, MpsStats};
 use std::f64::consts::FRAC_PI_2;
 
 /// Largest register [`BondBounds`] handles with its Pauli bit masks; above

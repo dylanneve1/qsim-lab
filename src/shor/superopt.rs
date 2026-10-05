@@ -1,6 +1,6 @@
 //! Superoptimised windowed oracle (exp/superopt, `research/shor/superopt.md`).
 //!
-//! Same qubit layout and the same arithmetic as [`crate::shor_window`]
+//! Same qubit layout and the same arithmetic as [`crate::shor::window`]
 //! (Gidney-style windowed modular multiplication built from X, CNOT and
 //! CCX only), with every building block replaced by a cheaper one that is
 //! proved correct (exhaustively for small widths in the tests, and by the
@@ -37,8 +37,8 @@
 
 use crate::circuit::Circuit;
 use crate::gate::Gate;
-use crate::shor_ripple::{cuccaro_add, cuccaro_sub, load_constant};
-use crate::shor_window::WindowLayout;
+use crate::shor::ripple::{cuccaro_add, cuccaro_sub, load_constant};
+use crate::shor::window::WindowLayout;
 
 /// Which optimisations to apply (see the module docs).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,7 +57,7 @@ pub struct Opts {
     /// exact gate-count DP instead of uniform windows.
     pub window_dp: bool,
     /// Apply the SAT-derived window rewrite rules
-    /// ([`sat_peephole`], `src/shor_superopt_rules.txt`).
+    /// ([`sat_peephole`], `src/shor/superopt_rules.txt`).
     pub sat_rules: bool,
     /// Run the peephole / SAT-rule passes once on the modular-adder block
     /// (identical in every window) instead of on the whole controlled-U
@@ -67,7 +67,7 @@ pub struct Opts {
 }
 
 impl Opts {
-    /// Everything off: gate-for-gate the circuit of [`crate::shor_window`].
+    /// Everything off: gate-for-gate the circuit of [`crate::shor::window`].
     pub const BASELINE: Opts = Opts {
         unary: false,
         fanout: false,
@@ -289,7 +289,7 @@ pub fn compare_lt(c: &mut Circuit, a: &[usize], b: &[usize], c0: usize, t: usize
     uma(c, c0, b[0], a[0]);
 }
 
-/// `b -> (b + L) mod N` for `b, L < N` (as [`crate::shor_window::add_mod_reg`]).
+/// `b -> (b + L) mod N` for `b, L < N` (as [`crate::shor::window::add_mod_reg`]).
 pub fn add_mod_reg(c: &mut Circuit, lay: &WindowLayout, n_mod: u64, o: &Opts) {
     let (l, b, k, c0, t) = (&lay.l, &lay.b, &lay.k, lay.c0, lay.t);
     let n = lay.n;
@@ -340,7 +340,7 @@ fn emit_lookup(
         };
         lookup_unary(c, lay.ctrl, addr, &lay.and, out, &plan);
     } else {
-        crate::shor_window::lookup(c, lay.ctrl, addr, &lay.and, out, table);
+        crate::shor::window::lookup(c, lay.ctrl, addr, &lay.and, out, table);
     }
 }
 
@@ -594,7 +594,7 @@ fn sat_rules() -> &'static std::collections::HashMap<RuleKey, Vec<Lg>> {
         std::sync::OnceLock::new();
     R.get_or_init(|| {
         let mut m = std::collections::HashMap::new();
-        for line in include_str!("shor_superopt_rules.txt").lines() {
+        for line in include_str!("superopt_rules.txt").lines() {
             if line.trim().is_empty() || line.starts_with('#') {
                 continue;
             }
@@ -777,7 +777,7 @@ pub fn reversible_peephole(c: &Circuit) -> Circuit {
 mod tests {
     use super::*;
     use crate::algorithms::gcd;
-    use crate::shor_ripple::{eval_circuit_on_key, gate_counts};
+    use crate::shor::ripple::{eval_circuit_on_key, gate_counts};
 
     fn lcg(s: &mut u64) -> u64 {
         *s = s
@@ -948,7 +948,7 @@ mod tests {
             let n = crate::shor::work_bits(n_mod);
             let lay = WindowLayout::new(n, w);
             let a = 2;
-            let x = crate::shor_window::controlled_ua(&lay, a, n_mod);
+            let x = crate::shor::window::controlled_ua(&lay, a, n_mod);
             let y = controlled_ua(&lay, a, n_mod, &Opts::BASELINE);
             assert_eq!(x.ops.len(), y.ops.len());
             assert!(x.ops == y.ops, "baseline differs from shor_window");

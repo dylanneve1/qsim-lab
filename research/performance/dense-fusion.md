@@ -1,7 +1,7 @@
 # Dense k-qubit fusion in the blocked executor (integration pass, 4 Oct 2026)
 
-Source: `exp/sv-monomial` (7be7697, `src/dense_fusion.rs`) and
-`wip/fusion-avx2` (327b346, lane-exchange kernels `src/dense_kernels.rs`),
+Source: `exp/sv-monomial` (7be7697, `src/engines/dense_fusion.rs`) and
+`wip/fusion-avx2` (327b346, lane-exchange kernels `src/engines/dense_kernels.rs`),
 both unreviewed WIP left at agent timeouts on 1 Oct. Ported onto main,
 reviewed, differential-tested and measured by the integration agent.
 Both branches are archived (`research/process/ARCHIVE.md`).

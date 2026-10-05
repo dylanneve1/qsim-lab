@@ -19,10 +19,10 @@
 //!   excitation generators, whose energy is a trigonometric polynomial of degree
 //!   2 in each angle).
 
-use crate::adaptive::CompressedState;
 use crate::circuit::{Circuit, SimError};
+use crate::engines::adaptive::CompressedState;
+use crate::engines::pauli_path::PauliSum;
 use crate::gate::Gate;
-use crate::pauli_path::PauliSum;
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------

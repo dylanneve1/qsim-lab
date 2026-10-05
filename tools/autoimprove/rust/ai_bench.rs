@@ -13,9 +13,9 @@
 
 use num_complex::Complex;
 use qsim_lab::algorithms;
-use qsim_lab::blocked::{lower_gates, tile_stats, BlockConfig};
+use qsim_lab::engines::blocked::{lower_gates, tile_stats, BlockConfig};
 use qsim_lab::circuit::Circuit;
-use qsim_lab::statevector::{Real, StateVector};
+use qsim_lab::engines::statevector::{Real, StateVector};
 use qsim_lab::Gate;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

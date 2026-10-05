@@ -8,10 +8,10 @@
 //!   that must be rejected;
 //! * surface-code detector marginals and pair rates against the old path.
 
-use qsim_lab::stabilizer::fast_sampler::{
+use qsim_lab::engines::stabilizer::fast_sampler::{
     hit_identity_prob, hit_rate, poisson, uniform_below, FastSampler, WyRand,
 };
-use qsim_lab::stabilizer::symphase::{SymPhaseSampler, VarDist};
+use qsim_lab::engines::stabilizer::symphase::{SymPhaseSampler, VarDist};
 use qsim_lab::{Circuit, Gate, NoiseModel, SurfaceCode};
 use rand::rngs::{SmallRng, StdRng};
 use rand::{Rng, RngCore, SeedableRng};

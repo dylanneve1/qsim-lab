@@ -2,7 +2,7 @@
 
 Branch `exp/lowmagic-chem`. Author: qsim-lowmagic-chem agent (round 5, 5 Oct 2026). Base: main b569597.
 Code: `src/chem.rs` (FCIDUMP, Pauli-rotation programs, span-filtered Jordan–Wigner Hamiltonian, compressed-state
-energies, Rotosolve, register Lanczos), `src/adaptive.rs` (`CompressedState::register_terms`),
+energies, Rotosolve, register Lanczos), `src/engines/adaptive.rs` (`CompressedState::register_terms`),
 `examples/lowmagic_chem.rs` (`profile`, `energy`, `check`), `tests/lowmagic_chem.rs` (8 tests; fixtures in
 `tests/data/lowmagic-chem/`). Python: `research/data/lowmagic-chem/{chem.py, dmrg.py, run.py, crosscheck.py, tables.py, headline.py}`.
 Data: `research/data/lowmagic-chem/` (`refs/` classical references, `runs/*.jsonl` every engine run,

@@ -30,15 +30,15 @@
 //!    of the approximation on the output distribution.
 
 use crate::algorithms::{gcd, pow_mod};
+use crate::engines::statevector::Real;
 use crate::gate::Gate;
-use crate::shor::sliced::{transpose64, SlicedProgram};
-use crate::shor::{mod_inverse, mul_mod};
-use crate::shor_mbu::{
+use crate::shor::mbu::{
     add_g, inverse, modadd_ops, resolve, sub_g, LOp, LookupSpec, MbuCounts, MbuLayout, MbuOp,
     MbuOpts, Outcomes, NO_CTRL,
 };
-use crate::shor_window::WindowLayout;
-use crate::statevector::Real;
+use crate::shor::sliced::{transpose64, SlicedProgram};
+use crate::shor::window::WindowLayout;
+use crate::shor::{mod_inverse, mul_mod};
 use num_complex::{Complex, Complex64};
 use num_traits::Zero;
 use rayon::prelude::*;
@@ -1293,13 +1293,13 @@ pub fn distribution(n_mod: u64, regs: &[ExpReg], o: &GeOpts, prune: f64) -> Vec<
 }
 
 /// The same distribution through a genuinely quantum gate-by-gate
-/// reference: a [`crate::sparse::SparseState`] on all `nq ≤ 64` qubits,
+/// reference: a [`crate::engines::sparse::SparseState`] on all `nq ≤ 64` qubits,
 /// real `H` on the exponent qubits, every block gate applied in turn, every
 /// X-basis measurement as `H` + projection (its probability asserted to be
 /// 1/2), then the window's semiclassical measurements as `Phase`, `H` and a
 /// projective measurement of each exponent qubit, highest power first.
 pub fn distribution_sparse(n_mod: u64, regs: &[ExpReg], o: &GeOpts, prune: f64) -> Vec<f64> {
-    use crate::sparse::SparseState;
+    use crate::engines::sparse::SparseState;
     let n = crate::shor::work_bits(n_mod);
     let lay = GeLayout::new(n, o);
     assert!(lay.nq <= 64);
@@ -1750,7 +1750,7 @@ pub fn coset_path(n_mod: u64, a: u64, o: &GeOpts, rng: &mut dyn FnMut() -> f64) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shor_mbu::eval_on_key;
+    use crate::shor::mbu::eval_on_key;
 
     fn check_block(n_mod: u64, o: &GeOpts, mode: u8) {
         let n = crate::shor::work_bits(n_mod);

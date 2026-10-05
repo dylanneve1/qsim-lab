@@ -1,6 +1,6 @@
 # Metal (Apple GPU) backend for the dense state vector, f32 (round 4, 4 Oct 2026)
 
-Branch `exp/metal`. The code sits behind the `metal` cargo feature and only compiles on macOS: `src/metal_sv.rs` (host), `src/metal_sv.metal` (kernels), `tests/metal.rs`, `examples/metal_bench.rs`. Raw data and scripts are in `research/data/metal/`.
+Branch `exp/metal`. The code sits behind the `metal` cargo feature and only compiles on macOS: `src/engines/metal_sv.rs` (host), `src/engines/metal_sv.metal` (kernels), `tests/metal.rs`, `examples/metal_bench.rs`. Raw data and scripts are in `research/data/metal/`.
 
 ## Verdict
 
@@ -166,7 +166,7 @@ What would move it (not done here):
 - **f32 only.** Long circuits accumulate about 1e-7 per op of relative error, the same as the CPU f32 path. Use the CPU f64 path when precision matters.
 - **The GPU and CPU are compared on f32 with each one's best configuration.** The CPU uses its defaults (NEON FMA, 1 MiB block, 6 slots, 8 threads); the GPU uses the default register kernel.
 - **The QFT benchmark starts from |0>**, as in mac-m1.md. QFT|0> has trivial phases, but the timing doesn't depend on the input state, and correctness from non-trivial basis states is tested separately.
-- **Recommendation: merge behind the `metal` feature.** It is opt-in and macOS-only, with zero effect on other builds. The `unsafe` is confined to two kinds of block in `src/metal_sv.rs`, each with a SAFETY comment: the zero-copy slice views of the `MTLBuffer` (8-byte `float2` = `Complex32`, page-aligned) and the plain-old-data byte views used to upload plans.
+- **Recommendation: merge behind the `metal` feature.** It is opt-in and macOS-only, with zero effect on other builds. The `unsafe` is confined to two kinds of block in `src/engines/metal_sv.rs`, each with a SAFETY comment: the zero-copy slice views of the `MTLBuffer` (8-byte `float2` = `Complex32`, page-aligned) and the plain-old-data byte views used to upload plans.
 
 ## Reproduce (on the Mac)
 

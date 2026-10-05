@@ -21,11 +21,11 @@ use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use qsim_lab::circuit::{Circuit, Op};
+use qsim_lab::engines::monitored::{ent, Cliff2, Mode, Monitored};
+use qsim_lab::engines::stab_rank::RankState;
 use qsim_lab::gate::Gate;
 use qsim_lab::magic_atlas::{self, AtlasOptions};
-use qsim_lab::monitored::{ent, Cliff2, Mode, Monitored};
 use qsim_lab::simulability;
-use qsim_lab::stab_rank::RankState;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::f64::consts::FRAC_PI_2;
@@ -381,7 +381,7 @@ struct MonOut {
     records: Vec<(usize, bool, f64, u8)>,
     /// (op index, per cut (lower, upper, s2))
     ent: Vec<CutEntropies>,
-    stats: qsim_lab::monitored::MonStats,
+    stats: qsim_lab::engines::monitored::MonStats,
     state: Option<Vec<Complex64>>,
     final_d: usize,
 }

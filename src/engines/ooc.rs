@@ -18,7 +18,7 @@
 //!    Any sequence of gates acting strictly on physical qubits $< c$ acts entirely
 //!    within each chunk independently. The file is streamed sequentially chunk by chunk:
 //!    each chunk is read into an in-RAM buffer, transformed using cache-blocked kernels
-//!    ([`crate::blocked::BlockedChunkExecutor`]), and written back to disk.
+//!    ([`crate::engines::blocked::BlockedChunkExecutor`]), and written back to disk.
 //!    One full sequential streaming pass over the file applies the entire run of local gates.
 //!
 //! 3. **Global-Local Qubit Swap Passes**:
@@ -43,14 +43,14 @@
 //!    Final permutations are restored to canonical identity order, yielding bit-identical
 //!    or floating-point identical amplitudes ($\le 10^{-6}$ for f32, $\le 10^{-12}$ for f64).
 
-use crate::blocked::{BlockConfig, BlockedChunkExecutor};
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::dag::{Dag, NodeId};
-use crate::gate::Gate;
-use crate::ooc_window::{
+use crate::engines::blocked::{BlockConfig, BlockedChunkExecutor};
+use crate::engines::ooc_window::{
     permute_bits, schedule_window_gates, WindowOptions, WindowPass, WindowPlan,
 };
-use crate::statevector::Real;
+use crate::engines::statevector::Real;
+use crate::gate::Gate;
 use num_complex::Complex;
 use num_traits::Zero;
 use std::collections::HashSet;
@@ -189,7 +189,7 @@ pub enum OocScheduler {
     /// ([`schedule_ooc`], the original scheduler).
     Swap,
     /// Windowed passes with fused layout changes
-    /// ([`crate::ooc_window::schedule_window`]).
+    /// ([`crate::engines::ooc_window::schedule_window`]).
     Window,
 }
 
@@ -1135,8 +1135,8 @@ impl<T: Real> Drop for OocStateVector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocked::BlockConfig;
-    use crate::statevector::StateVector;
+    use crate::engines::blocked::BlockConfig;
+    use crate::engines::statevector::StateVector;
 
     #[test]
     fn ooc_ground_state_init() {

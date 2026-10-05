@@ -4,7 +4,7 @@ mod audit_common;
 
 use audit_common::*;
 use num_complex::Complex64 as C;
-use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use qsim_lab::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::{Circuit, Gate, Mps, Simulator, StateVectorF32, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -90,7 +90,7 @@ fn mixed_circuit(rng: &mut StdRng, n: usize, depth: usize, clifford_only: bool) 
     c
 }
 
-use qsim_lab::hsf::{HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode};
+use qsim_lab::engines::hsf::{HsfOptions, HybridSchrodingerFeynman, LeafMode, SchmidtMode};
 fn random_opts(rng: &mut StdRng) -> HsfOptions {
     let mut o = HsfOptions::default();
     if rng.random_bool(0.3) {

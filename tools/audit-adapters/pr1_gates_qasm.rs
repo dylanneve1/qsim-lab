@@ -8,7 +8,7 @@ mod audit_common;
 
 use audit_common::*;
 use num_complex::Complex64 as C;
-use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use qsim_lab::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::{Circuit, Gate, Mps, Simulator, StateVectorF32, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -365,7 +365,7 @@ fn reset_all_restores_zero_state() {
 /// new gates too.
 #[test]
 fn new_gates_blocked_executor_match_reference() {
-    use qsim_lab::blocked::BlockConfig;
+    use qsim_lab::engines::blocked::BlockConfig;
     for it in 0..10 * iters() {
         for &n in &SIZES {
             let seed = base_seed() ^ 0x9E5 ^ ((it as u64) << 16) ^ n as u64;

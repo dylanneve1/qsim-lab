@@ -11,7 +11,7 @@ use qsim_lab::algorithms::qft;
 use qsim_lab::compile::plan::{compile_sampling, PlanOptions};
 use qsim_lab::gate::toffoli_clifford_t;
 use qsim_lab::pipeline::plan_options;
-use qsim_lab::shor_ripple::cuccaro_add;
+use qsim_lab::shor::ripple::cuccaro_add;
 use qsim_lab::{Circuit, Gate, Op};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -136,11 +136,12 @@ fn main() {
             .copied()
             .collect();
         let d0 =
-            qsim_lab::adaptive::active_dimension(&qsim_lab::compile::optimize(&u).circuit).unwrap();
+            qsim_lab::engines::adaptive::active_dimension(&qsim_lab::compile::optimize(&u).circuit)
+                .unwrap();
         let f = qsim_lab::compile::optimize(
             &qsim_lab::compile::phase_fold(&qsim_lab::compile::optimize(&u).circuit).circuit,
         );
-        let d1 = qsim_lab::adaptive::active_dimension(&f.circuit).unwrap();
+        let d1 = qsim_lab::engines::adaptive::active_dimension(&f.circuit).unwrap();
         println!(
             "{name},{},{},{},\"{e_off}\",\"{e_on}\",{off:.4},{on:.4},{:.2},d_off={d0},d_on={d1},nc_off={},nc_on={}",
             c.num_qubits,

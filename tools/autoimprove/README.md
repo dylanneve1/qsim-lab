@@ -1,7 +1,7 @@
 # autoimprove: propose → verify → benchmark → keep
 
 An automated loop for performance work on the blocked state-vector
-executor (`src/blocked.rs`) and, once dense fusion is on main, its fusion
+executor (`src/engines/blocked.rs`) and, once dense fusion is on main, its fusion
 cost model. A candidate is a small patch. The harness builds it,
 differential-fuzzes it against the independent reference state vector,
 times it A/B against the base commit on a fixed suite, and keeps it only
@@ -138,7 +138,7 @@ lines:
 # family: kernel
 # parent: (slug of the accepted patch this extends, if any)
 # idea: one sentence: what changes and why it should be faster
-diff --git a/src/blocked.rs b/src/blocked.rs
+diff --git a/src/engines/blocked.rs b/src/engines/blocked.rs
 ...
 ```
 

@@ -246,7 +246,7 @@ fn threshold_sweep() {
                 margin: 0,
                 max_active: 30,
             });
-            let d = qsim_lab::adaptive::active_dimension(&Circuit {
+            let d = qsim_lab::engines::adaptive::active_dimension(&Circuit {
                 num_qubits: n,
                 ops: c
                     .ops

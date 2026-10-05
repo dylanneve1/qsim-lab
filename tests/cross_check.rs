@@ -5,7 +5,7 @@ mod common;
 use common::*;
 use num_complex::Complex64;
 use qsim_lab::circuit::{Circuit, Simulator};
-use qsim_lab::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
+use qsim_lab::engines::pauli_path::{self, PauliSum, DEFAULT_MAX_TERMS};
 use qsim_lab::{Mps, StateVectorF32, StateVectorF64, Tableau};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

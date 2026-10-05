@@ -86,7 +86,7 @@ cost `O(r · gates)`. That is the next step; it is not implemented here.
 
 ### 1. Semiclassical QFT with one recycled control qubit
 
-`src/shor.rs`. For measured bit `i = 0 .. 2n−1` (least significant first):
+`src/shor/mod.rs`. For measured bit `i = 0 .. 2n−1` (least significant first):
 H on the control, controlled `U^(2^(2n−1−i))`, `Phase(−2π · y_low / 2^(i+1))`
 where `y_low` is the integer of bits already measured, H, measure, recycle.
 This is the Griffiths–Niu semiclassical inverse QFT; by the deferred
@@ -144,7 +144,7 @@ identical seeds up to N = 1 022 117).
 Negative/neutral: the dense gather is a strided random access (`z·inv mod N`)
 and is memory-latency bound; at m = 24 it is most of the 6.8 s.
 
-### 2. Sparse state (`src/sparse.rs`)
+### 2. Sparse state (`src/engines/sparse.rs`)
 
 `SparseState`: hash map basis index → amplitude (`u64` keys, ≤ 64 qubits,
 multiplicative hasher), implements `Simulator`, applies every `Gate` with the
@@ -163,7 +163,7 @@ loses when r ≈ N/2 (generic m = 22: 1.19 s fused sparse vs 1.10 s f32 dense;
 gate-by-gate sparse 3× slower than dense), and is useless for the Beauregard
 oracle (Fourier-space accumulator is dense).
 
-### 3. Gate-level oracle (`src/shor_arith.rs`)
+### 3. Gate-level oracle (`src/shor/arith.rs`)
 
 Beauregard 2003, 2n+3 qubits: control (0), x (1..=n), b (n+1 qubits, Fourier
 space, QFT without the bit-reversal SWAPs, so qubit j carries `2πb/2^(j+1)`),
@@ -183,7 +183,7 @@ Exactness:
 * `beauregard_semiclassical_distribution_matches_permutation`: full Shor
   outcome distributions equal (< 1e-12) for N = 15 (a = 7, 2, 11), 21 (a = 2).
 * `beauregard_blocked_matches_unblocked`: the cache-blocked executor
-  (`src/blocked.rs`, used for each round's gate list) agrees with
+  (`src/engines/blocked.rs`, used for each round's gate list) agrees with
   `apply_gate` per gate.
 
 Blocked vs per-gate, N = 143, a = 2, 19 qubits, min of 3: **8.6 s vs 11.0 s**
@@ -234,7 +234,7 @@ The agent hit its time limit, so the parent recorded these results from its
 bench run. Raw output: `research/data/shor/ripple_benchmarks.txt`; script:
 `research/data/shor/bench_ripple.sh`.
 
-`src/shor_ripple.rs` builds the controlled modular multiplier only from X,
+`src/shor/ripple.rs` builds the controlled modular multiplier only from X,
 CNOT and Toffoli gates: a Cuccaro ripple-carry adder, then a modular adder,
 then the controlled modular multiplier, with ancillas uncomputed. Those gates
 map basis states to basis states, so the exact sparse state never holds more
@@ -297,7 +297,7 @@ agents during this round, so no VPS timing is claimed below). Raw logs:
    N = 4 297 567), the join on `(Ux, ψ_x)` tuples written in place by the
    evaluator (peak RSS at 28 bits 3.71 → 2.82 GB), and the final collapse
    skipped (after the last P(1) the measured integer is complete).
-2. **Windowed oracle** (`src/shor_window.rs`, `--oracle windowed --window w`;
+2. **Windowed oracle** (`src/shor/window.rs`, `--oracle windowed --window w`;
    Gidney 2019, arXiv:1905.07682), also only X/CNOT/CCX: per window of `w`
    bits of `x`, a table lookup (QROM: AND-chain over control + address bits,
    CNOT fan-out of `T[v] = v·a·2^(kw) mod N` into a lookup register, chain
@@ -382,7 +382,7 @@ gates; 48-bit 248 376 613 912 741 in 24.8 s / 200 qubits; **52-bit
 
 ### Follow-up: superoptimised oracle (exp/superopt)
 
-`--oracle windowed-opt` (`src/shor_superopt.rs`, `research/shor/superopt.md`) is
+`--oracle windowed-opt` (`src/shor/superopt.rs`, `research/shor/superopt.md`) is
 the same layout and arithmetic with cheaper, proved-correct blocks:
 unary-iteration lookups (the round-4 lookup recomputed its whole AND chain
 for every address), optimal fan-out, a comparator-based modular adder, and
@@ -392,7 +392,7 @@ with the same measured integer.
 
 ### Follow-up: measurement-based uncomputation (exp/mbu-shor)
 
-`--oracle windowed-mbu-lookup` / `windowed-mbu` (`src/shor_mbu.rs`,
+`--oracle windowed-mbu-lookup` / `windowed-mbu` (`src/shor/mbu.rs`,
 `research/shor/mbu-shor.md`). The sliced engine gains a per-branch sign word, so
 X-basis measurements of deterministic ancillas with Z/CZ fix-ups run
 exactly; the engine asserts that every branch has sign +1 after each
@@ -409,7 +409,7 @@ chosen by seed so that its order fits in RAM; that choice used λ(N). See
 
 ### Follow-up: Gidney–Ekerå techniques (exp/ge-shor)
 
-`src/shor_ge.rs`, `examples/ge_shor.rs`, `research/shor/ge-shor.md`. Exponent
+`src/shor/ge.rs`, `examples/ge_shor.rs`, `research/shor/ge-shor.md`. Exponent
 windowing (one multiplication per `w_e` exponent bits, lookups addressed
 by exponent and multiplicand bits, the window's exponent qubits measured
 semiclassically one by one), the Ekerå–Håstad short exponent (48 instead

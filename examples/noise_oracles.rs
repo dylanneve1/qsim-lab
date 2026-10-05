@@ -21,8 +21,8 @@
 
 use qsim_lab::shor::noisy::{self, NoiseKind, Site};
 use qsim_lab::shor::noisy_gen::{self, tag, GenCircuit, Key, NOp, ResetMode, K192};
+use qsim_lab::shor::window::WindowLayout;
 use qsim_lab::shor::{Instance, Oracle};
-use qsim_lab::shor_window::WindowLayout;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rayon::prelude::*;

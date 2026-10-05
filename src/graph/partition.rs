@@ -88,7 +88,7 @@ fn side_circuit(c: &Circuit, in_a: &[bool], side_a: bool, pat: usize) -> Circuit
         let qs = g.qubits();
         let mine = qs.iter().filter(|&&q| in_a[q] == side_a).count();
         if mine == qs.len() {
-            out.gate(crate::hsf::map_gate(*g, |q| local[q]));
+            out.gate(crate::engines::hsf::map_gate(*g, |q| local[q]));
         } else if mine > 0 {
             if pat >> k & 1 == 1 {
                 // this side holds the control (Z) or the target (U)

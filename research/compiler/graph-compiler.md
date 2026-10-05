@@ -7,7 +7,7 @@ then re-parameterise, and partition the graph into subgraphs that each run on th
 engine.
 
 Code: `src/graph/{param,compiled,observable,rewrite,fold,dedup,partition}.rs`, a few hooks in
-`src/blocked.rs` (stage preparation that reports where every op went, so numbers can be
+`src/engines/blocked.rs` (stage preparation that reports where every op went, so numbers can be
 patched in place; `schedule_diag_order`), `pipeline::SimOptions::graph`.
 Tests: `tests/graph.rs` (12 tests; every path is checked against the independent reference
 state vector of `tests/audit_common`, extended with textbook matrices for U/Sx/iSWAP).

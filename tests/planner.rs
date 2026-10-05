@@ -1,4 +1,4 @@
-//! Planner v0 and the MPS cost replay (src/planner.rs, src/mps_cost.rs).
+//! Planner v0 and the MPS cost replay (src/planner.rs, src/engines/mps_cost.rs).
 //!
 //! * the replay reproduces the real MPS engine's operation counts exactly
 //!   when fed its bond trace;
@@ -14,9 +14,9 @@
 mod audit_common;
 
 use audit_common::{random_circuit, RefSv};
-use qsim_lab::adaptive::{self, AdaptiveOptions, Strategy};
-use qsim_lab::mps_cost::{replay, replay_traced, BondSource, Estimator};
-use qsim_lab::pauli_path::PauliSum;
+use qsim_lab::engines::adaptive::{self, AdaptiveOptions, Strategy};
+use qsim_lab::engines::mps_cost::{replay, replay_traced, BondSource, Estimator};
+use qsim_lab::engines::pauli_path::PauliSum;
 use qsim_lab::planner::{self, Engine, PlanRequest, PlannerConfig};
 use qsim_lab::simulability::{build, Spec};
 use qsim_lab::{Circuit, Gate, Mps};

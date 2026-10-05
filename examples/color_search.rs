@@ -14,10 +14,10 @@
 //! line per plaquette `t_a t_b t_c t_d t_e t_f [F]` (absent positions:
 //! anything, e.g. 0; `F` = flag qubit); suffix `+bflags` flags all
 //! boundary-touching plaquettes.
+use qsim_lab::io::stim::to_stim;
 use qsim_lab::qec::color::{
     circuit_dem, parse_schedule_spec, ColorCode, ColorNoise, ColorSchedule,
 };
-use qsim_lab::stim_io::to_stim;
 use std::io::Write;
 
 fn schedule(cc: &ColorCode, spec: &str) -> (ColorSchedule, Vec<bool>) {

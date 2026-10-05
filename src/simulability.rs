@@ -18,16 +18,16 @@
 //! Everything here is exact; an engine that would have to truncate reports
 //! an error instead of a value.
 
-use crate::adaptive::{self, AdaptiveOptions, Strategy};
-use crate::blocked::BlockConfig;
 use crate::circuit::{Circuit, Op, SimError};
+use crate::engines::adaptive::{self, AdaptiveOptions, Strategy};
+use crate::engines::blocked::BlockConfig;
+use crate::engines::hsf::{self, HsfOptions, HybridSchrodingerFeynman};
+use crate::engines::mps::Mps;
+use crate::engines::pauli_frame::FrameOptions;
+use crate::engines::pauli_path::PauliSum;
+use crate::engines::sparse::SparseState;
+use crate::engines::statevector::StateVectorF64;
 use crate::gate::Gate;
-use crate::hsf::{self, HsfOptions, HybridSchrodingerFeynman};
-use crate::mps::Mps;
-use crate::pauli_frame::FrameOptions;
-use crate::pauli_path::PauliSum;
-use crate::sparse::SparseState;
-use crate::statevector::StateVectorF64;
 use num_complex::Complex64;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -882,9 +882,11 @@ pub fn run_engine_obs(
             if engine == "mpsb" {
                 // bound-capped: drop singular values beyond the rigorous
                 // Schmidt-rank bound (numerical noise only).
-                let b = crate::mps_cost::replay_traced(
+                let b = crate::engines::mps_cost::replay_traced(
                     c,
-                    crate::mps_cost::BondSource::Bound(crate::mps_cost::Estimator::Best),
+                    crate::engines::mps_cost::BondSource::Bound(
+                        crate::engines::mps_cost::Estimator::Best,
+                    ),
                 )?;
                 m.set_step_caps(b.trace);
             }

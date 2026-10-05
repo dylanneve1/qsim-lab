@@ -6,7 +6,7 @@ This experiment looks for `circuit = prefix · B^r · suffix` (also nested, also
 with changing angles) and simulates `B^r` faster than `r` copies, exactly.
 
 Code: `src/compile/repeat/{mod,cliff,exec,workloads}.rs`, plan-reuse API in
-`src/blocked.rs` (`compile_kops` / `run_compiled`), pipeline option
+`src/engines/blocked.rs` (`compile_kops` / `run_compiled`), pipeline option
 `pipeline::simulate_with(.., &SimOptions { repeat: Some(..) })` (default off;
 `simulate()` is unchanged and a test pins that). Tests: `tests/repeat.rs`
 (20 tests, incl. 5 proptests). Bench: `examples/repeat_bench.rs`.

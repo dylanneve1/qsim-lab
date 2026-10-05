@@ -16,24 +16,30 @@
 //!   [`StateVector`] and the exact [`SparseState`].
 //! * Oracles: the permutation oracle `|1>|y> -> |1>|a y mod N>` (a lookup
 //!   table, as in `algorithms`), and gate-level Beauregard arithmetic
-//!   ([`crate::shor_arith`]).
+//!   ([`crate::shor::arith`]).
 //!
 //! Qubit layout (all paths): qubit 0 is the recycled control, the work
 //! register `x` is qubits `1..=n`; the gate-level oracle adds `n + 1` qubits
 //! for the Fourier-space accumulator `b` and one ancilla.
 
+pub mod arith;
 pub mod fused;
+pub mod ge;
+pub mod mbu;
 pub mod noisy;
 pub mod noisy_gen;
+pub mod ripple;
 pub mod sliced;
+pub mod superopt;
+pub mod window;
 
 use crate::algorithms::{gcd, pow_mod};
-use crate::blocked::BlockConfig;
 use crate::circuit::Circuit;
+use crate::engines::blocked::BlockConfig;
+use crate::engines::sparse::SparseState;
+use crate::engines::statevector::{Real, StateVector};
 use crate::gate::Gate;
-use crate::shor_arith::{self, BeauregardLayout};
-use crate::sparse::SparseState;
-use crate::statevector::{Real, StateVector};
+use crate::shor::arith::BeauregardLayout;
 use num_complex::Complex;
 use rand::Rng;
 use rayon::prelude::*;
@@ -51,14 +57,14 @@ pub enum Oracle {
     /// `3n + 4` qubits.
     Ripple,
     /// Windowed (table-lookup) ripple-carry circuit, window `w`
-    /// ([`crate::shor_window`]), `4n + 4 + w` qubits; X, CNOT, CCX only.
+    /// ([`crate::shor::window`]), `4n + 4 + w` qubits; X, CNOT, CCX only.
     Windowed(usize),
     /// The windowed oracle with the superoptimised building blocks of
-    /// [`crate::shor_superopt`] (all of [`crate::shor_superopt::Opts::ALL`]);
+    /// [`crate::shor::superopt`] (all of [`crate::shor::superopt::Opts::ALL`]);
     /// same layout, `4n + 4 + w` qubits, X, CNOT, CCX only.
     WindowedOpt(usize),
     /// The windowed-opt oracle with measurement-based uncomputation
-    /// ([`crate::shor_mbu`], `MbuOpts::ALL`): temporary-AND lookups,
+    /// ([`crate::shor::mbu`], `MbuOpts::ALL`): temporary-AND lookups,
     /// measurement-based unlookup and Gidney adders; `5n + 3 + w` qubits;
     /// X, CNOT, CCX, X-basis measurements and classically controlled Z / CZ.
     WindowedMbu(usize),
@@ -71,7 +77,7 @@ pub enum Oracle {
 pub trait OrderFindingState: Clone {
     fn gate(&mut self, g: &Gate);
     /// Applies a gate sequence; `blocked` lets a dense state use the
-    /// cache-blocked fused executor ([`crate::blocked`]).
+    /// cache-blocked fused executor ([`crate::engines::blocked`]).
     fn gates(&mut self, gs: &[Gate], blocked: bool) {
         let _ = blocked;
         for g in gs {
@@ -164,7 +170,7 @@ impl OrderFindingState for SparseState {
         self.apply_gate(g).expect("valid gate");
     }
     fn apply_block(&mut self, c: &Circuit, ancilla_mask: u64) {
-        crate::shor_ripple::apply_reversible_block(self, c, ancilla_mask);
+        crate::shor::ripple::apply_reversible_block(self, c, ancilla_mask);
     }
     fn ctrl_mul(&mut self, m: usize, mult: u64, _inv: u64, n_mod: u64) {
         let mask = (1u64 << m) - 1;
@@ -349,8 +355,8 @@ impl Instance {
         BeauregardLayout::new(self.m)
     }
 
-    pub fn ripple_layout(&self) -> crate::shor_ripple::RippleLayout {
-        crate::shor_ripple::RippleLayout::new(self.m)
+    pub fn ripple_layout(&self) -> crate::shor::ripple::RippleLayout {
+        crate::shor::ripple::RippleLayout::new(self.m)
     }
 
     /// Basis index of the initial state: control 0, work register `|1>`.
@@ -381,7 +387,7 @@ impl Instance {
                 s.gate(&Gate::H(0));
             }
             Oracle::Beauregard => {
-                let c = shor_arith::controlled_ua(&self.layout(), 0, mult, self.n_mod);
+                let c = arith::controlled_ua(&self.layout(), 0, mult, self.n_mod);
                 let mut gs = Vec::with_capacity(c.ops.len() + 3);
                 gs.push(Gate::H(0));
                 gs.extend(c.gates().copied());
@@ -391,7 +397,7 @@ impl Instance {
             }
             Oracle::Ripple => {
                 let lay = self.ripple_layout();
-                let c = crate::shor_ripple::controlled_ua(&lay, 0, mult, self.n_mod);
+                let c = crate::shor::ripple::controlled_ua(&lay, 0, mult, self.n_mod);
                 s.gate(&Gate::H(0));
                 if self.gate_by_gate {
                     for g in c.gates() {
@@ -423,9 +429,9 @@ impl Instance {
                 s.gate(&Gate::H(0));
                 for op in &ops {
                     match *op {
-                        crate::shor_mbu::MbuOp::G(g) => s.gate(&g),
-                        crate::shor_mbu::MbuOp::GlobalNeg => {}
-                        crate::shor_mbu::MbuOp::MeasX(q, m) => {
+                        crate::shor::mbu::MbuOp::G(g) => s.gate(&g),
+                        crate::shor::mbu::MbuOp::GlobalNeg => {}
+                        crate::shor::mbu::MbuOp::MeasX(q, m) => {
                             s.gate(&Gate::H(q));
                             let p1 = s.prob_one(q);
                             let p = if m { p1 } else { 1.0 - p1 };
@@ -490,18 +496,18 @@ pub fn run_semiclassical<S: OrderFindingState, R: Rng + ?Sized>(
             Oracle::Permutation => {}
             Oracle::Beauregard => {
                 let lay = inst.layout();
-                let c = shor_arith::controlled_ua(&lay, 0, mult, inst.n_mod);
+                let c = arith::controlled_ua(&lay, 0, mult, inst.n_mod);
                 total_gates += c.ops.len() + 2 + usize::from(y != 0);
             }
             Oracle::Ripple | Oracle::Windowed(_) | Oracle::WindowedOpt(_) => {
                 let (c, _) = sliced::oracle_block(inst, mult);
-                let (g_tot, g_tof) = crate::shor_ripple::gate_counts(&c);
+                let (g_tot, g_tof) = crate::shor::ripple::gate_counts(&c);
                 total_gates += g_tot + 2 + usize::from(y != 0);
                 toffoli_gates += g_tof;
             }
             Oracle::WindowedMbu(_) | Oracle::WindowedMbuLookup(_) => {
                 let (ops, _, _) = sliced::oracle_ops(inst, mult);
-                let c = crate::shor_mbu::MbuCounts::of(&ops);
+                let c = crate::shor::mbu::MbuCounts::of(&ops);
                 total_gates += c.total + 2 + usize::from(y != 0);
                 toffoli_gates += c.toffoli;
                 measurements += c.meas;
@@ -631,7 +637,7 @@ pub fn semiclassical_circuit(n_mod: u64, a: u64) -> Circuit {
             c.c_if(i - 1, Gate::X(0));
         }
         c.h(0);
-        c.append(&shor_arith::controlled_ua(&lay, 0, inst.mults[k], n_mod));
+        c.append(&arith::controlled_ua(&lay, 0, inst.mults[k], n_mod));
         for l in 0..i {
             // bit l contributes -2π · 2^l / 2^(i+1) = -π / 2^(i-l)
             c.c_if(l, Gate::Phase(0, -PI / ((1u64 << (i - l)) as f64)));
@@ -654,7 +660,7 @@ pub fn semiclassical_ripple_circuit(n_mod: u64, a: u64) -> Circuit {
             c.c_if(i - 1, Gate::X(0));
         }
         c.h(0);
-        c.append(&crate::shor_ripple::controlled_ua(
+        c.append(&crate::shor::ripple::controlled_ua(
             &lay,
             0,
             inst.mults[k],

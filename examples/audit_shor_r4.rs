@@ -16,8 +16,8 @@ fn main() {
     match a[0].as_str() {
         "dump" => {
             let n = shor::work_bits(n_mod);
-            let lay = qsim_lab::shor_window::WindowLayout::new(n, w);
-            let c = qsim_lab::shor_window::controlled_ua(&lay, base, n_mod);
+            let lay = qsim_lab::shor::window::WindowLayout::new(n, w);
+            let c = qsim_lab::shor::window::controlled_ua(&lay, base, n_mod);
             println!("nq {} n {}", c.num_qubits, n);
             for op in &c.ops {
                 match op {

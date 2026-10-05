@@ -1,9 +1,9 @@
 //! The .stim writer/reader: round trips must give *identical* sampling
 //! distributions (checked exactly, not statistically, by comparing the
 //! canonical detector error structure of the SymPhase samplers).
+use qsim_lab::engines::stabilizer::symphase::{SymPhaseSampler, VarDist};
+use qsim_lab::io::stim::{parse_stim, to_stim};
 use qsim_lab::qec::surface::SurfaceCode;
-use qsim_lab::stabilizer::symphase::{SymPhaseSampler, VarDist};
-use qsim_lab::stim_io::{parse_stim, to_stim};
 use qsim_lab::{Circuit, Gate, NoiseModel, Op};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

@@ -2,7 +2,7 @@
 
 Branch `exp/transition-theory` (from main d44563c). Follow-up to `research/simulability/magic-transition.md` (§4.2, §5 "ν_eff ≈ 2.5 unexplained").
 Code: `examples/transition_theory.rs` — a d-only driver (`steady`, `survival`, `decay`) on the public API of
-`src/monitored/`; **no engine change** (pattern `poisson` reuses `circuit::layer` and the same seed mixing,
+`src/engines/monitored/`; **no engine change** (pattern `poisson` reuses `circuit::layer` and the same seed mixing,
 and reproduces `magic-transition/raw.csv` bit for bit, e.g. n = 128, p = 0.16, η = 1, seed 100000: d̄ = 18.375 in both).
 Data/analysis: `research/data/transition-theory/` — `steady.csv` (22.5 k trajectories), `survival.csv` (2.8 k injections), `decay_mean.csv`, `survival_km.csv`,
 `decay.csv`, `cells.csv`, `jobs.txt` + `order.txt` + `run_order.sh` (campaign), `load.py`, `analyze.py`, `corrfit.py`,

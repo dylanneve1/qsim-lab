@@ -1,8 +1,8 @@
 //! Textbook circuits and algorithms used by the examples, CLI and tests.
 
-use crate::blocked::{lower_gate, KOp};
 use crate::circuit::Circuit;
-use crate::statevector::{Real, StateVector};
+use crate::engines::blocked::{lower_gate, KOp};
+use crate::engines::statevector::{Real, StateVector};
 use rand::Rng;
 use std::f64::consts::PI;
 
@@ -331,7 +331,7 @@ pub fn shor_factor<R: Rng + ?Sized>(n_mod: u64, rng: &mut R) -> (Option<(u64, u6
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statevector::StateVectorF64;
+    use crate::engines::statevector::StateVectorF64;
     use num_complex::Complex64;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
