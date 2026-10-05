@@ -4,8 +4,8 @@ What this repository has shown so far, with the caveats that go with each number
 **exact** (no truncation) and differential-tested against an independent reference state vector
 (1e-12 in f64, 1e-5 in f32) or against exact outcome distributions. Each merged branch was audited by a
 separate agent that tried to break its headline claim; the audits, including the claims that were
-corrected or withdrawn, are in `research/audit.md` (§16 is the latest), `research/shor-r4-audit.md` and
-`research/qec-r4.md` Part 1. Raw data and methods are in `research/`.
+corrected or withdrawn, are in `research/process/audit.md` (§16 is the latest), `research/shor/shor-r4-audit.md` and
+`research/qec/qec-r4.md` Part 1. Raw data and methods are in `research/`.
 
 Machines:
 - **VPS**: 4 vCPU AMD EPYC-Rome (AVX2), 7.7 GB, shared with other agents. Timings are only quoted when
@@ -27,7 +27,7 @@ branches; a bit-sliced evaluator runs every gate on 64·L branches at once. The 
 oracle with a from-scratch gate interpreter (all 2^nq inputs at N = 15; random valid inputs at the
 record's size) and the outcome distributions against the reference simulators.
 
-**This repo's record (Mac, `research/shor.md` round 4):** N = 1,537,596,787 (31 bits, generic: the
+**This repo's record (Mac, `research/shor/shor.md` round 4):** N = 1,537,596,787 (31 bits, generic: the
 first balanced semiprime of a seeded generator, random base), **132 qubits, 1.70 M gates per run,
 r = 256,252,500, factored in 134 s (f32), 4.28 GB**. Cost is linear in the order r, so it is exponential
 in the bit length for generic N: 24–29-bit N take 0.2–44 s depending on r. Structured N = p(2p − 1)
@@ -40,7 +40,7 @@ r, not N, sets the cost. The old N ≈ 10⁶ record circuit (1.15 M gates) now t
 specific here is that every gate of a compilable X/CNOT/Toffoli circuit is simulated exactly on a
 laptop.
 
-**Under circuit noise (`research/shor-noise.md`).** Exact Pauli-noise trajectories of the same circuit,
+**Under circuit noise (`research/shor/shor-noise.md`).** Exact Pauli-noise trajectories of the same circuit,
 10–24-bit N (up to 104 qubits, 0.82 M gates), depolarizing faults after every gate on every qubit it
 touches (L ≈ 2.3 × gates locations; no idle noise, ideal classically controlled phases):
 - each fault is fatal with probability **d = 0.716 ± 0.004** (0.67–0.77 per instance), so
@@ -62,9 +62,9 @@ touches (L ≈ 2.3 × gates locations; no idle noise, ideal classically controll
 **Correction (still stands).** The earlier claim "4.0–6.5× faster than Stim" was withdrawn: it timed
 Stim's slow numpy output path against qsim-lab without output, on a hand-written copy of the circuit.
 With identical circuits and identical output, the old SymPhase sampler was at parity with AVX2 Stim on
-Stim's own circuit (0.89–1.01×, `research/qec-r4.md` §1.5).
+Stim's own circuit (0.89–1.01×, `research/qec/qec-r4.md` §1.5).
 
-**New sampler (`research/fast-sampler.md`).** `FastSampler` keeps SymPhase's compiled fault → detector
+**New sampler (`research/qec/fast-sampler.md`).** `FastSampler` keeps SymPhase's compiled fault → detector
 map but draws faults as Poisson "hits":
 - one uniform random word picks the location and the Pauli of a fault;
 - a precomputed (location, Pauli) → detector table is XOR-ed branch-free into the 64-shot output words;
@@ -112,7 +112,7 @@ parse and compile.
 - **Compile is our weak spot:** about 55 ms at d = 15 against 3.5 ms for Stim's whole small run. At
   128k shots the end-to-end lead is therefore 2.5–3.7×; for ≥ 10⁶ shots it approaches the sampling
   ratio.
-- **Independent audit (`research/fast-sampler-audit.md`).**
+- **Independent audit (`research/qec/fast-sampler-audit.md`).**
   - Sampling ratios reproduced on x86 (d = 7 / 15, p = 0.1%: 11.7× / 9.2×, load 3.9) and on the
     M1 (26.7× / 27.0×).
   - Whole-process timing on x86 against Stim's best mode (`stim detect`; the DEM route is slower):
@@ -133,7 +133,7 @@ parse and compile.
   Mshot/s against 0.24 / 0.11). Stim has no NEON backend, so this overstates the algorithmic gain;
   the x86 ratio against AVX2 Stim is the fair one.
 
-## 3. Colour-code syndrome schedules (`research/qec-r4.md` Part 2)
+## 3. Colour-code syndrome schedules (`research/qec/qec-r4.md` Part 2)
 
 Within Kishony & Fowler's single-auxiliary 6.6.6 design space (arXiv:2603.28852: same qubits, same
 6 + 6 CNOT layers, collision-free):
@@ -154,7 +154,7 @@ Within Kishony & Fowler's single-auxiliary 6.6.6 design space (arXiv:2603.28852:
 
 ## 4. Which exact engine to use: simulability study and planner
 
-`research/simulability.md`, `research/planner.md`. 314 instances in four families, every engine timed
+`research/simulability/simulability.md`, `research/simulability/planner.md`. 314 instances in four families, every engine timed
 on the Mac, request ⟨Z^{⊗n}⟩.
 - One cheap work estimate per engine, `log2 t_e ≈ a_e + b_e·R_e`, fitted on three families and tested
   on the fourth, picks the fastest engine **85 %** of the time (geo slowdown 1.25×, within 2× on 91 %,
@@ -173,7 +173,7 @@ on the Mac, request ⟨Z^{⊗n}⟩.
   feature (not a valid upper bound for Toffolis with one constant control) was fixed; it changed no
   value in either dataset.
 
-## 5. Magic atlas (`research/magic-atlas.md`)
+## 5. Magic atlas (`research/simulability/magic-atlas.md`)
 
 367 instances of real algorithms profiled in O(gates·n): T-count, the rotation frame's active
 dimension d (register size of the compressed state), factor structure, stabilizer entanglement.

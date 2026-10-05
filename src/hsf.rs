@@ -17,7 +17,7 @@
 //! Memory is `O(k · (2^|A| + 2^|B|))` for `k` crossing gates rather than
 //! `2^n`, and time is `(Π_i rank_i) × (block work)`.
 //!
-//! Implementation notes (see `research/hsf.md` for the measurements):
+//! Implementation notes (see `research/performance/hsf.md` for the measurements):
 //!
 //! * Paths are enumerated **depth first**. Each crossing gate is a level of
 //!   the path tree; at each level the walker keeps one checkpoint (a pair of

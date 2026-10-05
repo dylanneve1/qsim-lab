@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end regret against an in-session oracle (research/planner-v2.md §4):
+"""End-to-end regret against an in-session oracle (research/simulability/planner-v2.md §4):
 per instance and request, the planner run (plan + execute, in process) and
 the oracle (the engine measured best in the read-out session, forced, no
 planning) ran back to back on the two workers, so they share the machine

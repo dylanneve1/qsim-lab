@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analysis of the noisy gate-level Shor trajectories (research/shor-noise.md).
+"""Analysis of the noisy gate-level Shor trajectories (research/shor/shor-noise.md).
 
 Input: raw/*.csv[.gz] written by `examples/shor_noise.rs` (one row per
 trajectory). Output: tables (stdout + CSV) and PNG plots in this directory.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mac timing chunks for research/magic-atlas.md. Usage: run_mac.sh CHUNK OUT.jsonl
+# Mac timing chunks for research/simulability/magic-atlas.md. Usage: run_mac.sh CHUNK OUT.jsonl
 # Takes the swarm bench lock for the chunk (keep each chunk < 3 min).
 B=${B:-$HOME/qsim-magic-atlas-target/release/examples/magic_atlas}
 CHUNK=$1; OUT=$2

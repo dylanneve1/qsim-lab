@@ -1,0 +1,46 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "qsimlab"
+dynamic = ["version"]
+description = "Exact quantum circuit simulation for scientists: state vectors, stabilizers, MPS, sparse and hybrid engines picked by a cost-model planner (Rust core)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "qsim-lab contributors" }]
+keywords = ["quantum", "simulator", "stabilizer", "mps", "qec", "qiskit", "cirq", "stim"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
+dependencies = ["numpy>=1.22"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+qiskit = ["qiskit>=1.0"]
+cirq = ["cirq-core>=1.2"]
+stim = ["stim>=1.12"]
+all = ["qiskit>=1.0", "qiskit-aer>=0.13", "cirq-core>=1.2", "stim>=1.12"]
+
+[project.urls]
+Repository = "https://github.com/dylanneve1/qsim-lab"
+Documentation = "https://github.com/dylanneve1/qsim-lab/blob/main/python/API.md"
+
+[tool.maturin]
+module-name = "qsimlab._native"
+python-source = "."
+python-packages = ["qsimlab"]
+features = ["extension-module"]
+include = [{ path = "qsimlab/py.typed", format = ["sdist", "wheel"] }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "qsimlab", "README.md"]
+addopts = "--doctest-modules --doctest-glob=README.md"
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS", "NUMBER"]

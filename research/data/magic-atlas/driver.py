@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Magic-atlas sweep driver (research/magic-atlas.md).
+"""Magic-atlas sweep driver (research/simulability/magic-atlas.md).
 
   python3 driver.py atlas BIN OUTDIR       # cheap invariants at scale -> OUTDIR/atlas.csv, OUTDIR/profiles/*.csv
   python3 driver.py magic BIN OUTDIR       # ground-truth nullity/SRE at n<=12 -> OUTDIR/magic.csv, OUTDIR/magic/*.csv

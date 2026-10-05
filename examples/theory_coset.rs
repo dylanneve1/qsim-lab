@@ -1,4 +1,4 @@
-//! Data for research/theory-coset.md (see tests/theory_coset.rs for the
+//! Data for research/theory/theory-coset.md (see tests/theory_coset.rs for the
 //! exact checks).
 //!   theory_coset tv   <N> <a> <we> <wm> <cmax>     exact TV + lemma bounds + walk stats
 //!   theory_coset zero <Nmax> <cmax> <we> <wm>      TV = 0 sweep over all N, all bases

@@ -1,4 +1,4 @@
-//! Data plumbing for the neural-decoder study (`research/neural-decoder.md`).
+//! Data plumbing for the neural-decoder study (`research/qec/neural-decoder.md`).
 //!
 //! ```text
 //! nd_tool color-export <d> <rounds> <cnot|uniform> <p> <kf|tri|sched-file> <prefix> [x]
@@ -14,7 +14,9 @@
 //!     prints a JSON summary. zonly = decode with the non-#x detectors only (as color_ler).
 //! ```
 use qsim_lab::qec::bposd::{BpOsd, DecodeStats, DemMatrix};
-use qsim_lab::qec::color::{circuit_dem, ColorCode, ColorNoise, ColorSchedule, KF_SCHEDULE, TRI_OPTIMAL};
+use qsim_lab::qec::color::{
+    circuit_dem, ColorCode, ColorNoise, ColorSchedule, KF_SCHEDULE, TRI_OPTIMAL,
+};
 use qsim_lab::stabilizer::fast_sampler::{FastSampler, WyRand};
 use qsim_lab::stabilizer::symphase::SymPhaseSampler;
 use qsim_lab::stim_io::{parse_stim, to_stim};
@@ -53,12 +55,18 @@ fn read_dem(path: &str) -> Dem {
     let mut ents = Vec::new();
     for l in text.lines() {
         if let Some(r) = l.strip_prefix("#x") {
-            xs = r.split_whitespace().map(|t| t.parse::<usize>().unwrap()).collect();
+            xs = r
+                .split_whitespace()
+                .map(|t| t.parse::<usize>().unwrap())
+                .collect();
         } else if l.starts_with('#') {
             nd = l.split_whitespace().last().unwrap().parse().unwrap();
         } else if !l.trim().is_empty() {
             let f: Vec<&str> = l.split('\t').collect();
-            let ds = f[2].split_whitespace().map(|t| t.parse().unwrap()).collect();
+            let ds = f[2]
+                .split_whitespace()
+                .map(|t| t.parse().unwrap())
+                .collect();
             ents.push((f[0].parse().unwrap(), f[1].parse().unwrap(), ds));
         }
     }
@@ -114,8 +122,12 @@ fn main() {
             let prog = parse_stim(&std::fs::read_to_string(&a[2]).unwrap()).unwrap();
             let seed: u64 = a[3].parse().unwrap();
             let shots: usize = a.get(4).map_or(0, |s| s.parse().unwrap());
-            let sets: Vec<Vec<usize>> =
-                prog.detectors.iter().chain(prog.observables.iter()).cloned().collect();
+            let sets: Vec<Vec<usize>> = prog
+                .detectors
+                .iter()
+                .chain(prog.observables.iter())
+                .cloned()
+                .collect();
             let s = SymPhaseSampler::new(&prog.circuit, &prog.noise)
                 .expect("compile")
                 .with_parities(&sets)
@@ -133,7 +145,11 @@ fn main() {
                     break;
                 }
                 f.sample_batch(&mut rng, &mut out);
-                let take = if shots > 0 { words.min(blocks - done) } else { words };
+                let take = if shots > 0 {
+                    words.min(blocks - done)
+                } else {
+                    words
+                };
                 bytes.clear();
                 f.ptb64(&out, take, &mut bytes);
                 if w.write_all(&bytes).is_err() {
@@ -148,7 +164,10 @@ fn main() {
             let threads: usize = a.get(5).map_or(1, |s| s.parse().unwrap());
             let order: usize = a.get(6).map_or(10, |s| s.parse().unwrap());
             let zonly = a.get(7).is_some_and(|s| s == "zonly");
-            rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build_global()
+                .unwrap();
             let keep: Vec<usize> = (0..dem.nd).filter(|&i| !zonly || !dem.xdet[i]).collect();
             let mut map = vec![u32::MAX; dem.nd];
             for (k, &i) in keep.iter().enumerate() {

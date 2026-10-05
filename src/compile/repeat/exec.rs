@@ -31,7 +31,7 @@ pub struct ExecOptions {
     /// Plan reuse only up to this register size; wider registers run all
     /// copies as one batch (cross-copy fusion wins there: Trotter n=14
     /// r=1e3 is 1.5x slower with per-copy reuse; n<=10 reuse is 3x faster
-    /// than one batch, research/repeat.md §7).
+    /// than one batch, research/compiler/repeat.md §7).
     pub reuse_max_qubits: usize,
     /// Use the `2^k` unitary power whenever the support allows, ignoring
     /// the cost model (for benchmarks).

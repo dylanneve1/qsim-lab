@@ -45,15 +45,17 @@ fn check<T: Real>(c: &Circuit, cfg: &BlockConfig, seed: u64, tol: f64) {
 }
 
 /// Configurations that force every code path at small n: tiny blocks,
-/// few or many slots, with and without 1q fusion.
+/// few or many slots, with and without 1q fusion, L1 tiling and dense
+/// k-qubit fusion.
 fn configs() -> Vec<BlockConfig> {
     let mut v = Vec::new();
-    for (kib, slots, fuse, split, sched) in [
-        (1, 2, true, true, true),
-        (1, 4, false, false, true),
-        (2, 0, true, false, false),
-        (4, 3, true, true, false),
-        (256, 6, true, true, true),
+    for (kib, slots, fuse, split, sched, tile, dense) in [
+        (1, 2, true, true, true, 0, 0),
+        (1, 4, false, false, true, 128, 2),
+        (2, 0, true, false, false, 256, 3),
+        (4, 3, true, true, false, 512, 0),
+        (256, 6, true, true, true, 4096, 2),
+        (8, 3, true, false, true, 0, 3),
     ] {
         v.push(BlockConfig {
             block_bytes: kib << 10,
@@ -63,6 +65,9 @@ fn configs() -> Vec<BlockConfig> {
             split_phases: split,
             schedule_diag: sched,
             simd: true,
+            l1_tile_bytes: tile,
+            dense_fusion: dense,
+            dense_min_ops: 1,
         });
     }
     v
@@ -111,7 +116,7 @@ proptest! {
 }
 
 /// Regression for the audit's minimal repro (exp/audit,
-/// audit-adapters/sv_blocked_repro_ea41235.rs): with `split_phases` on, this
+/// tools/audit-adapters/sv_blocked_repro_ea41235.rs): with `split_phases` on, this
 /// circuit came out wrong by 0.26 in amplitude. The default config must
 /// match the gate-by-gate path.
 #[test]
@@ -137,4 +142,31 @@ fn split_phases_regression() {
     assert!(!cfg.split_phases, "split_phases must stay off until fixed");
     check::<f64>(&c, &cfg, 7, 1e-12);
     check::<f32>(&c, &cfg, 7, 1e-5);
+}
+
+/// Grover in executor IR (`algorithms::grover_kops`, MCZ as one diagonal
+/// term) through every blocked config vs gate by gate, and vs the closed
+/// form: after `k` iterations the marked amplitude is `sin((2k+1)θ)` with
+/// `sin θ = 2^{-n/2}` (an independent check of both paths).
+#[test]
+fn grover_matches_gate_by_gate_and_closed_form() {
+    for n in [3usize, 6, 9, 13] {
+        let marked = 0b101 & ((1 << n) - 1);
+        for k in [1usize, 3] {
+            let a = algorithms::grover_state::<f64>(n, marked, k);
+            let theta = (2f64.powf(-(n as f64) / 2.0)).asin();
+            let want = ((2 * k + 1) as f64 * theta).sin();
+            let got = a.amplitudes()[marked];
+            assert!(
+                (got.norm() - want.abs()).abs() < 1e-12,
+                "n={n} k={k}: {got} vs {want}"
+            );
+            for cfg in configs() {
+                let mut b = StateVector::<f64>::new(n);
+                b.apply_kops_blocked(&algorithms::grover_kops(n, marked, k), &cfg);
+                let d = max_diff(&a, &b);
+                assert!(d <= 1e-12, "n={n} k={k} max |Δamp| = {d:e}");
+            }
+        }
+    }
 }

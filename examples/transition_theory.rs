@@ -1,8 +1,8 @@
-//! Campaign driver for research/transition-theory.md (d-only, polynomial).
+//! Campaign driver for research/theory/transition-theory.md (d-only, polynomial).
 //!
 //! `d(t)` of the monitored Clifford+T engine is the entropy of the same
 //! monitored Clifford circuit with every `T` replaced by full Z-dephasing
-//! (research/magic-transition.md §1.1), so every mode here runs in
+//! (research/simulability/magic-transition.md §1.1), so every mode here runs in
 //! [`Mode::DimensionOnly`].
 //!
 //! ```text

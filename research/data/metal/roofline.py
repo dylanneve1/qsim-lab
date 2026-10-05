@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Roofline plot for research/metal.md (reads summary.csv, writes roofline.png).
+"""Roofline plot for research/performance/metal.md (reads summary.csv, writes roofline.png).
 
 x: operational intensity = amplitude-updates of the fused op list per DRAM byte,
    DRAM bytes = passes * 16 * 2^n (one read + one write of every float2 per pass).

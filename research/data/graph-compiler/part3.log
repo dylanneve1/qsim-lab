@@ -1,0 +1,14 @@
+# 2026-10-05T01:25:50Z load { 12.34 14.61 15.72 } :: zsh -c for c in 1 2 4 6; do /Users/dylan/qsim-gc-target/release/examples/graph_bench partition 40 20 4 16 $c 1; done
+chain_core na=40 nb=20 da=4 db=16 cuts=1 gates=719 | plan 0.12s: cut 1 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 0.335s; single best Some((Mps, 2.8047188607453144))
+  partitioned: 0.229s for 64 amplitudes (sum |a|^2 = 8.419e-18)
+  single StateVector: 0.00s error: state vector would need 18446744073709551616 bytes, above the 1073741824-byte limit
+chain_core na=40 nb=20 da=4 db=16 cuts=2 gates=720 | plan 0.11s: cut 2 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 0.670s; single best Some((Mps, 4.232567590904935))
+  partitioned: 0.464s for 64 amplitudes (sum |a|^2 = 6.808e-17)
+  single StateVector: 0.00s error: state vector would need 18446744073709551616 bytes, above the 1073741824-byte limit
+chain_core na=40 nb=20 da=4 db=16 cuts=4 gates=722 | plan 0.11s: cut 4 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 2.681s; single best Some((Mps, 12.086625097980608))
+  partitioned: 1.885s for 64 amplitudes (sum |a|^2 = 6.954e-17)
+  single StateVector: 0.00s error: state vector would need 18446744073709551616 bytes, above the 1073741824-byte limit
+chain_core na=40 nb=20 da=4 db=16 cuts=6 gates=724 | plan 0.11s: cut 6 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 10.722s; single best Some((Mps, 29.24743627957604))
+  partitioned: 7.234s for 64 amplitudes (sum |a|^2 = 1.552e-17)
+  single StateVector: 0.00s error: state vector would need 18446744073709551616 bytes, above the 1073741824-byte limit
+# exit 0 2026-10-05T01:26:23Z

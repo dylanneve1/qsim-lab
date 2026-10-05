@@ -1,8 +1,26 @@
+# Rust build output
 /target
+/target-*/
+/target-native
 **/*.rs.bk
 Cargo.lock.bak
-/target-native
+
+# Agent worktrees and scratch space
 /wt/
-/target-wt/
 /scratch/
 scratch/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# macOS / editor junk (AppleDouble files come from copying off the Mac)
+.DS_Store
+._*
+*.swp
+*~

@@ -1,0 +1,8 @@
+# 2026-10-05T00:45:09Z load { 16.28 19.43 17.85 } :: /Users/dylan/qsim-gc-target/release/examples/graph_bench rewrite
+qaoa-cx n=12 p=3 ops 210->102 regions 3/3 perm ops 108->0 gadgets 54 | kops/stages [(210, 1)] -> [(156, 1)] | per-bind: baseline 0.765ms compiled 0.514ms rewritten 0.396ms | rewrite vs compiled 1.30x, vs baseline 1.93x | rewrite pass 0.10ms
+qaoa-cx n=20 p=3 ops 350->170 regions 3/3 perm ops 180->0 gadgets 90 | kops/stages [(350, 12)] -> [(260, 7)] | per-bind: baseline 50.293ms compiled 53.075ms rewritten 36.249ms | rewrite vs compiled 1.46x, vs baseline 1.39x | rewrite pass 0.14ms
+pauli n=12 p=4 ops 1204->911 regions 47/73 perm ops 528->268 gadgets 182 | kops/stages [(915, 1)] -> [(908, 1)] | per-bind: baseline 2.079ms compiled 1.368ms rewritten 1.426ms | rewrite vs compiled 0.96x, vs baseline 1.46x | rewrite pass 0.36ms
+pauli n=20 p=2 ops 1132->929 regions 41/55 perm ops 476->294 gadgets 199 | kops/stages [(826, 19)] -> [(929, 13)] | per-bind: baseline 101.916ms compiled 96.509ms rewritten 88.222ms | rewrite vs compiled 1.09x, vs baseline 1.16x | rewrite pass 0.37ms
+trotter n=12 p=20 ops 460->460 regions 0/20 perm ops 0->0 gadgets 0 | kops/stages [(680, 1)] -> [(680, 1)] | per-bind: baseline 1.915ms compiled 1.127ms rewritten 1.137ms | rewrite vs compiled 0.99x, vs baseline 1.68x | rewrite pass 0.18ms
+hea n=12 p=4 ops 140->140 regions 0/4 perm ops 44->44 gadgets 0 | kops/stages [(92, 1)] -> [(92, 1)] | per-bind: baseline 0.398ms compiled 0.337ms rewritten 0.332ms | rewrite vs compiled 1.02x, vs baseline 1.20x | rewrite pass 0.09ms
+# exit 0 2026-10-05T00:45:19Z

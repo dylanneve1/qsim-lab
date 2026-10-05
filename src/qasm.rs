@@ -87,87 +87,179 @@ pub fn to_qasm(circuit: &Circuit) -> Result<String, SimError> {
     Ok(out)
 }
 
-/// Parses an OpenQASM 2.0 parameter expression.
-///
-/// Grammar (the OpenQASM 2.0 expression language, standard precedence,
-/// left-associative except `^`):
-///
-/// ```text
-/// expr   := term (('+' | '-') term)*
-/// term   := unary (('*' | '/') unary)*
-/// unary  := ('-' | '+') unary | power
-/// power  := atom ('^' unary)?
-/// atom   := number | 'pi' | '(' expr ')' | func '(' expr ')'
-/// func   := sin | cos | tan | exp | ln | sqrt
-/// ```
-fn parse_param(expr: &str) -> Result<f64, String> {
-    let mut p = ExprParser {
-        s: expr.as_bytes(),
-        i: 0,
-    };
-    let v = p.expr()?;
-    p.skip_ws();
-    if p.i != p.s.len() {
-        return Err(format!(
-            "unexpected '{}' in expression '{}'",
-            &expr[p.i..],
-            expr.trim()
-        ));
-    }
-    if !v.is_finite() {
-        return Err(format!("expression '{}' is not finite", expr.trim()));
-    }
-    Ok(v)
+// ---------------------------------------------------------------------------
+// Parser
+//
+// A complete OpenQASM 2.0 front end: tokenizer with line numbers, `qreg` /
+// `creg` (laid out in declaration order), user `gate` definitions (expanded
+// as macros, with parameters), `opaque` (rejected when used), register
+// broadcasting (`h q;`, `cx a,b;` over equal-size registers, `measure q -> c;`),
+// `barrier` (ignored), `reset`, `if (c == v) op;` for a one-bit register
+// (becomes a classically controlled gate on the measurement that last wrote
+// that bit), and the qelib1.inc gate set plus the common Qiskit extensions.
+//
+// Gates with a direct engine equivalent map to it exactly (so
+// `from_qasm(to_qasm(c)) == c`); the others are expanded with exact
+// decompositions (as matrices, global phase included, following Qiskit's
+// gate definitions, e.g. `rz(θ) = exp(-iθZ/2)`, `crz`, `cu3`, `rxx`, ...).
+
+#[derive(Clone, Debug, PartialEq)]
+enum Tok {
+    Id(String),
+    Num(f64),
+    Str(String),
+    Sym(&'static str),
 }
 
-struct ExprParser<'a> {
-    s: &'a [u8],
-    i: usize,
+#[derive(Clone, Debug)]
+struct Token {
+    tok: Tok,
+    line: usize,
 }
 
-impl ExprParser<'_> {
-    fn skip_ws(&mut self) {
-        while self.i < self.s.len() && self.s[self.i].is_ascii_whitespace() {
-            self.i += 1;
+fn qerr(line: usize, msg: impl std::fmt::Display) -> SimError {
+    SimError::QasmError(format!("line {line}: {msg}"))
+}
+
+fn tokenize(src: &str) -> Result<Vec<Token>, SimError> {
+    let b = src.as_bytes();
+    let mut i = 0;
+    let mut line = 1;
+    let mut out = Vec::new();
+    const SYMS: [&str; 16] = [
+        "->", "==", ";", ",", "(", ")", "[", "]", "{", "}", "+", "-", "*", "/", "^", ".",
+    ];
+    while i < b.len() {
+        let c = b[i];
+        if c == b'\n' {
+            line += 1;
+            i += 1;
+        } else if c.is_ascii_whitespace() {
+            i += 1;
+        } else if b[i..].starts_with(b"//") {
+            while i < b.len() && b[i] != b'\n' {
+                i += 1;
+            }
+        } else if b[i..].starts_with(b"/*") {
+            i += 2;
+            while i < b.len() && !b[i..].starts_with(b"*/") {
+                if b[i] == b'\n' {
+                    line += 1;
+                }
+                i += 1;
+            }
+            i += 2;
+        } else if c.is_ascii_alphabetic() || c == b'_' {
+            let s = i;
+            while i < b.len() && (b[i].is_ascii_alphanumeric() || b[i] == b'_') {
+                i += 1;
+            }
+            out.push(Token {
+                tok: Tok::Id(src[s..i].to_string()),
+                line,
+            });
+        } else if c.is_ascii_digit() || (c == b'.' && i + 1 < b.len() && b[i + 1].is_ascii_digit())
+        {
+            let s = i;
+            while i < b.len() && (b[i].is_ascii_digit() || b[i] == b'.') {
+                i += 1;
+            }
+            if i < b.len() && (b[i] == b'e' || b[i] == b'E') {
+                let save = i;
+                i += 1;
+                if i < b.len() && (b[i] == b'+' || b[i] == b'-') {
+                    i += 1;
+                }
+                if i < b.len() && b[i].is_ascii_digit() {
+                    while i < b.len() && b[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                } else {
+                    i = save;
+                }
+            }
+            let v: f64 = src[s..i]
+                .parse()
+                .map_err(|_| qerr(line, format!("bad number '{}'", &src[s..i])))?;
+            out.push(Token {
+                tok: Tok::Num(v),
+                line,
+            });
+        } else if c == b'"' {
+            let s = i + 1;
+            i += 1;
+            while i < b.len() && b[i] != b'"' {
+                i += 1;
+            }
+            if i >= b.len() {
+                return Err(qerr(line, "unterminated string"));
+            }
+            out.push(Token {
+                tok: Tok::Str(src[s..i].to_string()),
+                line,
+            });
+            i += 1;
+        } else if let Some(sym) = SYMS.iter().find(|s| b[i..].starts_with(s.as_bytes())) {
+            out.push(Token {
+                tok: Tok::Sym(sym),
+                line,
+            });
+            i += sym.len();
+        } else {
+            return Err(qerr(line, format!("unexpected character '{}'", c as char)));
         }
     }
+    Ok(out)
+}
 
-    fn peek(&mut self) -> Option<u8> {
-        self.skip_ws();
-        self.s.get(self.i).copied()
+/// A parameter expression, kept as tokens and evaluated per call (gate
+/// bodies refer to the gate's parameters).
+#[derive(Clone, Debug)]
+struct Expr(Vec<Token>);
+
+struct ExprEval<'a> {
+    t: &'a [Token],
+    i: usize,
+    env: &'a HashMap<String, f64>,
+    line: usize,
+}
+
+impl ExprEval<'_> {
+    fn peek(&self) -> Option<&Tok> {
+        self.t.get(self.i).map(|t| &t.tok)
     }
-
-    fn eat(&mut self, c: u8) -> bool {
-        if self.peek() == Some(c) {
+    fn err(&self, msg: &str) -> SimError {
+        qerr(self.line, format!("bad parameter expression: {msg}"))
+    }
+    fn eat(&mut self, s: &str) -> bool {
+        if matches!(self.peek(), Some(Tok::Sym(x)) if *x == s) {
             self.i += 1;
             true
         } else {
             false
         }
     }
-
-    fn expr(&mut self) -> Result<f64, String> {
+    fn expr(&mut self) -> Result<f64, SimError> {
         let mut v = self.term()?;
         loop {
-            if self.eat(b'+') {
+            if self.eat("+") {
                 v += self.term()?;
-            } else if self.eat(b'-') {
+            } else if self.eat("-") {
                 v -= self.term()?;
             } else {
                 return Ok(v);
             }
         }
     }
-
-    fn term(&mut self) -> Result<f64, String> {
+    fn term(&mut self) -> Result<f64, SimError> {
         let mut v = self.unary()?;
         loop {
-            if self.eat(b'*') {
+            if self.eat("*") {
                 v *= self.unary()?;
-            } else if self.eat(b'/') {
+            } else if self.eat("/") {
                 let d = self.unary()?;
                 if d == 0.0 {
-                    return Err("division by zero".to_string());
+                    return Err(self.err("division by zero"));
                 }
                 v /= d;
             } else {
@@ -175,53 +267,45 @@ impl ExprParser<'_> {
             }
         }
     }
-
-    fn unary(&mut self) -> Result<f64, String> {
-        if self.eat(b'-') {
+    fn unary(&mut self) -> Result<f64, SimError> {
+        if self.eat("-") {
             Ok(-self.unary()?)
-        } else if self.eat(b'+') {
+        } else if self.eat("+") {
             self.unary()
         } else {
             self.power()
         }
     }
-
-    fn power(&mut self) -> Result<f64, String> {
+    fn power(&mut self) -> Result<f64, SimError> {
         let base = self.atom()?;
-        if self.eat(b'^') {
-            // Right-associative: a^b^c = a^(b^c); binds tighter than unary minus
-            // on its left operand, as in the OpenQASM 2.0 grammar.
+        if self.eat("^") {
             let e = self.unary()?;
             Ok(base.powf(e))
         } else {
             Ok(base)
         }
     }
-
-    fn atom(&mut self) -> Result<f64, String> {
-        match self.peek() {
-            None => Err("unexpected end of expression".to_string()),
-            Some(b'(') => {
+    fn atom(&mut self) -> Result<f64, SimError> {
+        match self.peek().cloned() {
+            Some(Tok::Num(v)) => {
+                self.i += 1;
+                Ok(v)
+            }
+            Some(Tok::Sym("(")) => {
                 self.i += 1;
                 let v = self.expr()?;
-                if !self.eat(b')') {
-                    return Err("missing ')'".to_string());
+                if !self.eat(")") {
+                    return Err(self.err("missing ')'"));
                 }
                 Ok(v)
             }
-            Some(c) if c.is_ascii_digit() || c == b'.' => self.number(),
-            Some(c) if c.is_ascii_alphabetic() => {
-                let start = self.i;
-                while self.i < self.s.len()
-                    && (self.s[self.i].is_ascii_alphanumeric() || self.s[self.i] == b'_')
-                {
-                    self.i += 1;
-                }
-                let name = std::str::from_utf8(&self.s[start..self.i])
-                    .unwrap_or("")
-                    .to_ascii_lowercase();
+            Some(Tok::Id(name)) => {
+                self.i += 1;
                 if name == "pi" {
                     return Ok(PI);
+                }
+                if let Some(v) = self.env.get(&name) {
+                    return Ok(*v);
                 }
                 let f: fn(f64) -> f64 = match name.as_str() {
                     "sin" => f64::sin,
@@ -230,408 +314,650 @@ impl ExprParser<'_> {
                     "exp" => f64::exp,
                     "ln" => f64::ln,
                     "sqrt" => f64::sqrt,
-                    _ => return Err(format!("unknown identifier '{name}'")),
+                    _ => return Err(self.err(&format!("unknown identifier '{name}'"))),
                 };
-                if !self.eat(b'(') {
-                    return Err(format!("expected '(' after '{name}'"));
+                if !self.eat("(") {
+                    return Err(self.err(&format!("'{name}' needs parentheses")));
                 }
                 let v = self.expr()?;
-                if !self.eat(b')') {
-                    return Err(format!("missing ')' after argument of '{name}'"));
+                if !self.eat(")") {
+                    return Err(self.err("missing ')'"));
                 }
                 Ok(f(v))
             }
-            Some(c) => Err(format!("unexpected character '{}'", c as char)),
+            _ => Err(self.err("expected a number, 'pi', a parameter or '('")),
         }
-    }
-
-    /// A decimal literal, optionally with an exponent (`1.5e-3`).
-    fn number(&mut self) -> Result<f64, String> {
-        let start = self.i;
-        while self.i < self.s.len() && (self.s[self.i].is_ascii_digit() || self.s[self.i] == b'.') {
-            self.i += 1;
-        }
-        if self.i < self.s.len() && (self.s[self.i] == b'e' || self.s[self.i] == b'E') {
-            let save = self.i;
-            self.i += 1;
-            if self.i < self.s.len() && (self.s[self.i] == b'+' || self.s[self.i] == b'-') {
-                self.i += 1;
-            }
-            let digits = self.i;
-            while self.i < self.s.len() && self.s[self.i].is_ascii_digit() {
-                self.i += 1;
-            }
-            if self.i == digits {
-                self.i = save; // not an exponent after all
-            }
-        }
-        let text = std::str::from_utf8(&self.s[start..self.i]).unwrap_or("");
-        text.parse::<f64>()
-            .map_err(|e| format!("cannot parse number '{text}': {e}"))
     }
 }
 
-/// Splits `s` at commas that are not inside parentheses.
-fn split_top_level(s: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut depth = 0i32;
-    let mut start = 0;
-    for (i, c) in s.char_indices() {
-        match c {
-            '(' => depth += 1,
-            ')' => depth -= 1,
-            ',' if depth == 0 => {
-                out.push(&s[start..i]);
-                start = i + 1;
-            }
-            _ => {}
-        }
-    }
-    out.push(&s[start..]);
-    out
-}
-
-/// Index of the `)` matching the first `(` in `s`, if any.
-fn matching_paren(s: &str) -> Option<usize> {
-    let open = s.find('(')?;
-    let mut depth = 0i32;
-    for (i, c) in s[open..].char_indices() {
-        match c {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(open + i);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// Parses comma-separated parameter list inside parentheses: `(p1, p2, ...)`.
-fn parse_param_list(s: &str) -> Result<Vec<f64>, String> {
-    let s = s.trim();
-    if s.is_empty() {
-        return Ok(Vec::new());
-    }
-    split_top_level(s).into_iter().map(parse_param).collect()
-}
-
-/// `(qubits, parameters)` for every gate name the parser understands.
-fn gate_arity(name: &str) -> Option<(usize, usize)> {
-    Some(match name {
-        "id" | "h" | "x" | "y" | "z" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" => (1, 0),
-        "rx" | "ry" | "rz" | "u1" | "p" | "phase" => (1, 1),
-        "u3" | "u" => (1, 3),
-        "cx" | "cnot" | "cz" | "swap" | "iswap" => (2, 0),
-        "cp" | "cu1" | "cphase" => (2, 1),
-        "ccx" => (3, 0),
-        _ => return None,
-    })
-}
-
-/// Parses an OpenQASM 2.0 program string into a [`Circuit`].
-pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
-    // 1. Strip comments
-    let mut clean_lines = Vec::new();
-    for line in source.lines() {
-        let code = match line.split_once("//") {
-            Some((code, _)) => code,
-            None => line,
+impl Expr {
+    fn eval(&self, env: &HashMap<String, f64>, line: usize) -> Result<f64, SimError> {
+        let mut e = ExprEval {
+            t: &self.0,
+            i: 0,
+            env,
+            line,
         };
-        clean_lines.push(code);
-    }
-    let full_code = clean_lines.join(" ");
-
-    // 2. Split statements by semicolon
-    // register name -> (offset, size)
-    let mut qreg_offsets: HashMap<String, (usize, usize)> = HashMap::new();
-    let mut total_qubits = 0usize;
-
-    // First pass: find all qregs and their offsets
-    for stmt in full_code.split(';') {
-        let trimmed = stmt.trim();
-        if trimmed.is_empty() {
-            continue;
+        let v = e.expr()?;
+        if e.i != self.0.len() {
+            return Err(e.err("trailing tokens"));
         }
-        let mut words = trimmed.split_whitespace();
-        let cmd = words.next().unwrap_or("");
-        if cmd == "qreg" {
-            let rest = words.collect::<Vec<_>>().join("");
-            if let Some((name, size_str)) = rest.split_once('[') {
-                if let Some(size_str) = size_str.strip_suffix(']') {
-                    let size: usize = size_str.trim().parse().map_err(|e| {
-                        SimError::QasmError(format!("invalid qreg size '{size_str}': {e}"))
-                    })?;
-                    qreg_offsets.insert(name.trim().to_string(), (total_qubits, size));
-                    total_qubits += size;
+        if !v.is_finite() {
+            return Err(e.err("value is not finite"));
+        }
+        Ok(v)
+    }
+}
+
+/// A qubit or bit argument: a whole register or one element.
+#[derive(Clone, Debug)]
+enum Arg {
+    Reg(String),
+    Bit(String, usize),
+}
+
+/// One gate call inside a `gate` body.
+#[derive(Clone, Debug)]
+struct BodyCall {
+    name: String,
+    params: Vec<Expr>,
+    args: Vec<String>,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct GateDef {
+    params: Vec<String>,
+    qargs: Vec<String>,
+    body: Vec<BodyCall>,
+    opaque: bool,
+}
+
+/// qelib1.inc gates (and Qiskit's usual extensions) without a direct engine
+/// gate, defined in terms of gates that have one. Exact as matrices.
+const BUILTIN_DEFS: &str = "
+gate u2(phi,lambda) q { u3(pi/2,phi,lambda) q; }
+gate u0(gamma) q { id q; }
+gate r(theta,phi) q { u3(theta,phi-pi/2,-phi+pi/2) q; }
+gate cy a,b { sdg b; cx a,b; s b; }
+gate ch a,b { s b; h b; t b; cx a,b; tdg b; h b; sdg b; }
+gate crz(lambda) a,b { rz(lambda/2) b; cx a,b; rz(-lambda/2) b; cx a,b; }
+gate cry(theta) a,b { ry(theta/2) b; cx a,b; ry(-theta/2) b; cx a,b; }
+gate crx(theta) a,b { p(pi/2) b; cx a,b; u3(-theta/2,0,0) b; cx a,b; u3(theta/2,-pi/2,0) b; }
+gate cu3(theta,phi,lambda) c,t { p((lambda+phi)/2) c; p((lambda-phi)/2) t; cx c,t; u3(-theta/2,0,-(phi+lambda)/2) t; cx c,t; u3(theta/2,phi,0) t; }
+gate cu(theta,phi,lambda,gamma) c,t { p(gamma) c; cu3(theta,phi,lambda) c,t; }
+gate csx a,b { h b; cp(pi/2) a,b; h b; }
+gate cswap a,b,c { cx c,b; ccx a,b,c; cx c,b; }
+gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }
+gate rxx(theta) a,b { h a; h b; rzz(theta) a,b; h a; h b; }
+gate ryy(theta) a,b { rx(pi/2) a; rx(pi/2) b; rzz(theta) a,b; rx(-pi/2) a; rx(-pi/2) b; }
+gate rzx(theta) a,b { h b; rzz(theta) a,b; h b; }
+gate ecr a,b { rzx(pi/4) a,b; x a; rzx(-pi/4) a,b; }
+gate dcx a,b { cx a,b; cx b,a; }
+gate iswapdg a,b { sdg a; sdg b; cz a,b; swap a,b; }
+gate rccx a,b,c { u2(0,pi) c; u1(pi/4) c; cx b,c; u1(-pi/4) c; cx a,c; u1(pi/4) c; cx b,c; u1(-pi/4) c; u2(0,pi) c; }
+";
+
+/// Engine gate for a name with a direct equivalent.
+fn native_gate(name: &str, q: &[usize], p: &[f64]) -> Option<(usize, usize, Option<Gate>)> {
+    let (nq, np) = match name {
+        "id" | "i" | "h" | "x" | "y" | "z" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" => (1, 0),
+        "rx" | "ry" | "rz" | "u1" | "p" | "phase" => (1, 1),
+        "u3" | "u" | "U" => (1, 3),
+        "cx" | "CX" | "cnot" | "cz" | "swap" | "iswap" => (2, 0),
+        "cp" | "cu1" | "cphase" => (2, 1),
+        "ccx" | "toffoli" => (3, 0),
+        _ => return None,
+    };
+    if q.len() != nq || p.len() != np {
+        return Some((nq, np, None));
+    }
+    let g = match name {
+        "id" | "i" => Gate::I(q[0]),
+        "h" => Gate::H(q[0]),
+        "x" => Gate::X(q[0]),
+        "y" => Gate::Y(q[0]),
+        "z" => Gate::Z(q[0]),
+        "s" => Gate::S(q[0]),
+        "sdg" => Gate::Sdg(q[0]),
+        "t" => Gate::T(q[0]),
+        "tdg" => Gate::Tdg(q[0]),
+        "sx" => Gate::Sx(q[0]),
+        "sxdg" => Gate::Sxdg(q[0]),
+        "rx" => Gate::Rx(q[0], p[0]),
+        "ry" => Gate::Ry(q[0], p[0]),
+        "rz" => Gate::Rz(q[0], p[0]),
+        "u1" | "p" | "phase" => Gate::Phase(q[0], p[0]),
+        "u3" | "u" | "U" => Gate::U(q[0], p[0], p[1], p[2]),
+        "cx" | "CX" | "cnot" => Gate::Cnot(q[0], q[1]),
+        "cz" => Gate::Cz(q[0], q[1]),
+        "swap" => Gate::Swap(q[0], q[1]),
+        "iswap" => Gate::ISwap(q[0], q[1]),
+        "cp" | "cu1" | "cphase" => Gate::CPhase(q[0], q[1], p[0]),
+        _ => Gate::Ccx(q[0], q[1], q[2]),
+    };
+    Some((nq, np, Some(g)))
+}
+
+struct Parser {
+    toks: Vec<Token>,
+    i: usize,
+    qregs: Vec<(String, usize, usize)>,
+    cregs: Vec<(String, usize, usize)>,
+    num_clbits: usize,
+    defs: HashMap<String, GateDef>,
+    /// Measurement index that last wrote each classical bit.
+    last_write: Vec<Option<usize>>,
+    num_meas: usize,
+    ops: Vec<Op>,
+}
+
+impl Parser {
+    fn line(&self) -> usize {
+        self.toks
+            .get(self.i)
+            .or(self.toks.last())
+            .map_or(0, |t| t.line)
+    }
+    fn peek(&self) -> Option<&Tok> {
+        self.toks.get(self.i).map(|t| &t.tok)
+    }
+    fn next(&mut self) -> Result<Tok, SimError> {
+        let t = self
+            .toks
+            .get(self.i)
+            .map(|t| t.tok.clone())
+            .ok_or_else(|| qerr(self.line(), "unexpected end of input"))?;
+        self.i += 1;
+        Ok(t)
+    }
+    fn eat(&mut self, s: &str) -> bool {
+        if matches!(self.peek(), Some(Tok::Sym(x)) if *x == s) {
+            self.i += 1;
+            true
+        } else {
+            false
+        }
+    }
+    fn expect(&mut self, s: &str) -> Result<(), SimError> {
+        if self.eat(s) {
+            Ok(())
+        } else {
+            Err(qerr(
+                self.line(),
+                format!("expected '{s}', found {}", self.describe()),
+            ))
+        }
+    }
+    fn describe(&self) -> String {
+        match self.peek() {
+            Some(Tok::Id(s)) => format!("'{s}'"),
+            Some(Tok::Num(v)) => format!("'{v}'"),
+            Some(Tok::Str(s)) => format!("\"{s}\""),
+            Some(Tok::Sym(s)) => format!("'{s}'"),
+            None => "end of input".into(),
+        }
+    }
+    fn ident(&mut self) -> Result<String, SimError> {
+        match self.next()? {
+            Tok::Id(s) => Ok(s),
+            _ => {
+                self.i -= 1;
+                Err(qerr(
+                    self.line(),
+                    format!("expected a name, found {}", self.describe()),
+                ))
+            }
+        }
+    }
+    fn uint(&mut self) -> Result<usize, SimError> {
+        match self.next()? {
+            Tok::Num(v) if v >= 0.0 && v.fract() == 0.0 => Ok(v as usize),
+            _ => {
+                self.i -= 1;
+                Err(qerr(
+                    self.line(),
+                    format!("expected a non-negative integer, found {}", self.describe()),
+                ))
+            }
+        }
+    }
+    /// Tokens of one expression, up to a top-level `,` or the closing `)`.
+    fn expr_tokens(&mut self) -> Result<Expr, SimError> {
+        let mut depth = 0usize;
+        let mut out = Vec::new();
+        loop {
+            match self.peek() {
+                None => return Err(qerr(self.line(), "unterminated parameter list")),
+                Some(Tok::Sym(",")) if depth == 0 => break,
+                Some(Tok::Sym(")")) if depth == 0 => break,
+                Some(Tok::Sym(";")) => return Err(qerr(self.line(), "unbalanced parentheses")),
+                Some(Tok::Sym("(")) => depth += 1,
+                Some(Tok::Sym(")")) => depth -= 1,
+                _ => {}
+            }
+            out.push(self.toks[self.i].clone());
+            self.i += 1;
+        }
+        if out.is_empty() {
+            return Err(qerr(self.line(), "empty parameter"));
+        }
+        Ok(Expr(out))
+    }
+    fn param_list(&mut self) -> Result<Vec<Expr>, SimError> {
+        let mut ps = Vec::new();
+        if self.eat("(") {
+            if self.eat(")") {
+                return Ok(ps);
+            }
+            loop {
+                ps.push(self.expr_tokens()?);
+                if self.eat(")") {
+                    break;
+                }
+                self.expect(",")?;
+            }
+        }
+        Ok(ps)
+    }
+    fn arg(&mut self) -> Result<Arg, SimError> {
+        let name = self.ident()?;
+        if self.eat("[") {
+            let k = self.uint()?;
+            self.expect("]")?;
+            Ok(Arg::Bit(name, k))
+        } else {
+            Ok(Arg::Reg(name))
+        }
+    }
+    fn reg(
+        &self,
+        regs: &[(String, usize, usize)],
+        a: &Arg,
+        kind: &str,
+    ) -> Result<Vec<usize>, SimError> {
+        let line = self.line();
+        let name = match a {
+            Arg::Reg(n) | Arg::Bit(n, _) => n,
+        };
+        let &(_, off, size) = regs
+            .iter()
+            .find(|r| &r.0 == name)
+            .ok_or_else(|| qerr(line, format!("unknown {kind} register '{name}'")))?;
+        match a {
+            Arg::Reg(_) => Ok((off..off + size).collect()),
+            Arg::Bit(_, k) => {
+                if *k >= size {
+                    Err(qerr(
+                        line,
+                        format!("index {k} out of range for register '{name}' of size {size}"),
+                    ))
+                } else {
+                    Ok(vec![off + k])
                 }
             }
         }
     }
-
-    if total_qubits == 0 {
-        // If no qreg was declared, scan for referenced qubit indices like q[0]
-        let mut max_q = 0usize;
-        let mut found = false;
-        for part in full_code.split(['[', ']']) {
-            if let Ok(idx) = part.trim().parse::<usize>() {
-                max_q = max_q.max(idx + 1);
-                found = true;
-            }
+    /// Broadcast a list of register/element arguments into argument tuples.
+    fn broadcast(&self, args: &[Vec<usize>]) -> Result<Vec<Vec<usize>>, SimError> {
+        let len = args
+            .iter()
+            .map(|a| a.len())
+            .filter(|&l| l != 1)
+            .max()
+            .unwrap_or(1);
+        if args.iter().any(|a| a.len() != 1 && a.len() != len) {
+            return Err(qerr(
+                self.line(),
+                "registers of different sizes in one statement",
+            ));
         }
-        if found {
-            total_qubits = max_q;
-            qreg_offsets.insert("q".to_string(), (0, total_qubits));
-        }
+        Ok((0..len)
+            .map(|k| {
+                args.iter()
+                    .map(|a| if a.len() == 1 { a[0] } else { a[k] })
+                    .collect()
+            })
+            .collect())
     }
 
-    let mut circuit = Circuit::new(total_qubits);
-
-    let resolve_qubit = |arg: &str| -> Result<usize, SimError> {
-        let s = arg.trim();
-        if let Some((reg, idx_str)) = s.split_once('[') {
-            if let Some(idx_str) = idx_str.strip_suffix(']') {
-                let idx: usize = idx_str.trim().parse().map_err(|e| {
-                    SimError::QasmError(format!("bad qubit index '{idx_str}': {e}"))
-                })?;
-                let (offset, size) = qreg_offsets.get(reg.trim()).copied().ok_or_else(|| {
-                    SimError::QasmError(format!("unknown register '{}'", reg.trim()))
-                })?;
-                if idx >= size {
-                    return Err(SimError::QasmError(format!(
-                        "index {idx} out of range for register '{}' of size {size}",
-                        reg.trim()
-                    )));
-                }
-                let q = offset + idx;
-                if q >= total_qubits {
-                    return Err(SimError::QubitOutOfRange {
-                        qubit: q,
-                        num_qubits: total_qubits,
-                    });
-                }
-                return Ok(q);
+    fn emit(
+        &mut self,
+        name: &str,
+        params: &[f64],
+        qubits: &[usize],
+        cond: Option<(usize, bool)>,
+        line: usize,
+        depth: usize,
+    ) -> Result<(), SimError> {
+        for (i, q) in qubits.iter().enumerate() {
+            if qubits[..i].contains(q) {
+                return Err(qerr(line, format!("'{name}' uses qubit {q} twice")));
             }
         }
-        // Direct integer
-        if let Ok(q) = s.parse::<usize>() {
-            if q >= total_qubits {
-                return Err(SimError::QubitOutOfRange {
-                    qubit: q,
-                    num_qubits: total_qubits,
+        if let Some((nq, np, g)) = native_gate(name, qubits, params) {
+            let g = g.ok_or_else(|| {
+                qerr(
+                    line,
+                    format!(
+                        "'{name}' takes {nq} qubit(s) and {np} parameter(s), got {} and {}",
+                        qubits.len(),
+                        params.len()
+                    ),
+                )
+            })?;
+            self.ops.push(match cond {
+                None => Op::Gate(g),
+                Some((meas_index, target_value)) => Op::ClassicControlled {
+                    gate: g,
+                    meas_index,
+                    target_value,
+                },
+            });
+            return Ok(());
+        }
+        let def = self
+            .defs
+            .get(name)
+            .cloned()
+            .ok_or_else(|| qerr(line, format!("unrecognized QASM gate: '{name}'")))?;
+        if def.opaque {
+            return Err(qerr(
+                line,
+                format!("opaque gate '{name}' has no definition"),
+            ));
+        }
+        if def.params.len() != params.len() || def.qargs.len() != qubits.len() {
+            return Err(qerr(
+                line,
+                format!(
+                    "'{name}' takes {} qubit(s) and {} parameter(s), got {} and {}",
+                    def.qargs.len(),
+                    def.params.len(),
+                    qubits.len(),
+                    params.len()
+                ),
+            ));
+        }
+        if depth > 64 {
+            return Err(qerr(line, "gate definitions nest too deeply (recursive?)"));
+        }
+        let env: HashMap<String, f64> = def
+            .params
+            .iter()
+            .cloned()
+            .zip(params.iter().copied())
+            .collect();
+        for call in &def.body {
+            let ps = call
+                .params
+                .iter()
+                .map(|e| e.eval(&env, call.line))
+                .collect::<Result<Vec<_>, _>>()?;
+            let qs = call
+                .args
+                .iter()
+                .map(|a| {
+                    def.qargs
+                        .iter()
+                        .position(|x| x == a)
+                        .map(|k| qubits[k])
+                        .ok_or_else(|| {
+                            qerr(
+                                call.line,
+                                format!("unknown qubit argument '{a}' in gate '{name}'"),
+                            )
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            self.emit(&call.name, &ps, &qs, cond, call.line, depth + 1)?;
+        }
+        Ok(())
+    }
+
+    fn gate_def(&mut self, opaque: bool) -> Result<(), SimError> {
+        let name = self.ident()?;
+        let mut params = Vec::new();
+        if self.eat("(") && !self.eat(")") {
+            loop {
+                params.push(self.ident()?);
+                if self.eat(")") {
+                    break;
+                }
+                self.expect(",")?;
+            }
+        }
+        let mut qargs = vec![self.ident()?];
+        while self.eat(",") {
+            qargs.push(self.ident()?);
+        }
+        let mut body = Vec::new();
+        if opaque {
+            self.expect(";")?;
+        } else {
+            self.expect("{")?;
+            while !self.eat("}") {
+                let line = self.line();
+                let cname = self.ident()?;
+                if cname == "barrier" {
+                    while !self.eat(";") {
+                        self.next()?;
+                    }
+                    continue;
+                }
+                let ps = self.param_list()?;
+                let mut args = vec![self.ident()?];
+                while self.eat(",") {
+                    args.push(self.ident()?);
+                }
+                self.expect(";")?;
+                body.push(BodyCall {
+                    name: cname,
+                    params: ps,
+                    args,
+                    line,
                 });
             }
-            return Ok(q);
         }
-        Err(SimError::QasmError(format!(
-            "cannot resolve qubit argument '{s}'"
-        )))
-    };
-
-    // Second pass: parse gates and measurements
-    for stmt in full_code.split(';') {
-        let trimmed = stmt.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let (gate_spec, rest) = if trimmed.contains('(') {
-            let close_idx = matching_paren(trimmed)
-                .ok_or_else(|| SimError::QasmError(format!("unmatched '(' in '{trimmed}'")))?;
-            let gate_spec = trimmed[..=close_idx].trim();
-            let rest = trimmed[close_idx + 1..].trim();
-            if rest.contains(['(', ')']) {
-                return Err(SimError::QasmError(format!(
-                    "unbalanced parentheses in '{trimmed}'"
-                )));
-            }
-            (gate_spec, rest)
-        } else {
-            match trimmed.split_once(char::is_whitespace) {
-                Some((w, r)) => (w.trim(), r.trim()),
-                None => (trimmed, ""),
-            }
-        };
-
-        if gate_spec.starts_with("OPENQASM")
-            || gate_spec == "include"
-            || gate_spec == "qreg"
-            || gate_spec == "creg"
-            || gate_spec == "barrier"
-        {
-            continue;
-        }
-
-        if gate_spec == "measure" {
-            // measure q[0] -> c[0]
-            if let Some((q_part, _)) = rest.split_once("->") {
-                let q = resolve_qubit(q_part)?;
-                circuit.measure(q);
-            }
-            continue;
-        }
-
-        if gate_spec == "reset" {
-            let q = resolve_qubit(rest)?;
-            circuit.reset(q);
-            continue;
-        }
-
-        // Gate with optional params, e.g. "rx(0.5) q[0]" or "h q[0]"
-        let (gate_name, params) = if let Some((gname, rest_params)) = gate_spec.split_once('(') {
-            let pstr = rest_params.strip_suffix(')').ok_or_else(|| {
-                SimError::QasmError(format!("unmatched parenthesis in '{gate_spec}'"))
-            })?;
-            let p = parse_param_list(pstr).map_err(SimError::QasmError)?;
-            (gname.trim(), p)
-        } else {
-            (gate_spec, Vec::new())
-        };
-
-        let args: Vec<usize> = rest
-            .split(',')
-            .map(|a| a.trim())
-            .filter(|a| !a.is_empty())
-            .map(&resolve_qubit)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let lname = gate_name.to_lowercase();
-        if let Some((nq, np)) = gate_arity(&lname) {
-            if args.len() != nq || params.len() != np {
-                return Err(SimError::QasmError(format!(
-                    "'{gate_name}' takes {nq} qubit(s) and {np} parameter(s), got {} and {}",
-                    args.len(),
-                    params.len()
-                )));
-            }
-        }
-        match lname.as_str() {
-            "id" => {
-                if args.len() == 1 {
-                    circuit.i(args[0]);
-                }
-            }
-            "h" => {
-                if args.len() == 1 {
-                    circuit.h(args[0]);
-                }
-            }
-            "x" => {
-                if args.len() == 1 {
-                    circuit.x(args[0]);
-                }
-            }
-            "y" => {
-                if args.len() == 1 {
-                    circuit.y(args[0]);
-                }
-            }
-            "z" => {
-                if args.len() == 1 {
-                    circuit.z(args[0]);
-                }
-            }
-            "s" => {
-                if args.len() == 1 {
-                    circuit.s(args[0]);
-                }
-            }
-            "sdg" => {
-                if args.len() == 1 {
-                    circuit.sdg(args[0]);
-                }
-            }
-            "t" => {
-                if args.len() == 1 {
-                    circuit.t(args[0]);
-                }
-            }
-            "tdg" => {
-                if args.len() == 1 {
-                    circuit.tdg(args[0]);
-                }
-            }
-            "sx" => {
-                if args.len() == 1 {
-                    circuit.sx(args[0]);
-                }
-            }
-            "sxdg" => {
-                if args.len() == 1 {
-                    circuit.sxdg(args[0]);
-                }
-            }
-            "rx" => {
-                if args.len() == 1 && !params.is_empty() {
-                    circuit.rx(args[0], params[0]);
-                }
-            }
-            "ry" => {
-                if args.len() == 1 && !params.is_empty() {
-                    circuit.ry(args[0], params[0]);
-                }
-            }
-            "rz" => {
-                if args.len() == 1 && !params.is_empty() {
-                    circuit.rz(args[0], params[0]);
-                }
-            }
-            "u1" | "p" | "phase" => {
-                if args.len() == 1 && !params.is_empty() {
-                    circuit.phase(args[0], params[0]);
-                }
-            }
-            "u3" | "u" => {
-                if args.len() == 1 && params.len() >= 3 {
-                    circuit.u(args[0], params[0], params[1], params[2]);
-                }
-            }
-            "cx" | "cnot" => {
-                if args.len() == 2 {
-                    circuit.cnot(args[0], args[1]);
-                }
-            }
-            "cz" => {
-                if args.len() == 2 {
-                    circuit.cz(args[0], args[1]);
-                }
-            }
-            "swap" => {
-                if args.len() == 2 {
-                    circuit.swap(args[0], args[1]);
-                }
-            }
-            "iswap" => {
-                if args.len() == 2 {
-                    circuit.iswap(args[0], args[1]);
-                }
-            }
-            "iswapdg" | "iswap_adj" => {
-                if args.len() == 2 {
-                    circuit.iswapdg(args[0], args[1]);
-                }
-            }
-            "cp" | "cu1" | "cphase" => {
-                if args.len() == 2 && !params.is_empty() {
-                    circuit.cphase(args[0], args[1], params[0]);
-                }
-            }
-            "ccx" => {
-                if args.len() == 3 {
-                    circuit.ccx(args[0], args[1], args[2]);
-                }
-            }
-            unknown => {
-                return Err(SimError::QasmError(format!(
-                    "unrecognized QASM gate: '{unknown}'"
-                )));
-            }
-        }
+        self.defs.insert(
+            name,
+            GateDef {
+                params,
+                qargs,
+                body,
+                opaque,
+            },
+        );
+        Ok(())
     }
 
-    Ok(circuit)
+    /// A quantum operation (gate call, measure, reset), optionally conditioned.
+    fn qop(&mut self, cond: Option<(usize, bool)>) -> Result<(), SimError> {
+        let line = self.line();
+        let name = self.ident()?;
+        match name.as_str() {
+            "measure" => {
+                if cond.is_some() {
+                    return Err(qerr(line, "conditional measurement is not supported"));
+                }
+                let q = self.arg()?;
+                self.expect("->")?;
+                let c = self.arg()?;
+                self.expect(";")?;
+                let qs = self.reg(&self.qregs, &q, "quantum")?;
+                let cs = self.reg(&self.cregs, &c, "classical")?;
+                if qs.len() != cs.len() {
+                    return Err(qerr(line, "measure: register sizes differ"));
+                }
+                for (q, c) in qs.into_iter().zip(cs) {
+                    self.ops.push(Op::Measure(q));
+                    self.last_write[c] = Some(self.num_meas);
+                    self.num_meas += 1;
+                }
+            }
+            "reset" => {
+                if cond.is_some() {
+                    return Err(qerr(line, "conditional reset is not supported"));
+                }
+                let q = self.arg()?;
+                self.expect(";")?;
+                for q in self.reg(&self.qregs, &q, "quantum")? {
+                    self.ops.push(Op::Reset(q));
+                }
+            }
+            "barrier" => {
+                while !self.eat(";") {
+                    self.next()?;
+                }
+            }
+            _ => {
+                let pexprs = self.param_list()?;
+                let empty = HashMap::new();
+                let ps = pexprs
+                    .iter()
+                    .map(|e| e.eval(&empty, line))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut args = Vec::new();
+                if !matches!(self.peek(), Some(Tok::Sym(";"))) {
+                    args.push(self.arg()?);
+                    while self.eat(",") {
+                        args.push(self.arg()?);
+                    }
+                }
+                self.expect(";")?;
+                let lists = args
+                    .iter()
+                    .map(|a| self.reg(&self.qregs, a, "quantum"))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if lists.is_empty() {
+                    return Err(qerr(line, format!("'{name}' has no qubit arguments")));
+                }
+                for qs in self.broadcast(&lists)? {
+                    self.emit(&name, &ps, &qs, cond, line, 0)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn program(&mut self) -> Result<(), SimError> {
+        while self.peek().is_some() {
+            let line = self.line();
+            let word = match self.peek() {
+                Some(Tok::Id(s)) => s.clone(),
+                _ => return Err(qerr(line, format!("unexpected {}", self.describe()))),
+            };
+            match word.as_str() {
+                "OPENQASM" => {
+                    self.i += 1;
+                    match self.next()? {
+                        Tok::Num(v) if (2.0..3.0).contains(&v) => {}
+                        _ => return Err(qerr(line, "only OpenQASM 2.x is supported")),
+                    }
+                    self.expect(";")?;
+                }
+                "include" => {
+                    self.i += 1;
+                    match self.next()? {
+                        Tok::Str(s) if s == "qelib1.inc" => {}
+                        Tok::Str(s) => {
+                            return Err(qerr(
+                                line,
+                                format!("cannot include \"{s}\" (only qelib1.inc is built in)"),
+                            ))
+                        }
+                        _ => return Err(qerr(line, "include needs a file name")),
+                    }
+                    self.expect(";")?;
+                }
+                "qreg" | "creg" => {
+                    self.i += 1;
+                    let name = self.ident()?;
+                    self.expect("[")?;
+                    let size = self.uint()?;
+                    self.expect("]")?;
+                    self.expect(";")?;
+                    let regs = if word == "qreg" {
+                        &mut self.qregs
+                    } else {
+                        &mut self.cregs
+                    };
+                    if regs.iter().any(|r| r.0 == name) {
+                        return Err(qerr(line, format!("register '{name}' declared twice")));
+                    }
+                    let off = regs.last().map_or(0, |r| r.1 + r.2);
+                    regs.push((name, off, size));
+                    if word == "creg" {
+                        self.num_clbits = off + size;
+                        self.last_write.resize(self.num_clbits, None);
+                    }
+                }
+                "gate" | "opaque" => {
+                    self.i += 1;
+                    self.gate_def(word == "opaque")?;
+                }
+                "if" => {
+                    self.i += 1;
+                    self.expect("(")?;
+                    let creg = self.ident()?;
+                    self.expect("==")?;
+                    let v = self.uint()?;
+                    self.expect(")")?;
+                    let &(_, off, size) =
+                        self.cregs.iter().find(|r| r.0 == creg).ok_or_else(|| {
+                            qerr(line, format!("unknown classical register '{creg}'"))
+                        })?;
+                    if size != 1 || v > 1 {
+                        return Err(qerr(
+                            line,
+                            format!(
+                                "if ({creg} == {v}): only one-bit registers can be conditioned on \
+                                 (the engine conditions on a single measurement)"
+                            ),
+                        ));
+                    }
+                    let meas = self.last_write[off].ok_or_else(|| {
+                        qerr(line, format!("if ({creg} == {v}): '{creg}' is read before any measurement writes it"))
+                    })?;
+                    self.qop(Some((meas, v == 1)))?;
+                }
+                _ => self.qop(None)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Parses an OpenQASM 2.0 program into a [`Circuit`].
+///
+/// Qubits of all `qreg`s are numbered in declaration order. Measurement `k`
+/// (in program order) is measurement record `k` of the circuit, whatever
+/// classical bit it writes. See the module notes above for what is supported.
+pub fn from_qasm(source: &str) -> Result<Circuit, SimError> {
+    let mut defs_parser = Parser {
+        toks: tokenize(BUILTIN_DEFS)?,
+        i: 0,
+        qregs: Vec::new(),
+        cregs: Vec::new(),
+        num_clbits: 0,
+        defs: HashMap::new(),
+        last_write: Vec::new(),
+        num_meas: 0,
+        ops: Vec::new(),
+    };
+    defs_parser.program()?;
+    let mut p = Parser {
+        toks: tokenize(source)?,
+        defs: defs_parser.defs,
+        ..defs_parser
+    };
+    p.i = 0;
+    p.program()?;
+    let n = p.qregs.last().map_or(0, |r| r.1 + r.2);
+    Ok(Circuit {
+        num_qubits: n,
+        ops: p.ops,
+    })
 }
 
 #[cfg(test)]
@@ -666,5 +992,64 @@ mod tests {
         let c = from_qasm(qasm).unwrap();
         assert_eq!(c.num_qubits, 2);
         assert_eq!(c.num_gates(), 3);
+    }
+
+    #[test]
+    fn gate_definitions_broadcast_and_conditionals() {
+        let src = r#"
+            OPENQASM 2.0;
+            include "qelib1.inc";
+            qreg a[2];
+            qreg b[1];
+            creg c[2];
+            creg f[1];
+            gate g(t) x, y { h x; cx x, y; rz(t/2) y; }
+            h a;
+            g(0.5) a[1], b[0];
+            cx a, b;
+            measure a -> c;
+            measure b[0] -> f[0];
+            if (f == 1) x a[0];
+        "#;
+        let c = from_qasm(src).unwrap();
+        assert_eq!(c.num_qubits, 3);
+        assert_eq!(
+            &c.ops[..5],
+            &[
+                Op::Gate(Gate::H(0)),
+                Op::Gate(Gate::H(1)),
+                Op::Gate(Gate::H(1)),
+                Op::Gate(Gate::Cnot(1, 2)),
+                Op::Gate(Gate::Rz(2, 0.25)),
+            ]
+        );
+        assert_eq!(c.ops[5], Op::Gate(Gate::Cnot(0, 2)));
+        assert_eq!(c.ops[6], Op::Gate(Gate::Cnot(1, 2)));
+        assert_eq!(
+            c.ops.last(),
+            Some(&Op::ClassicControlled {
+                gate: Gate::X(0),
+                meas_index: 2,
+                target_value: true
+            })
+        );
+    }
+
+    #[test]
+    fn qelib_extras_expand() {
+        let src = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncswap q[0],q[1],q[2];\nrzz(0.3) q[0],q[1];\nu2(0,pi) q[2];\n";
+        let c = from_qasm(src).unwrap();
+        assert_eq!(c.ops[0], Op::Gate(Gate::Cnot(2, 1)));
+        assert_eq!(c.ops[1], Op::Gate(Gate::Ccx(0, 1, 2)));
+        assert_eq!(c.ops[4], Op::Gate(Gate::Rz(1, 0.3)));
+        assert!(matches!(c.ops[6], Op::Gate(Gate::U(2, ..))));
+    }
+
+    #[test]
+    fn errors_name_the_line() {
+        let e = from_qasm("OPENQASM 2.0;\nqreg q[1];\n\nfoo q[0];\n").unwrap_err();
+        assert!(e.to_string().contains("line 4"), "{e}");
+        assert!(from_qasm("qreg q[2]; creg c[2]; if (c == 1) x q[0];").is_err());
+        assert!(from_qasm("qreg q[1]; gate r2 a { r2 a; } r2 q[0];").is_err());
     }
 }

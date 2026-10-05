@@ -6,7 +6,7 @@ flag circuit (src/qec/color.rs `memory_flagged`) they are present and also flip 
 flag detector, and a flag-only fault exists (an X on the flag from a flag CNOT). So two flagged
 hooks of one plaquette in one round cost 2 faults and leave a *segment* of its X-half order, and a
 hook plus a flag-only fault leaves a suffix: the absent-hook model is optimistic (it certified
-schedules that are d - 1 as circuits, see research/colour-flags.md).
+schedules that are d - 1 as circuits, see research/qec/colour-flags.md).
 
 Exact flag model used here (Z memory, noisy-CNOT, flag window from `ColorCode::flag_slots`): for a
 flagged plaquette p and clean-error layer l, the multi-qubit unflagged hooks are removed and

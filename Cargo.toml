@@ -9,6 +9,15 @@ repository = "https://github.com/dylanneve1/qsim-lab"
 readme = "README.md"
 keywords = ["quantum", "simulator", "stabilizer", "mps"]
 categories = ["science", "simulation"]
+# Lab notebooks and their data stay in the repository, not in packages (crate
+# or the qsimlab sdist, which packages this crate as a path dependency).
+exclude = ["research/", "tools/", "*.sh"]
+
+[workspace]
+members = [".", "python"]
+# `cargo build/test/clippy` in the root still act on the engine crate only;
+# the Python extension needs a Python interpreter to build (see python/).
+default-members = ["."]
 
 [lib]
 name = "qsim_lab"

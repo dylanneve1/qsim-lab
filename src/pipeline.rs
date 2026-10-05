@@ -39,12 +39,12 @@
 //! * **State vector** otherwise, f64, blocked executor, refused above
 //!   [`Budget::mem_bytes`].
 //!
-//! The same numbers are recorded in `research/pipeline.md`.
+//! The same numbers are recorded in `research/performance/pipeline.md`.
 
 use crate::circuit::{Circuit, Op, SimError};
 use crate::compile::plan::{
-    compile_sampling, compile_unitary, expectation_z_product, AdaptiveRule, Backend, CompileStats,
-    PlanOptions,
+    compile_sampling, compile_unitary, expectation_z_product_report, AdaptiveRule, Backend,
+    CompileStats, PlanOptions,
 };
 use crate::compile::repeat::exec::ExecOptions;
 use crate::compile::repeat::{DetectOptions, Program};
@@ -61,7 +61,7 @@ use rand::SeedableRng;
 pub const ADAPTIVE_MIN_QUBITS: usize = 12;
 /// The dense active register must be at least this many qubits smaller than
 /// the component (measured: adaptive ties the state vector at `d = n` and
-/// wins from `d = n - 1`, see `research/pipeline.md`).
+/// wins from `d = n - 1`, see `research/performance/pipeline.md`).
 pub const ADAPTIVE_MARGIN: usize = 1;
 /// Largest active register (qubits) the compressed state may allocate.
 pub const ADAPTIVE_MAX_ACTIVE: usize = 26;
@@ -151,11 +151,19 @@ pub struct SimOptions {
     pub repeat: Option<RepeatOptions>,
     /// Planner debug mode for expectation values: every planned component
     /// with at most 20 qubits is also run on the reference state vector,
-    /// and a disagreement panics (research/planner.md).
+    /// and a disagreement panics (research/simulability/planner.md).
     pub planner_debug: bool,
+    /// Amplitudes and Z-product expectations of unitary circuits through the
+    /// graph compiler's dense path (`crate::graph`: basis-state folding,
+    /// phase-region rewrite priced by plan cost, light cone, components,
+    /// compiled blocked executor). `None` (default): the ordinary passes.
+    /// The ordinary path also has the stabilizer/Pauli-path/compressed
+    /// engines, so this is only worth it for dense workloads; it is the
+    /// fixed-angle special case of `graph::CompiledCircuit`.
+    pub graph: Option<crate::graph::GraphOptions>,
 }
 
-/// Options of the repeat pass (see `research/repeat.md`).
+/// Options of the repeat pass (see `research/compiler/repeat.md`).
 #[derive(Clone, Debug)]
 pub struct RepeatOptions {
     pub detect: DetectOptions,
@@ -211,12 +219,57 @@ pub fn simulate_with(
     budget: &Budget,
     opts: &SimOptions,
 ) -> Result<Simulation, SimError> {
+    if let Some(go) = &opts.graph {
+        if let Some(r) = graph_path(circuit, request, budget, go) {
+            return r;
+        }
+    }
     if let Some(ro) = &opts.repeat {
         if let Some(r) = repeat_path(circuit, request, budget, ro, opts.planner_debug) {
             return r;
         }
     }
     simulate_plain(circuit, request, budget, opts.planner_debug)
+}
+
+/// `None`: not a unitary amplitude / expectation request.
+fn graph_path(
+    circuit: &Circuit,
+    request: &Request,
+    budget: &Budget,
+    go: &crate::graph::GraphOptions,
+) -> Option<Result<Simulation, SimError>> {
+    use crate::graph::{CompiledCircuit, Observable, ParamCircuit};
+    if !matches!(request, Request::Amplitudes(_) | Request::Expectation(_)) {
+        return None;
+    }
+    let pc = ParamCircuit::from_circuit(circuit).ok()?;
+    let mut go = go.clone();
+    go.mem_bytes = go.mem_bytes.min(budget.mem_bytes);
+    let run = || -> Result<Simulation, SimError> {
+        let (output, cc) = match request {
+            Request::Expectation(qs) => {
+                let mut o = Observable::new();
+                let s: Vec<String> = qs.iter().map(|q| format!("Z{q}")).collect();
+                o.add(1.0, &s.join(" "))?;
+                let cc = CompiledCircuit::compile(&pc, Some(&o), &go)?;
+                (Output::Expectation(cc.expectation_at(&[])?), cc)
+            }
+            Request::Amplitudes(xs) => {
+                let cc = CompiledCircuit::compile(&pc, None, &go)?;
+                (Output::Amplitudes(cc.amplitudes_at(&[], xs)?), cc)
+            }
+            Request::Samples { .. } => unreachable!(),
+        };
+        let engines = cc
+            .stats()
+            .parts
+            .iter()
+            .map(|&(n, kops, _, _)| (n, kops, Backend::StateVector))
+            .collect();
+        Ok(Simulation { output, engines })
+    };
+    Some(run())
 }
 
 fn is_terminal_unitary(c: &Circuit) -> bool {
@@ -411,7 +464,7 @@ fn simulate_plain(
     };
     match request {
         Request::Samples { shots, seed } => {
-            // Planner v2 (research/planner-v2.md) picks the engine of every
+            // Planner v2 (research/simulability/planner-v2.md) picks the engine of every
             // terminal component that would otherwise need a state vector
             // or the compressed state; it respects the budget itself.
             let opts = PlanOptions {
@@ -451,15 +504,15 @@ fn simulate_plain(
             })
         }
         Request::Expectation(qs) => {
-            // Expectation values go through Planner v0 (research/planner.md).
+            // Expectation values go through Planner v0 (research/simulability/planner.md).
             let opts = PlanOptions {
                 planner: Some(planner_cfg),
                 ..opts
             };
-            let v = expectation_z_product(circuit, qs, opts)?;
+            let (v, engines) = expectation_z_product_report(circuit, qs, opts)?;
             Ok(Simulation {
                 output: Output::Expectation(v),
-                engines: Vec::new(),
+                engines,
             })
         }
     }

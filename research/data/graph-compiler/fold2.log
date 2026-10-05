@@ -1,0 +1,8 @@
+# 2026-10-05T01:58:48Z load { 11.69 12.49 12.10 } :: /Users/dylan/qsim-gc-target/release/examples/graph_bench fold
+adder ctrl=|1>       n=16 ops 1317 -> 1 (removed 1317, simplified 0) | run: fold off 0.255ms on 0.090ms (2.83x)
+adder ctrl=|+>       n=16 ops 1317 -> 1 (removed 1316, simplified 0) | run: fold off 0.318ms on 0.088ms (3.60x)
+window ctrl=|1>      n=22 ops 785 -> 1 (removed 785, simplified 0) | run: fold off 15.439ms on 4.052ms (3.81x)
+window ctrl=|+>      n=22 ops 785 -> 582 (removed 207, simplified 18) | run: fold off 15.597ms on 15.506ms (1.01x)
+trotter n=16 s=10    n=16 ops 310 -> 296 (removed 15, simplified 0) | run: fold off 24.872ms on 23.623ms (1.05x)
+qaoa n=16 p=3        n=16 ops 136 -> 136 (removed 0, simplified 0) | run: fold off 12.435ms on 19.135ms (0.65x)
+# exit 0 2026-10-05T01:58:51Z
