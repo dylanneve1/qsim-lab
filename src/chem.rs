@@ -303,7 +303,7 @@ impl Program {
         for op in &self.ops {
             match op {
                 POp::Clifford(g) => {
-                    c.gate(g.clone());
+                    c.gate(*g);
                 }
                 POp::Rot {
                     pauli,
