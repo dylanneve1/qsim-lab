@@ -513,7 +513,7 @@ pub fn jw_hamiltonian(fd: &Fcidump, span: Option<&Span>, tol: f64) -> (PauliSum,
         None => true,
         Some(s) => s.contains(&xvec(idx)),
     };
-    let mut add = |op: Op, coef: f64, acc: &mut HashMap<Vec<u64>, C>| {
+    let add = |op: Op, coef: f64, acc: &mut HashMap<Vec<u64>, C>| {
         for (k, c) in op {
             *acc.entry(k).or_insert(C::new(0.0, 0.0)) += c * coef;
         }
