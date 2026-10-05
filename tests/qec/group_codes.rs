@@ -512,8 +512,9 @@ fn pin(gens: &[&[u8]], a: &[&[u8]], b: &[&[u8]], n: usize, k: usize, d: usize) {
 }
 
 /// [[288,16,16]] over SmallGroup(144,167) = Z6 x (C3 : D8): k d^2/n = 14.2,
-/// above every published weight-6 code with n <= 288 (code-discovery-2.md).
-/// About 4 s in release.
+/// above every weight-6 code in published papers with n <= 288 (the same
+/// parameters were posted to the qLDPC challenge board with d only an upper
+/// bound; see code-discovery-2.md). About 4 s in release.
 #[test]
 fn new_code_288_16_16() {
     pin(
@@ -541,7 +542,8 @@ fn new_code_288_16_16() {
     );
 }
 
-/// [[192,12,14]] over SmallGroup(96,17) = C3 : (Q8 : C4): k d^2/n = 12.25.
+/// [[192,12,14]] over SmallGroup(96,17) = C3 : (Q8 : C4): k d^2/n = 12.25
+/// (also in Lin & Pryadko's 2BGA dataset, with a randomized distance).
 #[test]
 fn new_code_192_12_14() {
     pin(
@@ -569,8 +571,9 @@ fn new_code_192_12_14() {
     );
 }
 
-/// New Pareto points of the search: [[192,16,12]] (SmallGroup(96,12)),
-/// [[200,16,12]] (D10 x D10) and [[224,18,12]] (C7 x ((C4 x C2) : C2)).
+/// [[192,16,12]] (SmallGroup(96,12)) and [[200,16,12]] (D10 x D10), both in
+/// Lin & Pryadko's dataset with randomized distances, and the new Pareto point
+/// [[224,18,12]] (C7 x ((C4 x C2) : C2)).
 #[test]
 fn new_codes_k16_k18_d12() {
     pin(
