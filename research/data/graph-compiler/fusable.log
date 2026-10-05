@@ -1,0 +1,8 @@
+trotter   | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+qaoa      | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+hea       | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+pauli     | k=2: 28 blocks, 28.5% of ops | k=3: 9 blocks, 20.2% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+adder     | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+window    | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+qft       | k=2: 0 blocks, 0.0% of ops | k=3: 0 blocks, 0.0% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops
+brickwork | k=2: 8 blocks, 9.1% of ops | k=3: 4 blocks, 10.6% of ops | k=4: 0 blocks, 0.0% of ops | k=5: 0 blocks, 0.0% of ops

@@ -1,0 +1,8 @@
+# 2026-10-05T01:17:24Z load { 29.14 21.17 17.86 } :: /Users/dylan/qsim-gc-target/release/examples/graph_bench partition 40 20 4 16 3 20
+chain_core na=40 nb=20 da=4 db=16 cuts=3 gates=721 | plan 0.13s: cut 3 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 1.340s; single best Some((Mps, 6.835119768065458))
+  partitioned: 1.264s for 64 amplitudes (sum |a|^2 = 3.008e-18)
+  single StateVector: 0.00s error: state vector would need 18446744073709551616 bytes, above the 1073741824-byte limit
+  single Mps: 24.23s aborted (deadline 20s / budget)
+  single Hsf: 0.00s error: HSF block state vector would need 17179869184 bytes, above the 1073741824-byte limit
+  single Sparse: 1.58s aborted (deadline 20s / budget)
+# exit 0 2026-10-05T01:17:51Z

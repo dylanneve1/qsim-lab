@@ -1,0 +1,5 @@
+# 2026-10-05T01:21:50Z load { 11.41 15.43 16.20 } :: /Users/dylan/qsim-gc-target/release/examples/graph_bench partition 40 20 4 16 3 120
+chain_core na=40 nb=20 da=4 db=16 cuts=3 gates=721 | plan 0.13s: cut 3 |B|=20 A:(Mps, 0.001035316538312942) B:(StateVector, 0.16649845051940607) predicted 1.340s; single best Some((Mps, 6.835119768065458))
+  partitioned: 1.203s for 64 amplitudes (sum |a|^2 = 3.008e-18)
+  single Mps: 122.58s aborted (deadline 120s / budget)
+# exit 0 2026-10-05T01:23:55Z

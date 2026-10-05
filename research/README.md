@@ -72,6 +72,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [dag.md](compiler/dag.md) | Circuit DAG IR (`src/dag.rs`) |
 | [phasepoly.md](compiler/phasepoly.md) | Phase folding: graph-based T-count reduction |
 | [repeat.md](compiler/repeat.md) | Exact exploitation of repeated blocks (`compile::repeat`) |
+| [graph-compiler.md](compiler/graph-compiler.md) | Graph compiler: compile-once/bind, subgraph dedup, rewrites, basis folding, engine partitioning (`src/graph/`) |
 
 ## Theory — [`theory/`](theory/)
 
