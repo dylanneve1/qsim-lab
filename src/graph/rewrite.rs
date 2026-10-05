@@ -52,11 +52,17 @@ impl Default for RewriteOptions {
 /// What the pass did.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RewriteStats {
+    /// Phase-polynomial regions examined.
     pub regions: usize,
+    /// Regions actually replaced (the rewrite had to be strictly better).
     pub rewritten: usize,
+    /// Permutation ops in all examined regions before the pass.
     pub perm_ops_before: usize,
+    /// Permutation-network cost after the pass (unchanged regions counted at their old size).
     pub perm_ops_after: usize,
+    /// Diagonal ops in all examined regions before the pass.
     pub diag_ops_before: usize,
+    /// Phase gadgets emitted by the rewritten regions.
     pub gadgets_after: usize,
 }
 

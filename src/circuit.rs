@@ -9,31 +9,59 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq)]
 pub enum SimError {
     /// The backend cannot represent this gate (e.g. T on a stabilizer tableau).
-    Unsupported { backend: &'static str, gate: Gate },
+    Unsupported {
+        /// Name of the backend that rejected the gate.
+        backend: &'static str,
+        /// The rejected gate.
+        gate: Gate,
+    },
     /// A qubit index is out of range.
-    QubitOutOfRange { qubit: usize, num_qubits: usize },
+    QubitOutOfRange {
+        /// The offending qubit index.
+        qubit: usize,
+        /// Register width the index was checked against.
+        num_qubits: usize,
+    },
     /// A gate was given the same qubit twice.
     RepeatedQubit(Gate),
     /// The requested register would exceed the crate's memory cap.
     TooLarge {
+        /// What was being allocated.
         what: &'static str,
+        /// Bytes the allocation would need.
         bytes: u128,
+        /// The cap, in bytes.
         limit: u128,
     },
     /// The Pauli-path simulator exceeded its term budget.
-    TooManyTerms { terms: usize, limit: usize },
+    TooManyTerms {
+        /// Number of Pauli terms reached.
+        terms: usize,
+        /// The configured term budget.
+        limit: usize,
+    },
     /// The backend computes amplitudes of a unitary circuit and cannot apply
     /// the non-unitary operation (measurement, reset, noise channel or
     /// classically conditioned gate) at position `op_index` of `Circuit::ops`.
     MeasurementNotSupported {
+        /// Name of the backend.
         backend: &'static str,
+        /// Index into `Circuit::ops` of the unsupported operation.
         op_index: usize,
     },
     /// A classical bit index referenced by a conditional operation was out of range.
-    ClassicalBitOutOfRange { bit: usize, available: usize },
+    ClassicalBitOutOfRange {
+        /// The requested measurement-record index.
+        bit: usize,
+        /// Number of measurement outcomes recorded so far.
+        available: usize,
+    },
     /// The request needs something this circuit does not have (e.g. a
     /// state vector or amplitude of a circuit with measurements or noise).
-    NotSupported { what: &'static str },
+    NotSupported {
+        /// Description of the unsupported request.
+        what: &'static str,
+    },
     /// Failed to parse OpenQASM source.
     QasmError(String),
 }
@@ -94,6 +122,7 @@ pub fn check_gate(g: &Gate, num_qubits: usize) -> Result<(), SimError> {
 pub trait Simulator {
     /// Short backend name, used in error messages and benchmark output.
     fn name(&self) -> &'static str;
+    /// Number of qubits in the simulated register.
     fn num_qubits(&self) -> usize;
     /// Applies a gate in place.
     fn apply(&mut self, gate: &Gate) -> Result<(), SimError>;
@@ -130,13 +159,21 @@ pub trait Simulator {
 /// One instruction of a circuit.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Op {
+    /// Apply a unitary gate.
     Gate(Gate),
+    /// Measure qubit `q` in the computational basis. Outcomes are appended to the
+    ///  measurement record in program order; [`Op::ClassicControlled`] refers to them
+    ///  by their position in that record.
     Measure(usize),
+    /// Reset qubit `q` to |0>.
     Reset(usize),
     /// Classical condition: apply `gate` if measured bit `meas_index` equals `target_value`.
     ClassicControlled {
+        /// The gate applied when the condition holds.
         gate: Gate,
+        /// Index into the measurement record (0 = the first `Measure` executed).
         meas_index: usize,
+        /// Outcome the recorded bit must equal for `gate` to be applied.
         target_value: bool,
     },
     /// Stochastic Pauli X flip on qubit `q` with probability `p`.
@@ -154,12 +191,15 @@ pub enum Op {
 /// An ordered list of gates and measurements on `num_qubits` qubits.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Circuit {
+    /// Register width; every qubit index in `ops` must be below this.
     pub num_qubits: usize,
+    /// Operations in program order.
     pub ops: Vec<Op>,
 }
 
 macro_rules! builder_1q {
     ($($name:ident => $variant:ident),*) => {$(
+        /// Appends the corresponding single-qubit gate on qubit `q`.
         pub fn $name(&mut self, q: usize) -> &mut Self {
             self.gate(Gate::$variant(q))
         }
@@ -167,6 +207,7 @@ macro_rules! builder_1q {
 }
 
 impl Circuit {
+    /// An empty circuit on `num_qubits` qubits.
     pub fn new(num_qubits: usize) -> Self {
         Circuit {
             num_qubits,
@@ -174,6 +215,7 @@ impl Circuit {
         }
     }
 
+    /// Appends gate `g` (qubit indices are not checked here).
     pub fn gate(&mut self, g: Gate) -> &mut Self {
         self.ops.push(Op::Gate(g));
         self
@@ -193,52 +235,67 @@ impl Circuit {
         sxdg => Sxdg
     );
 
+    /// Appends `Rx(theta)` on qubit `q`; `theta` in radians.
     pub fn rx(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Rx(q, theta))
     }
+    /// Appends `Ry(theta)` on qubit `q`; `theta` in radians.
     pub fn ry(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Ry(q, theta))
     }
+    /// Appends `Rz(theta)` on qubit `q`; `theta` in radians.
     pub fn rz(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Rz(q, theta))
     }
+    /// Appends the phase gate `diag(1, e^{i theta})` on qubit `q`.
     pub fn phase(&mut self, q: usize, theta: f64) -> &mut Self {
         self.gate(Gate::Phase(q, theta))
     }
+    /// Appends the universal gate `U(theta, phi, lambda)` on qubit `q`.
     pub fn u(&mut self, q: usize, theta: f64, phi: f64, lambda: f64) -> &mut Self {
         self.gate(Gate::U(q, theta, phi, lambda))
     }
+    /// Appends a CNOT with control `c` and target `t`.
     pub fn cnot(&mut self, c: usize, t: usize) -> &mut Self {
         self.gate(Gate::Cnot(c, t))
     }
+    /// Appends a controlled-Z on qubits `a` and `b`.
     pub fn cz(&mut self, a: usize, b: usize) -> &mut Self {
         self.gate(Gate::Cz(a, b))
     }
+    /// Appends a SWAP of qubits `a` and `b`.
     pub fn swap(&mut self, a: usize, b: usize) -> &mut Self {
         self.gate(Gate::Swap(a, b))
     }
+    /// Appends an iSWAP on qubits `a` and `b`.
     pub fn iswap(&mut self, a: usize, b: usize) -> &mut Self {
         self.gate(Gate::ISwap(a, b))
     }
+    /// Appends an inverse iSWAP on qubits `a` and `b`.
     pub fn iswapdg(&mut self, a: usize, b: usize) -> &mut Self {
         self.gate(Gate::ISwapdg(a, b))
     }
+    /// Appends a controlled phase `diag(1, 1, 1, e^{i theta})` on qubits `a` and `b`.
     pub fn cphase(&mut self, a: usize, b: usize, theta: f64) -> &mut Self {
         self.gate(Gate::CPhase(a, b, theta))
     }
+    /// Appends a Toffoli with controls `a`, `b` and target `t`.
     pub fn ccx(&mut self, a: usize, b: usize, t: usize) -> &mut Self {
         self.gate(Gate::Ccx(a, b, t))
     }
+    /// Appends a computational-basis measurement of qubit `q`.
     pub fn measure(&mut self, q: usize) -> &mut Self {
         self.ops.push(Op::Measure(q));
         self
     }
+    /// Appends a measurement of every qubit, in order `0..num_qubits`.
     pub fn measure_all(&mut self) -> &mut Self {
         for q in 0..self.num_qubits {
             self.measure(q);
         }
         self
     }
+    /// Appends a reset of qubit `q` to |0>.
     pub fn reset(&mut self, q: usize) -> &mut Self {
         self.ops.push(Op::Reset(q));
         self
@@ -307,6 +364,7 @@ impl Circuit {
         })
     }
 
+    /// Number of unitary gates (`Op::Gate`); conditional gates are not counted.
     pub fn num_gates(&self) -> usize {
         self.gates().count()
     }
@@ -316,6 +374,8 @@ impl Circuit {
         self.gates().filter(|g| g.is_t()).count()
     }
 
+    /// True when every gate, including classically conditioned ones, is Clifford.
+    ///  Measurements, resets and noise channels do not affect the result.
     pub fn is_clifford(&self) -> bool {
         self.ops.iter().all(|op| match op {
             Op::Gate(g) => g.is_clifford(),
@@ -743,15 +803,25 @@ impl Circuit {
 /// Summary statistics of a quantum circuit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CircuitStats {
+    /// Register width.
     pub num_qubits: usize,
+    /// Number of entries in `ops`, of every kind.
     pub total_ops: usize,
+    /// Unitary gates (`Op::Gate`) of arity 1, 2 or 3.
     pub total_gates: usize,
+    /// Circuit depth as computed by [`Circuit::depth`].
     pub depth: usize,
+    /// Single-qubit unitary gates.
     pub gates_1q: usize,
+    /// Two-qubit unitary gates.
     pub gates_2q: usize,
+    /// Three-qubit unitary gates (Toffoli).
     pub gates_3q: usize,
+    /// Unitary gates that are Clifford.
     pub clifford_gates: usize,
+    /// T and T† gates.
     pub t_gates: usize,
+    /// `Measure` operations.
     pub measurements: usize,
 }
 

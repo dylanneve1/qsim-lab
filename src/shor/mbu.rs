@@ -59,6 +59,7 @@ use std::rc::Rc;
 /// X-basis measurement with its (sampled) outcome followed by a reset.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MbuOp {
+    /// A unitary gate.
     G(Gate),
     /// X-basis measurement of the qubit with the given outcome, then reset
     /// to `|0⟩` (an `X` if the outcome is 1).
@@ -120,12 +121,15 @@ impl MbuOpts {
 /// Windowed layout plus the carry ancillas of the Gidney adders.
 #[derive(Clone, Debug)]
 pub struct MbuLayout {
+    /// The windowed-oracle layout (control, registers, AND ancillas).
     pub win: WindowLayout,
     /// `n − 1` carry ancillas (empty without `adders`).
     pub cy: Vec<usize>,
 }
 
 impl MbuLayout {
+    /// Layout for an `n`-bit modulus with window `w`; the `n − 1` carry ancillas
+    /// follow the [`WindowLayout`] qubits when `o.adders` is set.
     pub fn new(n: usize, w: usize, o: &MbuOpts) -> Self {
         let win = WindowLayout::new(n, w);
         let base = win.num_qubits();
@@ -136,6 +140,7 @@ impl MbuLayout {
         };
         Self { win, cy }
     }
+    /// Total qubits: the windowed layout plus the carry ancillas.
     pub fn num_qubits(&self) -> usize {
         self.win.num_qubits() + self.cy.len()
     }
@@ -144,12 +149,15 @@ impl MbuLayout {
 /// A table lookup `out ^= ctrl·T[addr]` (by unary iteration).
 #[derive(Clone, Debug)]
 pub struct LookupSpec {
+    /// Control qubit, or [`NO_CTRL`] for an uncontrolled lookup.
     pub ctrl: usize,
     /// Address, LSB first.
     pub addr: Vec<usize>,
     /// Clean AND ancillas (at least `addr.len()`).
     pub and: Vec<usize>,
+    /// Output qubits, LSB first (bit `j` of a table entry targets `out[j]`).
     pub out: Vec<usize>,
+    /// Table indexed by the address value.
     pub table: Vec<u64>,
     /// Uncompute the address-tree ANDs by measurement.
     pub mbu_and: bool,
@@ -162,8 +170,11 @@ pub struct LookupSpec {
 /// `(−1)^c` (used only when the X-basis measurement of `t` gives 1).
 #[derive(Clone, Debug)]
 pub struct FlagSpec {
+    /// The flag qubit (clean before `compute`).
     pub t: usize,
+    /// Operations XORing the flag value `c` into `t`.
     pub compute: Vec<LOp>,
+    /// Operations applying the phase `(−1)^c` (run only after outcome 1).
     pub fix: Vec<LOp>,
 }
 
@@ -790,6 +801,8 @@ impl Outcomes {
             .unwrap_or(0);
         Self::new(seed ^ salt.wrapping_mul(0x9E37_79B9_7F4A_7C15), mode)
     }
+    /// Next outcome: the low bit of the next SplitMix64 output in random mode,
+    /// else the fixed bit of the mode.
     pub fn next_bit(&mut self) -> bool {
         match self.mode {
             1 => false,
@@ -824,15 +837,21 @@ pub fn controlled_ua(
 pub struct MbuCounts {
     /// Every op: gates, fix-up Z/CZ and measurements.
     pub total: usize,
+    /// Toffoli (CCX) gates.
     pub toffoli: usize,
+    /// CNOT gates.
     pub cnot: usize,
+    /// X gates.
     pub x: usize,
     /// Classically controlled phase fix-ups (Z and CZ).
     pub fixup: usize,
+    /// X-basis measurements ([`MbuOp::MeasX`]).
     pub meas: usize,
 }
 
 impl MbuCounts {
+    /// Counts `ops` ([`MbuOp::GlobalNeg`] is not counted). Panics on a gate other
+    /// than X, CNOT, CCX, Z or CZ.
     pub fn of(ops: &[MbuOp]) -> Self {
         let mut c = MbuCounts::default();
         for op in ops {
@@ -850,6 +869,7 @@ impl MbuCounts {
         }
         c
     }
+    /// Adds the counts of `o` to `self`.
     pub fn add(&mut self, o: &MbuCounts) {
         self.total += o.total;
         self.toffoli += o.toffoli;

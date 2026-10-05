@@ -21,16 +21,27 @@ pub type Mat4 = [[Complex64; 4]; 4];
 /// A quantum gate together with the qubits it acts on.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Gate {
+    /// Identity on the qubit.
     I(usize),
+    /// Hadamard.
     H(usize),
+    /// Pauli X (bit flip).
     X(usize),
+    /// Pauli Y.
     Y(usize),
+    /// Pauli Z (phase flip).
     Z(usize),
+    /// `S = diag(1, i)`, the square root of Z.
     S(usize),
+    /// `S† = diag(1, -i)`.
     Sdg(usize),
+    /// `T = diag(1, e^{iπ/4})`, the square root of S.
     T(usize),
+    /// `T† = diag(1, e^{-iπ/4})`.
     Tdg(usize),
+    /// `√X = ½[[1+i, 1-i], [1-i, 1+i]]`.
     Sx(usize),
+    /// `√X† = ½[[1-i, 1+i], [1+i, 1-i]]`, the inverse of `Sx`.
     Sxdg(usize),
     /// `exp(-i θ X / 2)`
     Rx(usize, f64),
@@ -44,9 +55,13 @@ pub enum Gate {
     U(usize, f64, f64, f64),
     /// `Cnot(control, target)`
     Cnot(usize, usize),
+    /// Controlled Z, `diag(1, 1, 1, -1)`; symmetric in its two qubits.
     Cz(usize, usize),
+    /// Exchanges the states of the two qubits.
     Swap(usize, usize),
+    /// iSWAP: swaps `|01>` and `|10>` with a phase of `i`, leaves `|00>` and `|11>` unchanged.
     ISwap(usize, usize),
+    /// Inverse of iSWAP: swaps `|01>` and `|10>` with a phase of `-i`.
     ISwapdg(usize, usize),
     /// Controlled phase `diag(1, 1, 1, e^{iθ})`.
     CPhase(usize, usize, f64),

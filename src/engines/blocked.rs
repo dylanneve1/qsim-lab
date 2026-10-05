@@ -22,7 +22,7 @@
 //!    stage instead of once per gate.
 //! 4. Consecutive diagonal terms in a stage are applied together: they are
 //!    grouped by a "pivot" condition and each group is one multiplication
-//!    pass by a product of per-bit factor tables (see [`DiagBlock`]).
+//!    pass by a product of per-bit factor tables (see `DiagBlock`).
 
 use crate::circuit::{check_gate, Circuit, Op, SimError};
 use crate::engines::dense_kernels as dk;
@@ -40,16 +40,31 @@ const XMAT: Mat2 = [[C0, C1], [C1, C0]];
 pub enum KOp {
     /// 2x2 unitary `m` on qubit `q`, applied where all qubits in the bit mask
     /// `ctrl` are 1.
-    U1 { q: usize, m: Mat2, ctrl: usize },
+    U1 {
+        /// Target qubit.
+        q: usize,
+        /// The 2x2 matrix, row-major (`m[row][col]`).
+        m: Mat2,
+        /// Bit mask of control qubits (`0`: uncontrolled).
+        ctrl: usize,
+    },
     /// Multiplies every amplitude whose index satisfies `(i & mask) == pat`
     /// by `f`.
     Phase {
+        /// Bit mask of the qubits the condition looks at.
         mask: usize,
+        /// Required values of the `mask` bits.
         pat: usize,
+        /// Factor applied to the matching amplitudes.
         f: Complex64,
     },
     /// Exchanges qubits `a` and `b`.
-    Swap { a: usize, b: usize },
+    Swap {
+        /// First qubit.
+        a: usize,
+        /// Second qubit.
+        b: usize,
+    },
 }
 
 impl KOp {
@@ -202,7 +217,7 @@ fn emit_1q(out: &mut Vec<KOp>, q: usize, m: Mat2, split: bool) {
 /// Multiplies together runs of uncontrolled single-qubit ops on the same
 /// qubit (products taken in f64). The result is the same unitary up to
 /// rounding. With `split`, a fused gate that is neither real nor diagonal is
-/// emitted as phase, real rotation, phase (see [`split_phases`]): the real
+/// emitted as phase, real rotation, phase (see `split_phases`): the real
 /// kernel needs 6 instead of 16 flops per amplitude and the phases merge
 /// with other diagonal terms.
 pub fn fuse_1q(ops: &[KOp], n: usize, split: bool) -> Vec<KOp> {
@@ -369,7 +384,9 @@ impl BlockConfig {
 /// physical qubit `inner[j]`) and the ops applied while they are cached.
 #[derive(Clone, Debug)]
 pub struct Stage {
+    /// Inner (cached) qubits, ascending; buffer bit `j` is qubit `inner[j]`.
     pub inner: Vec<usize>,
+    /// The stage's ops in execution order, on physical qubits.
     pub ops: Vec<KOp>,
 }
 
@@ -1178,12 +1195,18 @@ fn tile_segments<T: Real>(ops: &[LOp<T>], k: usize) -> Vec<Seg<T>> {
 /// place ([`PreparedStage::set_u1`], [`PreparedStage::set_phase`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpLoc {
+    /// A `U1` op at this index of the prepared op list.
     U1(usize),
+    /// A diagonal term inside a fused diagonal block.
     Phase {
+        /// Index of the diagonal block in the prepared op list.
         lop: usize,
+        /// Pivot group within the block.
         group: usize,
+        /// Term within the group.
         term: usize,
     },
+    /// A SWAP at this index of the prepared op list.
     Swap(usize),
 }
 
@@ -2291,8 +2314,9 @@ pub struct FusionStats {
     /// Block-level ops executed (one pass over the block each; a diagonal
     /// block counts once).
     pub passes: usize,
-    /// Of which dense 2-qubit and 3-qubit ops.
+    /// Of which dense 2-qubit ops.
     pub dense2: usize,
+    /// Of which dense 3-qubit ops.
     pub dense3: usize,
 }
 

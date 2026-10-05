@@ -17,16 +17,20 @@
 use super::{dense_cnot, dense_cz, dense_h, dense_s, LPauli, Monitored};
 use num_complex::Complex64 as C64;
 
+/// Entanglement of one region `R` (see the module docs for the symbols).
 #[derive(Clone, Debug)]
 pub struct CutEntropy {
+    /// `|R|`: number of physical qubits in the region.
     pub size: usize,
     /// generators of G restricted to the region
     pub g: usize,
-    /// logical symplectic pairs and central logicals
+    /// logical symplectic pairs
     pub a: usize,
+    /// central logicals (`k − 2a`)
     pub b: usize,
-    /// `|R| − g − a − b` and that `+ a + b` (bounds on every Rényi entropy).
+    /// `|R| − g − a − b`: lower bound on every Rényi entropy (bits).
     pub lower: f64,
+    /// `lower + a + b`: upper bound on every Rényi entropy (bits).
     pub upper: f64,
     /// exact Rényi-2 entropy (bits), when the register is tracked and small.
     pub s2: Option<f64>,

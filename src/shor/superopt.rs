@@ -43,11 +43,17 @@ use crate::shor::window::WindowLayout;
 /// Which optimisations to apply (see the module docs).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Opts {
+    /// Unary-iteration table lookup (see the module docs).
     pub unary: bool,
+    /// Optimal tree fan-out of the lookup outputs.
     pub fanout: bool,
+    /// Comparator uncomputation of the modular adder's flag.
     pub comparator: bool,
+    /// `K = t·N` by CNOTs from the flag instead of unload/reload.
     pub kflip: bool,
+    /// The first lookup writes straight into the zero accumulator.
     pub direct_first: bool,
+    /// Drop the lookup's trailing chain gates that cancel against the unlookup.
     pub keep_chain: bool,
     /// Finish with the generic commutation-aware peephole pass
     /// ([`crate::compile::peephole`]): cancels the inverse pairs left at
@@ -107,7 +113,9 @@ impl Default for Opts {
 /// leaves).
 #[derive(Clone, Debug)]
 pub struct FanoutPlan {
+    /// Address bits `w` (tree depth).
     pub w: usize,
+    /// `use_[d][h]`: output-bit mask CNOT-ed from node `(d, h)`.
     pub use_: Vec<Vec<u64>>,
 }
 
@@ -555,8 +563,10 @@ fn rule_key(gates: &[Lg], consts: &[Option<bool>]) -> RuleKey {
     (k, m)
 }
 
-/// Window shape of the SAT peephole (must match `tools/superopt/peep.py`).
+/// Window shape of the SAT peephole (must match `tools/superopt/peep.py`):
+/// maximum number of wires in one window.
 pub const SAT_Q: usize = 5;
+/// Maximum number of gates in one peephole window.
 pub const SAT_LMAX: usize = 10;
 
 fn parse_lgs(s: &str) -> Vec<Lg> {

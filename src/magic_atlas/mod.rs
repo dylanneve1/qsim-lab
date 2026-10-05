@@ -272,9 +272,11 @@ pub struct AtlasOptions {
     /// entanglement is evaluated (0 = only at the end; entanglement is
     /// skipped entirely when `entanglement` is false).
     pub checkpoints: usize,
+    /// Compute the skeleton stabilizer entanglement at the checkpoints.
     pub entanglement: bool,
     /// Cut position for the entanglement (default `n / 2`).
     pub cut: Option<usize>,
+    /// Compute the affine support bound ([`crate::simulability::support_bound`]).
     pub support: bool,
 }
 
@@ -294,9 +296,13 @@ impl Default for AtlasOptions {
 pub struct Checkpoint {
     /// Index of the last original gate applied.
     pub gate: usize,
+    /// Non-Clifford rotations so far.
     pub rotations: usize,
+    /// T-like rotations so far.
     pub t_count: usize,
+    /// Active dimension `d_k` after this gate.
     pub d: usize,
+    /// Largest factored component `f` so far.
     pub f: usize,
     /// Skeleton stabilizer entanglement at the cut (bits).
     pub e_stab: usize,
@@ -305,12 +311,15 @@ pub struct Checkpoint {
 /// Result of [`profile`].
 #[derive(Clone, Debug, Default)]
 pub struct AtlasProfile {
+    /// Number of qubits.
     pub n: usize,
     /// Original gates.
     pub gates: usize,
     /// Gates after lowering to Clifford + Z rotations.
     pub lowered: usize,
+    /// Two-qubit gates among the original gates.
     pub two_qubit: usize,
+    /// Toffoli gates among the original gates.
     pub toffolis: usize,
     /// Non-Clifford rotations (after merging half-π multiples into S).
     pub rotations: usize,
@@ -323,18 +332,26 @@ pub struct AtlasProfile {
     pub f_prof: Vec<u32>,
     /// Original gate index of rotation `j`.
     pub rot_gate: Vec<u32>,
+    /// Final active dimension `d`.
     pub d: usize,
+    /// Largest factored component `f` over the whole circuit.
     pub f: usize,
     /// log2 Σ_j 2^{d_j} (compressed state work), log2 Σ_j 2^{f_j}.
     pub log2_work: f64,
+    /// `-1` encodes a circuit without rotations (no dense work) in both fields.
     pub log2_work_f: f64,
+    /// Cut position used for the entanglement (`AtlasOptions::cut`, default `n / 2`).
     pub cut: usize,
+    /// The recorded checkpoints, in gate order.
     pub checkpoints: Vec<Checkpoint>,
     /// max over checkpoints of the skeleton entanglement, and of the bound
     /// `min(cut, n - cut, E + d)`.
     pub e_stab_max: usize,
+    /// See `e_stab_max`.
     pub e_bound_max: usize,
+    /// Affine upper bound on log2 of the final support size (`None` unless requested).
     pub support: Option<usize>,
+    /// Seconds spent profiling.
     pub secs: f64,
 }
 
@@ -496,18 +513,24 @@ struct Factor {
 /// Statistics of a [`FactoredState`] run.
 #[derive(Clone, Debug, Default)]
 pub struct FactoredStats {
+    /// Rotations applied.
     pub rotations: usize,
+    /// Active dimension `d` at the end of compilation.
     pub d: usize,
     /// Largest factor (qubits).
     pub f: usize,
+    /// Live factors at the end of compilation.
     pub factors: usize,
     /// Σ_j 2^{|factor_j|} amplitude updates (+ merge copies).
     pub element_ops: u64,
+    /// Seconds compiling, evolution excluded.
     pub compile_secs: f64,
+    /// Seconds spent evolving the factors.
     pub evolve_secs: f64,
     /// Recycling: factors found in a stabilizer state and absorbed into the
     /// Clifford frame, and the seconds spent testing/absorbing.
     pub absorbed: usize,
+    /// See `absorbed`.
     pub recycle_secs: f64,
     /// Free-coordinate compactions (CNOT networks among |0> coordinates
     /// absorbed into the frame).
@@ -537,6 +560,7 @@ pub struct FactoredState {
     /// Factor ids touched since the last recycling check.
     touched: Vec<usize>,
     live_sum: usize,
+    /// Run statistics.
     pub stats: FactoredStats,
 }
 
@@ -801,6 +825,7 @@ impl FactoredState {
         }
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -1155,6 +1180,8 @@ pub struct StateMagic {
     pub m2: f64,
 }
 
+/// [`StateMagic`] of the normalised state with amplitudes `amps`.
+///  Panics unless the length is a power of two.
 pub fn state_magic(amps: &[C64]) -> StateMagic {
     let len = amps.len();
     let n = len.trailing_zeros() as usize;

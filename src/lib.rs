@@ -32,6 +32,8 @@
 //! assert!(bits.iter().all(|&b| b == bits[0]));
 //! ```
 
+#![warn(missing_docs)]
+
 pub mod algorithms;
 pub mod bench;
 pub mod chem;

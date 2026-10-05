@@ -51,12 +51,12 @@ impl Permutation {
         result
     }
 
-    /// The standard Z-check order: NW, NE, SW, SE (= [0,1,2,3]).
+    /// The standard Z-check order: NW, NE, SW, SE (= `[0,1,2,3]`).
     pub fn standard_z() -> Self {
         Self([0, 1, 2, 3])
     }
 
-    /// The standard X-check order: NW, SW, NE, SE (= [0,2,1,3]).
+    /// The standard X-check order: NW, SW, NE, SE (= `[0,2,1,3]`).
     /// Hook pair is NE–SE (vertical), perpendicular to the X logical.
     pub fn standard_x() -> Self {
         Self([0, 2, 1, 3])
@@ -114,7 +114,7 @@ impl Schedule {
     /// Compass indices: NW=0, NE=1, SW=2, SE=3.
     /// Diagonal 1: {0, 3} (NW, SE). Diagonal 2: {1, 2} (NE, SW).
     /// To avoid two CNOTs touching the same data qubit at the same clock cycle,
-    /// at every step t in 0..4, z_perm[t] and x_perm[t] must either both belong
+    /// at every step t in 0..4, `z_perm[t]` and `x_perm[t]` must either both belong
     /// to Diagonal 1 or both belong to Diagonal 2.
     pub fn is_collision_free(&self) -> bool {
         for t in 0..4 {
@@ -141,12 +141,20 @@ struct ScheduledFace {
 /// A rotated surface code memory experiment with a custom CNOT schedule.
 #[derive(Clone, Debug)]
 pub struct ScheduledSurfaceCode {
+    /// Code distance (odd, ≥ 3).
     pub d: usize,
+    /// Number of syndrome-extraction rounds before the final data measurement.
     pub rounds: usize,
+    /// CNOT orderings used for the Z- and X-check plaquettes.
     pub schedule: Schedule,
     z_stabilizers: Vec<ScheduledFace>,
     x_stabilizers: Vec<ScheduledFace>,
+    /// Union-Find decoder for the Z-type detectors (unweighted from
+    /// [`ScheduledSurfaceCode::new`], LLR-weighted from
+    /// [`ScheduledSurfaceCode::new_weighted`]).
     pub decoder: UnionFindDecoder,
+    /// Every noise location of the memory circuit with its detector/observable
+    /// signatures.
     pub faults: CircuitFaults,
 }
 
@@ -328,6 +336,11 @@ impl ScheduledSurfaceCode {
         self.z_stabilizers.len() + self.x_stabilizers.len()
     }
 
+    /// Detector definitions as measurement-record indices (Z sector only):
+    /// `rounds` blocks of per-round Z-ancilla detectors (round 0 alone, later
+    /// rounds XORed with the previous round), then one final detector per
+    /// Z-stabilizer comparing the data-qubit parity with the last ancilla
+    /// outcome.
     pub fn detector_records(&self) -> Vec<Vec<usize>> {
         let num_z = self.z_stabilizers.len();
         let apr = self.records_per_round();
@@ -350,6 +363,8 @@ impl ScheduledSurfaceCode {
         dets
     }
 
+    /// Measurement records of the final data qubits in column 0, whose parity is
+    /// the logical `Z_L` observable.
     pub fn observable_records(&self) -> Vec<usize> {
         let data_base = self.rounds * self.records_per_round();
         (0..self.d)
@@ -602,6 +617,7 @@ impl BiasedDemSamplerV2 {
 /// Result of testing one schedule.
 #[derive(Clone, Debug)]
 pub struct ScheduleResult {
+    /// The CNOT schedule tested.
     pub schedule: Schedule,
     /// Graph-like circuit distance.
     pub circuit_distance: usize,
@@ -613,7 +629,10 @@ pub struct ScheduleResult {
     pub p_l_eta10: f64,
     /// Logical error rate under Z-biased noise (η = 100).
     pub p_l_eta100: f64,
+    /// Shots sampled for each bias level.
     pub shots_per_condition: usize,
+    /// Physical error rate `p` used for gates, resets and measurements
+    /// ([`NoiseModel::circuit_level`]`(p, p)`) before biasing.
     pub p_phys: f64,
 }
 

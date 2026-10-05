@@ -59,6 +59,9 @@ pub fn tableau_bytes(n: usize) -> u128 {
     np * np / 2
 }
 
+/// Storage order of the four tableau bit blocks. Gates want
+/// [`Layout::QubitMajor`]; row operations (measurement) want
+/// [`Layout::GeneratorMajor`]; switching transposes all blocks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Layout {
     /// Line `q` of each block holds column `q` (one bit per generator).
@@ -270,6 +273,8 @@ impl Tableau {
         Self::try_new(n).unwrap_or_else(|e| panic!("{e}"))
     }
 
+    /// The state `|0...0>` on `n` qubits, or `SimError::TooLarge` if the
+    /// tableau would exceed [`MAX_TABLEAU_BYTES`].
     pub fn try_new(n: usize) -> Result<Self, SimError> {
         let bytes = tableau_bytes(n);
         if bytes > MAX_TABLEAU_BYTES {
@@ -301,6 +306,7 @@ impl Tableau {
         })
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -325,6 +331,7 @@ impl Tableau {
         self.xd.bytes() * 4 + (self.rd.len() * 4) * 8
     }
 
+    /// Current storage layout of the bit blocks.
     pub fn layout(&self) -> Layout {
         self.layout
     }
@@ -347,6 +354,7 @@ impl Tableau {
         }
     }
 
+    /// Hadamard on qubit `a`.
     pub fn h(&mut self, a: usize) {
         self.set_layout(Layout::QubitMajor);
         for (x, z, r) in [
@@ -396,10 +404,12 @@ impl Tableau {
         set_bit(&mut self.sx, a, e & 3 == 2);
     }
 
+    /// `S` (phase, `diag(1, i)`) on qubit `a`.
     pub fn s(&mut self, a: usize) {
         self.s_gate(a, false);
     }
 
+    /// `S†` (`diag(1, -i)`) on qubit `a`.
     pub fn sdg(&mut self, a: usize) {
         self.s_gate(a, true);
     }
@@ -422,18 +432,22 @@ impl Tableau {
         flip_bit(&mut self.sx, a, pz);
     }
 
+    /// Pauli X on qubit `a`.
     pub fn x(&mut self, a: usize) {
         self.pauli(a, true, false);
     }
 
+    /// Pauli Z on qubit `a`.
     pub fn z(&mut self, a: usize) {
         self.pauli(a, false, true);
     }
 
+    /// Pauli Y on qubit `a`.
     pub fn y(&mut self, a: usize) {
         self.pauli(a, true, true);
     }
 
+    /// CNOT with control `c` and target `t` (`c != t`).
     pub fn cnot(&mut self, c: usize, t: usize) {
         self.set_layout(Layout::QubitMajor);
         let w = self.w;
@@ -472,6 +486,7 @@ impl Tableau {
         flip_bit(&mut self.sz, t, sc ^ (ez == 2));
     }
 
+    /// CZ on qubits `a` and `b` (`a != b`).
     pub fn cz(&mut self, a: usize, b: usize) {
         self.set_layout(Layout::QubitMajor);
         let w = self.w;
@@ -507,6 +522,7 @@ impl Tableau {
         flip_bit(&mut self.sx, b, sza ^ (eb == 2));
     }
 
+    /// SWAP of qubits `a` and `b`.
     pub fn swap(&mut self, a: usize, b: usize) {
         self.set_layout(Layout::QubitMajor);
         for m in [&mut self.xd, &mut self.zd, &mut self.xs, &mut self.zs] {
