@@ -78,7 +78,7 @@ for k, e in enumerate(exps):
             dets, obs, _ = load(e, nd)
             rows = np.packbits(np.concatenate([dets, obs[:, None]], 1), axis=1)
             np.savez(fn, rows=rows, nd=nd)
-    for sc in a.scales.split(","):
+    for sc in (a.scales.split(",") if a.shots > 0 else []):
         fn = os.path.join(a.out, "sim", f"{e['name']}.{a.source}.s{sc}.npy")
         if os.path.exists(fn):
             continue
