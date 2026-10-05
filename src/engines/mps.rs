@@ -224,7 +224,6 @@ impl Mps {
         self.stats
     }
 
-    /// Starts recording the kept bond dimension of every SVD.
     /// Caps the kept rank of the `k`-th SVD at `caps[k]` (SVDs counted
     /// from construction or [`Mps::reset_all`]). With caps that upper-bound
     /// the exact Schmidt ranks step by step, e.g. the trace of
@@ -237,6 +236,8 @@ impl Mps {
         self.step_caps = Some(caps);
     }
 
+    /// Starts recording the kept bond dimension of every SVD (read with
+    /// [`Mps::trace`]; cleared by [`Mps::reset_all`]).
     pub fn enable_trace(&mut self) {
         self.trace = Some(Vec::new());
     }
@@ -252,6 +253,7 @@ impl Mps {
         self.cutoff = cutoff;
     }
 
+    /// Number of qubits (sites).
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -280,6 +282,7 @@ impl Mps {
         self.sites[..self.n - 1].iter().map(|s| s.dr).collect()
     }
 
+    /// Largest bond dimension in the chain (`1` for a product state).
     pub fn max_bond_dim(&self) -> usize {
         self.bond_dims().into_iter().max().unwrap_or(1)
     }
@@ -471,6 +474,10 @@ impl Mps {
         }
     }
 
+    /// Applies `g`. One- and two-qubit gates act directly (two-qubit gates on
+    /// non-adjacent sites are routed with SWAPs; each two-qubit step is an SVD
+    /// that may truncate); wider gates are decomposed into Clifford + Rz gates
+    /// first. Fails if a qubit is out of range or repeated.
     pub fn apply_gate(&mut self, g: &Gate) -> Result<(), SimError> {
         check_gate(g, self.n)?;
         if matches!(g, Gate::I(_)) {

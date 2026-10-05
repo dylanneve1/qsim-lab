@@ -33,13 +33,21 @@ pub enum Node {
     /// Plain operations.
     Ops(Vec<Op>),
     /// `body` repeated `reps` times, bit-identical copies.
-    Repeat { body: Vec<Node>, reps: usize },
+    Repeat {
+        /// One copy of the repeated block.
+        body: Vec<Node>,
+        /// Number of copies.
+        reps: usize,
+    },
     /// `reps` copies of the same gate sequence with different angles.
     /// `shape` is the first copy; `angles[k]` lists the angles of copy `k`
     /// (in op order, as returned by [`op_angles`]).
     Param {
+        /// The ops of the first copy.
         shape: Vec<Op>,
+        /// Number of copies.
         reps: usize,
+        /// Angles of each copy (`reps` entries).
         angles: Vec<Vec<f64>>,
     },
 }
@@ -47,7 +55,9 @@ pub enum Node {
 /// A circuit as a tree of plain ops and repeated blocks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Program {
+    /// Register width.
     pub num_qubits: usize,
+    /// Top-level nodes in program order.
     pub nodes: Vec<Node>,
 }
 
@@ -78,19 +88,24 @@ impl Default for DetectOptions {
 /// How much of a program sits inside repeats.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Report {
+    /// Ops in the program, every copy of every repeat counted.
     pub total_ops: usize,
+    /// Gates in the program, every copy counted.
     pub total_gates: usize,
     /// Gates inside a repeat, all copies counted.
     pub covered_gates: usize,
     /// Gates a repeat lets a simulator skip (all copies but the first).
     pub saved_gates: usize,
+    /// Bit-identical repeats (`Node::Repeat`), nested ones included.
     pub repeats: usize,
+    /// Top-level angle-varying repeats (`Node::Param`).
     pub param_repeats: usize,
     /// `(period in ops, reps, parameterised)` of the top-level repeats.
     pub blocks: Vec<(usize, usize, bool)>,
 }
 
 impl Report {
+    /// Fraction of gates inside a repeat (`covered_gates / total_gates`, 0 for no gates).
     pub fn coverage(&self) -> f64 {
         if self.total_gates == 0 {
             0.0
@@ -589,6 +604,7 @@ impl Program {
 /// Result of [`rewrite`].
 #[derive(Clone, Debug)]
 pub struct Rewrite {
+    /// The rewritten circuit.
     pub circuit: Circuit,
     /// Global phase of `circuit` relative to the program (exact; only
     /// meaningful if `phase_exact`).
@@ -596,7 +612,9 @@ pub struct Rewrite {
     /// False if a Clifford block was replaced by its synthesised power
     /// (equal only up to a global phase).
     pub phase_exact: bool,
+    /// Repeats replaced by a folded diagonal phase layer.
     pub diag_collapsed: usize,
+    /// Repeats replaced by their synthesised Clifford power.
     pub clifford_collapsed: usize,
     /// Repeats that had no applicable fast path and were expanded.
     pub expanded: usize,

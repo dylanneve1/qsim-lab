@@ -318,6 +318,7 @@ pub struct MetalState {
 }
 
 impl MetalState {
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -378,9 +379,10 @@ impl MetalPlan {
 /// failure.
 #[derive(Debug)]
 pub enum MetalError {
-    /// The circuit failed gate validation.
+    /// The circuit or a gate was rejected (e.g. qubit out of range).
     Sim(SimError),
-    /// Metal device, pipeline or buffer setup failed.
+    /// A Metal or setup failure (no device, kernel compilation, invalid
+    /// [`MetalConfig`], register too large, ...); the message says which.
     Metal(String),
 }
 

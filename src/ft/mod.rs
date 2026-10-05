@@ -1,6 +1,6 @@
 //! Fault-tolerant Shor at the gate level: Shor's order finding for N = 15 run
-//! on concatenated-Steane logical qubits (level 1 = [[7,1,3]], level 2 =
-//! [[49,1,9]]) with circuit-level depolarizing noise on every physical
+//! on concatenated-Steane logical qubits (level 1 = `[[7,1,3]]`, level 2 =
+//! `[[49,1,9]]`) with circuit-level depolarizing noise on every physical
 //! location, Steane error correction with verified ancillas, transversal
 //! Cliffords, T gates by magic-state injection + teleportation, and
 //! hierarchical hard-decision decoding. See `research/shor/ft-shor.md`.

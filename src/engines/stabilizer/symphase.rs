@@ -68,6 +68,7 @@ impl VarDist {
         }
     }
 
+    /// Always `false`: every group has at least one variable.
     pub fn is_empty(&self) -> bool {
         false
     }
@@ -106,7 +107,10 @@ fn pauli_bits(k: usize) -> u32 {
 /// A group of consecutive variables with a joint distribution.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct VarGroup {
+    /// Index of the group's first variable; it occupies
+    /// `first..first + dist.len()`.
     pub first: u32,
+    /// Joint distribution of the group's variables.
     pub dist: VarDist,
 }
 

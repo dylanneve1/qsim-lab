@@ -138,6 +138,7 @@ impl PauliSum {
             .collect()
     }
 
+    /// Number of stored Pauli terms.
     pub fn num_terms(&self) -> usize {
         self.coefs.len()
     }

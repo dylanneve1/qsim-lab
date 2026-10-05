@@ -52,12 +52,16 @@ use std::f64::consts::PI;
 /// A single-qubit Pauli fault.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Pauli {
+    /// Bit flip.
     X,
+    /// Bit and phase flip (`Y`).
     Y,
+    /// Phase flip.
     Z,
 }
 
 impl Pauli {
+    /// `"X"`, `"Y"` or `"Z"`.
     pub fn name(self) -> &'static str {
         match self {
             Pauli::X => "X",
@@ -87,6 +91,8 @@ pub enum NoiseKind {
 }
 
 impl NoiseKind {
+    /// Parses `depol` / `depolarizing`, `bitflip` / `x`, `phaseflip` / `z`;
+    /// `None` for anything else.
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "depol" | "depolarizing" => Some(Self::Depolarizing),
@@ -95,6 +101,7 @@ impl NoiseKind {
             _ => None,
         }
     }
+    /// Short name (`depol`, `bitflip`, `phaseflip`), accepted by [`NoiseKind::parse`].
     pub fn name(self) -> &'static str {
         match self {
             Self::Depolarizing => "depol",
@@ -122,7 +129,12 @@ pub enum Site {
     /// Pauli on the control after the first H.
     H1,
     /// Pauli on qubit `slot` of oracle gate `gate`, after the gate.
-    Gate { gate: u32, slot: u8 },
+    Gate {
+        /// Index of the gate in [`RoundCirc::gates`].
+        gate: u32,
+        /// Index into the gate's qubit list (`Gate::qubits`).
+        slot: u8,
+    },
     /// Pauli on the control after the phase correction.
     Phase,
     /// Pauli on the control after the second H.
@@ -132,6 +144,8 @@ pub enum Site {
 }
 
 impl Site {
+    /// Lower-case name of the site kind (`prep`, `h1`, `gate`, `phase`, `h2`,
+    /// `meas`).
     pub fn kind_name(&self) -> &'static str {
         match self {
             Site::Prep => "prep",
@@ -147,7 +161,9 @@ impl Site {
 /// One fault of a trajectory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Fault {
+    /// Round index (`0..t`, in measurement order).
     pub round: u32,
+    /// Where in the round the fault acts.
     pub site: Site,
     /// For `Prep` and `Meas` this is always `X` (a flip).
     pub pauli: Pauli,
@@ -156,12 +172,14 @@ pub struct Fault {
 /// The oracle gates of one round and the slot offsets of their qubits.
 #[derive(Clone, Debug)]
 pub struct RoundCirc {
+    /// The round's oracle gates (X, CNOT, CCX, SWAP only), in application order.
     pub gates: Vec<Gate>,
     /// `slot_prefix[g]` = number of gate-qubit locations before gate `g`.
     slot_prefix: Vec<u64>,
 }
 
 impl RoundCirc {
+    /// Number of gate-qubit fault locations in the round (Σ of gate arities).
     pub fn gate_slots(&self) -> u64 {
         *self.slot_prefix.last().unwrap()
     }
@@ -170,16 +188,23 @@ impl RoundCirc {
 /// The semiclassical circuit of one instance with its fault locations.
 #[derive(Clone, Debug)]
 pub struct NoisyCircuit {
+    /// The order-finding instance.
     pub inst: Instance,
+    /// The noise channel.
     pub kind: NoiseKind,
     /// Qubits of the circuit (control = qubit 0).
     pub nq: usize,
+    /// The oracle block of every round (`t` entries, round `i` multiplies by
+    /// `a^(2^(t−1−i))`).
     pub rounds: Vec<RoundCirc>,
     /// Global location offset of every round (`t + 1` entries).
     loc_prefix: Vec<u64>,
 }
 
 impl NoisyCircuit {
+    /// Builds the rounds and fault locations of `inst`. Panics unless the oracle
+    /// is `Ripple`, `Windowed` or `WindowedOpt` and the circuit has at most 129
+    /// qubits.
     pub fn new(inst: &Instance, kind: NoiseKind) -> Self {
         assert!(matches!(
             inst.oracle,
@@ -529,7 +554,9 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
 /// The support grew beyond the cap given to [`NoisyState::round`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Capped {
+    /// Round whose support exceeded the cap.
     pub round: usize,
+    /// Support size that exceeded the cap.
     pub support: usize,
 }
 
@@ -568,6 +595,7 @@ impl<T: Real> NoisyState<T> {
         }
     }
 
+    /// Number of stored branches.
     pub fn nnz(&self) -> usize {
         self.keys.len()
     }
@@ -743,11 +771,18 @@ impl<T: Real> Default for NoisyState<T> {
 pub struct Trajectory {
     /// The recorded `t`-bit integer (`None` if the run was capped).
     pub measured: Option<u128>,
+    /// Order recovered from `measured` by [`postprocess`], if any.
     pub order: Option<u64>,
+    /// Nontrivial factor of `N` derived from the order, if any.
     pub factor: Option<u64>,
+    /// Largest support seen ([`NoisyState::peak`]).
     pub peak: usize,
+    /// Where the support exceeded the cap, if it did.
     pub capped: Option<Capped>,
+    /// First round after which some branch had a non-zero ancilla
+    /// ([`NoisyState::dirty_from`]).
     pub dirty_from: Option<usize>,
+    /// Gate × branch applications.
     pub work_ops: u128,
     /// Support at the start of every round that ran (plus the support
     /// that exceeded the cap, if capped).

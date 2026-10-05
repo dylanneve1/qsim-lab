@@ -31,8 +31,11 @@ use std::collections::HashMap;
 /// One- and two-electron integrals over `norb` spatial orbitals.
 #[derive(Clone, Debug)]
 pub struct Fcidump {
+    /// Number of spatial orbitals (`NORB`).
     pub norb: usize,
+    /// Number of electrons (`NELEC`).
     pub nelec: usize,
+    /// Twice the spin projection, `2·S_z` (`MS2`; 0 if absent).
     pub ms2: i64,
     /// Constant (nuclear repulsion + frozen core).
     pub ecore: f64,
@@ -124,11 +127,13 @@ impl Fcidump {
         Ok(fd)
     }
 
+    /// One-electron integral `h_pq` (0-based spatial orbitals).
     #[inline]
     pub fn h(&self, p: usize, q: usize) -> f64 {
         self.h1[p * self.norb + q]
     }
 
+    /// Two-electron integral `(pq|rs)` in chemist's notation (0-based spatial orbitals).
     #[inline]
     pub fn g(&self, p: usize, q: usize, r: usize, s: usize) -> f64 {
         let n = self.norb;
@@ -166,14 +171,20 @@ impl Fcidump {
 /// A Pauli string as `(qubit, 'X' | 'Y' | 'Z')`.
 pub type PauliString = Vec<(usize, u8)>;
 
+/// One operation of a [`Program`].
 #[derive(Clone, Debug)]
 pub enum POp {
+    /// A Clifford gate applied as-is.
     Clifford(Gate),
     /// `exp(-i θ/2 P)` with `θ = angle + mult · params[param]` (if any).
     Rot {
+        /// Rotation axis.
         pauli: PauliString,
+        /// Fixed angle offset (radians).
         angle: f64,
+        /// Index into [`Program::params`], or `None` for a fixed rotation.
         param: Option<usize>,
+        /// Multiplier applied to the parameter (unused when `param` is `None`).
         mult: f64,
     },
 }
@@ -181,7 +192,9 @@ pub enum POp {
 /// A circuit of Pauli rotations with optional parameters.
 #[derive(Clone, Debug, Default)]
 pub struct Program {
+    /// Number of qubits.
     pub n: usize,
+    /// Operations in application order.
     pub ops: Vec<POp>,
     /// Initial parameter values.
     pub params: Vec<f64>,
@@ -276,6 +289,7 @@ impl Program {
         Ok(p)
     }
 
+    /// Number of [`POp::Rot`] operations (fixed and parametrised).
     pub fn rotations(&self) -> usize {
         self.ops
             .iter()
@@ -366,6 +380,7 @@ pub fn pauli_rotation(c: &mut Circuit, p: &[(usize, u8)], theta: f64) {
 /// A GF(2) span of `n`-bit vectors (reduced echelon basis).
 #[derive(Clone, Debug)]
 pub struct Span {
+    /// Number of bits per vector.
     pub n: usize,
     w: usize,
     /// (pivot, row) pairs; rows reduced against each other.
@@ -373,6 +388,7 @@ pub struct Span {
 }
 
 impl Span {
+    /// The zero span of `n`-bit vectors.
     pub fn new(n: usize) -> Span {
         Span {
             n,
@@ -381,6 +397,7 @@ impl Span {
         }
     }
 
+    /// Dimension of the span (number of basis rows).
     pub fn dim(&self) -> usize {
         self.rows.len()
     }
@@ -395,6 +412,7 @@ impl Span {
         }
     }
 
+    /// True if `v` (packed little-endian into [`Span::words`] `u64`s, bit `i` = qubit `i`) lies in the span.
     pub fn contains(&self, v: &[u64]) -> bool {
         let mut v = v.to_vec();
         self.reduce(&mut v);
@@ -437,6 +455,7 @@ impl Span {
         s
     }
 
+    /// Number of `u64` words per packed vector, `max(1, ceil(n / 64))`.
     pub fn words(&self) -> usize {
         self.w
     }
@@ -489,9 +508,13 @@ fn mul_ops(a: &Op, b: &Op, w: usize) -> Op {
 /// Statistics of a Hamiltonian build.
 #[derive(Clone, Debug, Default)]
 pub struct HamStats {
+    /// Fermionic monomials considered (above the integral tolerance).
     pub monomials_total: u64,
+    /// Monomials kept by the span filter.
     pub monomials_kept: u64,
+    /// Pauli terms in the resulting Hamiltonian (after dropping near-zero coefficients).
     pub pauli_terms: usize,
+    /// Wall-clock build time in seconds.
     pub secs: f64,
 }
 
@@ -756,11 +779,13 @@ pub fn rotosolve(
 /// `H` restricted to the compressed register, grouped by `x`: for each `x`,
 /// the `(z, c·i^{|x∧z|})` pairs.
 pub struct RegisterHamiltonian {
+    /// Number of active register qubits (`2^d` amplitudes).
     pub d: usize,
     groups: Vec<(u64, Vec<(u64, num_complex::Complex64)>)>,
 }
 
 impl RegisterHamiltonian {
+    /// Restricts `h` to the active register of `st` and groups the terms by `x`.
     pub fn new(st: &CompressedState, h: &PauliSum) -> RegisterHamiltonian {
         use num_complex::Complex64 as C;
         let mut terms = st.register_terms(h);
@@ -785,6 +810,7 @@ impl RegisterHamiltonian {
         }
     }
 
+    /// Number of distinct `x` groups.
     pub fn groups(&self) -> usize {
         self.groups.len()
     }

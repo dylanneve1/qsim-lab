@@ -67,7 +67,9 @@ pub struct GeLayout {
     pub n: usize,
     /// Register width: `n` (exact) or `n + c` (coset).
     pub nr: usize,
+    /// Exponent window `w_e`.
     pub we: usize,
+    /// Multiplicand window `w_m`.
     pub wm: usize,
     /// Exponent window qubits (LSB first).
     pub e: Vec<usize>,
@@ -83,10 +85,16 @@ pub struct GeLayout {
     pub cy: Vec<usize>,
     /// Exact arithmetic: the windowed/MBU layout the modular adders use.
     pub mbu: Option<MbuLayout>,
+    /// Total number of qubits.
     pub nq: usize,
 }
 
 impl GeLayout {
+    /// Layout for an `n`-bit modulus. Exact mode (`o.coset == 0`) extends the
+    /// [`WindowLayout`] with address window `w_e + w_m`, the Gidney carry ancillas
+    /// (if `o.mbu.adders`) and `w_e − 1` extra exponent qubits (the first is the
+    /// window control, qubit 0). Panics unless `n >= 2`, `1 <= w_e <= 6`,
+    /// `w_m >= 1`, and (coset mode) `o.mbu.adders`.
     pub fn new(n: usize, o: &GeOpts) -> Self {
         assert!(n >= 2 && (1..=6).contains(&o.we) && o.wm >= 1);
         let wa = o.we + o.wm;
@@ -422,6 +430,8 @@ fn c64<T: Real>(z: Complex<T>) -> Complex64 {
 pub struct WindowArrays<T: Real> {
     /// Window bits `w`.
     pub w: usize,
+    /// Evaluated branches `((V^e x) << w | e, amplitude)`, sorted as described by
+    /// `split`.
     pub ent: std::sync::Arc<Vec<(u64, Complex<T>)>>,
     /// `ent[..split]` and `ent[split..]` are each sorted (`split > 0`: the
     /// `e = 0` branches are `ψ` itself, already sorted, and only the others
@@ -714,6 +724,8 @@ impl<T: Real> WindowArrays<T> {
 /// stored registers (sorted) with amplitudes.
 #[derive(Clone, Debug)]
 pub struct GeState<T: Real> {
+    /// Stored branches `(key, amplitude)` sorted by key; bit `i` of the key is
+    /// qubit [`GeLayout::stored`]`[i]`.
     pub psi: Arr<T>,
     /// Peak number of stored branches between windows.
     pub peak: usize,
@@ -727,13 +739,18 @@ pub struct GeState<T: Real> {
 
 /// One window's program and I/O.
 pub struct WindowProg {
+    /// The compiled window block.
     pub prog: SlicedProgram,
+    /// Exponent qubits of the window (LSB first).
     pub e: Vec<usize>,
+    /// Qubits stored between windows ([`GeLayout::stored`]), in key-bit order.
     pub x: Vec<usize>,
+    /// Gate and measurement counts of the block.
     pub counts: MbuCounts,
 }
 
 impl WindowProg {
+    /// Compiles the block `ops` on `lay`; panics if it is not a valid sliced program.
     pub fn new(lay: &GeLayout, ops: &[MbuOp]) -> Self {
         let prog = SlicedProgram::compile_ops(lay.nq, ops).expect("window block");
         Self {
@@ -750,6 +767,8 @@ impl<T: Real> GeState<T> {
     pub fn basis(key: u64) -> Self {
         Self::from_branches(vec![(key, Complex::new(T::one(), T::zero()))])
     }
+    /// State holding the given branches (sorted by key here; peaks start at their
+    /// count).
     pub fn from_branches(mut psi: Arr<T>) -> Self {
         psi.sort_unstable_by_key(|e| e.0);
         let peak = psi.len();
@@ -1034,14 +1053,22 @@ pub struct ExpReg {
 pub struct GeRun {
     /// Measured integer of each register (bit `i` = round `i`).
     pub y: Vec<u128>,
+    /// Gate and measurement counts summed over all window blocks.
     pub counts: MbuCounts,
     /// Slice steps (all windows).
     pub steps: usize,
+    /// Number of windows run.
     pub windows: usize,
+    /// Peak number of stored branches between windows.
     pub peak: usize,
+    /// Peak number of `(e, x)` branches inside a window.
     pub peak_branches: usize,
+    /// Σ over windows of (branches evaluated) × (block ops).
     pub gate_branch_ops: u128,
+    /// Total qubits of the circuit ([`GeLayout::nq`]).
     pub qubits: usize,
+    /// Seconds: build, eval, sort, window probabilities, new state (as
+    /// [`GeState::prof`]).
     pub prof: [f64; 5],
 }
 
@@ -1649,6 +1676,7 @@ pub struct CosetPath {
     /// `ln Q(y)` (coset circuit) and `ln P(y)` (exact circuit; `−∞` if the
     /// exact circuit cannot produce `y`).
     pub ln_q: f64,
+    /// `ln P(y)` under the exact circuit (`−∞` if it cannot produce `y`).
     pub ln_p: f64,
     /// Deviant weight after every window: the probability on coset branches
     /// `|x_r⟩|b_r⟩` that are *not* congruent to the exact circuit's state

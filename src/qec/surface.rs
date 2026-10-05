@@ -50,8 +50,12 @@ use rand::RngCore;
 /// A stabilizer face on the dual grid.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StabilizerFace {
+    /// Row of the face on the `(d+1) × (d+1)` dual grid; its data neighbours are
+    /// the qubits at rows `r-1`/`r` and columns `c-1`/`c`.
     pub r: usize,
+    /// Column of the face on the dual grid.
     pub c: usize,
+    /// `true` for a Z-type stabilizer (`(r + c)` even), `false` for X-type.
     pub is_z: bool,
     /// Indices of neighboring data qubits in `0..d^2`, in the order their
     /// CNOTs are applied.
@@ -70,10 +74,15 @@ pub enum SamplingMethod {
 /// A rotated surface code memory experiment.
 #[derive(Clone, Debug)]
 pub struct SurfaceCode {
+    /// Code distance (odd, ≥ 3).
     pub d: usize,
+    /// Number of syndrome-extraction rounds before the final data measurement.
     pub rounds: usize,
+    /// Z-type stabilizers, in ancilla order (index `k` = Z-ancilla / detector `k`).
     pub z_stabilizers: Vec<StabilizerFace>,
+    /// X-type stabilizers (measured but not decoded in the Z-basis memory).
     pub x_stabilizers: Vec<StabilizerFace>,
+    /// Union-Find decoder for the Z-type detectors.
     pub decoder: UnionFindDecoder,
     /// Every noise location of `build_circuit()` with the detector/observable
     /// signature of every Pauli the noise model can insert there.

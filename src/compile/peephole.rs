@@ -2,7 +2,7 @@
 //!
 //! Gates are appended one at a time to an output list. Each new gate walks
 //! backwards over the earlier gates that share a qubit with it; it may pass
-//! any gate it commutes with (see [`Axis`](super::Axis)) and stops at the
+//! any gate it commutes with (see `Axis`) and stops at the
 //! first one it does not. If on the way it meets a gate of the same family
 //! on the same qubits, the two are merged:
 //!
@@ -64,7 +64,9 @@ impl Default for PeepholeOptions {
 /// An optimised circuit: `U_original = e^{i global_phase} U_circuit`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Optimized {
+    /// The optimised circuit.
     pub circuit: Circuit,
+    /// Phase (radians) removed by the optimisation, as in the type-level formula.
     pub global_phase: f64,
 }
 

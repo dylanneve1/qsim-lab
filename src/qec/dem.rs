@@ -63,8 +63,11 @@ use std::collections::HashMap;
 /// Single-qubit Pauli (non-identity).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Pauli {
+    /// Bit flip.
     X,
+    /// Bit and phase flip.
     Y,
+    /// Phase flip.
     Z,
 }
 
@@ -94,7 +97,9 @@ impl Pauli {
 /// whether it flips the logical observable.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Signature {
+    /// Indices of the detectors whose parity the fault flips, ascending.
     pub detectors: Vec<usize>,
+    /// Whether the fault flips the logical observable.
     pub flips_logical: bool,
 }
 
@@ -136,6 +141,7 @@ impl FaultKind {
 pub struct FaultLocation {
     /// Index of the op in `circuit.ops` the noise is attached to.
     pub op_index: usize,
+    /// Noise-model parameter that sets the location's firing probability.
     pub kind: FaultKind,
     /// Outcomes, each chosen with probability `1 / outcomes.len()` when the
     /// location fires. Order: 1q `[X, Y, Z]`; 2q index `k = 1..16` with
@@ -146,8 +152,11 @@ pub struct FaultLocation {
 /// An independent error mechanism of a merged detector error model.
 #[derive(Clone, Debug)]
 pub struct ErrorMechanism {
+    /// Detectors flipped by the mechanism, ascending.
     pub detectors: Vec<usize>,
+    /// Whether the mechanism flips the logical observable.
     pub flips_logical: bool,
+    /// Probability that the mechanism fires (merged outcomes XOR-combined).
     pub probability: f64,
 }
 
@@ -156,9 +165,19 @@ pub struct ErrorMechanism {
 pub enum DemError {
     /// The circuit contains an op the frame propagation does not support
     /// (non-Clifford gate, classical control, or an explicit noise channel).
-    Unsupported { op_index: usize, what: String },
+    Unsupported {
+        /// Index of the offending op in `circuit.ops`.
+        op_index: usize,
+        /// Description of the unsupported op.
+        what: String,
+    },
     /// A detector or observable refers to a measurement that does not exist.
-    BadRecord { record: usize, available: usize },
+    BadRecord {
+        /// The out-of-range measurement-record index.
+        record: usize,
+        /// Number of measurement records the circuit produces.
+        available: usize,
+    },
 }
 
 impl std::fmt::Display for DemError {
@@ -179,7 +198,9 @@ impl std::error::Error for DemError {}
 /// Every fault location of a circuit with its detector signatures.
 #[derive(Clone, Debug)]
 pub struct CircuitFaults {
+    /// Number of detectors in the circuit's detector list.
     pub num_detectors: usize,
+    /// Every noise location, in circuit order.
     pub locations: Vec<FaultLocation>,
 }
 
@@ -556,6 +577,9 @@ pub struct DemSampler {
 }
 
 impl DemSampler {
+    /// Groups the fault locations by firing probability under `noise`
+    /// (locations whose kind has probability ≤ 0 are dropped; probabilities above
+    /// 1 are clamped to 1).
     pub fn new(faults: &CircuitFaults, noise: &NoiseModel) -> Self {
         let mut by_kind: HashMap<FaultKind, Vec<usize>> = HashMap::new();
         for (i, loc) in faults.locations.iter().enumerate() {
@@ -587,6 +611,7 @@ impl DemSampler {
         }
     }
 
+    /// Number of detectors per shot.
     pub fn num_detectors(&self) -> usize {
         self.num_detectors
     }

@@ -58,10 +58,15 @@ use std::time::Instant;
 pub enum Engine {
     /// The requested Pauli expectation is certified to vanish.
     Zero,
+    /// Stabilizer tableau (Clifford circuits only).
     Tableau,
+    /// Dense state vector of all `2^n` amplitudes.
     StateVector,
+    /// Sparse state storing only the nonzero amplitudes.
     Sparse,
+    /// Matrix product state (exact: no bond truncation).
     Mps,
+    /// Hybrid Schrödinger–Feynman: path sum over the gates cut by a bipartition.
     Hsf,
     /// Clifford frame + dense register on the active qubits
     /// ([`crate::engines::adaptive::CompressedState`]).
@@ -136,7 +141,9 @@ impl PlanRequest {
 /// `log2 seconds = a + b · R`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EngineModel {
+    /// Intercept of the fit, in log2 seconds.
     pub a: f64,
+    /// Slope of log2 seconds per unit of the engine's log2 work estimate `R`.
     pub b: f64,
 }
 
@@ -153,9 +160,11 @@ pub struct ReadoutModel {
     /// State vector (and HSF full output) sampling: per amplitude of the
     /// `2^n` pass, and per shot (exponential spacings, merged walk, shuffle).
     pub sv_amp: f64,
+    /// Per shot (see `sv_amp`).
     pub sv_shot: f64,
     /// Sparse sampling: per stored amplitude (bound `2^sup`), per shot.
     pub sparse_amp: f64,
+    /// Per shot (see `sparse_amp`).
     pub sparse_shot: f64,
     /// MPS canonical form: per `Σ 2 χ_l χ_r min(2χ_r, χ_l)` and per site.
     pub mps_canon: [f64; 2],
@@ -166,13 +175,16 @@ pub struct ReadoutModel {
     /// Compressed-state sampler: build per `2^d (d + 1) + n^2 ⌈n/64⌉`,
     /// per shot per `(d + n) ⌈n/64⌉`.
     pub cs_build: f64,
+    /// Per shot (see `cs_build`).
     pub cs_shot: f64,
     /// Tableau sampling: echelon form per `n^2 ⌈n/64⌉`, per shot per
     /// `n (1 + ⌈n/64⌉)`.
     pub tab_build: f64,
+    /// Per shot (see `tab_build`).
     pub tab_shot: f64,
     /// One amplitude look-up (state vector; sparse).
     pub lookup: f64,
+    /// One amplitude look-up in the sparse state.
     pub sparse_lookup: f64,
     /// HSF amplitudes (no `2^n` output): set-up per `G n` and path sums per
     /// `2^keff G 2^max(n_A, n_B)`.
@@ -182,15 +194,21 @@ pub struct ReadoutModel {
 /// Per-engine cost models plus the units of the MPS work estimate.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CostModel {
+    /// State-vector model (expectation runs), on `Features::sv_l`.
     pub sv: EngineModel,
+    /// Sparse-state model (expectation runs), on `Features::sparse_l`.
     pub sparse: EngineModel,
+    /// MPS model (expectation runs), on `PlanFeatures::mps_r`.
     pub mps: EngineModel,
+    /// HSF model (expectation runs), on `Features::hsf_l`.
     pub hsf: EngineModel,
+    /// Compressed-state model (expectation runs), on `Features::dense_l`.
     pub cstate: EngineModel,
     /// Weight of one SVD work unit relative to QR / product units.
     pub mps_svd_weight: f64,
     /// Fixed cost of one SVD/QR call, in work units.
     pub mps_call_overhead: f64,
+    /// Read-out costs added for samples and amplitudes.
     pub readout: ReadoutModel,
     /// Evolution-only models (`[sv, sparse, mps, hsf, cstate]`; HSF
     /// includes the full `2^n` output) for samples and amplitudes; the
@@ -309,6 +327,7 @@ impl Default for FeatureCost {
 pub struct PlannerConfig {
     /// Largest register (bytes) any engine may allocate.
     pub mem_bytes: u128,
+    /// Cost models used to rank engines.
     pub model: CostModel,
     /// Abort MPS/sparse after `speculate` × the runner-up's predicted time
     /// and run the runner-up (`0`: never abort).
@@ -319,7 +338,9 @@ pub struct PlannerConfig {
     /// panic if the planned value differs by more than `debug_tol`
     /// (expectations and amplitudes; samples are checked by the tests).
     pub debug_reference: bool,
+    /// Largest circuit (qubits) the debug reference runs on; larger circuits skip the check.
     pub debug_max_qubits: usize,
+    /// Largest allowed deviation between planned and reference values.
     pub debug_tol: f64,
     /// Answer 0 without simulating when the x-span certificate fires.
     pub use_certificate: bool,
@@ -330,6 +351,7 @@ pub struct PlannerConfig {
     /// trace replaces the bound in the MPS prediction and the engines are
     /// re-ranked. `None` (default) plans from the bounds alone.
     pub probe_cap: Option<u32>,
+    /// Fraction of the best predicted time the probe may run.
     pub probe_frac: f64,
     /// v1 staging (used when `tiered` is false): the MPS replay is computed
     /// only if the cheapest O(gates · n) prediction is at least
@@ -337,16 +359,20 @@ pub struct PlannerConfig {
     /// `hsf_feature_min_secs`, and a state vector predicted below
     /// `sv_shortcut_secs` runs without any feature.
     pub mps_feature_min_secs: f64,
+    /// See `mps_feature_min_secs`.
     pub hsf_feature_min_secs: f64,
+    /// See `mps_feature_min_secs`.
     pub sv_shortcut_secs: f64,
     /// v2 tiered planning (module docs). A tier is computed only when the
     /// best prediction so far exceeds `voi` × its predicted cost and (MPS,
     /// HSF) the engine's lower bound beats that prediction.
     pub tiered: bool,
+    /// Value-of-information factor for expectation and sample requests (see `tiered`).
     pub voi: f64,
     /// `voi` for amplitude requests (their MPS/HSF features matter more:
     /// the state vector and sparse look-ups rarely win).
     pub voi_amplitudes: f64,
+    /// Per-tier planning-cost models used by the `voi` test.
     pub feature_cost: FeatureCost,
     /// Reuse plans of structurally equal circuits (same gates and qubits,
     /// same Clifford class of every angle, same request size bucket).
@@ -417,9 +443,13 @@ impl PlannerConfig {
 /// The O(gates) tier-0 view of a circuit.
 #[derive(Clone, Debug, Default)]
 pub struct QuickFeatures {
+    /// Number of qubits.
     pub n: usize,
+    /// Unitary gates (`Op::Gate`); other ops are skipped.
     pub gates: usize,
+    /// Two-qubit gates.
     pub g2: usize,
+    /// True when every gate is Clifford.
     pub clifford: bool,
     /// Upper bound on the non-Clifford rotations of the rotation frame.
     pub rotations: usize,
@@ -550,11 +580,13 @@ pub fn quick_features(c: &Circuit) -> QuickFeatures {
 /// The planner's cheap view of a circuit.
 #[derive(Clone, Debug, Default)]
 pub struct PlanFeatures {
+    /// Simulability features (see [`Features`]); fields of tiers that were not computed keep their defaults.
     pub base: Features,
     /// log2 of the replayed MPS work (best bound), in model units.
     pub mps_r: f64,
     /// Predicted largest MPS bond.
     pub mps_max_bond: usize,
+    /// True when every gate is Clifford (the tableau is then a candidate).
     pub clifford: bool,
     /// Tier-0 features (v2).
     pub quick: QuickFeatures,
@@ -575,9 +607,11 @@ pub struct PlanFeatures {
 /// A decision.
 #[derive(Clone, Debug)]
 pub struct Plan {
+    /// The chosen engine.
     pub engine: Engine,
     /// Applicable engines with their predicted seconds, best first.
     pub ranked: Vec<(Engine, f64)>,
+    /// The features the decision was based on.
     pub features: PlanFeatures,
     /// Seconds spent planning.
     pub plan_secs: f64,
@@ -1289,11 +1323,13 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
 /// What [`execute_expectation`] did.
 #[derive(Clone, Debug)]
 pub struct Execution {
+    /// The expectation value `<Z_obs>`.
     pub value: f64,
     /// The engine that produced the value.
     pub engine: Engine,
     /// Engines aborted on the way (speculation).
     pub aborted: Vec<Engine>,
+    /// Wall-clock seconds of execution (planning and the debug reference excluded).
     pub secs: f64,
     /// Seconds spent planning.
     pub plan_secs: f64,
@@ -1495,8 +1531,11 @@ pub fn expectation(c: &Circuit, obs: &[usize], cfg: &PlannerConfig) -> Result<Ex
 
 /// An engine's final state of `c|0^n>`, ready for read-out.
 pub enum Prepared {
+    /// Dense state vector.
     Sv(StateVectorF64),
+    /// Sparse state.
     Sparse(SparseState),
+    /// Matrix product state.
     Mps(Mps),
     /// The HSF set-up (partition, segments); the full output is computed
     /// on the first sampling call and kept.
@@ -1504,6 +1543,7 @@ pub enum Prepared {
     /// The compressed state, turned into its sampler on the first
     /// sampling call.
     Compressed(Option<Box<CompressedState>>, Option<Box<Sampler>>),
+    /// Stabilizer tableau.
     Tableau(Box<Tableau>),
 }
 
@@ -1722,9 +1762,13 @@ impl Prepared {
 pub struct SampleExecution {
     /// One basis index per shot (bit `q` = qubit `q`).
     pub samples: Vec<u128>,
+    /// The engine that produced the samples.
     pub engine: Engine,
+    /// Engines aborted on the way (speculation or budget errors).
     pub aborted: Vec<Engine>,
+    /// Wall-clock seconds of execution (planning excluded).
     pub secs: f64,
+    /// Seconds spent planning.
     pub plan_secs: f64,
 }
 
@@ -1789,10 +1833,15 @@ pub fn execute_samples<R: Rng + ?Sized>(
 /// What [`execute_amplitudes`] did.
 #[derive(Clone, Debug)]
 pub struct AmplitudeExecution {
+    /// One amplitude per requested basis state, in request order.
     pub amplitudes: Vec<Complex64>,
+    /// The engine that produced the amplitudes.
     pub engine: Engine,
+    /// Engines aborted on the way (speculation or budget errors).
     pub aborted: Vec<Engine>,
+    /// Wall-clock seconds of execution (planning excluded).
     pub secs: f64,
+    /// Seconds spent planning.
     pub plan_secs: f64,
     /// Largest deviation from the reference state vector (debug mode).
     pub max_err: Option<f64>,

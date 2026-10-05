@@ -25,7 +25,9 @@ use std::f64::consts::PI;
 /// What [`fold_basis`] removed.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FoldStats {
+    /// Ops removed entirely.
     pub removed: usize,
+    /// Ops replaced by a simpler op.
     pub simplified: usize,
 }
 

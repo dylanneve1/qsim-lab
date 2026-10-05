@@ -10,7 +10,9 @@ use std::collections::VecDeque;
 /// An edge in the decoding graph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GraphEdge {
+    /// First endpoint (node index).
     pub u: usize,
+    /// Second endpoint (node index; may be the boundary node).
     pub v: usize,
     /// Whether this error mechanism changes the logical observable.
     pub flips_logical: bool,
@@ -21,13 +23,18 @@ pub struct GraphEdge {
 /// A decoding graph representing the error mechanisms of a QEC code.
 #[derive(Clone, Debug)]
 pub struct DecodingGraph {
+    /// Number of nodes, including the boundary node.
     pub num_nodes: usize,
+    /// Index of the virtual boundary node (in `0..num_nodes`).
     pub boundary_node: usize,
+    /// All edges, indexed by insertion order.
     pub edges: Vec<GraphEdge>,
+    /// For each node, the indices into `edges` of its incident edges.
     pub adj: Vec<Vec<usize>>, // edge indices incident to each node
 }
 
 impl DecodingGraph {
+    /// Graph with `num_nodes` nodes (the boundary node among them) and no edges.
     pub fn new(num_nodes: usize, boundary_node: usize) -> Self {
         Self {
             num_nodes,
@@ -37,6 +44,8 @@ impl DecodingGraph {
         }
     }
 
+    /// Appends an undirected edge `u`–`v` and records it in both adjacency lists.
+    /// Panics if either endpoint is out of range.
     pub fn add_edge(&mut self, u: usize, v: usize, flips_logical: bool, weight: usize) {
         assert!(u < self.num_nodes && v < self.num_nodes);
         let edge_idx = self.edges.len();
@@ -183,10 +192,12 @@ impl Dsu {
 /// A Union-Find decoder for standard QEC codes.
 #[derive(Clone, Debug)]
 pub struct UnionFindDecoder {
+    /// The decoding graph the decoder runs on.
     pub graph: DecodingGraph,
 }
 
 impl UnionFindDecoder {
+    /// Decoder over `graph`.
     pub fn new(graph: DecodingGraph) -> Self {
         Self { graph }
     }

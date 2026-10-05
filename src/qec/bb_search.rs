@@ -24,13 +24,18 @@ use std::collections::HashSet;
 /// An abelian group `Z_l x Z_m`, elements `g = i m + j`.
 #[derive(Clone, Debug)]
 pub struct AbelianGroup {
+    /// Order of the first cyclic factor.
     pub l: usize,
+    /// Order of the second cyclic factor (`m | l`; 1 for a cyclic group).
     pub m: usize,
     /// Automorphisms as element permutations `sigma[g]`.
     pub auts: Vec<Vec<u16>>,
 }
 
 impl AbelianGroup {
+    /// `Z_l x Z_m` with its full automorphism group, found by brute force over
+    /// images of the two generators (each automorphism is a bijection of the
+    /// `l m` elements). Elements are stored as `u16`, so `l m` must fit.
     pub fn new(l: usize, m: usize) -> Self {
         let n = l * m;
         let add = |g: usize, h: usize| ((g / m + h / m) % l) * m + (g % m + h % m) % m;
@@ -70,22 +75,26 @@ impl AbelianGroup {
         AbelianGroup { l, m, auts }
     }
 
+    /// Group order `l m`.
     pub fn order(&self) -> usize {
         self.l * self.m
     }
 
+    /// `g - h`.
     #[inline]
     pub fn sub(&self, g: usize, h: usize) -> usize {
         let (l, m) = (self.l, self.m);
         ((g / m + l - h / m) % l) * m + (g % m + m - h % m) % m
     }
 
+    /// `g + h`.
     #[inline]
     pub fn add(&self, g: usize, h: usize) -> usize {
         let (l, m) = (self.l, self.m);
         ((g / m + h / m) % l) * m + (g % m + h % m) % m
     }
 
+    /// Element `g` as `(i, j)` with `g = i m + j`.
     pub fn elem(&self, g: usize) -> (usize, usize) {
         (g / self.m, g % self.m)
     }
@@ -234,10 +243,15 @@ pub fn k_of(g: &AbelianGroup, a: &[u16], b: &[u16]) -> usize {
 /// One inequivalent code with `k > 0`.
 #[derive(Clone, Debug)]
 pub struct Candidate {
+    /// Order of the first cyclic factor of the group.
     pub l: usize,
+    /// Order of the second cyclic factor of the group.
     pub m: usize,
+    /// `A` of the canonical representative (group elements, `g = i m + j`).
     pub a: Sub,
+    /// `B` of the canonical representative.
     pub b: Sub,
+    /// Number of logical qubits (> 0).
     pub k: usize,
 }
 
@@ -294,6 +308,8 @@ pub fn enumerate_codes<F: FnMut(Candidate)>(
 }
 
 impl Candidate {
+    /// The candidate as a [`TwoBlockCode`](super::bicycle::TwoBlockCode) (element
+    /// `g` becomes the monomial `x^(g / m) y^(g % m)`).
     pub fn code(&self) -> super::bicycle::TwoBlockCode {
         let el = |x: &u16| ((*x as usize) / self.m, (*x as usize) % self.m);
         let a: Vec<(usize, usize)> = self.a.iter().map(el).collect();

@@ -361,6 +361,7 @@ impl Dag {
         self.live
     }
 
+    /// True when the DAG has no live nodes.
     pub fn is_empty(&self) -> bool {
         self.live == 0
     }
@@ -1127,10 +1128,16 @@ impl Dag {
 /// everything.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axis {
+    /// Identity: commutes with every op.
     Any,
+    /// Diagonal in the computational basis (`span{I, Z}`).
     Z,
+    /// In `span{I, X}`.
     X,
+    /// In `span{I, Y}`.
     Y,
+    /// Not confined to a single Pauli axis; the axis rule never applies, so
+    /// commutation falls back to the other checks in [`ops_commute`].
     Other,
 }
 
@@ -1531,12 +1538,17 @@ impl Default for PeepholeOptions {
 /// Statistics of a peephole run.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PeepholeStats {
+    /// Whole worklist passes run (at least 1; more when `fixpoint` finds changes).
     pub passes: usize,
+    /// Gate pairs merged into a single non-identity gate.
     pub merges: usize,
+    /// Gate pairs that cancelled to the identity (both removed).
     pub cancellations: usize,
+    /// Single gates removed up front because they canonicalise to the identity.
     pub removed_identities: usize,
     /// Partner searches started, and nodes walked past in total.
     pub searches: usize,
+    /// Total nodes walked past during partner searches.
     pub walk_steps: usize,
 }
 
