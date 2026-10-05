@@ -65,7 +65,7 @@ fn main() {
                 _ => m.inject(k, x),
             }
             locs += m.noise.loc - l0;
-            let bad = if oi >= 7 && oi <= 8 {
+            let bad = if (7..=8).contains(&oi) {
                 flip
             } else {
                 let (lx, lz) = ideal_logical(&m.b.frame, k, x);

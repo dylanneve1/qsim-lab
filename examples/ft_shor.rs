@@ -135,8 +135,8 @@ fn main() {
                             hist_f[y as usize] += 1;
                         }
                         locs += u.locations;
-                        for c in 0..N_COMP {
-                            faults[c] += u.noise.faults[c];
+                        for (f, uf) in faults.iter_mut().zip(u.noise.faults.iter()).take(N_COMP) {
+                            *f += *uf;
                         }
                         qubits = NLOG15;
                         y
