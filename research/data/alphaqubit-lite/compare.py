@@ -14,7 +14,19 @@ import numpy as np
 from aq_data import fit_ler, eps_from_E
 
 ds, d, fold, ref, decs = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5].split(",")
-dirs = [x for x in sys.argv[6:] if not x.startswith("--")]
+dirs = []
+_skip = False
+for x in sys.argv[6:]:
+    if _skip:
+        _skip = False
+        continue
+    if x.startswith("--"):
+        _skip = True
+        continue
+    dirs.append(x)
+mean_rounds = None  # also report mean over these R of the fixed-R per-round inversion (sim-to-real convention)
+if "--mean-rounds" in sys.argv:
+    mean_rounds = [int(x) for x in sys.argv[sys.argv.index("--mean-rounds") + 1].split(",")]
 rounds = None
 if "--rounds" in sys.argv:
     rounds = [int(x) for x in sys.argv[sys.argv.index("--rounds") + 1].split(",")]
@@ -67,13 +79,20 @@ def ler_counts(fails, shots):
     return float(np.mean(e))
 
 
+def mean_fixed(fails, shots):
+    return float(np.mean([np.mean([eps_from_E(fails[k] / shots[k], k[2]) for k in keys if k[2] == r]) for r in mean_rounds]))
+
+
 shots = {k: n[k] for k in keys}
 point = [ler_counts({k: int(cells[k] @ bits[:, j]) for k in keys}, shots) for j in range(m)]
-boot = np.zeros((400, m))
+mpoint = [mean_fixed({k: int(cells[k] @ bits[:, j]) for k in keys}, shots) for j in range(m)] if mean_rounds else None
+boot = np.zeros((400, m)); mboot = np.zeros((400, m))
 for t in range(400):
     fk = {k: rng.multinomial(n[k], cells[k] / n[k]) @ bits for k in keys}
     for j in range(m):
         boot[t, j] = ler_counts({k: int(fk[k][j]) for k in keys}, shots)
+        if mean_rounds:
+            mboot[t, j] = mean_fixed({k: int(fk[k][j]) for k in keys}, shots)
 jr = decs.index(ref)
 out = []
 for j, x in enumerate(decs):
@@ -83,6 +102,12 @@ for j, x in enumerate(decs):
     rec = dict(decoder=x, ler=l, ler_ci=[float(np.quantile(boot[:, j], 0.025)), float(np.quantile(boot[:, j], 0.975))],
                ratio_vs_ref=l / point[jr], ratio_ci=[float(np.quantile(rat, 0.025)), float(np.quantile(rat, 0.975))],
                eps_by_round=byR)
+    if mean_rounds:
+        mr = mboot[:, j] / mboot[:, jr]
+        rec.update(mean_fixed=mpoint[j], mean_fixed_ci=[float(np.quantile(mboot[:, j], 0.025)), float(np.quantile(mboot[:, j], 0.975))],
+                   mean_fixed_ratio=mpoint[j] / mpoint[jr], mean_fixed_ratio_ci=[float(np.quantile(mr, 0.025)), float(np.quantile(mr, 0.975))])
+        print(f"   mean eps over R={mean_rounds}: {100 * mpoint[j]:.3f}% [{100 * rec['mean_fixed_ci'][0]:.3f}, {100 * rec['mean_fixed_ci'][1]:.3f}]"
+              f"  ratio {rec['mean_fixed_ratio']:.3f} [{rec['mean_fixed_ratio_ci'][0]:.3f}, {rec['mean_fixed_ratio_ci'][1]:.3f}]")
     out.append(rec)
     print(f"{x:52s} LER {100 * l:.3f}% [{100 * rec['ler_ci'][0]:.3f}, {100 * rec['ler_ci'][1]:.3f}]  "
           f"vs {ref}: {rec['ratio_vs_ref']:.3f} [{rec['ratio_ci'][0]:.3f}, {rec['ratio_ci'][1]:.3f}]  "
