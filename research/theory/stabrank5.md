@@ -15,9 +15,9 @@ outputs: `research/data/stabrank5/*.out`. Notation and earlier results:
   Qassim–Pashayan–Gosset (2021) and monotonicity this also gives **χ(|T⟩^{⊗6}) = 6**. The sequence
   for n = 1…6 is χ = 2, 2, 3, 4, 6, 6, so after χ₁ = χ₂ it has a second plateau at n = 5, 6.
 * The proof is a complete search with a written completeness argument (§2). Two in-repo algorithms
-  with different case splits find nothing: one lifts every candidate one qubit up by a
-  meet-in-the-middle over exact completions, the other glues pairs of restrictions with the older
-  `glue_from` code. They share their input lists: the 449 optimal 4-term decompositions of H^{⊗4}
+  with different case splits find nothing. One lifts every candidate one qubit up by a
+  meet-in-the-middle over exact completions. The other handles the generic case (every restriction
+  non-degenerate) by gluing pairs of restrictions with the older `glue_from` code. They share their input lists: the 449 optimal 4-term decompositions of H^{⊗4}
   (now derived by three independent algorithms) and the 2,662,464 minimal 5-term decompositions of
   H^{⊗4} in 14,181 symmetry orbits (new). The decisive run (enumeration plus Algorithm 1) costs
   about 0.8 CPU-hours (§3).
@@ -27,8 +27,8 @@ outputs: `research/data/stabrank5/*.out`. Notation and earlier results:
   Our search does not use that list. So the value 6 now has two independent derivations.
 * The enabling idea is a **Galois lemma**: the span of any decomposition of |H⟩^{⊗n} (or |F⟩^{⊗n})
   into independent stabilizer states also contains |H^⊥⟩^{⊗n}. The 2-dimensional subspace
-  U = span(H^{⊗n}, H^{⊥⊗n}) must then lie in the span, which makes the last three terms of a
-  5-term search hashable one at a time. The complete list of 4-term decompositions of H^{⊗4}
+  U = span(H^{⊗n}, H^{⊥⊗n}) must then lie in the span. In a 5-term search this reduces the last three
+  terms to a projective-hash lookup after only two terms are fixed. The complete list of 4-term decompositions of H^{⊗4}
   takes 1.2 s (the direct search of stabrank-lower took about an hour). The 5-term list takes
   9 minutes.
 
@@ -53,9 +53,9 @@ conjugation) under the unitary symmetries that fix one qubit (`suborbits H 4 4`)
 reproduce the number 30, so we do not claim to have discharged their assumption. Our proof does not
 depend on it.
 
-QPG 2021 (Quantum 5, 606, Table 1 and Eq. 7) give χ(T^{⊗6}) ≤ 2χ(cat₆) ≤ 6, with
-\|cat_m⟩ = (\|T⟩^{⊗m} + |T^⊥⟩^{⊗m})/√2. Their magic cat states lie in the subspace U of the Galois
-lemma below.
+QPG 2021 (Quantum 5, 606, Table 1 and Eq. 7) give χ(T^{⊗6}) ≤ 2χ(cat₆) ≤ 6, where the magic cat
+state is cat_m = (T^{⊗m} + T^{⊥⊗m})/√2. These cat states lie in the subspace U of the Galois lemma
+below.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -147,7 +147,7 @@ the coefficients of ψ_{n−1}, and z_i ∈ bottoms(top_i).
 |---|---|---|---|
 | I | a minimal k-term decomposition A | Σ a_i z_i = t ψ_{n−1} | meet in the middle: 65² sums against 65³, matched on two random linear functionals, then full check |
 | II | an optimal (k−1)-term decomposition D and a zero; the last term is \|1⟩⊗B | t ψ − Σ d_i z_i ∝ a stabilizer state B | brute force over 65^{k−1}, support/magnitude filter, then exact test |
-| IIIa | D plus a term with top ∥ D_j | Σ d_i z_i − tψ = s(z_j − z_τ), s ≠ 0, d_j | for each (z_j, z_τ): one scalar 2×2-determinant equation, meet in the middle, full check |
+| IIIa | D plus a term with top ∥ D_j | Σ d_i z_i − tψ = s(z_j − z_τ), s ∉ {0, d_j} | for each (z_j, z_τ): one scalar 2×2-determinant equation, meet in the middle, full check |
 | IIIb | D plus a stabilizer state τ ∈ span(D), τ = Σ e_iD_i, parallel to no D_j | Σ d_i z_i − tψ = s(Σ e_i z_i − z_τ) | brute force on scalars, then full check |
 
 Every hit is rebuilt as n-qubit vectors and verified exactly: each term passes `is_stabilizer`,
@@ -155,8 +155,9 @@ Gram determinant > 10⁻¹⁰, residual < 10⁻⁸, all |c| > 10⁻⁸. True sol
 equations to ~10⁻¹⁴; the windows are 10⁻⁸.
 
 *Symmetry.* D and A range over orbit representatives under G_{n−1}. A unitary element of G_{n−1}
-extends to qubit n by the identity. An antiunitary one, (U ⊗ …)∘conj, extends by a diagonal
-Clifford d on qubit n with d·conj(ℓ) ∥ ℓ, where ℓ is the last-qubit target. For |0⟩ and H, d = I;
+extends to qubit n by the identity. An antiunitary element U∘conj (U a product of local Cliffords
+and a permutation of qubits 1…n−1) extends to (U ⊗ d)∘conj, with d a diagonal Clifford on qubit n
+such that d·conj(ℓ) ∥ ℓ, where ℓ is the last-qubit target. For |0⟩ and H, d = I;
 for F, d = S. Such an extension maps ψ_n to itself up to phase and preserves the ⟨0|_n restriction.
 For other bras (ℓ = uψ with u|s⟩ = |0⟩) the program asserts that d exists.
 

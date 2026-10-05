@@ -1,0 +1,13 @@
+# Enumeration of all minimal 5-term decompositions of H^{⊗4} (gsearch H 4 5, refined k = 5 search)
+# Run 1 (11:56-12:13 IST, 4 threads, nice 15; per-orbit progress lines omitted):
+H^4: 36720 states, 186 orbits, |G| = 768
+H^4 k=5: 2662464 decompositions in 14181 orbits (532.6s); l1 range [1.621320, 6.535534], ratio 4.0310
+  gsearch k=5: pairs=1000090 candidates=13679546374 verified=412954936 raw found=106974
+
+# Run 2 (12:30-12:44 IST, same binary logic + margin diagnostics; output list byte-identical to run 1):
+=== 2026-10-05T12:30:17+01:00 /dev/shm/qsim/target-stabrank5/stabrank5L gsearch H 4 5
+H^4: 36720 states, 186 orbits, |G| = 768
+  margins: Diag { zero_pn2_max: 2.220446049250313e-16, nonzero_pn2_min: 0.062499999999999695, acc_gram_min: 0.09374999999999992, acc_coef_min: 0.10355339059327356, acc_res_max: 1.1083403376613172e-15, ambiguous: 0, rej_res_min: 1.7976931348623157e308 }
+  gsearch k=5: pairs=1000090 candidates=13679546374 verified=412954936 raw found=106974
+H^4 k=5: 2662464 decompositions in 14181 orbits (836.5s); l1 range [1.621320, 6.535534], ratio 4.0310
+  [time 837.41 s wall, 2094.81 s user, 173564 kB maxrss]
