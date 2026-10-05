@@ -48,7 +48,7 @@ pub fn random_param_circuit(rng: &mut StdRng, n: usize, np: usize, len: usize) -
                 rand_angle(rng, np),
                 rand_angle(rng, np),
             ),
-            8 | 9 | 10 if n >= 2 => {
+            8..=10 if n >= 2 => {
                 let (a, b) = edge_pair(rng, n);
                 match k {
                     8 => POp::CPhase(a, b, rand_angle(rng, np)),
