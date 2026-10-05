@@ -1,5 +1,5 @@
 #!/bin/bash
-# DRAT certificates for the d = 11 hook-free-boundary UNSAT claims of research/colour-flags.md.
+# DRAT certificates for the d = 11 hook-free-boundary UNSAT claims of research/qec/colour-flags.md.
 # Same pipeline as ../colour-global/certify.sh: CEGAR CNF (encoding + cuts) -> Glucose DRAT -> drat-trim.
 # usage: certify_flags.sh <python> <drat-trim>   (run from this directory; writes certs/)
 PY=${1:-python3}; DT=${2:-drat-trim}

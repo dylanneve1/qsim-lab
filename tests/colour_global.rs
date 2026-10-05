@@ -1,4 +1,4 @@
-//! The globally searched d = 9 colour-code schedule (research/colour-global.md):
+//! The globally searched d = 9 colour-code schedule (research/qec/colour-global.md):
 //! inside Kishony-Fowler's design space (one auxiliary per plaquette, the same
 //! 6-step schedule for the X and Z halves, collision-free) it reaches circuit
 //! distance 8 = d - 1, one more than Kishony-Fowler's d - floor((d+3)/6) = 7.
@@ -61,7 +61,7 @@ fn d9_global_schedule_beats_kf_circuit_distance() {
 }
 
 /// d = 11: Kishony-Fowler's 6 + 6-layer space cannot exceed their d_circ = 9
-/// (DRAT-verified UNSAT, research/colour-global.md §6), but one extra CNOT
+/// (DRAT-verified UNSAT, research/qec/colour-global.md §6), but one extra CNOT
 /// layer per half (steps 1..=7, still one schedule for both halves and
 /// collision-free) reaches 10 = d - 1.
 #[test]

@@ -210,3 +210,117 @@ Each domain module owns exactly these files and needs no edits elsewhere:
   it writes; `if` works on one-bit registers only; the global phase is not representable.
 * Predicted costs in `Explanation.ranked` come from models fitted on an Apple M1 Pro (single
   thread); use them to compare engines, not as wall-clock promises.
+
+## `qsimlab.qec` (phase 2, provisional)
+
+Tutorial, noise-model table, performance and limitations: [`docs/qec.md`](docs/qec.md).
+
+```python
+c = surface_code_memory(d, rounds=None, basis="Z", *, p=0.0, noise="uniform", return_layout=False)
+c = repetition_code_memory(d, rounds=None, *, p=0.0, noise="uniform", return_layout=False)
+c = color_code_memory(d, rounds=None, basis="Z", *, schedule="kf", flags=False, p=0.0,
+                      noise="cnot", return_layout=False)          # schedule: kf|tri|global|path|array
+dets, obs = sample_detectors(c, shots, *, seed=None, engine="auto", packed=False,
+                             transposed=False, threads=None)       # or DetectorSampler(c).sample(...)
+dem = detector_error_model(c)                     # DetectorErrorModel: to_stim_dem(), from_stim_dem(),
+                                                  # errors [DemError(p, dets, obs)], matrices(), graphlike()
+r = circuit_distance(c_or_dem, *, max_weight=None, observable=0, detectors=None,
+                     count_cap=10**6, node_limit=None, timeout=None)   # DistanceResult
+pred = decode(dem, dets, "bposd" | "pymatching" | "tesseract" | Decoder, *, packed=None, threads=None)
+r = logical_error_rate(c, shots, *, decoder="bposd", seed=None, max_errors=None, rounds=None,
+                       engine="auto", dem=None, threads=None)    # LogicalErrorRate(Result)
+```
+
+* Generated circuits are plain `Circuit`s with detectors/observables and **explicit** noise ops
+  (`noise="cnot" | "uniform" | "si1000"`, strength `p`; the readout flip is `readout_error`), so
+  `to_stim()` is exactly what is sampled. `return_layout=True` adds a `CodeLayout` (qubit roles
+  and coordinates, `(x, y, round)` per detector, `detector_basis`, `flag_detectors`,
+  `memory_detectors`).
+* Detection events are relative to the noiseless reference (Stim's convention). Arrays:
+  `bool[shots, D]`; `packed=True`: Stim's `bit_packed` `uint8[shots, ceil(D/8)]` (bit `k % 8` of
+  byte `k // 8`); `transposed=True`: detector-major bit-packed `uint8[D, ceil(shots/8)]`.
+* Sampler `engine`: `"auto"` (FastSampler, SymPhase fallback with `DetectorSampler.note`),
+  `"fast"`, `"symphase"`. Shots come in chunks of 1024 from streams seeded by `(seed, chunk)`:
+  identical output for any thread count. `seed=None` draws an OS seed (`LogicalErrorRate.seed`
+  reports it).
+* `detector_error_model` converts depolarizing channels into independent components exactly as
+  Stim does and merges equal signatures; it equals Stim's DEM of `to_stim()` to rounding.
+  Non-deterministic detectors/observables raise `UnsupportedOperationError`.
+* `circuit_distance` is exact (branch and bound, counts minimum-weight logicals);
+  `detectors=` restricts the search to a sector (lower bound; `certified` = exact).
+* Decoders: BP+OSD built in (≤ 64 observables); `pymatching` / `tesseract` raise
+  `MissingDependencyError` when not installed.
+* `LogicalErrorRate` extends `sim.Result` with `errors, shots, rate, ci` (Wilson 95%),
+  `decoder, rounds, per_round, per_round_ci, stats`; a shot fails if any observable is wrong.
+
+## `qsimlab.shor` (phase 2, provisional)
+
+Tutorial, oracle table, performance and limitations: [`docs/shor.md`](docs/shor.md).
+
+```python
+r = factor(N, *, oracle="windowed-opt", window=None, exponent_window=None, base=None,
+           precision="f64", seed=None, tries=10, budget=None, engine="auto", trace=True,
+           threads=None)                       # FactorResult(Result): factors, base, order, measured,
+                                               # qubits, total_gates, toffoli_gates, peak_support, runs
+c = resource_counts(N, oracle="windowed-opt", *, window=None, exponent_window=None, base=None,
+                    per_round=False)           # ResourceCounts: qubits, rounds, oracle_gates, toffoli,
+                                               # cnot, x, measurements, fixups, slice_steps
+o = oracle_circuit(N, a, oracle="windowed-opt", *, window=None)   # OracleCircuit(circuit, control, work, ...)
+c = shor_circuit(N, a, oracle="ripple", *, window=None)           # whole semiclassical Circuit
+p = exact_distribution(N, a, oracle="permutation", *, window=None)    # float64[2**(2n)], n <= 8
+s = predict_support(N, a, oracle="windowed-opt", *, precision="f64")  # SupportPrediction
+b = support_bounds(order, rounds)                                 # uint64[t]: B_i of theory-shor T1
+s = noisy_success(N, a, p, *, noise="depolarizing", trajectories=200, oracle="windowed",
+                  faults=None, seed=None, reset_ancillas=False, cap=2**26)   # NoisySuccess(Result)
+multiplicative_order(a, N); carmichael(N)
+```
+
+* `ORACLES`: `permutation, beauregard, ripple, windowed, windowed-opt, windowed-mbu-lookup,
+  windowed-mbu, ge, eh`. `window` is `w` of the windowed oracles (default 4) or `w_m` of
+  `ge`/`eh` (default 3); `exponent_window` is `w_e` (default 2). `eh` needs a balanced N.
+* `N`: odd, composite, not a prime power, `< 2^62` (`ValueError`). `base` must be coprime to N.
+* Seeds: `StdRng(seed)`, consumed exactly as by `qsim run shor --seed`: same seed ⇒ same bases
+  and measured integers as the CLI, on every engine and oracle that implements the same unitary.
+  `seed=None` draws an OS seed (`result.seed`).
+* Engines (`engine="auto"`): bit-sliced branches for the X/CNOT/CCX(/MBU) oracles, the cheaper
+  of fused dense / fused sparse for `permutation`, dense for `beauregard`, the GE window engine
+  for `ge`/`eh`; overrides `"sliced"`, `"dense"`, `"sparse"` where they apply.
+* **Memory guard**: before every run, the peak memory is predicted from the support law
+  (`max_i B_i` branches × measured bytes per branch, or the dense register size) using the order
+  computed classically; a run over `budget` raises `ResourceLimitError` (`needed`, `limit` in
+  bytes) without allocating. Default budget: `min(32 GiB, physical memory / 2)`.
+* `ShorRun.support_trace` (sliced engine): branches before every round;
+  `ShorRun.predicted_support`: `B_i`. `measured` is an int (bit `i` = round `i`), or `(k, j)`
+  for `eh`.
+* `NoisySuccess`: `success` (factor found) with Wilson 95% `ci`, `order_rate`, `peak_rate`
+  (`|y/2^t − s/r| < 1/(2r²)`), `locations`, `mean_faults`, `capped`, per-trajectory arrays.
+  Trajectory `i` uses a stream derived from `(seed, i)`: independent of `threads`.
+
+## `qsimlab.analysis` (phase 2, provisional)
+
+Tutorial (QFT vs Grover), conventions and limitations: [`docs/analysis.md`](docs/analysis.md).
+
+```python
+p = magic_profile(circuit, *, checkpoints=64, cut=None, entanglement=True, support=True)
+    # MagicProfile: t_count, rotations, d, f, log2_work(_factored), e_stab_max, e_bound_max,
+    #               support_log2, d_profile, f_profile, rotation_gate, checkpoints
+m = state_magic(circuit_or_state)              # StateMagic(nullity, m2); n <= 13
+stabilizer_nullity(x); stabilizer_renyi_entropy(x)
+b = branching_rank(circuit, *, max_terms=65536, pair_merge=6, state=False)
+    # BranchingRank: rank, max_rank, trace, overflow, *_events, merges, state
+s = simulability(circuit, request=None, *, hsf=True, budget=None)
+    # Simulability: features (dict), log2_costs [(engine, log2 work)], explanation (Explanation)
+r = monitored(circuit, *, seed=None, exact=True, max_d=24, cuts=None, entropy_every=0,
+              max_cost_log2=24, state=False)
+    # MonitoredResult(Result): d (per op), outcomes, qubits, probabilities, kinds,
+    #                          entropies [(op, [(lower, upper, s2)])], stats, state
+```
+
+* `magic_profile`, `branching_rank`, `simulability` take the unitary part (terminal
+  measurements dropped; other non-unitary ops raise `UnsupportedOperationError`).
+* `monitored` accepts every op (gates are lowered to Clifford + Z rotations; measurements,
+  resets, `c_if`, Pauli noise channels sampled per shot), not `readout_error`. Exact mode refuses
+  `d > max_d` (≤ 34) with `ResourceLimitError`; `exact=False` gives `d(t)` and entropy bounds at
+  any size. The state is returned up to a global phase.
+* Entropies are in bits; `MonitoredResult.entropies` regions default to the first `n // 2`
+  qubits.

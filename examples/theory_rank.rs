@@ -1,4 +1,4 @@
-//! Branching-rank profiles and demos (research/theory-rank.md).
+//! Branching-rank profiles and demos (research/theory/theory-rank.md).
 //!
 //! ```text
 //! theory_rank profile <spec> <seed> <cap>     # one JSON line: r_k profile + atlas d

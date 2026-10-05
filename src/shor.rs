@@ -24,6 +24,7 @@
 
 pub mod fused;
 pub mod noisy;
+pub mod noisy_gen;
 pub mod sliced;
 
 use crate::algorithms::{gcd, pow_mod};

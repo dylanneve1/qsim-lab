@@ -1,4 +1,4 @@
-//! Executable checks for the theorems of `research/theory-coset.md`
+//! Executable checks for the theorems of `research/theory/theory-coset.md`
 //! (coset-representation error in the windowed Gidney–Ekerå Shor circuit,
 //! `src/shor_ge.rs`, `GeOpts::coset = c`).
 //!

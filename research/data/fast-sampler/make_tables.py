@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Markdown tables for research/fast-sampler.md from the timing / equivalence jsonl files.
+"""Markdown tables for research/qec/fast-sampler.md from the timing / equivalence jsonl files.
 usage: make_tables.py timing <file.jsonl> | equiv <file.jsonl>..."""
 import sys, json
 

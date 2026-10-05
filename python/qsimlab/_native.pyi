@@ -80,3 +80,195 @@ def run(
 def plan(
     circuit: CircuitCore, kind: str, payload: Any, memory: Union[int, str, None] = ...
 ) -> Dict[str, Any]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.qec (python/src/qec.rs; public wrapper: qsimlab.qec)
+
+class _QecModule:
+    CHUNK_SHOTS: int
+    def surface_code_memory(
+        self, d: int, rounds: int, basis: str = ..., p: float = ..., noise: str = ...
+    ) -> Tuple[CircuitCore, Dict[str, Any]]: ...
+    def repetition_code_memory(
+        self, d: int, rounds: int, p: float = ..., noise: str = ...
+    ) -> Tuple[CircuitCore, Dict[str, Any]]: ...
+    def color_code_memory(
+        self,
+        d: int,
+        rounds: int,
+        basis: str = ...,
+        schedule: Union[None, str, Sequence[Sequence[int]]] = ...,
+        flags: Sequence[bool] = ...,
+        p: float = ...,
+        noise: str = ...,
+    ) -> Tuple[CircuitCore, Dict[str, Any], List[List[int]]]: ...
+    def color_code_plaquettes(
+        self, d: int
+    ) -> Tuple[List[Tuple[int, int, int, List[int]]], List[bool]]: ...
+    def detector_error_model(
+        self, circuit: CircuitCore
+    ) -> Tuple[int, int, List[Tuple[float, List[int], List[int]]]]: ...
+    def sample_decode_count(
+        self,
+        sampler: "DetectorSamplerCore",
+        decoder: "BpOsdCore",
+        shots: int,
+        seed: int,
+        max_errors: Optional[int] = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def min_weight_logical(
+        self,
+        num_detectors: int,
+        errors: Sequence[Tuple[float, Sequence[int], Sequence[int]]],
+        observable: int = ...,
+        keep: Optional[Sequence[int]] = ...,
+        max_weight: int = ...,
+        count_cap: int = ...,
+        node_limit: Optional[int] = ...,
+        timeout: Optional[float] = ...,
+    ) -> Dict[str, Any]: ...
+    DetectorSamplerCore: type
+    BpOsdCore: type
+
+class DetectorSamplerCore:
+    def __init__(self, circuit: CircuitCore, engine: str = ...) -> None: ...
+    num_detectors: int
+    num_observables: int
+    engine: str
+    note: str
+    compile_time: float
+    rows: int
+    def sample(
+        self,
+        shots: int,
+        seed: int,
+        packed: bool = ...,
+        threads: Optional[int] = ...,
+        transposed: bool = ...,
+    ) -> Tuple[Any, Any, float]: ...
+    def _bench(self, shots: int, packed: bool) -> Tuple[float, float]: ...
+
+class BpOsdCore:
+    def __init__(
+        self,
+        num_detectors: int,
+        num_observables: int,
+        errors: Sequence[Tuple[float, Sequence[int], Sequence[int]]],
+        max_iter: int = ...,
+        ms_scale: float = ...,
+        osd_order: int = ...,
+    ) -> None: ...
+    num_detectors: int
+    num_observables: int
+    num_mechanisms: int
+    def decode_packed(self, syndromes: Any, threads: Optional[int] = ...) -> Tuple[Any, int, int]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.shor (python/src/shor.rs; public wrapper: qsimlab.shor)
+
+class _ShorModule:
+    ORACLES: List[str]
+    def factor(
+        self,
+        n: int,
+        kind: str,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        base: Optional[int] = ...,
+        f32: bool = ...,
+        seed: int = ...,
+        tries: int = ...,
+        budget: int = ...,
+        engine: str = ...,
+        trace: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def resource_counts(
+        self,
+        n: int,
+        kind: str,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        base: Optional[int] = ...,
+        per_round: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def oracle_circuit(
+        self, n: int, a: int, kind: str, window: Optional[int] = ...
+    ) -> Dict[str, Any]: ...
+    def shor_circuit(self, n: int, a: int, kind: str, window: Optional[int] = ...) -> CircuitCore: ...
+    def exact_distribution(
+        self,
+        n: int,
+        a: int,
+        kind: str,
+        window: Optional[int] = ...,
+        prune: float = ...,
+        threads: Optional[int] = ...,
+    ) -> Any: ...
+    def predict_support(
+        self,
+        n: int,
+        a: int,
+        kind: str = ...,
+        window: Optional[int] = ...,
+        exponent_window: Optional[int] = ...,
+        f32: bool = ...,
+    ) -> Dict[str, Any]: ...
+    def number_theory(
+        self, n: int, a: Optional[int]
+    ) -> Tuple[Optional[int], int, List[Tuple[int, int]]]: ...
+    def noisy_trajectories(
+        self,
+        n: int,
+        a: int,
+        p: float,
+        noise: str = ...,
+        trajectories: int = ...,
+        kind: str = ...,
+        window: Optional[int] = ...,
+        seed: int = ...,
+        faults: Optional[int] = ...,
+        cap: int = ...,
+        reset_ancillas: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+
+# ---------------------------------------------------------------------------
+# qsimlab._native.analysis (python/src/analysis.rs; public wrapper: qsimlab.analysis)
+
+class _AnalysisModule:
+    def magic_profile(
+        self,
+        circuit: CircuitCore,
+        checkpoints: int = ...,
+        entanglement: bool = ...,
+        cut: Optional[int] = ...,
+        support: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def state_magic(self, state: Any, threads: Optional[int] = ...) -> Tuple[float, float]: ...
+    def branching_rank(
+        self,
+        circuit: CircuitCore,
+        max_terms: int = ...,
+        pair_merge: int = ...,
+        state: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def features(
+        self, circuit: CircuitCore, hsf: bool = ..., threads: Optional[int] = ...
+    ) -> Dict[str, Any]: ...
+    def monitored(
+        self,
+        circuit: CircuitCore,
+        seed: int = ...,
+        exact: bool = ...,
+        max_d: int = ...,
+        cuts: Optional[Sequence[Sequence[int]]] = ...,
+        entropy_every: int = ...,
+        max_cost_log2: int = ...,
+        state: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...

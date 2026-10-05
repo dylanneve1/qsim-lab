@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Theorem 3 bounds vs the measured single-fault table of research/shor-noise.md.
+"""Theorem 3 bounds vs the measured single-fault table of research/shor/shor-noise.md.
 
 For each of the 15 depolarizing instances (n, r from the shor-noise main table)
 compute, per window (start: i < floor(t - 2 log2 r); end: last nu2(r) rounds;

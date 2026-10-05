@@ -5,13 +5,13 @@
 //! block), consecutive ops whose qubits fit in a set of at most `k <= 3`
 //! inner qubits are multiplied into one dense `2^k x 2^k` unitary, applied
 //! in a single pass over the block by the kernels in
-//! [`crate::dense_kernels`]. This trades arithmetic for passes: a fused
+//! `src/dense_kernels.rs`. This trades arithmetic for passes: a fused
 //! 2-qubit block costs a 4x4 complex matrix-vector product per amplitude
 //! group instead of two or three separate sweeps.
 //!
 //! Origin: exp/sv-monomial / wip/fusion-avx2 (unreviewed WIP, Oct 1),
 //! ported onto the current executor, reviewed and differential-tested
-//! (`tests/dense_fusion.rs`). Measured result: `research/dense-fusion.md`.
+//! (`tests/dense_fusion.rs`). Measured result: `research/performance/dense-fusion.md`.
 //!
 //! # Ordering argument
 //!
@@ -190,7 +190,7 @@ struct Block {
 /// specialised 1-qubit kernels, while controlled gates, swaps and phases
 /// are cheaper than a 1-qubit gate. So fusing brickwork's `U1 U1 CNOT` is a
 /// net loss (0.87-0.98x on the M1 Pro), while a generic two-qubit unitary
-/// written as 3 x (`U1 U1 CNOT`) gains 2x (`research/dense-fusion.md`).
+/// written as 3 x (`U1 U1 CNOT`) gains 2x (`research/performance/dense-fusion.md`).
 /// Only those gates are counted, so chains of cheap permutations (CNOT,
 /// CCX, X, swaps: arithmetic circuits) are never fused. `min_ops = 1` fuses every group of two or
 /// more gates (for tests and experiments). A group on one qubit always becomes a

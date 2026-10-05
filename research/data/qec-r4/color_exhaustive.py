@@ -2,7 +2,7 @@
 """Exhaustive search over the schedules of a GROUP of plaquettes (all others fixed), up to
 DEM-equivalence, of the single-auxiliary triangular colour code.
 
-Equivalence (exact for the Z-memory noisy-CNOT DEM, see research/qec-r4.md §5.2): the Z-sector
+Equivalence (exact for the Z-memory noisy-CNOT DEM, see research/qec/qec-r4.md §5.2): the Z-sector
 DEM depends on a plaquette's schedule only through (a) the order of its own CNOTs (hooks from
 the X half) and (b) for each of its data qubits, the order in which that qubit meets its 2-3
 plaquettes during the Z half. Options with equal (a, b) keys give identical DEMs, so one

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end Planner v2 evaluation on the Mac (research/planner-v2.md §4).
+"""End-to-end Planner v2 evaluation on the Mac (research/simulability/planner-v2.md §4).
 
 `planner_v2 plan VARIANT REQ` (plan + execute, in process; mac/e2e*.jsonl)
 against the best engine measured for the same request in the read-out
