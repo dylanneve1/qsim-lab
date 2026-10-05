@@ -350,6 +350,22 @@ def gf2_rank(vectors):
     return len(rows)
 
 
+def span_select(allx, dmax):
+    """Span-closed selection: excitations by |t|, kept while the GF(2) span of their
+    x-vectors has dimension <= dmax (members of the span are always kept)."""
+    rows, sel = [], []
+    for o, v, t in allx:
+        r = xvec(o, v)
+        for b in rows:
+            r = min(r, r ^ b)
+        if r == 0:
+            sel.append((o, v, t))
+        elif len(rows) < dmax:
+            rows.append(r)
+            sel.append((o, v, t))
+    return sel, len(rows)
+
+
 def xvec(occ, vir):
     v = 0
     for q in tuple(occ) + tuple(vir):
@@ -399,17 +415,7 @@ def prep(name, out, small_only=False):
     # span-budget selection: walk the CCSD excitations by |t|; keep one if the GF(2)
     # span stays within D dimensions (excitations already in the span are free)
     for dmax in (8, 12, 16, 20, 24):
-        rows, sel = [], []
-        for o, v, t in allx:
-            x = xvec(o, v)
-            r = x
-            for b in rows:
-                r = min(r, r ^ b)
-            if r == 0:
-                sel.append((o, v, t))
-            elif len(rows) < dmax:
-                rows.append(r)
-                sel.append((o, v, t))
+        sel, dim = span_select(allx, dmax)
         refs[f"span{dmax}_k"] = len(sel)
         write_program(
             os.path.join(out, f"{name}.span{dmax}.jw.prog"),
@@ -419,7 +425,7 @@ def prep(name, out, small_only=False):
             [t for *_, t in sel],
             {"mol": name, "ansatz": f"span{dmax}", "enc": "jw", "k": len(sel)},
         )
-        if len(rows) < dmax:
+        if dim < dmax:
             break
     small = n <= 24
     if small:
