@@ -76,6 +76,10 @@ name = "noise"
 path = "tests/core/noise.rs"
 
 [[test]]
+name = "onnx_export"
+path = "tests/core/onnx_export.rs"
+
+[[test]]
 name = "properties"
 path = "tests/core/properties.rs"
 
