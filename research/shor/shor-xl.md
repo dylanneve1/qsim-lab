@@ -33,12 +33,15 @@ default (16) unless stated.
   factors with the seed-1 odd-order base (≤ 3.6 GB, ≤ 75 s). Above 33 bits the seed-1 supports need
   14 GB to 10^10 GB, except at 43 bits: **N = 4 911 456 443 897 = 1 456 057 × 3 373 121 is factored
   by exact gate-level EH simulation (181 qubits, 66 exponent bits, 470 k Toffolis; 190 s at load
-  ≈ 30, 3.6 GB)** — as far as we know the largest N factored by gate-level simulation of a Shor-type
-  circuit — **with its cost set by the support `ord(g) = 115 574 445`, which is small because this
-  seed's base misses the factor 83 of `λ_odd = 9.59·10^9`** (a uniformly random base is this lucky with
-  probability ≈ 5 %; one of full odd order would need ≈ 300 GB here). The instance was picked, after computing the supports of all 22–63-bit generator
-  instances from their factors, as the only one above 33 bits that fits; its `p − 1` and `q − 1`
-  are 243- and 127-smooth, so it is classically trivial (Pollard's `p − 1`).
+  ≈ 30, 3.6 GB)** — as far as we know the largest N not constructed to be easy (it comes from a
+  seeded random-semiprime generator) that has been factored by gate-level simulation of a Shor-type
+  circuit, **with its cost set by the support `ord(g) = 115 574 445`, which is small because this
+  seed's base misses the factor 83 of `λ_odd = 9.59·10^9`** (a uniformly random base is this lucky
+  with probability ≈ 5 %; one of full odd order would need ≈ 300 GB here). This repo's own 52-bit
+  gate-level runs ([shor.md](shor.md)) used N = p(2p − 1), constructed so that `λ ≈ √(2N)`. The
+  43-bit instance was picked, after computing the supports of all 22–63-bit generator instances from
+  their factors, as the only one above 33 bits that fits; its `p − 1` and `q − 1` are 243- and
+  127-smooth, so it is classically trivial (Pollard's `p − 1`).
 * **AVX-512.** A `VPTERNLOGQ` kernel makes the bit-sliced gate evaluation 1.5× faster per thread
   than AVX2 and 1.18–1.32× faster inside whole runs; end to end the 28- and 31-bit record runs gain
   only 4–9 % (load 22–38), because sorting and merging the branches now take most of the time. The
@@ -380,4 +383,70 @@ Both `p − 1 = 2^3·3^5·7·107` and `q − 1 = 2^6·5·83·127` are 243-smooth
 classically weak to Pollard's `p − 1`; the selection rule (largest instance whose support fits)
 favours such N, because a small support needs a small `λ_odd`.
 
-TBD-SECTIONS
+## 6. Against Willsch et al. 2023, honestly
+
+| | Willsch et al. 2023 (`shorgpu`) | this notebook |
+|---|---|---|
+| largest N | 549 755 813 701 (39 bits) | the same N; and 4 911 456 443 897 (43 bits) |
+| algorithm | iterative Shor (one recycled control), Shor's and Ekerå's post-processing | Ekerå–Håstad (also Shor's order finding on an odd-order base + Miller) |
+| oracle | controlled modular multiplication applied as a permutation of the amplitudes | X / CNOT / Toffoli circuit with measurement-based uncomputation, every gate on every branch |
+| state | full 40-qubit state vector: 2^40 complex doubles (16 TiB; > 40 TiB with buffers) | the branches of the exact 165–181-qubit state: ≤ 2^{w_e}·ord(g) (1.4·10^8 / 2.3·10^8) |
+| cost set by | 2^40, whatever the base's order | the support `ord(g)`, a divisor of `λ_odd(N)` |
+| hardware | up to 2048 A100 GPUs (JUWELS Booster) | one 16-vCPU VM, 2.3 / 3.6 GB |
+| base | random `a` coprime to N | `h` from a seeded RNG, `g = h^(2^n)` (odd order); no factors used in the run |
+
+Their simulation would cost the same for any 39-bit N and any base; ours would not run at all for a
+typical 39-bit N (§5.2: 159 GB for the generator's 39-bit N) or for N_W with a typical *Shor* base
+(§3.2: 147 GB). The comparison shows that this N happens to have a small `λ_odd`, not that one
+simulator is faster than the other. It is also no statement about factoring: both N are classically
+easy (trial division, and Pollard's `p − 1` in particular).
+
+## 7. Caveats and negative results
+
+* **Selection.** N_W was chosen because Willsch et al. factored it; its smooth `p − 1` (odd part of
+  `λ` only 7.2·10^7) is what makes it reachable here. The 43-bit N was selected, after computing the
+  supports of all 22–63-bit generator instances from their factors, as the only instance above 33
+  bits whose seed-1 run fits; the seed-1 base happens to miss the factor 83 of `λ_odd` (probability
+  ≈ 5 % for a random base). These orders were computed before the rule in `PREREG.md` was written
+  (stated there); the circuit runs themselves never read the factors or the orders.
+* **Loaded machine.** Every timing in this notebook was taken at a 1-min load of 15–56 from other
+  users and agents (16 vCPUs), so absolute times are pessimistic and ratios carry a few percent of
+  noise. The house rule asks for re-timing on an idle machine; no idle window occurred.
+* **Memory incident.** The first 43-bit attempt was killed by the kernel's OOM killer when another
+  job drove the machine's free memory to 0.4 GB (our process had 3.6 GB); the rerun is reported.
+* **AVX-512 gains less than the kernel suggests**: 1.5× per thread on the kernel, 1.18–1.32× on gate
+  evaluation inside 16-thread runs, 4–9 % end to end. Sorting the evaluated branches is now the
+  largest cost (29–55 %); an in-place parallel radix sort is the obvious next lever and was not
+  attempted. Larger slices help the AVX-512 kernel (L = 64: 0.106 ns vs 0.138 ns at the default 16)
+  — LANES_NOTE
+* **No coset arithmetic** at these sizes (as in [ge-shor.md](ge-shor.md) §7: it multiplies the support
+  by 2^{2c}); the circuits are exact.
+* **f32 amplitudes** (precision checked in [shor.md](shor.md): TV ≤ 1.5·10^−7 at small N); the
+  measured pairs are those of the f64 distribution only up to this rounding.
+* **Frontier is memory, not time**: with 10 GB for the window, `2·ord(g)·16 B` caps `ord(g)` at
+  ≈ 3·10^8; the next generator instance (36 bits, `ord(g) = 4.45·10^8`) needs 14 GB. A 12-byte
+  branch would not change that conclusion.
+* **Bug found on the way** (fixed, with a regression test): `SparseState::collapse` amplified norm
+  errors (§3.3); it only affected the gate-by-gate reference simulator, not the sliced engine.
+
+## 8. Reproduction
+
+Scripts and every log are in [`research/data/shor-xl/`](../data/shor-xl/) (its README lists them).
+
+```sh
+cargo build --release --example ge_shor --bin qsim
+G=target/release/examples/ge_shor
+$G run 549755813701 1 1 4 lookups eh-odd f32 3      # N_W (EH, config B): 2.3 GB
+$G run 549755813701 1 2 3 lookups eh-odd f32 3      # N_W (EH, config A): 4.7 GB
+$G run 549755813701 1 1 4 lookups shor-odd f32 3    # N_W (Shor on g, Miller)
+$G run 4911456443897 1 1 4 lookups eh-odd f32 3     # 43-bit generator N: 3.7 GB
+research/data/shor-xl/frontier.sh $G 22 23 24 25 26 27 28 29 30 31 32 33
+python3 research/data/shor-xl/oracle_check.py $G 549755813701 1 1 4 lookups eh-odd 40
+$G slicebench 549755813701 1 1 4 lookups eh-odd 40 20   # kernel per tier and lane count
+QSIM_NO_AVX512=1 $G run 1537596787 2 2 3 lookups eh-odd f32   # AVX2 tier (A/B)
+cargo test --release --lib shor::sliced shor::ge
+cargo test --release --test ge_shor --test shor_scale
+python3 research/data/shor-xl/orders.py $G 1 22 63     # supports (uses the factors)
+python3 research/data/shor-xl/tables.py                # tables of this notebook
+```
+
