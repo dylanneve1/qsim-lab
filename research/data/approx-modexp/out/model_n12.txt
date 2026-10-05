@@ -1,0 +1,9 @@
+model N=3127 g=3122 period=1508 W=1 S=W/N=0.000320 success=0.7029177719
+model N=3127 g=3122 period=1508 W=4 S=W/N=0.001279 success=0.7026776731
+model N=3127 g=3122 period=1508 W=16 S=W/N=0.005117 success=0.7017172780
+model N=3127 g=3122 period=1508 W=64 S=W/N=0.020467 success=0.6958235894
+model N=3127 g=3122 period=1508 W=128 S=W/N=0.040934 success=0.6814399518
+model N=3127 g=3122 period=1508 W=256 S=W/N=0.081868 success=0.6526726765
+model N=3127 g=3122 period=1508 W=512 S=W/N=0.163735 success=0.5945800840
+model N=3127 g=3122 period=1508 W=1024 S=W/N=0.327470 success=0.4782245282
+model N=3127 g=3122 period=1508 W=2048 S=W/N=0.654941 success=0.2453687230

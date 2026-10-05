@@ -188,6 +188,10 @@ name = "ft_shor"
 path = "tests/shor/ft_shor.rs"
 
 [[test]]
+name = "approx_modexp"
+path = "tests/shor/approx_modexp.rs"
+
+[[test]]
 name = "ge_shor"
 path = "tests/shor/ge_shor.rs"
 

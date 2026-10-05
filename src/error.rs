@@ -41,6 +41,8 @@ pub enum Error {
     Metal(crate::engines::metal_sv::MetalError),
     /// Parsing a textual specification (family spec, schedule, ...) failed.
     Parse(String),
+    /// The approximate-modexp precomputation rejected its parameters.
+    Approx(crate::shor::approx::ApproxError),
 }
 
 /// `Result` with [`Error`] as the default error type.
@@ -56,6 +58,7 @@ impl fmt::Display for Error {
             #[cfg(all(feature = "metal", target_os = "macos"))]
             Error::Metal(e) => e.fmt(f),
             Error::Parse(s) => write!(f, "parse error: {s}"),
+            Error::Approx(e) => e.fmt(f),
         }
     }
 }
@@ -70,6 +73,7 @@ impl std::error::Error for Error {
             #[cfg(all(feature = "metal", target_os = "macos"))]
             Error::Metal(e) => Some(e),
             Error::Parse(_) => None,
+            Error::Approx(e) => Some(e),
         }
     }
 }
@@ -85,6 +89,7 @@ macro_rules! from_error {
 }
 
 from_error!(SimError => Sim, DagError => Dag, DemError => Dem, StimError => Stim);
+from_error!(crate::shor::approx::ApproxError => Approx);
 
 #[cfg(all(feature = "metal", target_os = "macos"))]
 from_error!(crate::engines::metal_sv::MetalError => Metal);
