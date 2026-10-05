@@ -22,7 +22,7 @@ WEIGHTS = {
     "shor_noise": 353, "spd": 155, "ft_shor": 108, "theory_shor_opt": 97, "theory_shor": 91,
     "theory_shor_mbu": 75, "shor_scale": 68, "ooc": 40, "noise_oracles": 32, "theory_rank": 22,
     "shor_r4_audit": 18.5, "mbu_shor": 14, "superopt": 13.7, "theory_coset": 13.3, "symphase": 7,
-    "identities": 6.9, "hsf": 3.8, "colour_global": 3.1, "stabrank_lower": 3.1, "planner": 3,
+    "stabrank5": 45, "identities": 6.9, "hsf": 3.8, "colour_global": 3.1, "stabrank_lower": 3.1, "planner": 3,
     "pauli_frame": 2.8, "audit_repeat": 2.5, "dense_fusion": 2.3, "l1_tiling": 1.7, "simulability": 1.7,
 }
 DEFAULT_SECS = 1.0

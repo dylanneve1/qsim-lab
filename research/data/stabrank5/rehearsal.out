@@ -1,0 +1,99 @@
+# Rehearsals of the lift machinery one and two levels down, where the answers are known
+# (stabrank-lower.md lists); 5 Oct 2026, 1 thread.  See research/theory/stabrank5.md §4.
+=== pipeline H 3 3
+level H^2: 60 states, 11 orbits, |G| = 16
+  restriction bra #0 (last-qubit target 0.923880+0.000000i, 0.382683+0.000000i)
+  optimal (2-term) decompositions of H^2: 1 in 1 orbits (0.0s)
+  minimal 3-term decompositions of H^2: 788 in 125 orbits (0.0s)
+  degenerate part: 1 optimal reps, II combos 289, IIIa scalar hits 0, IIIb taus 0 (scalar hits 0), found 4 (0.0s)
+  type-I part: 125 minimal reps, found 3 (0.0s)
+H^3: 3-term decompositions found (up to G_2): 7 raw, 7 distinct sets  [total 0.0s]
+H^3: total 16 decompositions with 3 terms (expanded under G_3)
+  compared with ../stabrank-lower/dec_H3_k3.txt: 16 sets there, identical: true
+=== pipeline F 3 3
+level F^2: 60 states, 7 orbits, |G| = 36
+  restriction bra #0 (last-qubit target 0.888074+0.000000i, 0.325058+0.325058i)
+  optimal (2-term) decompositions of F^2: 3 in 1 orbits (0.0s)
+  minimal 3-term decompositions of F^2: 1071 in 70 orbits (0.0s)
+  degenerate part: 1 optimal reps, II combos 289, IIIa scalar hits 0, IIIb taus 1 (scalar hits 68), found 7 (0.0s)
+  type-I part: 70 minimal reps, found 6 (0.0s)
+F^3: 3-term decompositions found (up to G_2): 13 raw, 13 distinct sets  [total 0.1s]
+F^3: total 72 decompositions with 3 terms (expanded under G_3)
+  compared with ../stabrank-lower/dec_F3_k3.txt: 72 sets there, identical: true
+=== pipeline H 4 4
+level H^3: 1080 states, 40 orbits, |G| = 96
+  restriction bra #0 (last-qubit target 0.923880+0.000000i, 0.382683+0.000000i)
+  optimal (3-term) decompositions of H^3: 16 in 2 orbits (0.0s)
+  no 2-term decomposition of H^3 (old search)
+  minimal 4-term decompositions of H^3: 42261 in 1467 orbits (0.1s)
+  degenerate part: 2 optimal reps, II combos 71874, IIIa scalar hits 20, IIIb taus 0 (scalar hits 0), found 25 (0.1s)
+  type-I part: 1467 minimal reps, found 26 (2.3s)
+H^4: 4-term decompositions found (up to G_3): 51 raw, 41 distinct sets  [total 2.5s]
+H^4: total 449 decompositions with 4 terms (expanded under G_4)
+  compared with ../stabrank-lower/dec_H4_k4.txt: 449 sets there, identical: true
+=== pipeline F 4 4
+level F^3: 1080 states, 16 orbits, |G| = 324
+  restriction bra #0 (last-qubit target 0.888074+0.000000i, 0.325058+0.325058i)
+  optimal (3-term) decompositions of F^3: 72 in 4 orbits (0.0s)
+  no 2-term decomposition of F^3 (old search)
+  minimal 4-term decompositions of F^3: 156384 in 1257 orbits (0.1s)
+  degenerate part: 4 optimal reps, II combos 143748, IIIa scalar hits 248, IIIb taus 0 (scalar hits 0), found 157 (0.1s)
+  type-I part: 1257 minimal reps, found 210 (1.1s)
+F^4: 4-term decompositions found (up to G_3): 367 raw, 339 distinct sets  [total 1.8s]
+F^4: total 28215 decompositions with 4 terms (expanded under G_4)
+=== pipeline F 5 4
+level F^4: 36720 states, 62 orbits, |G| = 3888
+  restriction bra #0 (last-qubit target 0.888074+0.000000i, 0.325058+0.325058i)
+  optimal (3-term) decompositions of F^4: 9 in 1 orbits (0.9s)
+  no 2-term decomposition of F^4 (old search)
+  minimal 4-term decompositions of F^4: 28215 in 65 orbits (5.4s)
+  degenerate part: 1 optimal reps, II combos 274625, IIIa scalar hits 0, IIIb taus 0 (scalar hits 0), found 0 (1.4s)
+  type-I part: 65 minimal reps, found 0 (0.3s)
+F^5: 4-term decompositions found (up to G_4): 0 raw, 0 distinct sets  [total 56.1s]
+=== BRA=0 liftfile H 4 4 (minimal reps of H^3 from gsearch)
+level H^3: |G| = 96; restriction bra #0 (last-qubit target 0.923880+0.000000i, 0.382683+0.000000i)
+  optimal (3-term) decompositions: 16 in 2 orbits
+  loaded 1467 minimal 4-term reps from min_H3_k4_reps.u16 ()
+  degenerate part: 2 optimal reps, II combos 71874, IIIa scalar hits 20, IIIb taus 0 (scalar hits 0), found 25 (0.1s)
+  type-I part: 1467 minimal reps, found 26 (1.3s)
+H^4: total 449 decompositions with 4 terms (expanded under G_4); identical to ../stabrank-lower/dec_H4_k4.txt: true
+H^4 (bra #0, mode all): 4-term decompositions found: 51 raw, 41 distinct  [total 1.6s]
+=== BRA=1 liftfile H 4 4 (minimal reps of H^3 from gsearch)
+level H^3: |G| = 96; restriction bra #1 (last-qubit target 0.382683+0.000000i, 0.923880+0.000000i)
+  optimal (3-term) decompositions: 16 in 2 orbits
+  loaded 1467 minimal 4-term reps from min_H3_k4_reps.u16 ()
+  degenerate part: 2 optimal reps, II combos 71874, IIIa scalar hits 20, IIIb taus 0 (scalar hits 0), found 25 (0.1s)
+  type-I part: 1467 minimal reps, found 26 (1.7s)
+H^4: total 449 decompositions with 4 terms (expanded under G_4); identical to ../stabrank-lower/dec_H4_k4.txt: true
+H^4 (bra #1, mode all): 4-term decompositions found: 51 raw, 41 distinct  [total 2.2s]
+=== BRA=4 liftfile H 4 4 (minimal reps of H^3 from gsearch)
+level H^3: |G| = 96; restriction bra #4 (last-qubit target 0.653281-0.270598i, 0.270598-0.653281i)
+  optimal (3-term) decompositions: 16 in 2 orbits
+  loaded 1467 minimal 4-term reps from min_H3_k4_reps.u16 ()
+  degenerate part: 2 optimal reps, II combos 71874, IIIa scalar hits 0, IIIb taus 0 (scalar hits 0), found 0 (0.1s)
+  type-I part: 1467 minimal reps, found 26 (2.3s)
+H^4: total 449 decompositions with 4 terms (expanded under G_4); identical to ../stabrank-lower/dec_H4_k4.txt: true
+H^4 (bra #4, mode all): 4-term decompositions found: 26 raw, 26 distinct  [total 3.2s]
+=== symsplit H 4 4 (Algorithm 2), rerun with the .u16 loader
+symsplit H^4 k=4: 16 optimal (3-term) decompositions in 2 orbits
+  case A, bra #0: 25 degenerate-restriction decompositions [0.1s]
+  case A, bra #1: 25 degenerate-restriction decompositions [0.2s]
+  case A, bra #4: 0 degenerate-restriction decompositions [0.2s]
+  case B (all type I): 1467 reps (l1 in [1.399418, 7.074011]), A side 847, B side 273 reps / 6165 expanded; glued 26 [0.3s]
+symsplit H^4 k=4: 76 decompositions found (raw)
+symsplit H^4: total 449 decompositions (expanded under G_4); identical to ../stabrank-lower/dec_H4_k4.txt: true
+=== olddeg H 3 3 (old brute-force degenerate_search)
+olddeg H^3 k=3 bra #0: 1 optimal decompositions in 1 orbits
+olddeg H^3 k=3: combos 10115 found 4 [0s]
+=== olddeg F 3 3 (old brute-force degenerate_search)
+olddeg F^3 k=3 bra #0: 3 optimal decompositions in 1 orbits
+olddeg F^3 k=3: combos 15028 found 7 [0s]
+=== olddeg H 4 4 (old brute-force degenerate_search)
+olddeg H^4 k=4 bra #0: 16 optimal decompositions in 2 orbits
+olddeg H^4 k=4: combos 7187400 found 25 [3s]
+=== olddeg F 4 4 (old brute-force degenerate_search)
+olddeg F^4 k=4 bra #0: 72 optimal decompositions in 4 orbits
+olddeg F^4 k=4: combos 14374800 found 157 [3s]
+=== suborbits H 4 4
+H^4 k=4: 449 decompositions; orbits under: full G 19 | unitary (local x S_n) 23 | S_n x conj 83 | S_n 103 | local x conj 200 | none 449
+  orbits under the unitary symmetry of psi^(n-1) on qubits 1..n-1 (qubit 0 fixed): 45; with conj: 37

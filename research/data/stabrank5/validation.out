@@ -1,0 +1,21 @@
+# Component validations (stabrank5.rs), 5 Oct 2026; see research/theory/stabrank5.md §4
+## bottoms() == completions()
+bcheck n=2: 60 states, bottoms == completions (each 1 + 4*2^n = 17)
+bcheck n=3: 1080 states, bottoms == completions (each 1 + 4*2^n = 33)
+bcheck n=4: 379 states, bottoms == completions (each 1 + 4*2^n = 65)
+## Galois lemma on known optimal lists
+galois H^2 k=2: 1 decompositions, max residual of psi_perp^n in their span = 2.15e-16
+galois H^3 k=3: 16 decompositions, max residual of psi_perp^n in their span = 2.48e-16
+galois F^3 k=3: 72 decompositions, max residual of psi_perp^n in their span = 4.84e-16
+galois F^4 k=3: 9 decompositions, max residual of psi_perp^n in their span = 2.92e-16
+## Galois search, k = 4 (compare: old direct search 42261/1467, 156384/1257, 449/19, 28215/65)
+H^4 k=4: 449 decompositions in 19 orbits (1.2s); l1 range [1.914214, 3.207107], ratio 1.6754
+F^4 k=4: 28215 decompositions in 65 orbits (7.8s); l1 range [2.276142, 3.775935], ratio 1.6589
+H^3 k=4: 42261 decompositions in 1467 orbits (0.6s); l1 range [1.399418, 7.074011], ratio 5.0550
+F^3 k=4: 156384 decompositions in 1257 orbits (0.2s); l1 range [1.611176, 6.012989], ratio 3.7321
+## Galois search, k = 5 at n = 3: simple (SIMPLE path, val2) and refined (r3) implementations
+  gsearch k=5: pairs=8033 candidates=6132570 verified=45911427 raw found=11887618
+H^3 k=5: 97027296 decompositions in 1573951 orbits (456.2s); l1 range [1.306563, 12.999972], ratio 9.9497
+  gsearch k=5: pairs=2473 candidates=1867909 verified=27907413 raw found=8337406
+F^3 k=5: 265136760 decompositions in 1163188 orbits (243.4s); l1 range [1.514617, 12.202184], ratio 8.0563
+refined: H^3 k=5: 97027296 decompositions in 1573951 orbits (320.3s); l1 range [1.306563, 12.999972], ratio 9.9497
