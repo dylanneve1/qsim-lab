@@ -1,0 +1,20 @@
+== 2026-10-05T12:06:38 hold start (waited 1s) cells from #0
+12:06:38 up 136 days, 13:15,  4 users,  load average: 15.26, 29.41, 31.12
+total        used        free      shared  buff/cache   available
+Mem:              31           6          10           7          14          16
+Swap:              3           3           0
+== 2026-10-05T12:12:43 hold end (366s) next cell #2
+12:12:43 up 136 days, 13:22,  4 users,  load average: 20.40, 24.57, 28.42
+total        used        free      shared  buff/cache   available
+Mem:              31           6           9           7          14          16
+Swap:              3           3           0
+== 2026-10-05T13:04:37 hold start (waited 0s) cells from #0
+13:04:37 up 136 days, 14:13,  4 users,  load average: 28.56, 31.16, 29.71
+total        used        free      shared  buff/cache   available
+Mem:              31           7          13           8          10          15
+Swap:              3           3           0
+== 2026-10-05T13:23:29 hold end (1132s) next cell #2
+13:23:29 up 136 days, 14:32,  4 users,  load average: 59.68, 54.45, 44.66
+total        used        free      shared  buff/cache   available
+Mem:              31           8          11           8          11          13
+Swap:              3           3           0

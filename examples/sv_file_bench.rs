@@ -6,14 +6,15 @@
 //! usage: sv_file_bench <file> <f32|f64> <reps> [key=val ...]
 //! keys:  block_kib slots fuse sched simd avx512 dense dmin tile_kib (BlockConfig),
 //!        mode=blocked|ref (ref = gate-by-gate `apply_gate`),
-//!        dump=<path> (final state as little-endian f64 re/im pairs, index bit k = qubit k).
+//!        dump=<path> (final state as little-endian f64 re/im pairs, index bit k = qubit k),
+//!        stats=1 (print the plan: stages = full-state sweeps, block passes, dense ops).
 //! Threads: `RAYON_NUM_THREADS`. Timed: `apply_gates_blocked` (lowering, fusion,
 //! planning and execution) on a preallocated, already touched |0..0> state.
 //! States above the crate's 1 GiB cap are allocated directly; the run refuses
 //! to start unless MemAvailable stays >= 6 GiB after the allocation.
 
 use num_complex::Complex;
-use qsim_lab::engines::blocked::BlockConfig;
+use qsim_lab::engines::blocked::{fusion_stats, lower_gates, BlockConfig};
 use qsim_lab::engines::statevector::{Real, StateVector};
 use qsim_lab::Gate;
 use rayon::prelude::*;
@@ -90,8 +91,27 @@ fn reset<T: Real>(s: &mut StateVector<T>) {
     a[0] = Complex::new(T::one(), T::zero());
 }
 
-fn run<T: Real>(path: &str, prec: &str, reps: usize, cfg: &BlockConfig, mode: &str, dump: Option<&str>) {
+fn run<T: Real>(
+    path: &str,
+    prec: &str,
+    reps: usize,
+    cfg: &BlockConfig,
+    mode: &str,
+    dump: Option<&str>,
+    stats: bool,
+) {
     let (n, gates) = parse(path);
+    if stats {
+        let st = fusion_stats::<T>(&lower_gates(&gates), n, cfg);
+        println!(
+            "plan: gates {} stages {} passes {} dense2 {} dense3 {}",
+            gates.len(),
+            st.stages,
+            st.passes,
+            st.dense2,
+            st.dense3
+        );
+    }
     let mut s = zero_state::<T>(n);
     let mut times = Vec::with_capacity(reps);
     for _ in 0..reps {
@@ -144,6 +164,7 @@ fn main() {
     let mut cfg = BlockConfig::default();
     let mut mode = "blocked".to_string();
     let mut dump = None;
+    let mut stats = false;
     for kv in &a[4..] {
         let (k, v) = kv.split_once('=').expect("key=val");
         match k {
@@ -157,12 +178,14 @@ fn main() {
             "tile_kib" => cfg.l1_tile_bytes = v.parse::<usize>().unwrap() << 10,
             "mode" => mode = v.to_string(),
             "dump" => dump = Some(v.to_string()),
+            "stats" => stats = v == "1",
+            "avx512" => cfg.avx512 = v == "1",
             _ => panic!("unknown key {k}"),
         }
     }
     match prec {
-        "f32" => run::<f32>(path, prec, reps, &cfg, &mode, dump.as_deref()),
-        "f64" => run::<f64>(path, prec, reps, &cfg, &mode, dump.as_deref()),
+        "f32" => run::<f32>(path, prec, reps, &cfg, &mode, dump.as_deref(), stats),
+        "f64" => run::<f64>(path, prec, reps, &cfg, &mode, dump.as_deref(), stats),
         _ => panic!("precision must be f32 or f64"),
     }
 }
