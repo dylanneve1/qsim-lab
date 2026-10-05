@@ -278,6 +278,10 @@ pub enum DistStep {
     Local(Vec<Gate>),
     /// Exchange physical local qubit `local` with physical global qubit `global`.
     Swap { local: usize, global: usize },
+    /// Physical swaps of local slots that *relocate* logical qubits (layout
+    /// change, used to restore canonical order): applied as `Swap` gates and
+    /// the logical->physical map follows them.
+    Relabel(Vec<(usize, usize)>),
 }
 
 /// Planner knobs.
@@ -565,7 +569,7 @@ pub fn plan_gates(
         for i in 0..l {
             while p2v[i] != i {
                 let j = p2v[i];
-                local.push(Gate::Swap(i, j));
+                local.push((i, j));
                 let (vi, vj) = (p2v[i], p2v[j]);
                 p2v[i] = vj;
                 p2v[j] = vi;
@@ -574,12 +578,7 @@ pub fn plan_gates(
             }
         }
         if !local.is_empty() {
-            if let Some(DistStep::Local(gs)) = steps.last_mut() {
-                gs.extend(local);
-            } else {
-                steps.push(DistStep::Local(local));
-                runs += 1;
-            }
+            steps.push(DistStep::Relabel(local));
         }
         debug_assert!((0..n).all(|i| v2p[i] == i));
     }
@@ -640,7 +639,10 @@ pub fn barrier(link: &mut dyn Link) -> io::Result<()> {
     let mut b = [0u8; 1];
     link.recv_exact(&mut b)?;
     if b[0] != 0xB5 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "barrier: bad byte"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "barrier: bad byte",
+        ));
     }
     Ok(())
 }
@@ -720,7 +722,11 @@ fn half_index(t: usize, lq: usize, bit: usize) -> usize {
 unsafe fn pack_half<T: Copy>(base: *const T, lq: usize, bit: usize, t0: usize, out: &mut [T]) {
     let run = 1usize << lq;
     if run >= out.len() {
-        std::ptr::copy_nonoverlapping(base.add(half_index(t0, lq, bit)), out.as_mut_ptr(), out.len());
+        std::ptr::copy_nonoverlapping(
+            base.add(half_index(t0, lq, bit)),
+            out.as_mut_ptr(),
+            out.len(),
+        );
     } else {
         for (k, o) in out.chunks_mut(run).enumerate() {
             let p = half_index(t0 + k * run, lq, bit);
@@ -841,7 +847,11 @@ impl<T: Real> DistState<T> {
         cfg: DistConfig,
     ) -> Self {
         assert!(l <= n && n < usize::BITS as usize);
-        assert_eq!(owner.len(), 1 << (n - l), "owner table must have 2^(n-l) entries");
+        assert_eq!(
+            owner.len(),
+            1 << (n - l),
+            "owner table must have 2^(n-l) entries"
+        );
         assert!(node <= 1 && owner.iter().all(|&o| o <= 1));
         assert_eq!(v2p.len(), n);
         let zero = Complex::new(T::zero(), T::zero());
@@ -872,7 +882,15 @@ impl<T: Real> DistState<T> {
 
     /// Ground state in the plan's initial layout.
     pub fn for_plan(plan: &DistPlan, node: u8, owner: Vec<u8>, cfg: DistConfig) -> Self {
-        Self::new_basis(plan.n, plan.local_bits, node, owner, &plan.initial_v2p, 0, cfg)
+        Self::new_basis(
+            plan.n,
+            plan.local_bits,
+            node,
+            owner,
+            &plan.initial_v2p,
+            0,
+            cfg,
+        )
     }
 
     /// Number of qubits.
@@ -921,6 +939,7 @@ impl<T: Real> DistState<T> {
             match step {
                 DistStep::Local(gates) => self.apply_local(gates),
                 DistStep::Swap { local, global } => self.swap_qubits(*local, *global, link)?,
+                DistStep::Relabel(pairs) => self.relabel(pairs),
             }
         }
         debug_assert_eq!(self.v2p, plan.final_v2p);
@@ -969,6 +988,19 @@ impl<T: Real> DistState<T> {
         }
         self.stats.runs += 1;
         self.stats.compute += t0.elapsed();
+    }
+
+    /// Swaps local physical slots pairwise and moves the logical qubits with
+    /// the data (a layout change; the logical state is unchanged).
+    pub fn relabel(&mut self, pairs: &[(usize, usize)]) {
+        let gates: Vec<Gate> = pairs.iter().map(|&(a, b)| Gate::Swap(a, b)).collect();
+        self.apply_local(&gates);
+        for &(a, b) in pairs {
+            let va = self.v2p.iter().position(|&p| p == a).unwrap();
+            let vb = self.v2p.iter().position(|&p| p == b).unwrap();
+            self.v2p[va] = b;
+            self.v2p[vb] = a;
+        }
     }
 
     /// Exchanges physical local qubit `lq` with physical global qubit `gq`.
