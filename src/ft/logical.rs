@@ -226,11 +226,11 @@ pub struct RunCounts {
     pub logical_fault: bool,
 }
 
-/// Encoded logical machine at level `k` (1 = Steane [[7,1,3]], 2 = [[49,1,9]]).
+/// Encoded logical machine at level `k` (1 = Steane `[[7,1,3]]`, 2 = `[[49,1,9]]`).
 pub struct Encoded<B: Phys> {
     /// Concatenated-Steane machine that owns all physical qubits.
     pub m: Machine<B>,
-    /// Concatenation level (1 = [[7,1,3]], 2 = [[49,1,9]]).
+    /// Concatenation level (1 = `[[7,1,3]]`, 2 = `[[49,1,9]]`).
     pub k: usize,
     /// Index of the first physical qubit of each logical data block (one level-`k`
     /// block of `7^k` qubits per logical qubit).

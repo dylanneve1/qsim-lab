@@ -2,7 +2,7 @@
 //!
 //! Gates are appended one at a time to an output list. Each new gate walks
 //! backwards over the earlier gates that share a qubit with it; it may pass
-//! any gate it commutes with (see [`Axis`](super::Axis)) and stops at the
+//! any gate it commutes with (see `Axis`) and stops at the
 //! first one it does not. If on the way it meets a gate of the same family
 //! on the same qubits, the two are merged:
 //!

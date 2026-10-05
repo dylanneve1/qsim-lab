@@ -7,7 +7,7 @@
 //! applications. A map determines `U` up to a global phase, which is all a
 //! sampling or expectation request can see (not an amplitude request).
 //!
-//! * [`CliffordMap::from_gates`], [`CliffordMap::compose`], [`CliffordMap::pow`]
+//! * [`CliffordMap::from_gates`], [`CliffordMap::then`], [`CliffordMap::pow`]
 //! * [`CliffordMap::synthesize`]: a gate list with that map (`O(n^2)` gates)
 //! * [`power_gates`]: `B^r` as a short gate list
 //! * [`canonical_stabilizers`]: row-reduced stabilizer group, for exact

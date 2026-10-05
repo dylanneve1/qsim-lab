@@ -199,7 +199,7 @@ impl Noise {
 
 // ---------------------------------------------------------------- Steane code
 
-/// Steane [[7,1,3]]: qubit j has syndrome j + 1 (Hamming code). Stabilizer
+/// Steane `[[7,1,3]]`: qubit j has syndrome j + 1 (Hamming code). Stabilizer
 /// supports (both X and Z type): {0,2,4,6}, {1,2,5,6}, {3,4,5,6}.
 pub const STEANE_CHECKS: [u8; 3] = [0b1010101, 0b1100110, 0b1111000];
 

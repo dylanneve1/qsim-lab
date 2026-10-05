@@ -40,6 +40,10 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Links
         run: python3 tools/check_links.py --anchors
+      - name: Rustdoc (broken intra-doc links are errors)
+        run: cargo doc --no-deps --lib
+        env:
+          RUSTDOCFLAGS: -D warnings
       # Runs here, in parallel with the test shards (clippy has already
       # type-checked the examples; this catches codegen/link failures).
       - name: Examples build (dev profile)
