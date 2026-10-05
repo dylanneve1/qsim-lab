@@ -1,0 +1,53 @@
+dist node=0 workload=qft n=20 prec=f64 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=1.564e-18
+dist node=0 workload=qft n=20 prec=f64 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=1.564e-18
+dist node=0 workload=brick n=20 prec=f64 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=2.861e-17
+dist node=0 workload=brick n=20 prec=f64 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=2.861e-17
+dist node=0 workload=brickd n=20 prec=f64 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=1.263e-17
+dist node=0 workload=brickd n=20 prec=f64 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=1.000000000 verify=ref max_err=1.263e-17
+dist node=0 workload=qft n=20 prec=f64 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.533e-18
+dist node=0 workload=qft n=20 prec=f64 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.533e-18
+dist node=0 workload=brick n=20 prec=f64 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=2.429e-17
+dist node=0 workload=brick n=20 prec=f64 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=2.429e-17
+dist node=0 workload=brickd n=20 prec=f64 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.284e-17
+dist node=0 workload=brickd n=20 prec=f64 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.284e-17
+dist node=0 workload=qft n=20 prec=f64 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.533e-18
+dist node=0 workload=qft n=20 prec=f64 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.533e-18
+dist node=0 workload=brick n=20 prec=f64 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=2.429e-17
+dist node=0 workload=brick n=20 prec=f64 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=2.429e-17
+dist node=0 workload=brickd n=20 prec=f64 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.284e-17
+dist node=0 workload=brickd n=20 prec=f64 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.284e-17
+dist node=0 workload=qft n=21 prec=f64 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.118e-18
+dist node=0 workload=qft n=21 prec=f64 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.118e-18
+dist node=0 workload=brick n=21 prec=f64 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=3.350e-17
+dist node=0 workload=brick n=21 prec=f64 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=3.350e-17
+dist node=0 workload=brickd n=21 prec=f64 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.012e-17
+dist node=0 workload=brickd n=21 prec=f64 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000000 verify=ref max_err=1.012e-17
+dist node=0 workload=qft n=20 prec=f32 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=0.999999310 verify=ref max_err=7.580e-10
+dist node=0 workload=qft n=20 prec=f32 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=0.999999310 verify=ref max_err=7.580e-10
+dist node=0 workload=brick n=20 prec=f32 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=1.000000259 verify=ref max_err=1.054e-8
+dist node=0 workload=brick n=20 prec=f32 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=1.000000259 verify=ref max_err=1.054e-8
+dist node=0 workload=brickd n=20 prec=f32 L=19 owner=01 restore=0 free=1 fold=1 plan_swaps=1 plan_runs=2 folded=0 ... norm=1.000000403 verify=ref max_err=4.913e-9
+dist node=0 workload=brickd n=20 prec=f32 L=19 owner=01 restore=1 free=1 fold=1 plan_swaps=2 plan_runs=2 folded=0 ... norm=1.000000403 verify=ref max_err=4.913e-9
+dist node=0 workload=qft n=20 prec=f32 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=0.999999391 verify=ref max_err=8.560e-10
+dist node=0 workload=qft n=20 prec=f32 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=0.999999391 verify=ref max_err=8.560e-10
+dist node=0 workload=brick n=20 prec=f32 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000125 verify=ref max_err=1.056e-8
+dist node=0 workload=brick n=20 prec=f32 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000125 verify=ref max_err=1.056e-8
+dist node=0 workload=brickd n=20 prec=f32 L=17 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000256 verify=ref max_err=6.248e-9
+dist node=0 workload=brickd n=20 prec=f32 L=17 owner=00000001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000256 verify=ref max_err=6.248e-9
+dist node=0 workload=qft n=20 prec=f32 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=0.999999391 verify=ref max_err=8.560e-10
+dist node=0 workload=qft n=20 prec=f32 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=0.999999391 verify=ref max_err=8.560e-10
+dist node=0 workload=brick n=20 prec=f32 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000125 verify=ref max_err=1.056e-8
+dist node=0 workload=brick n=20 prec=f32 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000125 verify=ref max_err=1.056e-8
+dist node=0 workload=brickd n=20 prec=f32 L=17 owner=01101001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000256 verify=ref max_err=6.248e-9
+dist node=0 workload=brickd n=20 prec=f32 L=17 owner=01101001 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000256 verify=ref max_err=6.248e-9
+dist node=0 workload=qft n=21 prec=f32 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=0.999999405 verify=ref max_err=7.567e-10
+dist node=0 workload=qft n=21 prec=f32 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=0.999999405 verify=ref max_err=7.567e-10
+dist node=0 workload=brick n=21 prec=f32 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000137 verify=ref max_err=1.214e-8
+dist node=0 workload=brick n=21 prec=f32 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000137 verify=ref max_err=1.214e-8
+dist node=0 workload=brickd n=21 prec=f32 L=18 owner=10000000 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 ... norm=1.000000326 verify=ref max_err=3.674e-9
+dist node=0 workload=brickd n=21 prec=f32 L=18 owner=10000000 restore=1 free=1 fold=1 plan_swaps=6 plan_runs=4 folded=0 ... norm=1.000000326 verify=ref max_err=3.674e-9
+dist node=0 workload=qft n=24 prec=f64 L=21 owner=00000001 restore=0 free=1 fold=1 plan_swaps=3 plan_runs=4 folded=0 plan_ms=0.1 local_gib=0.219 cross_pairs=3 local_pairs=9 sent_mib=48.0 recv_mib=48.0 wall_s=8.619 compute_s=0.286 exchange_s=8.036 local_swap_s=0.014 norm=1.000000000 verify=qft max_err=8.937e-19
+# re-check with the final (rebased, engines::dist) binaries on both machines, 05 Oct ~10:10 UTC:
+dist node=0 workload=qft n=20 prec=f64 L=19 owner=01 restore=1 ... norm=1.000000000 verify=ref max_err=1.323e-18
+dist node=0 workload=brickd(depth 30) n=20 prec=f32 L=17 owner=00000001 restore=1 plan_swaps=9 ... norm=1.000000597 verify=ref max_err=4.937e-9
+dist node=0 workload=brickd(depth 40) n=20 prec=f64 L=17 owner=10010110 restore=0 plan_swaps=9 ... norm=1.000000000 verify=ref max_err=1.180e-17
