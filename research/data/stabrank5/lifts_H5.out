@@ -1,0 +1,30 @@
+# The n = 5 search: no 5-term decomposition of H^{⊗5} (research/theory/stabrank5.md §3.1)
+
+## Algorithm 1, restriction <0| (liftfile H 5 5, BRA=0)
+level H^4: |G| = 768; restriction bra #0 (last-qubit target 0.923880+0.000000i, 0.382683+0.000000i)
+  optimal (4-term) decompositions: 449 in 19 orbits
+  loaded 14181 minimal 5-term reps from /dev/shm/qsim/target-stabrank5/r4/min_H4_k5_reps.txt (# H^4 k=5: 2662464 decompositions, 14181 orbit reps  format: idx:re,im per term (idx = position in enum_states(n)))
+  degenerate part: 19 optimal reps, II combos 339161875, IIIa scalar hits 0, IIIb taus 44 (scalar hits 40205100), found 0 (174.8s)
+  type-I part: 14181 minimal reps, found 0 (59.0s)
+H^5 (bra #0, mode all): 5-term decompositions found: 0 raw, 0 distinct  [total 234.6s]
+BRA=0 PROGRESS=1 THREADS=4 nice -n 15  liftfile H 5 5   704.22s user 0.64s system 300% cpu 3:54.62 total
+
+## Algorithm 1, restriction <+i| (BRA=4)
+=== 2026-10-05T12:25:55+01:00 /dev/shm/qsim/target-stabrank5/stabrank5L liftfile H 5 5 /dev/shm/qsim/target-stabrank5/r4/min_H4_k5_reps.txt
+level H^4: |G| = 768; restriction bra #4 (last-qubit target 0.653281-0.270598i, 0.270598-0.653281i)
+  optimal (4-term) decompositions: 449 in 19 orbits
+  loaded 14181 minimal 5-term reps from /dev/shm/qsim/target-stabrank5/r4/min_H4_k5_reps.txt (# H^4 k=5: 2662464 decompositions, 14181 orbit reps  format: idx:re,im per term (idx = position in enum_states(n)))
+  degenerate part: 19 optimal reps, II combos 339161875, IIIa scalar hits 0, IIIb taus 44 (scalar hits 40205100), found 0 (190.6s)
+  type-I part: 14181 minimal reps, found 0 (71.0s)
+H^5 (bra #4, mode all): 5-term decompositions found: 0 raw, 0 distinct  [total 262.2s]
+  [time 262.21 s wall, 714.91 s user, 149740 kB maxrss]
+
+## Algorithm 2 (symmetric split; case B by glue_from)
+=== 2026-10-05T12:18:00+01:00 /dev/shm/qsim/target-stabrank5/stabrank5L symsplit H 5 5 /dev/shm/qsim/target-stabrank5/r4/min_H4_k5_reps.txt
+symsplit H^5 k=5: 449 optimal (4-term) decompositions in 19 orbits
+  case A, bra #0: 0 degenerate-restriction decompositions [153.8s]
+  case A, bra #1: 0 degenerate-restriction decompositions [307.8s]
+  case A, bra #4: 0 degenerate-restriction decompositions [464.4s]
+  case B (all type I): 14181 reps (l1 in [1.621320, 6.535534]), A side 5225, B side 1383 reps / 182536 expanded; glued 0 [475.3s]
+symsplit H^5 k=5: 0 decompositions found (raw)
+  [time 475.34 s wall, 1497.82 s user, 160780 kB maxrss]
