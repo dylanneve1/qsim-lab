@@ -191,13 +191,15 @@ fn check_circuit<T: Real>(c: &Circuit, l: usize, tol: f64, rng: &mut StdRng) {
 #[test]
 fn random_all_gate_types_f64() {
     let mut rng = StdRng::seed_from_u64(0xD157_0001);
-    for n in [6usize, 7, 9, 11] {
-        for l in [n - 1, n - 2, n - 3] {
+    for n in [6usize, 7, 9, 11, 12] {
+        for l in [n - 1, n - 2, n - 3, n - 4] {
             if l < 3 {
                 continue;
             }
-            let c = random_all_gates(n, 50, &mut rng);
-            check_circuit::<f64>(&c, l, 1e-12, &mut rng);
+            for len in [20, 80] {
+                let c = random_all_gates(n, len, &mut rng);
+                check_circuit::<f64>(&c, l, 1e-12, &mut rng);
+            }
         }
     }
 }
@@ -213,6 +215,9 @@ fn random_all_gate_types_f32() {
     }
 }
 
+/// Builds a gate from a list of qubits.
+type Proto = Box<dyn Fn(&[usize]) -> Gate>;
+
 /// Every gate type with every qubit-role assignment over two global and two
 /// local qubits (identity layout, so the globals really are global).
 #[test]
@@ -221,7 +226,7 @@ fn every_gate_on_global_qubits() {
     let l = 5; // globals: 5, 6
     let pick = [0usize, 3, 5, 6];
     let mut rng = StdRng::seed_from_u64(0xD157_0003);
-    let protos: Vec<Box<dyn Fn(&[usize]) -> Gate>> = vec![
+    let protos: Vec<Proto> = vec![
         Box::new(|q| Gate::I(q[0])),
         Box::new(|q| Gate::H(q[0])),
         Box::new(|q| Gate::X(q[0])),
