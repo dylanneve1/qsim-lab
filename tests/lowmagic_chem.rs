@@ -138,6 +138,22 @@ fn rotosolve_reaches_h2_fci() {
     let (th, hist, _) = chem::rotosolve(&prog, &h, 3, 1e-12, 10, usize::MAX).unwrap();
     let e = *hist.last().unwrap();
     assert!((e - -1.137270174660904).abs() < 1e-9, "{e} {th:?}");
+    // the register {HF, doubly excited} holds the exact ground state
+    let (_, st) = chem::energy(&prog, None, &h, 10).unwrap();
+    let (hist, _) = chem::register_ground(&st, &h, 10, 1e-12);
+    assert!((hist.last().unwrap() - -1.137270174660904).abs() < 1e-9);
+}
+
+#[test]
+fn register_ground_bounds_the_circuit() {
+    let h4 = Fcidump::parse(H4).unwrap();
+    let prog = Program::parse(H4_SEL4).unwrap();
+    let (h, _) = chem::jw_hamiltonian(&h4, Some(&Span::from_program(&prog)), 0.0);
+    let (e, st) = chem::energy(&prog, None, &h, 20).unwrap();
+    let (hist, _) = chem::register_ground(&st, &h, 40, 1e-12);
+    let er = *hist.last().unwrap();
+    // FCI (PySCF) <= register optimum <= circuit energy
+    assert!(er <= e + 1e-12 && er >= -2.1663874486347625 - 1e-9, "{er} {e}");
 }
 
 #[test]
