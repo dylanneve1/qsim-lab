@@ -1,6 +1,6 @@
 """AlphaQubit-lite (MLX): the recurrent syndrome-transformer decoder of Bausch et al., Nature 635, 834
 (2024), transcribed from the Supplementary-Information pseudocode (Algorithms 1-5) and Methods /
-Extended Data Figs 4 and 8, scaled down for an M1 laptop. See research/alphaqubit-lite.md for the
+Extended Data Figs 4 and 8, scaled down for an M1 laptop. See research/qec/alphaqubit-lite.md for the
 paper-vs-lite table.
 
 Per experiment with R measured rounds, the model sees for every round n = 0..R-1 and every stabilizer
