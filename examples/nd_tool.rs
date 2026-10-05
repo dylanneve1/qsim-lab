@@ -1,4 +1,4 @@
-//! Data plumbing for the neural-decoder study (`research/neural-decoder.md`).
+//! Data plumbing for the neural-decoder study (`research/qec/neural-decoder.md`).
 //!
 //! ```text
 //! nd_tool color-export <d> <rounds> <cnot|uniform> <p> <kf|tri|sched-file> <prefix> [x]

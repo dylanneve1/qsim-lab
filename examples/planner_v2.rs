@@ -1,4 +1,4 @@
-//! Driver for the Planner v2 study (research/planner-v2.md).
+//! Driver for the Planner v2 study (research/simulability/planner-v2.md).
 //!
 //! ```text
 //! planner_v2 req ENGINE SPEC SEED [MEM]   -> evolve once, then time every read-out:

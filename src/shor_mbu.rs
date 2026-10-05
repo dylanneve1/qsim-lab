@@ -1,5 +1,5 @@
 //! Measurement-based uncomputation (MBU) in the windowed Shor oracle
-//! (exp/mbu-shor, `research/mbu-shor.md`).
+//! (exp/mbu-shor, `research/shor/mbu-shor.md`).
 //!
 //! The superoptimised windowed oracle ([`crate::shor_superopt`]) is a pure
 //! X/CNOT/CCX permutation. Fault-tolerant constructions (Gidney 2017,

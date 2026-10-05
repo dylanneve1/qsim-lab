@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs a resumable collector in locked chunks on the Mac (research/planner-v2.md §1):
+# Runs a resumable collector in locked chunks on the Mac (research/simulability/planner-v2.md §1):
 # take the shared bench lock, run CMD (which stops after its --budget and
 # exits 3 while work remains), release the lock, let peers in, repeat.
 #   run_chunks.sh LOG CMD...

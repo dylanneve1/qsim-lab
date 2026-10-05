@@ -1,7 +1,7 @@
 //! For `qsim run shor --modulus N --seed S --tries 1` (random base), print the
 //! base each seed draws, its order r (from the factorisation of λ(N)) and
 //! the support-law prediction of the peak support max(r_odd, r/2) and of
-//! the peak RSS (≈ 33 B per element in f32, research/shor.md). Usage:
+//! the peak RSS (≈ 33 B per element in f32, research/shor/shor.md). Usage:
 //! `cargo run --release --example shor_seed_orders -- N lambda_prime... -- seeds`
 //! e.g. `... 3631204201 2 7 7 17 37 29453` (λ = 1 815 541 826).
 use qsim_lab::algorithms::{gcd, pow_mod};

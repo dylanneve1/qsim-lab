@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instances for research/shor-noise.md.
+"""Instances for research/shor/shor-noise.md.
 
 N: first balanced semiprime per bit size from random.seed(1) (same generator
 as research/data/shor_r4/gen_instances.py, extended down to 10 bits).

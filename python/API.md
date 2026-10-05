@@ -210,3 +210,45 @@ Each domain module owns exactly these files and needs no edits elsewhere:
   it writes; `if` works on one-bit registers only; the global phase is not representable.
 * Predicted costs in `Explanation.ranked` come from models fitted on an Apple M1 Pro (single
   thread); use them to compare engines, not as wall-clock promises.
+
+## `qsimlab.qec` (phase 2, provisional)
+
+Tutorial, noise-model table, performance and limitations: [`docs/qec.md`](docs/qec.md).
+
+```python
+c = surface_code_memory(d, rounds=None, basis="Z", *, p=0.0, noise="uniform", return_layout=False)
+c = repetition_code_memory(d, rounds=None, *, p=0.0, noise="uniform", return_layout=False)
+c = color_code_memory(d, rounds=None, basis="Z", *, schedule="kf", flags=False, p=0.0,
+                      noise="cnot", return_layout=False)          # schedule: kf|tri|global|path|array
+dets, obs = sample_detectors(c, shots, *, seed=None, engine="auto", packed=False,
+                             transposed=False, threads=None)       # or DetectorSampler(c).sample(...)
+dem = detector_error_model(c)                     # DetectorErrorModel: to_stim_dem(), from_stim_dem(),
+                                                  # errors [DemError(p, dets, obs)], matrices(), graphlike()
+r = circuit_distance(c_or_dem, *, max_weight=None, observable=0, detectors=None,
+                     count_cap=10**6, node_limit=None, timeout=None)   # DistanceResult
+pred = decode(dem, dets, "bposd" | "pymatching" | "tesseract" | Decoder, *, packed=None, threads=None)
+r = logical_error_rate(c, shots, *, decoder="bposd", seed=None, max_errors=None, rounds=None,
+                       engine="auto", dem=None, threads=None)    # LogicalErrorRate(Result)
+```
+
+* Generated circuits are plain `Circuit`s with detectors/observables and **explicit** noise ops
+  (`noise="cnot" | "uniform" | "si1000"`, strength `p`; the readout flip is `readout_error`), so
+  `to_stim()` is exactly what is sampled. `return_layout=True` adds a `CodeLayout` (qubit roles
+  and coordinates, `(x, y, round)` per detector, `detector_basis`, `flag_detectors`,
+  `memory_detectors`).
+* Detection events are relative to the noiseless reference (Stim's convention). Arrays:
+  `bool[shots, D]`; `packed=True`: Stim's `bit_packed` `uint8[shots, ceil(D/8)]` (bit `k % 8` of
+  byte `k // 8`); `transposed=True`: detector-major bit-packed `uint8[D, ceil(shots/8)]`.
+* Sampler `engine`: `"auto"` (FastSampler, SymPhase fallback with `DetectorSampler.note`),
+  `"fast"`, `"symphase"`. Shots come in chunks of 1024 from streams seeded by `(seed, chunk)`:
+  identical output for any thread count. `seed=None` draws an OS seed (`LogicalErrorRate.seed`
+  reports it).
+* `detector_error_model` converts depolarizing channels into independent components exactly as
+  Stim does and merges equal signatures; it equals Stim's DEM of `to_stim()` to rounding.
+  Non-deterministic detectors/observables raise `UnsupportedOperationError`.
+* `circuit_distance` is exact (branch and bound, counts minimum-weight logicals);
+  `detectors=` restricts the search to a sector (lower bound; `certified` = exact).
+* Decoders: BP+OSD built in (≤ 64 observables); `pymatching` / `tesseract` raise
+  `MissingDependencyError` when not installed.
+* `LogicalErrorRate` extends `sim.Result` with `errors, shots, rate, ci` (Wilson 95%),
+  `decoder, rounds, per_round, per_round_ci, stats`; a shot fails if any observable is wrong.
