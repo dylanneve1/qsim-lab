@@ -1,4 +1,4 @@
-//! Driver binary for the simulability study (research/simulability.md).
+//! Driver binary for the simulability study (research/simulability/simulability.md).
 //!
 //! ```text
 //! simulability features SPEC SEED [nohsf] [OBS]     -> one JSON line of features

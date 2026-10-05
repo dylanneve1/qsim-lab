@@ -1,5 +1,5 @@
 //! Predicting the cost of an exact MPS run without running it
-//! (research/planner.md §2).
+//! (research/simulability/planner.md §2).
 //!
 //! Two pieces:
 //!

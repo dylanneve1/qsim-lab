@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analysis + figures for research/transition-theory.md.
+"""Analysis + figures for research/theory/transition-theory.md.
 
 usage: python3 analyze.py           (reads parts/ via jobs.txt, ../magic-transition/raw.csv)
 Writes fits.json, cells.csv and the PNGs next to this file.

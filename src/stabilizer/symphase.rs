@@ -530,7 +530,7 @@ impl SymPhaseSampler {
     /// distribution are adjacent: the geometric-skip draw then runs one
     /// stream per distinct distribution ("pooled" gaps) instead of one per
     /// run of equal neighbours. Same distribution, different draw order (not
-    /// bit-identical). For the ablation in `research/fast-sampler.md`.
+    /// bit-identical). For the ablation in `research/qec/fast-sampler.md`.
     #[doc(hidden)]
     pub fn pool_equal_dists(&mut self) {
         let key = |d: &VarDist| match *d {

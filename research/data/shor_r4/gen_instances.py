@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instances used in research/shor.md, round 4.
+"""Instances used in research/shor/shor.md, round 4.
 
 generic: first balanced semiprime per bit size from random.seed(1)
          (not selected on lambda or on the order of any base).

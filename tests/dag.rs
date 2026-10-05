@@ -283,17 +283,40 @@ fn random_gate(rng: &mut StdRng, n: usize, pool: &[usize]) -> Gate {
 
 /// A random circuit using every op type. `nonunitary` is the probability
 /// that a slot is a measurement / reset / classical control / noise op.
+/// Upper bound on the number of branches the reference simulator
+/// ([`branches`]) may create for one generated circuit. Every measurement or
+/// reset doubles the branch count, and noise channels multiply it by up to 16
+/// (two-qubit depolarizing), so unbounded random circuits occasionally needed
+/// millions of branches and many GB (the CI runner was SIGKILLed in
+/// `prop_peephole_exact`). Once the budget is spent, further non-unitary
+/// draws become gates.
+const MAX_REFERENCE_BRANCHES: usize = 1 << 12;
+
 fn random_circuit(seed: u64, n: usize, len: usize, nonunitary: f64) -> Circuit {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut c = Circuit::new(n);
     let pool: Vec<usize> = (0..n.min(3)).collect();
     let mut measured = 0usize;
+    let mut fanout = 1usize;
     let probs = [0.0, 0.25, 1.0];
     for _ in 0..len {
         if rng.random_bool(nonunitary) {
             let q = rng.random_range(0..n);
             let p = probs[rng.random_range(0..3)];
-            match rng.random_range(0..8) {
+            let kind = rng.random_range(0..8);
+            // branch factor of the op `kind` produces (mirrors the match below)
+            let factor = match kind {
+                3 | 4 if measured > 0 => 1,
+                6 => 4,
+                7 if n >= 2 => 16,
+                _ => 2,
+            };
+            if fanout * factor > MAX_REFERENCE_BRANCHES {
+                c.gate(random_gate(&mut rng, n, &pool));
+                continue;
+            }
+            fanout *= factor;
+            match kind {
                 0 | 1 => {
                     c.measure(q);
                     measured += 1;

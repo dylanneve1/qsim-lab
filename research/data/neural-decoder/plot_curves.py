@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Learning curves (validation logical error per shot vs training shots) -> research/neural-decoder-curves.png.
+"""Learning curves (validation logical error per shot vs training shots) -> research/data/neural-decoder/curves.png.
 Reads results/models/*/log.jsonl; resumed runs are offset by the shots of the checkpoint they resumed from."""
 import json, os
 import matplotlib
@@ -53,6 +53,6 @@ for a in axes:
     a.set_xlim(right=a.get_xlim()[1] * 2.2)
 ax2.set_xticks([0.5, 1, 2, 3])
 fig.tight_layout()
-out = os.path.join(os.path.dirname(__file__), "..", "..", "neural-decoder-curves.png")
+out = os.path.join(os.path.dirname(__file__), "curves.png")
 fig.savefig(out, dpi=130, facecolor=SURF)
 print(out)

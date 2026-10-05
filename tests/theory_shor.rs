@@ -1,4 +1,4 @@
-//! Executable checks for the theorems of `research/theory-shor.md`.
+//! Executable checks for the theorems of `research/theory/theory-shor.md`.
 //!
 //! Each test would fail if the corresponding statement were false:
 //! * T1 (support law): exact support of the semiclassical work register,

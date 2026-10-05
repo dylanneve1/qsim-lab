@@ -255,7 +255,7 @@ pub struct BlockConfig {
     /// **Off by default: known to give wrong amplitudes.** The audit found a
     /// 10-gate, 5-qubit circuit (`Y(0) CX(0,4) Rx(0,π/4) Z H X S Z T H` on
     /// qubit 0) where enabling it changes amplitudes by 0.26; see
-    /// `tests/blocked.rs::split_phases_regression` and `research/sv.md`.
+    /// `tests/blocked.rs::split_phases_regression` and `research/performance/sv.md`.
     /// Do not enable until that is fixed.
     pub split_phases: bool,
     /// Reorder diagonal terms within a stage (they commute with every op
@@ -281,7 +281,7 @@ pub struct BlockConfig {
     /// rule (`dense_min_ops`) says it pays. `0`/`1` = off, `2` or `3` =
     /// maximum width. Default: 2 on aarch64 (M1 Pro: 1.5-2.1x on circuits
     /// of generic 2-qubit unitaries, bit-identical elsewhere), off on other
-    /// targets (not yet measured on x86_64); `research/dense-fusion.md`.
+    /// targets (not yet measured on x86_64); `research/performance/dense-fusion.md`.
     /// Agrees with the unfused executor to rounding error.
     pub dense_fusion: usize,
     /// Cost rule of dense fusion: a group on `k` qubits is fused only if it
@@ -295,14 +295,14 @@ pub struct BlockConfig {
 /// On aarch64 1 MiB: on an Apple M1 Pro (12 MiB L2 per performance
 /// cluster) a sweep of 256 KiB..4 MiB put 1 MiB best or within 7% of best
 /// for every QFT and brickwork case at 22-28 qubits, and never slower than
-/// 256 KiB (1.01-1.31x faster; `research/mac-m1.md`).
+/// 256 KiB (1.01-1.31x faster; `research/performance/mac-m1.md`).
 #[cfg(target_arch = "aarch64")]
 const DEFAULT_BLOCK_BYTES: usize = 1 << 20;
 #[cfg(not(target_arch = "aarch64"))]
 const DEFAULT_BLOCK_BYTES: usize = 256 << 10;
 
 /// Default dense-fusion width: on for aarch64, where it was measured
-/// (`research/dense-fusion.md`); off elsewhere until measured.
+/// (`research/performance/dense-fusion.md`); off elsewhere until measured.
 #[cfg(target_arch = "aarch64")]
 const DEFAULT_DENSE_FUSION: usize = 2;
 #[cfg(not(target_arch = "aarch64"))]

@@ -1,0 +1,4 @@
+F^4: chi = 3, 9 optimal decompositions in 1 orbits
+  bra s = state #0 (|<0|U s>|=1): alpha=0.888074+0.000000i beta=0.325058+0.325058i  combos=484438500 found=0
+  bra s = state #1 (|<0|U s>|=1): alpha=0.325058+0.325058i beta=0.888074+0.000000i  combos=484438500 found=0
+degenerate-restriction decompositions with 4 terms: 0
