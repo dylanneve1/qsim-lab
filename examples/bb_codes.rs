@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! bb_codes params <l> <m> <A> <B> [max_weight] [node_limit]
-//! bb_codes search <Nmin> <Nmax> <wa> <wb> <worker> <workers> [node_limit]
+//! bb_codes search <Nmin> <Nmax> <wa> <wb> <worker> <workers> [node_limit] [min_k]
 //! bb_codes schedules <l> <m> <A> <B>
 //! bb_codes ler <l> <m> <A> <B> <sched|ibm> <rounds> <p> <shots> <seed> [threads] [osd_order] [x]
 //! bb_codes cdist <l> <m> <A> <B> <sched|ibm> <rounds> [max_w] [node_limit] [x]
@@ -362,6 +362,8 @@ fn search(a: &[String]) {
     let p = |i: usize| a[i].parse::<usize>().unwrap();
     let (nmin, nmax, wa, wb, worker, workers) = (p(0), p(1), p(2), p(3), p(4), p(5));
     let node_limit: u64 = a.get(6).map_or(200_000_000, |s| s.parse().unwrap());
+    // classes with k < min_k only get the ISD upper bound
+    let min_k: usize = a.get(7).map_or(0, |s| s.parse().unwrap());
     let out = std::io::stdout();
     let mut out = out.lock();
     for nn in nmin..=nmax {
@@ -404,7 +406,7 @@ fn search(a: &[String]) {
                 } else {
                     ub
                 };
-                let (lo, up) = if ub <= b {
+                let (lo, up) = if ub <= b || k < min_k {
                     pruned += 1;
                     (0, ub)
                 } else {
