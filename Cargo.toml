@@ -2,7 +2,7 @@
 name = "qsim-lab"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.89"
 license = "MIT"
 description = "An educational quantum circuit simulator with state-vector, stabilizer, Pauli-path (Clifford+T) and MPS backends"
 repository = "https://github.com/dylanneve1/qsim-lab"

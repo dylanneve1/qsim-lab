@@ -106,11 +106,16 @@ fn main() {
                         })
                         .collect()
                 };
-                let ok = todd::verify::basis_equivalent(n, &pc0.to_vgates(), &pc.to_vgates(), &inputs);
+                let ok =
+                    todd::verify::basis_equivalent(n, &pc0.to_vgates(), &pc.to_vgates(), &inputs);
                 hred_check = format!(
                     " hred -{removed}H basis[{}{}]={}",
                     inputs.len(),
-                    if n <= exhaustive_max { " all" } else { " sampled" },
+                    if n <= exhaustive_max {
+                        " all"
+                    } else {
+                        " sampled"
+                    },
                     if ok == Ok(0) { "ok" } else { "FAIL" }
                 );
             }

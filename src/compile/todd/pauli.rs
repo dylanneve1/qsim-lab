@@ -68,7 +68,10 @@ impl Pauli {
         z.xor_with(&o.z);
         let xz = x.and(&z).count_ones() as i64;
         let e = (ab + cd + 2 * bc - xz).rem_euclid(4);
-        debug_assert!(e % 2 == 0, "commuting Hermitian strings multiply to a Hermitian string");
+        debug_assert!(
+            e % 2 == 0,
+            "commuting Hermitian strings multiply to a Hermitian string"
+        );
         Pauli {
             x,
             z,
@@ -171,7 +174,6 @@ fn mul_anticommuting(a: &Pauli, b: &Pauli) -> Pauli {
         sign: a.sign ^ b.sign ^ (e == 2),
     }
 }
-
 
 /// `ω^{k·(I - P)/2}`: phase `ω^k` on the `-1` eigenspace of `P` (for
 /// `P = Z_q` this is `diag(1, ω^k)` on qubit `q`). Odd `k` costs one T.
@@ -325,7 +327,6 @@ pub fn rotations(c: &super::PhaseCircuit) -> (Vec<Rotation>, u8) {
     (out, global)
 }
 
-
 /// Zhang–Chen merging: each rotation moves back past rotations whose
 /// axes commute with it and merges into an equal axis; rotations that
 /// become the identity are dropped. Repeated until nothing changes.
@@ -478,7 +479,11 @@ pub fn regroup(
         let (_, rows) = diagonalize(&axes);
         let mut cols = Vec::new();
         for (row, &i) in rows.iter().zip(ids) {
-            let k = if row.sign { (8 - rots[i].k) % 8 } else { rots[i].k };
+            let k = if row.sign {
+                (8 - rots[i].k) % 8
+            } else {
+                rots[i].k
+            };
             if k % 2 == 1 {
                 cols.push(row.z.clone());
             }
@@ -569,7 +574,11 @@ pub fn groups_cost(n: usize, rots: &[Rotation], groups: &[Vec<usize>]) -> usize 
                 .iter()
                 .zip(ids)
                 .filter(|(row, &i)| {
-                    let k = if row.sign { (8 - rots[i].k) % 8 } else { rots[i].k };
+                    let k = if row.sign {
+                        (8 - rots[i].k) % 8
+                    } else {
+                        rots[i].k
+                    };
                     k % 2 == 1
                 })
                 .map(|(row, _)| row.z.clone())
@@ -624,7 +633,10 @@ fn push_dgate(c: &mut crate::Circuit, g: DGate, inverse: bool) {
 /// at the end. The output is exactly equal to the input up to the
 /// reported global phase (checked semantically by the callers; the
 /// Hadamard structure changes, so the path-sum identity does not apply).
-pub fn optimize_pauli(c: &super::PhaseCircuit, opts: &super::ToddOptions) -> (crate::Circuit, PauliReport) {
+pub fn optimize_pauli(
+    c: &super::PhaseCircuit,
+    opts: &super::ToddOptions,
+) -> (crate::Circuit, PauliReport) {
     use rayon::prelude::*;
     let n = c.num_qubits;
     let (rots, mut global) = rotations(c);
@@ -653,7 +665,14 @@ pub fn optimize_pauli(c: &super::PhaseCircuit, opts: &super::ToddOptions) -> (cr
         }
     }
     if opts.todd && opts.reassign_passes > 0 {
-        regroup(n, &rots, &mut groups, opts.reassign_passes, opts.reassign_seconds, opts.seed);
+        regroup(
+            n,
+            &rots,
+            &mut groups,
+            opts.reassign_passes,
+            opts.reassign_seconds,
+            opts.seed,
+        );
     }
     let mut report = PauliReport {
         t_input: c.t_count(),

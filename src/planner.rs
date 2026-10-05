@@ -44,8 +44,8 @@ use crate::engines::mps::Mps;
 use crate::engines::mps_cost::{self, BondSource, Estimator};
 use crate::engines::sparse::SparseState;
 use crate::engines::stabilizer::Tableau;
-use crate::engines::tn;
 use crate::engines::statevector::StateVectorF64;
+use crate::engines::tn;
 use crate::gate::{is_multiple_of_half_pi, Gate};
 use crate::simulability::{self, Features};
 use num_complex::Complex64;
@@ -926,7 +926,9 @@ fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool
         Engine::Tableau => f.clifford && !amps,
         Engine::Zero => false,
         // the tree is sliced to the budget; amplitudes are indexed by u128
-        Engine::Tn => f.tn.is_some() && !matches!(req, PlanRequest::Samples(_)) && (!amps || n <= 128),
+        Engine::Tn => {
+            f.tn.is_some() && !matches!(req, PlanRequest::Samples(_)) && (!amps || n <= 128)
+        }
     }
 }
 
@@ -1459,8 +1461,10 @@ fn tn_circuit(c: &Circuit, req: &PlanRequest) -> Result<Option<Circuit>, SimErro
     Ok(match req {
         PlanRequest::Amplitudes(_) => Some(c.clone()),
         PlanRequest::Expectation(obs) => {
-            let p: Vec<(usize, tn::Pauli)> =
-                odd_qubits(obs).into_iter().map(|q| (q, tn::Pauli::Z)).collect();
+            let p: Vec<(usize, tn::Pauli)> = odd_qubits(obs)
+                .into_iter()
+                .map(|q| (q, tn::Pauli::Z))
+                .collect();
             Some(tn::expectation_circuit(c, &p)?.0)
         }
         PlanRequest::Samples(_) => None,
