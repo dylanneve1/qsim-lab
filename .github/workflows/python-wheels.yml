@@ -54,6 +54,11 @@ jobs:
           python-version: "3.12"
       - name: Build wheel
         uses: PyO3/maturin-action@v1
+        env:
+          # Probe for the aarch64 rustc SIGTRAP: a trap in rustc is most often
+          # its main-thread stack guard on deep LLVM recursion. maturin-action
+          # forwards RUST_* into the manylinux container.
+          RUST_MIN_STACK: "67108864"
         with:
           working-directory: python
           target: ${{ matrix.target }}
