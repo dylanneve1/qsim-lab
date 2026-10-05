@@ -1,0 +1,4 @@
+link node=0 mb=64 rtt_ms_med=56.026 rtt_ms_min=55.484 node1_to_node0_MiBps=27.0 node0_to_node1_MiBps=6.1 duplex_each_way_MiBps=6.0
+link node=0 mb=64 rtt_ms_med=55.964 rtt_ms_min=54.647 node1_to_node0_MiBps=27.2 node0_to_node1_MiBps=6.1 duplex_each_way_MiBps=6.1
+link node=0 mb=64 rtt_ms_med=56.022 rtt_ms_min=55.305 node1_to_node0_MiBps=26.4 node0_to_node1_MiBps=6.1 duplex_each_way_MiBps=6.1 (first run, 09:0x)
+loopback: link node=0 mb=1024 rtt_ms_med=0.061 rtt_ms_min=0.047 node1_to_node0_MiBps=6069.6 node0_to_node1_MiBps=6229.3 duplex_each_way_MiBps=2191.0
