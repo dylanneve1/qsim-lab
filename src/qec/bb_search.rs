@@ -7,7 +7,7 @@
 //! the non-cyclic BB groups).
 //!
 //! The following maps send a code `(A, B)` to an equivalent code (same
-//! `[[n, k, d]]`, isomorphic Tanner graphs), see `research/code-discovery.md`:
+//! `[[n, k, d]]`, isomorphic Tanner graphs), see `research/qec/code-discovery.md`:
 //!
 //! * translations `A -> A t`, `B -> B s` (independently),
 //! * group automorphisms `sigma` applied to both `A` and `B`,
