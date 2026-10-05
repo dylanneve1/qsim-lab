@@ -59,6 +59,10 @@ jobs:
           # its main-thread stack guard on deep LLVM recursion. maturin-action
           # forwards RUST_* into the manylinux container.
           RUST_MIN_STACK: "67108864"
+          # Probe 2: 64 MiB stack alone did not help (run 37338981705). Try a
+          # lower opt-level / single codegen unit, aarch64 only.
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ matrix.platform == 'linux-aarch64' && '2' || '3' }}
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ matrix.platform == 'linux-aarch64' && '1' || '4' }}
         with:
           working-directory: python
           target: ${{ matrix.target }}
