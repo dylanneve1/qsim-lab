@@ -47,6 +47,11 @@ fn profile(prog_path: &str, rank_cap: usize) {
     // d after each rotation, subsampled to <= 200 points
     let step = (ap.d_prof.len() / 200).max(1);
     let dsub: Vec<u32> = ap.d_prof.iter().step_by(step).copied().collect();
+    let sat_rot = ap
+        .d_prof
+        .iter()
+        .position(|&x| x as usize == ap.d)
+        .map_or(0, |i| i + 1);
     let mut rank = String::from("null");
     if rank_cap > 0 {
         let mut rs = RankState::new(c.num_qubits);
@@ -62,12 +67,13 @@ fn profile(prog_path: &str, rank_cap: usize) {
         );
     }
     println!(
-        "{{\"prog\":\"{}\",\"n\":{},\"gates\":{},\"rotations\":{},\"d\":{},\"f\":{},\"span_dim\":{},\"log2_work\":{:.3},\"log2_work_f\":{:.3},\"secs\":{:.4},\"d_prof_step\":{},\"d_prof\":{},\"rank\":{}}}",
+        "{{\"prog\":\"{}\",\"n\":{},\"gates\":{},\"rotations\":{},\"d\":{},\"sat_rot\":{},\"f\":{},\"span_dim\":{},\"log2_work\":{:.3},\"log2_work_f\":{:.3},\"secs\":{:.4},\"d_prof_step\":{},\"d_prof\":{},\"rank\":{}}}",
         prog_path,
         ap.n,
         ap.gates,
         ap.rotations,
         ap.d,
+        sat_rot,
         ap.f,
         span.dim(),
         ap.log2_work,
@@ -91,6 +97,11 @@ fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize) {
     let (e0, st) = chem::energy(&prog, None, &h, max_d).unwrap();
     let t_e0 = t0.elapsed().as_secs_f64();
     let d = st.active_qubits();
+    let nnz = st
+        .active_amplitudes()
+        .iter()
+        .filter(|a| a.norm_sqr() > 1e-24)
+        .count();
     let evolve = st.stats.evolve_secs;
     drop(st);
     let (mut eopt, mut theta, mut hist, mut evals, mut t_opt) =
@@ -105,13 +116,14 @@ fn energy(fd_path: &str, prog_path: &str, sweeps: usize, max_d: usize) {
         evals = ev;
     }
     println!(
-        "{{\"fcidump\":\"{}\",\"prog\":\"{}\",\"n\":{},\"rotations\":{},\"params\":{},\"d\":{},\"span_dim\":{},\"filtered\":{},\"monomials_total\":{},\"monomials_kept\":{},\"pauli_terms\":{},\"ham_secs\":{:.3},\"e_init\":{:.10},\"eval_secs\":{:.4},\"evolve_secs\":{:.4},\"e_opt\":{:.10},\"opt_secs\":{:.3},\"evals\":{},\"hist\":{},\"theta\":{}}}",
+        "{{\"fcidump\":\"{}\",\"prog\":\"{}\",\"n\":{},\"rotations\":{},\"params\":{},\"d\":{},\"nnz\":{},\"span_dim\":{},\"filtered\":{},\"monomials_total\":{},\"monomials_kept\":{},\"pauli_terms\":{},\"ham_secs\":{:.3},\"e_init\":{:.10},\"eval_secs\":{:.4},\"evolve_secs\":{:.4},\"e_opt\":{:.10},\"opt_secs\":{:.3},\"evals\":{},\"hist\":{},\"theta\":{}}}",
         fd_path,
         prog_path,
         prog.n,
         prog.rotations(),
         prog.params.len(),
         d,
+        nnz,
         span.dim(),
         filt,
         hs.monomials_total,
