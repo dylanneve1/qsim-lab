@@ -5,7 +5,7 @@
 //! block), consecutive ops whose qubits fit in a set of at most `k <= 3`
 //! inner qubits are multiplied into one dense `2^k x 2^k` unitary, applied
 //! in a single pass over the block by the kernels in
-//! [`crate::dense_kernels`]. This trades arithmetic for passes: a fused
+//! `src/dense_kernels.rs`. This trades arithmetic for passes: a fused
 //! 2-qubit block costs a 4x4 complex matrix-vector product per amplitude
 //! group instead of two or three separate sweeps.
 //!

@@ -14,6 +14,7 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`fast-sampler/`](fast-sampler/) | [fast-sampler.md](../qec/fast-sampler.md) |
 | [`fast-sampler-audit/`](fast-sampler-audit/) | [fast-sampler-audit.md](../qec/fast-sampler-audit.md) |
 | [`dense-fusion/`](dense-fusion/) | [dense-fusion.md](../performance/dense-fusion.md) |
+| [`ft-shor/`](ft-shor/) | [ft-shor.md](../shor/ft-shor.md) |
 | [`ge-shor/`](ge-shor/) | [ge-shor.md](../shor/ge-shor.md) |
 | [`hsf/`](hsf/) | [hsf.md](../performance/hsf.md) |
 | [`mac-m1/`](mac-m1/) | [mac-m1.md](../performance/mac-m1.md) |
@@ -40,7 +41,9 @@ folder belongs to a notebook (see [../README.md](../README.md)):
 | [`shor_r4_audit/`](shor_r4_audit/) | [shor-r4-audit.md](../shor/shor-r4-audit.md) |
 | [`simd/`](simd/) | [sv-monomial.md](../performance/sv-monomial.md) |
 | [`simulability/`](simulability/) | [simulability.md](../simulability/simulability.md) |
+| [`spoof-utility/`](spoof-utility/) | [spoof-utility.md](../simulability/spoof-utility.md) |
 | [`stab/`](stab/) | [stab.md](../performance/stab.md) |
+| [`stabrank-lower/`](stabrank-lower/) | [stabrank-lower.md](../theory/stabrank-lower.md) |
 | [`superopt/`](superopt/) | [superopt.md](../shor/superopt.md) |
 | [`theory-colour/`](theory-colour/) | [theory-colour.md](../theory/theory-colour.md) |
 | [`theory-coset/`](theory-coset/) | [theory-coset.md](../theory/theory-coset.md) |

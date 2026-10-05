@@ -162,8 +162,8 @@ For N = 21 (r = 3, T† corrections in error-free runs) plain multinomial estima
 
 ## 5. Results, N = 15
 
-![output error vs p](data/ft-shor/outerr_vs_p.png)
-![fault probability vs p](data/ft-shor/fault_vs_p.png)
+![output error vs p](../data/ft-shor/outerr_vs_p.png)
+![fault probability vs p](../data/ft-shor/fault_vs_p.png)
 
 | series | p | runs | faulty runs | q = P(logical fault) | TVD to ideal | 1 − P_peak | 0.5 − P_order |
 |---|---|---|---|---|---|---|---|
@@ -348,7 +348,7 @@ disappears and q falls as p² (L1) and p⁴ (L2).
 
 ### Threshold: the CNOT 1-exRec
 
-![CNOT exRec](data/ft-shor/exrec_cnot.png)
+![CNOT exRec](../data/ft-shor/exrec_cnot.png)
 
 | level | p | gadget | trials | failures | rate (1-exRec) | rate / p |
 |---|---|---|---|---|---|---|
@@ -376,7 +376,7 @@ magic, 2.1·10⁻⁴ raw) matches the gadget-level one.
 
 ## 6. Results, compiled N = 21 (a = 4)
 
-![output error N = 21](data/ft-shor/n21_outerr_vs_p.png)
+![output error N = 21](../data/ft-shor/n21_outerr_vs_p.png)
 
 | series | p | runs | faulty runs | q = P(logical fault) | TVD to ideal | 1 − P_peak | 0.5 − P_order |
 |---|---|---|---|---|---|---|---|
