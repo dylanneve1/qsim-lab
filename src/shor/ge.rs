@@ -1977,6 +1977,68 @@ mod tests {
         }
     }
 
+    /// The in-place window finish (FIFO spill and chunk compaction) gives
+    /// exactly the state the out-of-place `materialize` gives, on every
+    /// window of sampled Shor and EH runs, including the windows where the
+    /// support grows (the FIFO path) and with several chunk layouts.
+    #[test]
+    fn finish_in_place_equals_materialize() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        let cases = [
+            // (N, base, Shor or EH-odd, w_e)
+            (1_005_973u64, 980_062u64, false, 1usize),
+            (1_005_973, 980_062, false, 2),
+            (10_161_323, 9_899_614, false, 1),
+            (10_161_323, 9_899_614, true, 1),
+            (10_161_323, 9_899_614, true, 2),
+        ];
+        let mut grew = 0;
+        for (n_mod, a, eh, we) in cases {
+            let o = GeOpts {
+                we,
+                wm: 3,
+                mbu: MbuOpts::LOOKUPS,
+                coset: 0,
+            };
+            let n = crate::shor::work_bits(n_mod);
+            let regs = if eh {
+                eh_regs(n_mod, pow2k(a, n, n_mod))
+            } else {
+                shor_regs(n_mod, a)
+            };
+            let lay = GeLayout::new(n, &o);
+            let mut st = GeState::<f32>::basis(1);
+            let mut rng = StdRng::seed_from_u64(n_mod ^ we as u64);
+            let mut wi = 0u64;
+            for reg in &regs {
+                let mut y = 0u128;
+                for (i0, w) in windows(reg.len, o.we) {
+                    let g = pow2k(reg.base, reg.len - i0 - w, n_mod);
+                    let mut oc = Outcomes::new(outcome_seed(n_mod, g, wi), 0);
+                    wi += 1;
+                    let wp = WindowProg::new(&lay, &window_block(&lay, g, n_mod, &o, &mut oc));
+                    let n_in = st.psi.len();
+                    let mut wa = st.window(&wp, w);
+                    for j in 0..w {
+                        let phi = correction(i0 + j, y);
+                        let (p0, p1) = wa.probs(phi);
+                        let bit = rng.random::<f64>() * (p0 + p1) < p1;
+                        if bit {
+                            y |= 1 << (i0 + j);
+                        }
+                        wa.collapse(phi, bit, if bit { p1 } else { p0 } / (p0 + p1));
+                    }
+                    let want = wa.clone().materialize().pop().unwrap();
+                    st.finish(wa);
+                    assert_eq!(st.psi, want, "N={n_mod} eh={eh} we={we} window {wi}");
+                    grew += usize::from(st.psi.len() > n_in);
+                }
+            }
+        }
+        assert!(grew > 20, "only {grew} windows grew the support");
+    }
+
     #[test]
     fn eh_postprocess_finds_d_from_ideal_pairs() {
         // N = 1 005 973 = 997 × 1009; g = 2; d = (p + q − 2)/2 = 1002
