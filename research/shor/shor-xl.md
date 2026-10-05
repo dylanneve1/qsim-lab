@@ -152,12 +152,12 @@ reasons.**
   cases `x ∈ {0, 1, N − 1}` and checks `e` unchanged, `x → g^e x mod N`, every other qubit 0 and one
   common sign on every branch (the measurement phases cancel).
 * **Small-N distributions** (`tests/shor/ge_shor.rs::odd_order_bases_match_textbook`): for
-  N = 35, 77, 143 and every distinct odd-order base `g = h^(2^n) ≠ 1` from the first 40 bases, both
+  N = 35, 77, 143 and up to four distinct odd-order bases `g = h^(2^n) ≠ 1` each, both
   configurations: the gate-level EH distribution of `(j, k)` equals the textbook EH distribution
-  (brute force over all exponent pairs) to 1e-12, Shor's order finding on `g` equals the 3n-qubit
-  full-QFT distribution to 1e-12, and for N = 35, 77 the EH distribution also equals a gate-by-gate
-  quantum reference (sparse state vector, real H / Phase / projective measurements, every
-  X-measurement as H + projection with P = 1/2 asserted) to 1e-10.
+  (brute force over all exponent pairs) to 1e-12; Shor's order finding on `g` equals the 3n-qubit
+  full-QFT distribution to 1e-12 (N = 35, 77); and for N = 35 the EH distribution also equals a
+  gate-by-gate quantum reference (sparse state vector, real H / Phase / projective measurements,
+  every X-measurement as H + projection with P = 1/2 asserted) to 1e-10.
 * **Engine changes**: differential tests of every tier on random programs (all step kinds, aliased
   indices, sign word, L = 4…32, aligned and misaligned buffers) and on real oracle blocks (MBU
   controlled-U at 20 and 31 bits, both N_W window blocks; outputs also checked to be the right
@@ -221,11 +221,9 @@ reachable; it does not need the factors.
 * **Run-time assertions**: in every window of every run, on every branch, the exponent qubits came
   back unchanged, every ancilla was 0 and every branch carried the program's global sign; no two
   outputs collided (`run`/`window` assertions in `src/shor/ge.rs`).
-* **Small N** (`odd_order_bases_match_textbook`, N = 35, 77, 143, 29 distinct odd-order bases, both
-  configurations): EH and Shor-on-`g` distributions equal the textbook ones to 1e-12, and EH equals
-  the gate-by-gate sparse quantum reference to 1e-10 (N = 35, 77). The exact probability that
-  Shor-on-`g` plus Miller's reduction factors N is 1 or 0 per base at these sizes (0 exactly when
-  `ν₂(ord_p h) = ν₂(ord_q h)`, as the reduction predicts).
+* **Small N** (`odd_order_bases_match_textbook`, [`tests_small_n.log`](../data/shor-xl/tests_small_n.log)):
+  SMALLN_RESULT. The exact probability that Shor-on-`g` plus Miller's reduction factors N is 1 or 0
+  per base at these sizes (0 exactly when `ν₂(ord_p h) = ν₂(ord_q h)`, as the reduction predicts).
 * This test first **failed** on the sparse reference: an X-measurement had `P(m) = 0.4999999986`
   instead of 1/2. The cause was in `SparseState::collapse` (not in the engine under test): it took
   `P(0) = 1 − P(1)` and rescaled by it, so a norm error doubled at every outcome-0 collapse of a

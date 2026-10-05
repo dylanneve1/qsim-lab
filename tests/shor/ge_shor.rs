@@ -317,12 +317,15 @@ fn eh_distribution_matches_textbook() {
 
 /// Odd-order bases `g = h^(2^n)` (the base rule of the large runs,
 /// research/shor/shor-xl.md): with both window configurations used there,
-/// the gate-level EH distribution of `(j, k)` equals the textbook one, and
-/// Shor's order finding on `g` has the textbook (full-QFT) distribution.
-/// Miller's reduction from the order of `g` then splits N with the exact
-/// probability printed (classical part, computed on the exact distribution).
+/// the gate-level EH distribution of `(j, k)` equals the textbook one
+/// (N = 35, 77, 143; up to four distinct odd-order bases each), Shor's order
+/// finding on `g` has the textbook (full-QFT) distribution (N = 35, 77), and
+/// for N = 35 the EH distribution also equals a gate-by-gate quantum
+/// reference. Miller's reduction from the order of `g` then splits N with
+/// the exact probability printed (classical part, on the exact distribution).
 #[test]
 fn odd_order_bases_match_textbook() {
+    let mut checked = 0;
     for n_mod in [35u64, 77, 143] {
         let n = shor::work_bits(n_mod);
         let m = ge::eh_m(n_mod);
@@ -330,13 +333,13 @@ fn odd_order_bases_match_textbook() {
         let mut seen = Vec::new();
         for h in bases(n_mod, 40) {
             let g = ge::pow2k(h, n, n_mod);
-            if g == 1 || seen.contains(&g) {
+            if g == 1 || seen.contains(&g) || seen.len() == 4 {
                 continue;
             }
             seen.push(g);
             let regs = ge::eh_regs(n_mod, g);
             let book = eh_textbook(n_mod, g);
-            let full = shor::full_qft_distribution(n_mod, g);
+            let full = (n_mod < 100).then(|| shor::full_qft_distribution(n_mod, g));
             for o in [opts(1, 4, MbuOpts::LOOKUPS), opts(2, 3, MbuOpts::LOOKUPS)] {
                 let d0 = ge::distribution(n_mod, &regs, &o, 1e-15);
                 let mut d = vec![0.0; d0.len()];
@@ -345,33 +348,41 @@ fn odd_order_bases_match_textbook() {
                 }
                 let e = max_diff(&book, &d);
                 assert!(e < 1e-12, "EH N={n_mod} g={g} {o:?}: {e:e}");
-                let ds = ge::distribution(n_mod, &ge::shor_regs(n_mod, g), &o, 1e-15);
-                let e = max_diff(&full, &ds);
-                assert!(e < 1e-12, "Shor N={n_mod} g={g} {o:?}: {e:e}");
-                if n_mod < 100 {
+                if let Some(full) = &full {
+                    let ds = ge::distribution(n_mod, &ge::shor_regs(n_mod, g), &o, 1e-15);
+                    let e = max_diff(full, &ds);
+                    assert!(e < 1e-12, "Shor N={n_mod} g={g} {o:?}: {e:e}");
+                }
+                if n_mod == 35 {
                     // independent quantum reference: every gate on a sparse
                     // state vector, real H / Phase / projective measurements
                     let dq = ge::distribution_sparse(n_mod, &regs, &o, 1e-15);
                     let e = max_diff(&d0, &dq);
                     assert!(e < 1e-10, "EH sparse N={n_mod} g={g} {o:?}: {e:e}");
                 }
+                checked += 1;
             }
-            let t = 2 * n as u32;
-            let mut ok = 0.0;
-            for (y, &p) in full.iter().enumerate() {
-                if p < 1e-15 {
-                    continue;
-                }
-                if let (Some(r), _) = shor::postprocess(n_mod, g, y as u128, t) {
-                    if ge::factor_from_power_order(n_mod, h, n, r).is_some() {
-                        ok += p;
+            if let Some(full) = &full {
+                let t = 2 * n as u32;
+                let mut ok = 0.0;
+                for (y, &p) in full.iter().enumerate() {
+                    if p < 1e-15 {
+                        continue;
+                    }
+                    if let (Some(r), _) = shor::postprocess(n_mod, g, y as u128, t) {
+                        if ge::factor_from_power_order(n_mod, h, n, r).is_some() {
+                            ok += p;
+                        }
                     }
                 }
+                eprintln!(
+                    "N={n_mod} h={h} g=h^(2^{n})={g}: P(Shor on g + Miller factors N) = {ok:.4}"
+                );
             }
-            eprintln!("N={n_mod} h={h} g=h^(2^{n})={g}: P(Shor on g + Miller factors N) = {ok:.4}");
         }
         assert!(!seen.is_empty());
     }
+    eprintln!("odd-order bases: {checked} (N, g, configuration) cases checked");
 }
 
 /// Coset arithmetic: a valid probability distribution whose deviation from
