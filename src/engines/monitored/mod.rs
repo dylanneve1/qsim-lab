@@ -395,7 +395,7 @@ impl Tableau {
             .all(|(i, &v)| v == if i == a >> 6 { 1 << (a & 63) } else { 0 }));
         let xz = xs.iter().filter(|j| zs.contains(j)).count() as u32;
         let k = (ar + xz) & 3;
-        debug_assert!(k % 2 == 0, "non-Hermitian image");
+        debug_assert!(k.is_multiple_of(2), "non-Hermitian image");
         if k == 0 {
             1
         } else {
@@ -689,7 +689,7 @@ impl Monitored {
         debug_assert!(self.tab.row_x(v).iter().all(|&u| u == 0));
         debug_assert!((0..n).all(|q| self.tab.zbit(v, q) == (q == a) as u64));
         let r = self.tab.row_r(v);
-        debug_assert!(r % 2 == 0);
+        debug_assert!(r.is_multiple_of(2));
         if r == 0 {
             1
         } else {

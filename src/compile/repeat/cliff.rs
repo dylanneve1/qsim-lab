@@ -69,7 +69,7 @@ impl Pauli {
             .zip(&self.z)
             .map(|(a, b)| (a & b).count_ones())
             .sum();
-        (self.k as u32 + 4 - (pop & 3)) % 2 == 0
+        (self.k as u32 + 4 - (pop & 3)).is_multiple_of(2)
     }
 }
 

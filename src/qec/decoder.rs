@@ -185,7 +185,7 @@ impl Dsu {
 
     fn is_odd(&mut self, i: usize) -> bool {
         let root = self.find(i);
-        !self.has_boundary[root] && (self.defect_count[root] % 2 != 0)
+        !self.has_boundary[root] && !self.defect_count[root].is_multiple_of(2)
     }
 }
 

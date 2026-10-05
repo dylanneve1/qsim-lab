@@ -70,7 +70,7 @@ fn heap_permutations(a: &mut [usize; 4], k: usize, out: &mut Vec<Permutation>) {
     }
     for i in 0..k {
         heap_permutations(a, k - 1, out);
-        if k % 2 == 0 {
+        if k.is_multiple_of(2) {
             a.swap(i, k - 1);
         } else {
             a.swap(0, k - 1);

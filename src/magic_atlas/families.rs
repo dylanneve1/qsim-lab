@@ -366,7 +366,7 @@ fn is_prime(x: u64) -> bool {
     }
     let mut d = 2u64;
     while d * d <= x {
-        if x % d == 0 {
+        if x.is_multiple_of(d) {
             return false;
         }
         d += 1;

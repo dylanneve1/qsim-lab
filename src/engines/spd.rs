@@ -759,7 +759,7 @@ fn run<const W: usize>(
     if model.final_rx {
         passes.push(false);
     }
-    passes.extend(std::iter::repeat(true).take(model.steps.saturating_sub(1)));
+    passes.extend(std::iter::repeat_n(true, model.steps.saturating_sub(1)));
     let nm = passes.len().saturating_sub(opt.stream);
     for &with_zz in &passes[..nm] {
         match merge_pass(&ctx, &terms, with_zz, opt.max_terms) {

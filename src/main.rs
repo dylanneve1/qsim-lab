@@ -35,6 +35,47 @@ enum Cmd {
         #[command(subcommand)]
         which: AdaptiveCmd,
     },
+    /// Export a circuit as an ONNX graph for viewing in Netron
+    /// (https://netron.app): one node per operation, one wire tensor per
+    /// qubit segment, measurement records and detectors as classical tensors.
+    Export {
+        /// Output file (conventionally `.onnx`).
+        #[arg(short, long)]
+        out: std::path::PathBuf,
+        /// Read an OpenQASM 2.0 file.
+        #[arg(long, conflicts_with_all = ["stim", "example"])]
+        qasm: Option<std::path::PathBuf>,
+        /// Read a `.stim` file (its detectors and observables become nodes).
+        #[arg(long, conflicts_with_all = ["qasm", "example"])]
+        stim: Option<std::path::PathBuf>,
+        /// Export a built-in circuit instead of a file.
+        #[arg(long, value_enum)]
+        example: Option<ExportExample>,
+        /// Number of qubits (bell/ghz/bv/qft/brickwork).
+        #[arg(short, long)]
+        qubits: Option<usize>,
+        /// Brickwork depth.
+        #[arg(long, default_value_t = 4)]
+        depth: usize,
+        /// Modulus N (shor examples).
+        #[arg(long, default_value_t = 15)]
+        modulus: u64,
+        /// Base a (shor examples; default: the smallest a >= 2 coprime to N).
+        #[arg(long)]
+        base: Option<u64>,
+        /// Code distance (surface / repetition examples).
+        #[arg(long, default_value_t = 3)]
+        distance: usize,
+        /// Syndrome rounds (surface / repetition examples; default: distance).
+        #[arg(long)]
+        rounds: Option<usize>,
+        /// Export only the first N operations (large circuits are slow to lay out in viewers).
+        #[arg(long)]
+        max_ops: Option<usize>,
+        /// RNG seed (brickwork, bv).
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+    },
     /// Run an example circuit and print its measurement statistics.
     Run {
         example: Example,
@@ -323,6 +364,24 @@ enum Example {
     Shor,
 }
 
+/// Built-in circuits that `qsim export --example` can write.
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ExportExample {
+    Bell,
+    Ghz,
+    Bv,
+    Qft,
+    Brickwork,
+    /// Semiclassical Shor with Beauregard's gate-level oracle (one recycled control).
+    ShorSemiclassical,
+    /// Semiclassical Shor with the Cuccaro ripple-carry oracle (X/CNOT/Toffoli).
+    ShorRipple,
+    /// Rotated surface-code memory circuit (`--distance`, `--rounds`).
+    Surface,
+    /// Repetition-code memory circuit (`--distance`, `--rounds`).
+    Repetition,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Backend {
     Sv,
@@ -531,6 +590,128 @@ fn main() {
                 }
             }
         },
+        Cmd::Export {
+            out,
+            qasm,
+            stim,
+            example,
+            qubits,
+            depth,
+            modulus,
+            base,
+            distance,
+            rounds,
+            max_ops,
+            seed,
+        } => {
+            use qsim_lab::io::onnx;
+            let mut opts = onnx::OnnxOptions {
+                max_ops,
+                ..Default::default()
+            };
+            let circuit = if let Some(path) = qasm {
+                let src = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+                    eprintln!("cannot read {}: {e}", path.display());
+                    std::process::exit(2)
+                });
+                opts.name = path.file_stem().map(|s| s.to_string_lossy().into_owned());
+                opts.metadata
+                    .push(("source".into(), path.display().to_string()));
+                qsim_lab::io::qasm::from_qasm(&src).unwrap_or_else(|e| {
+                    eprintln!("{e}");
+                    std::process::exit(2)
+                })
+            } else if let Some(path) = stim {
+                let src = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+                    eprintln!("cannot read {}: {e}", path.display());
+                    std::process::exit(2)
+                });
+                let prog = qsim_lab::io::stim::parse_stim(&src).unwrap_or_else(|e| {
+                    eprintln!("{e}");
+                    std::process::exit(2)
+                });
+                opts.name = path.file_stem().map(|s| s.to_string_lossy().into_owned());
+                opts.metadata
+                    .push(("source".into(), path.display().to_string()));
+                opts.detectors = prog.detectors;
+                opts.observables = prog.observables;
+                prog.circuit
+            } else {
+                let Some(ex) = example else {
+                    eprintln!("give one of --qasm, --stim or --example");
+                    std::process::exit(2)
+                };
+                let mut rng = StdRng::seed_from_u64(seed);
+                let a = base.unwrap_or_else(|| {
+                    (2..modulus)
+                        .find(|&a| algorithms::gcd(a, modulus) == 1)
+                        .unwrap_or(2)
+                });
+                let rounds = rounds.unwrap_or(distance);
+                let (name, c) = match ex {
+                    ExportExample::Bell => ("bell".to_string(), algorithms::bell()),
+                    ExportExample::Ghz => {
+                        let n = qubits.unwrap_or(5);
+                        (format!("ghz_{n}"), algorithms::ghz(n))
+                    }
+                    ExportExample::Bv => {
+                        let n = qubits.unwrap_or(6);
+                        let secret = rand::Rng::random::<u64>(&mut rng) & ((1u64 << n) - 1);
+                        (
+                            format!("bv_{n}"),
+                            algorithms::bernstein_vazirani(n, secret),
+                        )
+                    }
+                    ExportExample::Qft => {
+                        let n = qubits.unwrap_or(5);
+                        (format!("qft_{n}"), algorithms::qft(n))
+                    }
+                    ExportExample::Brickwork => {
+                        let n = qubits.unwrap_or(6);
+                        (
+                            format!("brickwork_{n}x{depth}"),
+                            algorithms::random_brickwork(n, depth, &mut rng),
+                        )
+                    }
+                    ExportExample::ShorSemiclassical => (
+                        format!("shor_semiclassical_N{modulus}_a{a}"),
+                        shor::semiclassical_circuit(modulus, a),
+                    ),
+                    ExportExample::ShorRipple => (
+                        format!("shor_ripple_N{modulus}_a{a}"),
+                        shor::semiclassical_ripple_circuit(modulus, a),
+                    ),
+                    ExportExample::Surface => (
+                        format!("surface_d{distance}_r{rounds}"),
+                        qsim_lab::qec::surface::SurfaceCode::new(distance, rounds).build_circuit(),
+                    ),
+                    ExportExample::Repetition => (
+                        format!("repetition_d{distance}_r{rounds}"),
+                        qsim_lab::qec::repetition::RepetitionCode::new(distance, rounds)
+                            .build_circuit(),
+                    ),
+                };
+                opts.name = Some(name);
+                c
+            };
+            let bytes = onnx::to_onnx(&circuit, &opts).unwrap_or_else(|e| {
+                eprintln!("cannot export: {e}");
+                std::process::exit(1)
+            });
+            std::fs::write(&out, &bytes).unwrap_or_else(|e| {
+                eprintln!("cannot write {}: {e}", out.display());
+                std::process::exit(1)
+            });
+            let shown = max_ops.map_or(circuit.ops.len(), |m| m.min(circuit.ops.len()));
+            println!(
+                "wrote {} ({} bytes): {} qubits, {} of {} ops; open it in Netron (https://netron.app)",
+                out.display(),
+                bytes.len(),
+                circuit.num_qubits,
+                shown,
+                circuit.ops.len()
+            );
+        }
         Cmd::Run {
             example,
             qubits,

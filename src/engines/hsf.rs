@@ -1111,7 +1111,7 @@ fn kernighan_lin(
                     let after = split_cost(edges, &cur, &ids) as i64;
                     cur.swap(a, b);
                     let d = after - before;
-                    if pick.map_or(true, |(bd, _, _)| d < bd) {
+                    if pick.is_none_or(|(bd, _, _)| d < bd) {
                         pick = Some((d, a, b));
                     }
                 }
@@ -1211,7 +1211,7 @@ pub fn auto_partition(c: &Circuit, opts: &HsfOptions) -> Result<Vec<bool>, SimEr
             }
             let (p, bits) = kernighan_lin(n, &edges, &inc, s);
             let cost = 2f64.powi(bits as i32) * (2f64.powi(na as i32) + 2f64.powi(nb as i32));
-            if best.as_ref().map_or(true, |(bc, _)| cost < *bc) {
+            if best.as_ref().is_none_or(|(bc, _)| cost < *bc) {
                 best = Some((cost, p));
             }
         }

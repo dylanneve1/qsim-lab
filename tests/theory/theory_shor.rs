@@ -103,11 +103,11 @@ fn support_closed_form(rr: u64, i: usize, y: u128) -> u64 {
         return p as u64;
     }
     let s = p % r;
-    if (r * y) % p == 0 {
+    if (r * y).is_multiple_of(p) {
         return rr; // ζ = 1: no cancellation
     }
-    let kill_hi = (s * y) % p == 0; // J = q classes (k ≥ s) vanish
-    let kill_lo = ((r - s) * y) % p == 0; // J = q+1 classes (k < s) vanish
+    let kill_hi = (s * y).is_multiple_of(p); // J = q classes (k ≥ s) vanish
+    let kill_lo = ((r - s) * y).is_multiple_of(p); // J = q+1 classes (k < s) vanish
     assert!(!(kill_hi && kill_lo));
     let mut n = rr;
     if kill_hi {

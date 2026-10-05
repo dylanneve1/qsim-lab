@@ -143,7 +143,7 @@ fn grover(n: usize, it: usize, seed: u64, samples: usize) {
     let secs = t0.elapsed().as_secs_f64();
     // closed form, in long double-ish via f64 (θ = asin 2^{-n/2})
     let theta = (2f64.powf(-(n as f64) / 2.0)).asin();
-    let sgn = if it % 2 == 0 { 1.0 } else { -1.0 };
+    let sgn = if it.is_multiple_of(2) { 1.0 } else { -1.0 };
     let aw = sgn * ((2 * it + 1) as f64 * theta).sin();
     let nn = 2f64.powi(n as i32);
     let ao = sgn * ((2 * it + 1) as f64 * theta).cos() / (nn - 1.0).sqrt();

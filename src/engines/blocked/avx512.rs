@@ -402,6 +402,7 @@ unsafe fn on_lane<S: Simd>(g: &Gate2<S::V>, x: (S::V, S::V)) -> (S::V, S::V) {
 
 /// Applies `g` to a vertical pair (`x`: target bit 0, `y`: target bit 1).
 #[inline(always)]
+#[allow(clippy::type_complexity)]
 unsafe fn on_pair<S: Simd>(
     g: &Gate2<S::V>,
     x: (S::V, S::V),
@@ -657,6 +658,7 @@ unsafe fn diag_pass<S: Simd>(
     let (tr, ti) = (lor.as_ptr(), loi.as_ptr());
     let nv = 1usize << (lo_bits - lb);
     let lane_bits = (1u32 << lb) - 1;
+    #[allow(clippy::needless_range_loop)]
     for h in 0..1usize << (l - lo_bits) {
         let mut e = [[C1; 2]; super::LO_BITS];
         let mut used = 0u32;

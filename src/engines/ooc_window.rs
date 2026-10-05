@@ -281,7 +281,7 @@ pub fn schedule_window_gates(
         let plan = schedule_one(gates, n, c, v2p0, opts, alpha)?;
         if best
             .as_ref()
-            .map_or(true, |b| plan.passes.len() < b.passes.len())
+            .is_none_or(|b| plan.passes.len() < b.passes.len())
         {
             best = Some(plan);
         }

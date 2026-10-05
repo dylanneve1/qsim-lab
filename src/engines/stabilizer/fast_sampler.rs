@@ -1090,7 +1090,7 @@ impl FastSampler {
     /// Stim's ptb64 layout.
     pub fn sample_batch<R: RngCore + ?Sized>(&self, rng: &mut R, out: &mut [u64]) {
         let stride = self.stride();
-        assert!(out.len() % stride == 0);
+        assert!(out.len().is_multiple_of(stride));
         let words = out.len() / stride;
         assert!(
             words.is_power_of_two(),

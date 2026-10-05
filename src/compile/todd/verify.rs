@@ -168,7 +168,7 @@ impl PsBuilder {
         }
         for (i, &a) in vars.iter().enumerate() {
             self.add([a, u32::MAX, u32::MAX], k);
-            if k % 4 != 0 {
+            if !k.is_multiple_of(4) {
                 for (j, &b) in vars.iter().enumerate().skip(i + 1) {
                     self.add([a, b, u32::MAX], (16 - 2 * k) % 8);
                     if k % 2 == 1 {

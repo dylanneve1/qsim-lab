@@ -815,7 +815,10 @@ impl GenCircuit {
     pub fn new_ge(n_mod: u64, a: u64, we: usize, wm: usize, kind: NoiseKind) -> Self {
         use crate::shor::ge::{GeLayout, GeOpts};
         let inst = Instance::new(n_mod, a, Oracle::WindowedMbu(wm));
-        assert!(we >= 1 && inst.t % we == 0, "the window must divide t = 2n");
+        assert!(
+            we >= 1 && inst.t.is_multiple_of(we),
+            "the window must divide t = 2n"
+        );
         let o = GeOpts {
             we,
             wm,

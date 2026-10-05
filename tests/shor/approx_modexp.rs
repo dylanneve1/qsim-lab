@@ -491,7 +491,7 @@ fn prime_search_rejects_invalid_pruning() {
     let n = 16_016_003u64;
     let dev = c.l_mod_n.min(n - c.l_mod_n);
     assert!(dev < n >> 18, "L mod N deviation {dev}");
-    assert!(c.periods.iter().all(|&q| n % q != 0));
+    assert!(c.periods.iter().all(|&q| !n.is_multiple_of(q)));
     // a forced set containing a factor of N is refused
     let mut q = p.clone();
     q.forced_periods = Some(vec![4001, 4013, 4019]);

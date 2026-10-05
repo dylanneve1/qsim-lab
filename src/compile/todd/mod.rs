@@ -296,7 +296,14 @@ impl PhaseCircuit {
             let n = self.num_qubits;
             let g = &self.gates;
             let mut i = 0;
-            let mut rewrite: Option<(usize, usize, Vec<usize>, Vec<usize>, Vec<usize>)> = None;
+            #[allow(clippy::type_complexity)]
+            let mut rewrite: Option<(
+                usize,
+                usize,
+                Vec<usize>,
+                Vec<usize>,
+                Vec<usize>,
+            )> = None;
             while i < g.len() {
                 if !matches!(g[i], PGate::Cnot(..) | PGate::Swap(..)) {
                     i += 1;
@@ -509,7 +516,7 @@ fn push_phase(c: &mut Circuit, q: usize, k: u8) {
 /// Appends `ω^{k·(⊕_{w ∈ wires} u_w)}` as a CNOT ladder onto the first
 /// wire, the phase, and the ladder undone.
 fn push_parity_phase(c: &mut Circuit, wires: &[usize], k: u8) {
-    if k % 8 == 0 || wires.is_empty() {
+    if k.is_multiple_of(8) || wires.is_empty() {
         return;
     }
     let t = wires[0];
@@ -998,7 +1005,7 @@ pub fn optimize(c: &PhaseCircuit, opts: &ToddOptions) -> (Circuit, ToddReport) {
         .filter(|&i| sc.terms[i].coef % 2 == 1)
         .collect();
     let even: Vec<usize> = (0..sc.terms.len())
-        .filter(|&i| sc.terms[i].coef % 2 == 0 && sc.terms[i].coef != 0)
+        .filter(|&i| sc.terms[i].coef.is_multiple_of(2) && sc.terms[i].coef != 0)
         .collect();
 
     // Greedy interval stabbing: cut at the earliest death.

@@ -769,10 +769,19 @@ impl PHg {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct OrdF(f64);
+impl PartialEq for OrdF {
+    fn eq(&self, o: &Self) -> bool {
+        self.cmp(o) == Ordering::Equal
+    }
+}
 impl Eq for OrdF {}
-#[allow(clippy::derive_ord_xor_partial_ord)]
+impl PartialOrd for OrdF {
+    fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
+        Some(self.cmp(o))
+    }
+}
 impl Ord for OrdF {
     fn cmp(&self, o: &Self) -> Ordering {
         self.0.total_cmp(&o.0)
@@ -1062,7 +1071,8 @@ fn reconf_node(
             sub = (sub - 1) & rest;
         }
     }
-    if !(best[full] < old * (1.0 - 1e-9)) {
+    // also false when either side is NaN
+    if best[full].partial_cmp(&(old * (1.0 - 1e-9))) != Some(Ordering::Less) {
         return false;
     }
     // rebuild: reuse the internal slots, v stays the subtree root

@@ -91,6 +91,7 @@ pub fn clifford_correction(old: &[Bits], new: &[Bits], d: usize) -> Option<Vec<(
         }
     }
     let mut terms = Vec::new();
+    #[allow(clippy::needless_range_loop)]
     for a in 0..d {
         let l = lin[a].rem_euclid(8);
         if l % 2 != 0 {

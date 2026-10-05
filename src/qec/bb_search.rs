@@ -43,11 +43,11 @@ impl AbelianGroup {
         let order = |g: usize| (1..=n).find(|&k| mul(k, g) == 0).unwrap();
         let mut auts = Vec::new();
         for g1 in 0..n {
-            if l % order(g1) != 0 {
+            if !l.is_multiple_of(order(g1)) {
                 continue;
             }
             for g2 in 0..n {
-                if m % order(g2) != 0 {
+                if !m.is_multiple_of(order(g2)) {
                     continue;
                 }
                 let mut img = vec![0u16; n];
@@ -104,7 +104,7 @@ impl AbelianGroup {
 /// `(l, m)` with `m | l`.
 pub fn groups_of_order(n: usize) -> Vec<(usize, usize)> {
     (1..=n)
-        .filter(|&m| n % m == 0 && (n / m) % m == 0)
+        .filter(|&m| n.is_multiple_of(m) && (n / m).is_multiple_of(m))
         .map(|m| (n / m, m))
         .collect()
 }
@@ -124,7 +124,7 @@ pub fn canon_subset(g: &AbelianGroup, s: &[u16]) -> Sub {
     for sigma in &g.auts {
         for &t in s {
             let v = transform(g, s, t as usize, sigma);
-            if best.as_ref().map_or(true, |b| v < *b) {
+            if best.as_ref().is_none_or(|b| v < *b) {
                 best = Some(v);
             }
         }
@@ -168,7 +168,7 @@ pub fn canon_pair(g: &AbelianGroup, a: &[u16], b: &[u16]) -> Vec<u16> {
                 let w = transform(g, q, u as usize, sigma);
                 let mut key = first.clone();
                 key.extend_from_slice(&w);
-                if best.as_ref().map_or(true, |b| key < *b) {
+                if best.as_ref().is_none_or(|b| key < *b) {
                     best = Some(key);
                 }
             }

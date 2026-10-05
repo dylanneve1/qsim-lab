@@ -49,7 +49,7 @@ pub fn layer<R: Rng + ?Sized>(p: &Params, t: usize, ngroup: usize, rng: &mut R) 
         ops.push(MOp::C2(rng.random_range(0..ngroup) as u16, i, i + 1));
         i += 2;
     }
-    if p.periodic && off == 1 && n % 2 == 0 && n > 2 {
+    if p.periodic && off == 1 && n.is_multiple_of(2) && n > 2 {
         ops.push(MOp::C2(rng.random_range(0..ngroup) as u16, n - 1, 0));
     }
     for q in 0..n {

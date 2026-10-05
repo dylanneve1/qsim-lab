@@ -875,7 +875,7 @@ impl Sampler {
                         k[i].z == 0,
                         "commuting rows: Z on pivots only implies identity"
                     );
-                    debug_assert!(k[i].r % 2 == 0);
+                    debug_assert!(k[i].r.is_multiple_of(2));
                     determined.push(i);
                     continue;
                 }
@@ -958,7 +958,7 @@ impl Sampler {
         }
         // Phase 4: Hadamards turn ±X_c into ±Z_c.
         for &(pr, pc) in &pivots {
-            debug_assert!(k[pr].x == 1 << pc && k[pr].z == 0 && k[pr].r % 2 == 0);
+            debug_assert!(k[pr].x == 1 << pc && k[pr].z == 0 && k[pr].r.is_multiple_of(2));
         }
         for &(pr, pc) in &pivots {
             for row in k.iter_mut() {

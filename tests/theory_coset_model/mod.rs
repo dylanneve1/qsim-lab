@@ -387,7 +387,7 @@ impl Model {
             u = u1;
             let jb = self.index(b, 0);
             w.b_out.push(!(0..1i64 << self.c).contains(&jb));
-            w.deviant.push(b % nm != 0 || x % nm != u);
+            w.deviant.push(!b.is_multiple_of(nm) || x % nm != u);
             w.traj.push((self.index(x, u), jb));
         }
         w.x = x;

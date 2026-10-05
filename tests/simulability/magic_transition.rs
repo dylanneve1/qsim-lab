@@ -55,7 +55,7 @@ fn check_one(n: usize, depth: usize, p_m: f64, p_t: f64, seed: u64, group: &[Cli
         depth,
         p_m,
         p_t,
-        periodic: seed % 2 == 0,
+        periodic: seed.is_multiple_of(2),
     };
     let mut crng = StdRng::seed_from_u64(seed);
     let mut brng = StdRng::seed_from_u64(seed ^ 77);

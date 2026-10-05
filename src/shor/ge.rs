@@ -980,6 +980,7 @@ fn finish_runs_in_place<T: Real>(
     let w = wa.w;
     let ne = 1usize << w;
     let mask = (1u64 << w) - 1;
+    #[allow(clippy::type_complexity)]
     let results: Vec<(usize, std::collections::VecDeque<(u64, Complex<T>)>)> = {
         let (a, b) = ent.split_at_mut(split);
         let b: &[(u64, Complex<T>)] = b;
@@ -1521,7 +1522,7 @@ pub fn split_from_sum(n_mod: u64, s: u128) -> Option<(u64, u64)> {
     let n = u128::from(n_mod);
     let disc = s.checked_mul(s)?.checked_sub(4 * n)?;
     let r = isqrt(disc);
-    if r * r != disc || (s + r) % 2 != 0 {
+    if r * r != disc || !(s + r).is_multiple_of(2) {
         return None;
     }
     let p = (s - r) / 2;

@@ -277,7 +277,7 @@ impl<B: Phys> Machine<B> {
                 f |= (bit as u8) << j;
             }
             self.release(k, c);
-            if f == 0 || (steane_syndrome(f) == 0 && f.count_ones() % 2 == 0) {
+            if f == 0 || (steane_syndrome(f) == 0 && f.count_ones().is_multiple_of(2)) {
                 return;
             }
             self.stats.prep_rejects += 1;

@@ -426,7 +426,7 @@ pub fn phase_table(ctrl: usize, addr: &[usize], g: &[bool], scratch: &[usize]) -
         }
         let ops = phase_table_k(ctrl, addr, g, scratch, k);
         let key = (and_count(&ops), ops.len());
-        if best.as_ref().map_or(true, |b| key < (b.0, b.1)) {
+        if best.as_ref().is_none_or(|b| key < (b.0, b.1)) {
             best = Some((key.0, key.1, ops));
         }
     }
