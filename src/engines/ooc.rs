@@ -118,7 +118,12 @@ pub enum OocStep {
     LocalRun(Vec<Gate>),
     /// A global<->local qubit swap exchanging physical qubit `local < chunk_bits`
     /// and `global >= chunk_bits`.
-    Swap { local: usize, global: usize },
+    Swap {
+        /// Physical qubit below `chunk_bits` (inside a chunk).
+        local: usize,
+        /// Physical qubit at or above `chunk_bits` (selects the chunk).
+        global: usize,
+    },
 }
 
 /// Execution plan produced by the lookahead swap scheduler.

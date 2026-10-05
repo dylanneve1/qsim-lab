@@ -46,15 +46,23 @@ pub const MAX_QUBITS: usize = 64;
 /// Which bound feeds the replay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Estimator {
+    /// `min(|A|, |B|)` qubits: the trivial dimension bound.
     Cut,
+    /// Time-resolved crossing count of two-qubit gates over each cut.
     Cross,
+    /// Stabilizer entanglement of the Clifford part plus straddling rotation
+    /// axes.
     Stab,
+    /// Rank of the stabilizer group plus rotation axes projected on a side.
     Coset,
+    /// Affine support tracking of the branching variables.
     Affine,
+    /// The minimum of all the other bounds.
     Best,
 }
 
 impl Estimator {
+    /// Every estimator, in declaration order.
     pub const ALL: [Estimator; 6] = [
         Estimator::Cut,
         Estimator::Cross,
@@ -63,6 +71,8 @@ impl Estimator {
         Estimator::Affine,
         Estimator::Best,
     ];
+    /// Lower-case name (`"cut"`, `"cross"`, ...), e.g. for CLI flags and
+    /// report columns.
     pub fn name(&self) -> &'static str {
         match self {
             Estimator::Cut => "cut",
@@ -185,6 +195,8 @@ fn pack(x: u64, z: u64, a: u64) -> u128 {
 }
 
 impl BondBounds {
+    /// Bounds for `|0^n>` (every Schmidt rank 1). The Pauli-based bounds are
+    /// only tracked for `n <= MAX_QUBITS`.
     pub fn new(n: usize) -> Self {
         let pauli = n <= MAX_QUBITS;
         BondBounds {
@@ -205,6 +217,7 @@ impl BondBounds {
         }
     }
 
+    /// Number of qubits.
     pub fn num_qubits(&self) -> usize {
         self.n
     }
@@ -576,6 +589,7 @@ pub enum BondSource<'a> {
 /// What [`replay`] predicts.
 #[derive(Clone, Debug, Default)]
 pub struct ReplayCost {
+    /// The operation and work counts the real engine would report.
     pub stats: MpsStats,
     /// Largest bond at any time.
     pub max_bond: usize,
@@ -583,6 +597,7 @@ pub struct ReplayCost {
     pub final_max_bond: usize,
     /// `Σ log2 χ` over the SVDs (mean = this / svd_calls).
     pub sum_log_bond: f64,
+    /// Wall-clock seconds the replay itself took.
     pub secs: f64,
     /// Bond kept after every SVD (only with [`replay_traced`]).
     pub trace: Vec<u32>,

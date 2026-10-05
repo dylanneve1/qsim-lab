@@ -49,8 +49,11 @@ use std::f64::consts::FRAC_PI_4;
 /// `i^r X^x Z^z` on a small register (bit i = qubit i).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LPauli {
+    /// X bits (bit `i` = qubit `i`).
     pub x: u64,
+    /// Z bits (bit `i` = qubit `i`).
     pub z: u64,
+    /// Phase exponent `r` of `i^r`, in `0..4`.
     pub r: u32,
 }
 
@@ -92,6 +95,8 @@ impl LPauli {
 /// increment `δ` (image = `i^δ X^.. Z^..`).
 #[derive(Clone, Debug)]
 pub struct Cliff2 {
+    /// Indexed by the local Pauli's bits `b0 | b1<<1 | b2<<2 | b3<<3`
+    /// (`X_0, Z_0, X_1, Z_1`): `(image bits in the same encoding, δ mod 4)`.
     pub table: [(u8, u8); 16],
     /// Gate word over {H0, H1, S0, S1, CNOT01} in time order.
     pub word: Vec<u8>,
@@ -186,9 +191,14 @@ impl Cliff2 {
 // Schrödinger tableau: rows D_j = C X_j C† (row j), S_j = C Z_j C† (row n+j),
 // each `i^r X^x Z^z` over the n physical qubits.
 
+/// Schrödinger tableau of an `n`-qubit Clifford `C`: row `j < n` is
+/// `D_j = C X_j C†`, row `n + j` is `S_j = C Z_j C†`, each stored as
+/// `i^r X^x Z^z` with bit-packed `x`, `z` (bit `q` = physical qubit `q`).
 #[derive(Clone, Debug)]
 pub struct Tableau {
+    /// Number of qubits.
     pub n: usize,
+    /// Words per bit row (`ceil(n / 64)`, at least 1).
     pub w: usize,
     x: Vec<u64>,
     z: Vec<u64>,
@@ -201,6 +211,7 @@ fn bit(v: &[u64], i: usize) -> u64 {
 }
 
 impl Tableau {
+    /// The identity Clifford on `n` qubits.
     pub fn new(n: usize) -> Self {
         let w = n.div_ceil(64).max(1);
         let mut t = Tableau {
@@ -217,22 +228,27 @@ impl Tableau {
         t
     }
 
+    /// X bits of row `i` (`w` words).
     #[inline]
     pub fn row_x(&self, i: usize) -> &[u64] {
         &self.x[i * self.w..(i + 1) * self.w]
     }
+    /// Z bits of row `i` (`w` words).
     #[inline]
     pub fn row_z(&self, i: usize) -> &[u64] {
         &self.z[i * self.w..(i + 1) * self.w]
     }
+    /// Phase exponent `r` (mod 4) of row `i`.
     #[inline]
     pub fn row_r(&self, i: usize) -> u8 {
         self.r[i]
     }
+    /// X bit of physical qubit `q` in row `row` (0 or 1).
     #[inline]
     pub fn xbit(&self, row: usize, q: usize) -> u64 {
         bit(&self.x[row * self.w..], q)
     }
+    /// Z bit of physical qubit `q` in row `row` (0 or 1).
     #[inline]
     pub fn zbit(&self, row: usize, q: usize) -> u64 {
         bit(&self.z[row * self.w..], q)
@@ -391,16 +407,24 @@ impl Tableau {
 /// Virtual (right-multiplied) Clifford gates on coordinates.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VGate {
+    /// Hadamard on a coordinate.
     H(usize),
+    /// `S` on a coordinate.
     S(usize),
+    /// `S†` on a coordinate.
     Sdg(usize),
+    /// Pauli X on a coordinate.
     X(usize),
+    /// Pauli Z on a coordinate.
     Z(usize),
+    /// CNOT `(control, target)`.
     Cnot(usize, usize),
+    /// CZ (symmetric).
     Cz(usize, usize),
 }
 
 impl VGate {
+    /// The same gate as a [`crate::gate::Gate`] on the same indices.
     pub fn to_gate(self) -> crate::gate::Gate {
         use crate::gate::Gate;
         match self {
@@ -528,7 +552,9 @@ pub enum Mode {
 /// One measurement record.
 #[derive(Clone, Copy, Debug)]
 pub struct MeasRecord {
+    /// Physical qubit measured.
     pub qubit: usize,
+    /// Outcome (`true` = `-1` eigenvalue, i.e. bit 1).
     pub outcome: bool,
     /// Born probability of the observed outcome (1/2 for frame-random ones).
     pub prob: f64,
@@ -536,43 +562,63 @@ pub struct MeasRecord {
     pub kind: u8,
 }
 
+/// Counters of a [`Monitored`] run.
 #[derive(Clone, Debug, Default)]
 pub struct MonStats {
+    /// Z rotations applied (`T` gates and any [`Monitored::rz`]).
     pub t_gates: usize,
     /// T gates that activated a coordinate (d+1).
     pub t_activating: usize,
     /// T gates that rotated the register in place.
     pub t_register: usize,
+    /// Measurements performed.
     pub meas: usize,
+    /// Of which frame-random (outcome 50/50, `d` unchanged).
     pub meas_frame: usize,
+    /// Of which on the register (projective, `d − 1`).
     pub meas_register: usize,
+    /// Of which determined by the state.
     pub meas_determined: usize,
+    /// Largest register size `d` reached.
     pub max_d: usize,
     /// Σ 2^d over dense updates.
     pub element_ops: u64,
 }
 
+/// A monitored Clifford+T simulation `|ψ> = C (|φ>_A ⊗ |0>)` (see the
+/// module docs).
 pub struct Monitored {
+    /// Number of physical qubits.
     pub n: usize,
+    /// The Clifford `C` as a Schrödinger tableau.
     pub tab: Tableau,
     /// active position -> virtual coordinate
     pub active: Vec<usize>,
     /// virtual coordinate -> active position (usize::MAX if inactive)
     pos: Vec<usize>,
+    /// The `2^d` register amplitudes `|φ>` (bit `i` = active position `i`);
+    /// `None` in [`Mode::DimensionOnly`].
     pub amp: Option<Vec<C64>>,
+    /// Largest allowed register size (capped at 34); exceeding it in
+    /// [`Mode::Exact`] fails with [`TooLarge`].
     pub max_d: usize,
+    /// Counters so far.
     pub stats: MonStats,
     /// Right-multiplied virtual gates, in order (tests: `C = G_T..G_1 R_1 R_2 ..`).
     pub vlog: Option<Vec<VGate>>,
+    /// Every measurement record, in order.
     pub records: Vec<MeasRecord>,
 }
 
+/// Error: an operation would grow the register beyond `max_d`.
 #[derive(Debug)]
 pub struct TooLarge {
+    /// The register size that was refused.
     pub d: usize,
 }
 
 impl Monitored {
+    /// `|0^n>` in `mode`, with register size limit `max_d` (capped at 34).
     pub fn new(n: usize, mode: Mode, max_d: usize) -> Self {
         Monitored {
             n,
@@ -590,11 +636,13 @@ impl Monitored {
         }
     }
 
+    /// Also records every virtual gate in [`Monitored::vlog`].
     pub fn with_log(mut self) -> Self {
         self.vlog = Some(Vec::new());
         self
     }
 
+    /// Current active register size `d` (`2^d` amplitudes in exact mode).
     pub fn d(&self) -> usize {
         self.active.len()
     }
@@ -707,6 +755,8 @@ impl Monitored {
         Ok(())
     }
 
+    /// A `T` gate on physical qubit `a` (`rz(a, π/4)`, up to a global phase);
+    /// fails if it would activate a coordinate beyond `max_d` in exact mode.
     pub fn t(&mut self, a: usize) -> Result<(), TooLarge> {
         self.rz(a, FRAC_PI_4)
     }

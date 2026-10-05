@@ -102,6 +102,7 @@ pub struct HsfOptions {
     pub eliminate_swaps: bool,
     /// Schedule block gates as early as possible relative to crossing gates.
     pub asap: bool,
+    /// How crossing two-qubit gates are decomposed into Schmidt terms.
     pub schmidt: SchmidtMode,
     /// Leaf mode for `amplitudes` (full output always uses `Forward`).
     pub leaf: LeafMode,
@@ -383,6 +384,7 @@ impl HybridSchrodingerFeynman {
         Self::new(circuit, &in_a, opts)
     }
 
+    /// Number of qubits (wires) of the planned circuit.
     pub fn num_qubits(&self) -> usize {
         self.n
     }

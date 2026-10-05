@@ -32,7 +32,9 @@ const C1: Complex64 = Complex64::new(1.0, 0.0);
 /// size `2^|qs|`, local index bit `j` = qubit `qs[j]`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DenseOp {
+    /// Physical qubits the op acts on, ascending.
     pub qs: Vec<usize>,
+    /// Row-major `2^|qs| × 2^|qs|` matrix; local index bit `j` is qubit `qs[j]`.
     pub mat: Vec<Complex64>,
 }
 
