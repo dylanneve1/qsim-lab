@@ -33,6 +33,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 | [colour-global.md](qec/colour-global.md) | Colour-code schedules: global search and optimality certificates |
 | [colour-flags.md](qec/colour-flags.md) | Colour-code flags: full circuit distance as real circuits |
 | [neural-decoder.md](qec/neural-decoder.md) | A learned decoder trained on FastSampler data: surface code and colour code |
+| [alphaqubit-lite.md](qec/alphaqubit-lite.md) | Open AlphaQubit-style recurrent-transformer decoder, pretrained on FastSampler, fine-tuned and tested on real Google Sycamore/Willow data |
 | [fast-sampler.md](qec/fast-sampler.md) | Fast detector sampling: Poisson hits into precomputed detector tables |
 | [fast-sampler-audit.md](qec/fast-sampler-audit.md) | Independent audit of the FastSampler speed and equivalence claims |
 | [code-discovery.md](qec/code-discovery.md) | Exhaustive search of weight-6 two-block (BB/GB/coprime-BB) codes, n ≤ 300: exact [[n,k,d]] frontier vs the literature, depth-7 schedules, circuit-level LER |
