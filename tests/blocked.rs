@@ -116,7 +116,7 @@ proptest! {
 }
 
 /// Regression for the audit's minimal repro (exp/audit,
-/// audit-adapters/sv_blocked_repro_ea41235.rs): with `split_phases` on, this
+/// tools/audit-adapters/sv_blocked_repro_ea41235.rs): with `split_phases` on, this
 /// circuit came out wrong by 0.26 in amplitude. The default config must
 /// match the gate-by-gate path.
 #[test]
