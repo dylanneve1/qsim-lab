@@ -1,9 +1,11 @@
 //! Two-block group-algebra (2BGA) codes over arbitrary finite groups,
 //! including non-abelian ones (Lin & Pryadko, Phys. Rev. A 109, 022407
-//! (2024)), with exact `[[n, k, d]]` and an enumeration of every code of
-//! given weights up to equivalence. The abelian rank <= 2 special case
-//! (BB / GB codes) lives in `qec::bicycle`; the study is
-//! `research/qec/code-discovery-2.md`.
+//! (2024)), and their coset generalisation ([`CosetCode`], Aydin, Tamo &
+//! Barg, arXiv:2606.17268), with exact `[[n, k, d]]` and an enumeration of
+//! every code of given weights up to equivalence. The abelian rank <= 2
+//! special case (BB / GB codes) lives in `qec::bicycle`; the study, which
+//! found the weight-6 codes `[[288,16,16]]` and `[[192,12,14]]` with this
+//! module, is `research/qec/code-discovery-2.md`.
 //!
 //! # Convention
 //!

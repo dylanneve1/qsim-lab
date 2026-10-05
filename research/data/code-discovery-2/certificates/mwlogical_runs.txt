@@ -12,3 +12,4 @@ presentation-built [[288,16,16]] (code_288_from_presentation.py):
 p288 sector z W=15: none <= 15 nodes 398366082  (59 s)
 p288 sector x W=15: none <= 15 nodes 404486358  (84 s)
 presentation-built [[192,12,14]] (code_192_from_presentation.py): W=13 none in both sectors, W=14 weight-14 logical found in both
+n288_k34_d8 sector z W=7: none <= 7 nodes 42133; sector x W=7: none <= 7 nodes 42873
