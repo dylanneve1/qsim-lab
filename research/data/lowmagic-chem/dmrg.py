@@ -46,7 +46,7 @@ def main():
     scratch = os.path.expanduser(f"~/qsim-lmc-scratch/{name}")
     os.makedirs(scratch, exist_ok=True)
     t0 = time.time()
-    drv = DMRGDriver(scratch=scratch, symm_type=SymmetryTypes.SU2, n_threads=2, stack_mem=int(1.5e9))
+    drv = DMRGDriver(scratch=scratch, symm_type=SymmetryTypes.SU2, n_threads=int(os.environ.get("DMRG_THREADS", "1")), stack_mem=int(1.5e9))
     drv.initialize_system(n_sites=norb, n_elec=nel, spin=0)
     if order == "fiedler":
         idx = drv.orbital_reordering(h1, eri)
