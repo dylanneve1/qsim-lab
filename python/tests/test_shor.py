@@ -7,9 +7,9 @@
   the exact measurement-tree distribution and against sampling the exported
   circuit with qsimlab.simulate;
 * factoring: factors / orders checked classically; same seed + base gives the
-  same measured integer on every engine and oracle (research/shor.md);
-* counts and runs: the numbers recorded in research/shor.md,
-  research/data/mbu-shor/counts.txt and research/ge-shor.md;
+  same measured integer on every engine and oracle (research/shor/shor.md);
+* counts and runs: the numbers recorded in research/shor/shor.md,
+  research/data/mbu-shor/counts.txt and research/shor/ge-shor.md;
 * the support law (theory-shor T1) against the measured support traces;
 * noisy trajectories: against qsimlab.simulate on the same circuit with
   explicit X_ERROR ops (an independent noise implementation).
@@ -100,7 +100,7 @@ def test_orders_and_carmichael_match_brute_force(rng):
             assert shor.carmichael(N) == lam
         else:
             assert shor.carmichael(N) % lam == 0
-    assert shor.carmichael(1_537_596_787) == 256_252_500  # research/shor.md, 31-bit record
+    assert shor.carmichael(1_537_596_787) == 256_252_500  # research/shor/shor.md, 31-bit record
 
 
 def test_support_bounds_closed_form():
@@ -205,7 +205,7 @@ def test_factor_small_semiprimes(oracle):
 
 
 def test_same_seed_same_measured_integer_on_every_engine():
-    N, a = 1003, 2  # research/shor.md: same seed -> same measured integer on every path
+    N, a = 1003, 2  # research/shor/shor.md: same seed -> same measured integer on every path
     ys = {}
     for oracle, engine in [
         ("permutation", "dense"),
@@ -225,7 +225,7 @@ def test_same_seed_same_measured_integer_on_every_engine():
 
 
 def test_reproduces_the_research_runs():
-    # research/shor.md round 4: N = 1 005 973, a = 980 062, seed 1, measured
+    # research/shor/shor.md round 4: N = 1 005 973, a = 980 062, seed 1, measured
     # 475 634 978 396 on every path; (f) ripple sliced 1 148 438 gates, (g) windowed 501 948
     r = shor.factor(1_005_973, oracle="ripple", base=980_062, seed=1, tries=1)
     assert r.measured == 475_634_978_396 and r.total_gates == 1_148_438

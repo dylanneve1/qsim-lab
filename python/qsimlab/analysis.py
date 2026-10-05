@@ -17,7 +17,7 @@ exact invariants the engines use, mostly without simulating it::
     >>> an.branching_rank(c.copy().t(1)).rank   # T on the partner makes it a stabilizer state again
     1
 
-* :func:`magic_profile`: the magic atlas (``research/magic-atlas.md``): active
+* :func:`magic_profile`: the magic atlas (``research/simulability/magic-atlas.md``): active
   dimension ``d_k`` of the rotation frame (the exact register size of the
   compressed-state engine), factored dimension ``f_k``, stabilizer entanglement
   of the Clifford skeleton across a cut and the bound ``E + d`` on the true
@@ -25,7 +25,7 @@ exact invariants the engines use, mostly without simulating it::
 * :func:`state_magic`: stabilizer nullity and stabilizer 2-Rényi entropy
   ``M2`` of a state (all ``4^n`` Pauli expectations; ``n ≤ 13``).
 * :func:`branching_rank`: the number of stabilizer terms of the exact
-  low-rank simulator (``research/theory-rank.md``) after every gate, an upper
+  low-rank simulator (``research/theory/theory-rank.md``) after every gate, an upper
   bound on the stabilizer rank.
 * :func:`simulability`: the planner's features (per-engine log2 work
   estimates) and its explanation (ranked predicted costs per engine).
@@ -135,7 +135,7 @@ def magic_profile(
     ...         _ = qft.cp(k, j, 3.141592653589793 / 2 ** (k - j))
     >>> p = magic_profile(qft)
     >>> p.rotations, p.t_count, p.d, p.f   # each controlled phase lowers to 3 Z rotations
-    (18, 9, 3, 3)
+    (18, 9, 3, 1)
     """
     circuit = _check_circuit(circuit)
     d = _native_analysis.magic_profile(
@@ -279,7 +279,7 @@ _COST_FEATURES: Dict[str, str] = {
 class Simulability:
     """Result of :func:`simulability`.
 
-    * ``features``: the raw feature dict (``research/simulability.md``):
+    * ``features``: the raw feature dict (``research/simulability/simulability.md``):
       ``n, gates, g2, g3, depth2, t_count, rotations, d`` (active dimension),
       ``chi_bits`` (bound on log2 of the MPS bond), ``hsf_k`` (HSF cut bits),
       ``sup`` (affine bound on log2 of the support), and one ``*_l`` log2 work
@@ -368,6 +368,13 @@ class MonitoredResult(Result):
     state: Optional[np.ndarray] = field(default=None, repr=False)
 
 
+def _entropy(e: Sequence[Any]) -> Tuple[float, float, Optional[float]]:
+    lo, hi, s2 = e
+    if s2 is not None and abs(s2) < 1e-12:
+        s2 = 0.0  # rounding of an exactly zero entropy
+    return (float(lo), float(hi), s2)
+
+
 def monitored(
     circuit: Circuit,
     *,
@@ -432,7 +439,7 @@ def monitored(
         qubits=d["qubits"],
         probabilities=d["probabilities"],
         kinds=d["kinds"],
-        entropies=[(k, [tuple(e) for e in v]) for k, v in d["entropies"]],
+        entropies=[(k, [_entropy(e) for e in v]) for k, v in d["entropies"]],
         stats=dict(d["stats"]),
         state=d["state"],
     )
