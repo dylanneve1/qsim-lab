@@ -62,8 +62,19 @@ Extended Data Figs 4 (architecture) and 8 (hyperparameters).
 | ensembling | 20 seeds (−0.03 / −0.08 ×10⁻² LER at d = 3 / 5) | none by default |
 
 Implementation notes. MLX has no Lamb; we use AdamW. The recurrence is a Python loop over rounds with
-`mx.checkpoint` per round (activation memory O(R · B · S · D) instead of O(R · layers · …)), which keeps
-training under the 1.5 GB MLX cap. All index buffers are private (`_`-prefixed) so MLX does not try
+gradient checkpointing per round (`nn.utils.checkpoint`, activation memory O(R · B · S · D) instead of
+O(R · layers · …)) and the whole training step is `mx.compile`d (one trace per round count).
+
+**A bug worth recording.** The first version wrapped the round step in a bare `mx.checkpoint(self._step)`.
+MLX's `mx.checkpoint` only differentiates with respect to the function's explicit inputs: gradients
+with respect to the module parameters the closure captures are silently dropped. The loss and
+forward pass were exactly right, but the bulk-round embedding got **zero** gradient and the transformer
+layers learned only from the final round. Three 42-minute GPU runs (≈ 4 M samples) trained like this
+and stalled at the level of a trivial decoder (dev LER 6–11 % against 11.5 % for "always predict no
+flip"). A finite-gradient comparison (checkpointed vs plain vs compiled autodiff) exposed it; the fix
+is `nn.utils.checkpoint(self, self._step)`, which passes the parameters explicitly. `test_aq.py` now
+asserts that the three gradients agree for every tensor. After the fix the training loss at 150 k
+samples is 0.26 instead of 0.62. All index buffers are private (`_`-prefixed) so MLX does not try
 to differentiate through gathers. Scatter/gather to the grid are pure gathers with a learned padding
 vector (the paper's `P`).
 
