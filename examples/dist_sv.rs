@@ -15,6 +15,10 @@
 //! dist_sv ram  --workload qft --n 26 --prec f32 [--reps 3]
 //! ```
 //!
+//! `--verify`: `norm` (default), `qft` (each node checks its amplitudes
+//! against the analytic QFT of `--basis X`), `ref` (gather on node 0 and
+//! compare with the single-node blocked executor; small n only).
+//!
 //! Workloads: `qft`, `brick` (4 layers), `brick16`, `brickd` (`--depth`
 //! layers, default 2n), `ghz`. Output: one
 //! `key=value` line per node on stdout.
@@ -337,7 +341,37 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
     barrier(link).unwrap();
     let wall = t0.elapsed().as_secs_f64();
     let norm = st.norm_sqr(link).unwrap();
-    let err = if verify == "qft" {
+    let err = if verify == "ref" {
+        // Gather on node 0 and compare with the single-node blocked executor.
+        match st.gather(link).unwrap() {
+            Some(got) => {
+                let mut v = vec![Complex::new(T::zero(), T::zero()); 1 << n];
+                let mut phys = 0usize;
+                for q in 0..n {
+                    phys |= ((x >> q) & 1) << q;
+                }
+                v[phys] = Complex::new(T::one(), T::zero());
+                let mut sv = StateVector::<T>::from_amplitudes(v);
+                sv.apply_circuit_blocked(&circ, &BlockConfig::default())
+                    .unwrap();
+                let e = got
+                    .iter()
+                    .zip(sv.amplitudes())
+                    .map(|(a, b)| {
+                        let d = *a - *b;
+                        (d.re.to_f64().powi(2) + d.im.to_f64().powi(2)).sqrt()
+                    })
+                    .fold(0.0, f64::max);
+                link.send_all(&e.to_le_bytes()).unwrap();
+                e
+            }
+            None => {
+                let mut b = [0u8; 8];
+                link.recv_exact(&mut b).unwrap();
+                f64::from_le_bytes(b)
+            }
+        }
+    } else if verify == "qft" {
         let e = qft_error(&st, x);
         // max over both nodes
         link.send_all(&e.to_le_bytes()).unwrap();
@@ -353,7 +387,7 @@ fn run_node<T: Real>(kv: &HashMap<String, String>, prec: &str) {
         "dist node={node} workload={wl} n={n} prec={prec} L={l} owner={owner_s} restore={} free={} fold={} \
          plan_swaps={} plan_runs={} folded={} plan_ms={plan_ms:.1} local_gib={local_gib:.3} cross_pairs={} local_pairs={} \
          sent_mib={:.1} recv_mib={:.1} wall_s={wall:.3} compute_s={:.3} exchange_s={:.3} local_swap_s={:.3} \
-         norm={norm:.9} qft_err={err:.3e}",
+         norm={norm:.9} verify={verify} max_err={err:.3e}",
         o.restore_order as u8,
         o.free_initial_layout as u8,
         o.fold_swaps as u8,
