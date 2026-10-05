@@ -367,8 +367,10 @@ fn rewrite_bench(w: &str, n: usize, p: usize, binds: usize) {
         .collect();
     // plain = no rewrite; forced = always the rewritten circuit; auto = the
     // default (rewrite kept only if the plan is cheaper)
-    let mut opts = GraphOptions::default();
-    opts.rewrite = None;
+    let opts = GraphOptions {
+        rewrite: None,
+        ..Default::default()
+    };
     let auto = GraphOptions::default();
     let mut best = [f64::INFINITY; 5];
     let mut vals = [0.0; 3];
@@ -509,8 +511,10 @@ fn dedup_bench() {
         );
         // bind-time effect of recipe CSE (parameterised families)
         if pc.num_params > 0 {
-            let mut off = GraphOptions::default();
-            off.dedup_recipes = false;
+            let off = GraphOptions {
+                dedup_recipes: false,
+                ..Default::default()
+            };
             let on = GraphOptions::default();
             let a = CompiledCircuit::compile(&pc, None, &on).unwrap();
             let b = CompiledCircuit::compile(&pc, None, &off).unwrap();
@@ -731,6 +735,7 @@ fn fold_bench() {
             "adder ctrl=|1>",
             with(
                 Gate::X(rl.ctrl),
+                rl.x[0],
                 shor_ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
             ),
         ),
@@ -738,6 +743,7 @@ fn fold_bench() {
             "adder ctrl=|+>",
             with(
                 Gate::H(rl.ctrl),
+                rl.x[0],
                 shor_ripple::controlled_ua(&rl, rl.ctrl, 7, 15),
             ),
         ),
@@ -763,8 +769,10 @@ fn fold_bench() {
     for (name, pc) in cases {
         let (f, st) = fold_basis(&pc);
         let p: Vec<f64> = (0..pc.num_params).map(|i| 0.4 + 0.1 * i as f64).collect();
-        let mut off = GraphOptions::default();
-        off.fold_basis = false;
+        let off = GraphOptions {
+            fold_basis: false,
+            ..Default::default()
+        };
         let on = GraphOptions::default();
         let mut best = [f64::INFINITY; 2];
         let a = CompiledCircuit::compile(&pc, None, &off).unwrap();

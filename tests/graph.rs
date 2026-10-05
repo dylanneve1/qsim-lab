@@ -1,6 +1,8 @@
 //! Differential tests of the graph compiler (`src/graph`) against the
 //! independent reference state vector of `tests/audit_common`.
 
+#![allow(clippy::field_reassign_with_default)]
+
 mod audit_common;
 
 use audit_common::*;
@@ -516,8 +518,10 @@ fn dedup_finds_trotter_steps_and_recipe_cse_is_exact() {
     assert!(d.coverage() > 0.9, "{}", d.coverage());
     let mut obs = Observable::new();
     obs.add(1.0, "Z3").unwrap().add(0.5, "X0 X1").unwrap();
-    let mut off = GraphOptions::default();
-    off.dedup_recipes = false;
+    let off = GraphOptions {
+        dedup_recipes: false,
+        ..Default::default()
+    };
     let a = CompiledCircuit::compile(&pc, Some(&obs), &GraphOptions::default()).unwrap();
     let b = CompiledCircuit::compile(&pc, Some(&obs), &off).unwrap();
     for p in [[0.1, 0.2], [-1.3, 0.77]] {
