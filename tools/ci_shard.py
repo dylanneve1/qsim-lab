@@ -4,7 +4,7 @@
     tools/ci_shard.py SHARD N        # prints the `cargo test` target flags for shard SHARD (1-based)
     tools/ci_shard.py --table N      # prints the whole assignment with estimated seconds
 
-Targets come from `cargo metadata`, so new tests/*.rs files are picked up
+Targets come from `cargo metadata`, so new [[test]] targets are picked up
 automatically (with DEFAULT_SECS until they are added to WEIGHTS). Shard 1
 also runs the lib/bin unit tests and the doctests. Assignment is greedy
 longest-first onto the least-loaded shard, deterministic for a given target
