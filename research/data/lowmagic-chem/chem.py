@@ -27,6 +27,10 @@ def hchain(nh, r):
     return [("H", (0.0, 0.0, i * r)) for i in range(nh)]
 
 
+def hsheet(a, b, r):
+    return [("H", (i * r, j * r, 0.0)) for i in range(a) for j in range(b)]
+
+
 MOLS = {
     # name: (atoms, basis, frozen core orbitals, fci?)
     "h2": (hchain(2, 0.7414), "sto-3g", 0),
@@ -43,7 +47,12 @@ MOLS = {
     "h8": (hchain(8, 1.0), "sto-3g", 0),
     "h10": (hchain(10, 1.0), "sto-3g", 0),
     "h10_s": (hchain(10, 1.8), "sto-3g", 0),
+    "h3x4": (hsheet(3, 4, 1.0), "sto-3g", 0),
+    "h3x4_s": (hsheet(3, 4, 1.8), "sto-3g", 0),
     # beyond state-vector size
+    "h4x4": (hsheet(4, 4, 1.0), "sto-3g", 0),
+    "h4x4_s": (hsheet(4, 4, 1.8), "sto-3g", 0),
+    "h4x5_s": (hsheet(4, 5, 1.8), "sto-3g", 0),
     "h20": (hchain(20, 1.0), "sto-3g", 0),
     "h30": (hchain(30, 1.0), "sto-3g", 0),
     "h50": (hchain(50, 1.0), "sto-3g", 0),
@@ -263,6 +272,70 @@ def write_trotter(path, n, occ_qubits, qham, dt, steps, meta):
     return len(terms)
 
 
+def write_qpe(path, n, occ_qubits, qham, tau, t, meta):
+    """Textbook QPE: t counting qubits (n..n+t-1) in |+>, controlled U^(2^k) with U one
+    first-order Trotter step exp(-i tau H), inverse QFT; all as Pauli rotations + H."""
+    terms = [(tt, float(np.real(c))) for tt, c in sorted(qham.terms.items()) if tt and abs(c) > 1e-12]
+    nt = n + t
+    lines = [f"n {nt}"] + [f"# {k} {v}" for k, v in meta.items()]
+    lines += [f"x {q}" for q in occ_qubits] + [f"h {n + k}" for k in range(t)]
+    for k in range(t):
+        c = n + k
+        for _ in range(2**k):
+            for tt, co in terms:
+                th = 2.0 * co * tau
+                ps = " ".join(f"{s_}{i}" for i, s_ in tt)
+                # controlled exp(-i th/2 P) = exp(-i th/4 P) exp(+i th/4 Z_c P)
+                lines.append(f"rot {th / 2!r} {ps}")
+                lines.append(f"rot {-th / 2!r} {ps} Z{c}")
+    # inverse QFT on the counting register (qubit n+t-1 most significant)
+    for j in reversed(range(t)):
+        for m in reversed(range(j + 1, t)):
+            phi = -np.pi / 2 ** (m - j)
+            a, b = n + j, n + m
+            lines += [f"rot {phi / 2!r} Z{a}", f"rot {phi / 2!r} Z{b}", f"rot {-phi / 2!r} Z{a} Z{b}"]
+        lines.append(f"h {n + j}")
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def lattice_programs(out):
+    """Trotter programs for 1D Hubbard (JW, 2L qubits) and J1-J2 Heisenberg chains (L qubits)."""
+    import openfermion as of
+
+    rows = []
+    for L, u, tt in ((6, 4.0, 1.0), (6, 0.0, 1.0), (6, 4.0, 0.0), (10, 4.0, 1.0)):
+        h = of.fermi_hubbard(1, L, tunneling=tt, coulomb=u, periodic=False)
+        q = of.jordan_wigner(h)
+        occ = [2 * i + (i % 2) for i in range(L)]  # Neel-like half filling
+        name = f"hubbard_L{L}_U{u}_t{tt}"
+        write_trotter(os.path.join(out, f"{name}.trot0.1.jw.prog"), 2 * L, occ, q, 0.1, 2,
+                      {"model": name, "ansatz": "trotter dt=0.1 x2", "enc": "jw"})
+        rows.append(name)
+    for L, j2 in ((12, 0.0), (12, 0.5)):
+        h = of.QubitOperator()
+        for i in range(L - 1):
+            for s_ in "XYZ":
+                h += of.QubitOperator(f"{s_}{i} {s_}{i + 1}", 1.0)
+        for i in range(L - 2):
+            for s_ in "XYZ":
+                h += of.QubitOperator(f"{s_}{i} {s_}{i + 2}", j2)
+        name = f"heis_L{L}_J2{j2}"
+        # dimer (singlet-product) reference: X on odd sites then (H, CNOT) is Clifford; we write
+        # the singlet product with h/cx/x/z lines: |01>-|10> = CNOT (H x I)|0 1> then Z
+        p = os.path.join(out, f"{name}.trot0.1.dimer.prog")
+        write_trotter(p, L, [], h, 0.1, 2, {"model": name, "ansatz": "trotter dt=0.1 x2 from dimer state", "enc": "spin"})
+        body = open(p).read().splitlines()
+        hdr = [ln for ln in body if ln.startswith(("n ", "#"))]
+        rest = [ln for ln in body if not ln.startswith(("n ", "#"))]
+        prep = []
+        for i in range(0, L, 2):
+            prep += [f"x {i + 1}", f"h {i}", f"cx {i} {i + 1}", f"z {i}"]
+        open(p, "w").write("\n".join(hdr + prep + rest) + "\n")
+        rows.append(name)
+    return rows
+
+
 # ----------------------------------------------------------------------------- GF(2) rank
 
 
@@ -365,6 +438,11 @@ def prep(name, out, small_only=False):
                 list(rng.normal(0, 0.05, len(gg))),
                 {"mol": name, "ansatz": f"{k}-UpCCGSD", "enc": "jw"},
             )
+    if n <= 12:
+        qh = qubit_hamiltonian(h1, eri, ecore, "jw")
+        for t in (3, 5):
+            write_qpe(os.path.join(out, f"{name}.qpe{t}.jw.prog"), n, occ_q, qh, 0.1, t,
+                      {"mol": name, "ansatz": f"QPE t={t} tau=0.1, HF reference", "enc": "jw"})
     if n <= 20:
         for enc in ("jw", "bk"):
             qh = qubit_hamiltonian(h1, eri, ecore, enc)
@@ -391,5 +469,7 @@ if __name__ == "__main__":
         print(" ".join(MOLS))
     elif cmd == "prep":
         prep(sys.argv[2], sys.argv[3])
+    elif cmd == "lattice":
+        print(lattice_programs(sys.argv[2]))
     else:
         print(__doc__)
