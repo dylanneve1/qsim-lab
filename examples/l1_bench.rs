@@ -3,15 +3,17 @@
 //! minimum over repetitions is reported, so slow drifts of a shared machine
 //! hit all configurations equally.
 //!
-//! usage: l1_bench <brick|qft> <n,...> <f32|f64> <reps> <depth> <cfg> [<cfg> ...]
+//! usage: l1_bench <brick|su4|qft|ghz|adder> <n,...> <f32|f64> <reps> <depth> <cfg> [<cfg> ...]
 //! cfg  = name[:key=val[,key=val...]]   keys: block_kib slots tile_kib tile_b
-//!        simd fuse sched. The name `ref` runs gate-by-gate `apply_circuit`.
+//!        simd fuse sched dense dmin. The name `ref` runs gate-by-gate `apply_circuit`.
+//! `su4` = brickwork of generic 2-qubit unitaries, each written as three
+//! rounds of (Ry Rz on both qubits, CNOT) — the case dense fusion targets.
 //! env: GHZ (assumed clock, default 3.228) for the cycles column;
 //!      CSV=path appends raw rows `workload,n,prec,cfg,rep,seconds`.
 
 use num_complex::Complex;
 use qsim_lab::algorithms;
-use qsim_lab::blocked::{fuse_1q, lower_gates, tile_stats, BlockConfig, KOp};
+use qsim_lab::blocked::{fuse_1q, fusion_stats, lower_gates, tile_stats, BlockConfig, KOp};
 use qsim_lab::circuit::{Circuit, Op};
 use qsim_lab::statevector::{Real, StateVector};
 use rand::rngs::StdRng;
@@ -35,6 +37,8 @@ fn parse_cfg(spec: &str) -> (String, Option<BlockConfig>) {
             "simd" => cfg.simd = v == "1",
             "fuse" => cfg.fuse_1q = v == "1",
             "sched" => cfg.schedule_diag = v == "1",
+            "dense" => cfg.dense_fusion = v.parse().unwrap(),
+            "dmin" => cfg.dense_min_ops = v.parse().unwrap(),
             _ => panic!("unknown key {k}"),
         }
     }
@@ -47,7 +51,35 @@ fn workload(name: &str, n: usize, depth: usize) -> Circuit {
             let mut rng = StdRng::seed_from_u64(42);
             algorithms::random_brickwork(n, depth, &mut rng)
         }
+        "su4" => {
+            use rand::Rng;
+            let mut rng = StdRng::seed_from_u64(42);
+            let mut c = Circuit::new(n);
+            for layer in 0..depth {
+                for q in (layer % 2..n.saturating_sub(1)).step_by(2) {
+                    for _ in 0..3 {
+                        for r in [q, q + 1] {
+                            c.ry(r, rng.random::<f64>() * 3.0);
+                            c.rz(r, rng.random::<f64>() * 3.0);
+                        }
+                        c.cnot(q, q + 1);
+                    }
+                }
+            }
+            c
+        }
         "qft" => algorithms::qft(n),
+        "ghz" => algorithms::ghz(n),
+        "adder" => {
+            // `depth` Cuccaro adders on (n - 2) / 2-bit registers (CNOT/CCX
+            // arithmetic, Hadamards up front)
+            let a = qsim_lab::bench::cuccaro_adder((n - 2) / 2);
+            let mut c = Circuit::new(a.num_qubits);
+            for _ in 0..depth {
+                c.ops.extend(a.ops.iter().cloned());
+            }
+            c
+        }
         _ => panic!("unknown workload"),
     }
 }
@@ -141,6 +173,14 @@ fn bench<T: Real>(wl: &str, n: usize, depth: usize, reps: usize, specs: &[String
                     st.tile_bits, st.tiled_ops, st.full_ops, st.runs
                 )
             }
+            Some(cfg) if cfg.dense_fusion >= 2 => {
+                let st = fusion_stats::<T>(&ops, n, cfg);
+                format!(
+                    "passes {} dense2 {} dense3 {}",
+                    st.passes, st.dense2, st.dense3
+                )
+            }
+            Some(cfg) => format!("passes {}", fusion_stats::<T>(&ops, n, cfg).passes),
             _ => String::new(),
         };
         println!(

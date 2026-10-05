@@ -53,6 +53,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | [sv.md](performance/sv.md) | State-vector speed: cache blocking, SIMD kernels |
 | [sv-monomial.md](performance/sv-monomial.md) | k-qubit dense fusion and monomial-segment fusion |
+| [dense-fusion.md](performance/dense-fusion.md) | Dense k-qubit fusion in the blocked executor: 1.5-2.15x on generic 2-qubit unitaries (M1 Pro), a loss on brickwork; cost rule |
 | [mac-m1.md](performance/mac-m1.md) | Apple M1 Pro: NEON FMA kernels, nested L1 tiling, block size |
 | [metal.md](performance/metal.md) | Metal (Apple GPU) f32 state-vector backend |
 | [ooc.md](performance/ooc.md) | Out-of-core state vector: fewer passes over disk |
@@ -88,6 +89,7 @@ Lab-wide design document: [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | [audit.md](process/audit.md) | Independent audits of every merged branch, and the corrections they forced |
 | [literature.md](process/literature.md) | Literature map: where qsim-lab's speed work sits |
+| [ARCHIVE.md](process/ARCHIVE.md) | Archived (deleted) branches: what each was, why archived, where the surviving work lives |
 
 ## Layout
 
