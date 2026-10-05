@@ -1,0 +1,7 @@
+# examples/ft_cleancheck <p> <runs> <seed>: L1 raw injection, N = 15, a = 7; clean vs faulty histograms of y
+# (flag before the Z_L-absorption fix; same estimator logic)
+p=0.001 clean=[44761, 0, 44457, 0, 44579, 0, 44825, 0] faulty=[31260, 192, 29698, 163, 29703, 172, 30027, 163]
+p=0.002 clean=[12637, 0, 12443, 0, 12469, 0, 12603, 0] faulty=[63789, 632, 60960, 624, 61450, 610, 61143, 640]
+# final code (seed 0 = the unit test's seed range, 10x the runs; seed 5)
+p=0.001 clean=[45489, 0, 45450, 0, 45415, 0, 45055, 0] faulty=[30629, 184, 29333, 193, 28558, 170, 29367, 157]
+p=0.0003 clean=[70588, 0, 70574, 0, 70613, 0, 70293, 0] faulty=[4597, 11, 4530, 20, 4339, 14, 4409, 12]

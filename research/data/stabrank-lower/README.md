@@ -19,5 +19,5 @@
 Environment: `THREADS` (default 1), `GROUP_CAP` (largest symmetry group stored explicitly, default
 1000), `PROGRESS=1`.
 
-Outputs (`*.out`) are the logs that the table in `research/stabrank-lower.md` is taken from.
+Outputs (`*.out`) are the logs that the table in `research/theory/stabrank-lower.md` is taken from.
 Decomposition files list state indices into `enum_states(n)` order, plus coefficients.

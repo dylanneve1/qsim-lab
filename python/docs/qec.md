@@ -10,7 +10,7 @@ the GIL released, and everything is cross-checked against Stim and PyMatching
 | surface code memory (rotated, X or Z basis) | `surface_code_memory(d, rounds, basis, p=, noise=)` | new generator (`python/src/qec.rs`), Stim's layout and hook-safe CNOT order |
 | repetition code memory | `repetition_code_memory(d, rounds, p=, noise=)` | new generator |
 | colour code memory (6.6.6, K–F rounds, flags) | `color_code_memory(d, rounds, basis, schedule=, flags=, p=, noise=)` | `qsim_lab::qec::color::memory_flagged` |
-| detection events | `sample_detectors(c, shots, seed=, engine=)`, `DetectorSampler` | `FastSampler` (`research/fast-sampler.md`) / SymPhase |
+| detection events | `sample_detectors(c, shots, seed=, engine=)`, `DetectorSampler` | `FastSampler` (`research/qec/fast-sampler.md`) / SymPhase |
 | detector error model | `detector_error_model(c)` → `DetectorErrorModel` (`to_stim_dem`, `from_stim_dem`, `matrices`, `graphlike`) | SymPhase symbolic frame |
 | exact circuit distance + count | `circuit_distance(c, max_weight=, detectors=, timeout=)` | `qsim_lab::qec::distance` (branch and bound) |
 | decoding | `decode(dem, dets, "bposd" \| "pymatching" \| "tesseract")`, `make_decoder` | `qsim_lab::qec::bposd`; PyMatching / Tesseract adapters |
@@ -140,16 +140,16 @@ Measurement and reset in the X basis are `MX = H M H` and `RX = R H` with the fl
 the right basis (`Z_ERROR` after `RX`); these basis changes carry no gate noise. SI1000 follows
 Gidney et al. (the auxiliaries are reset/measured in their stabilizer's basis instead of using
 explicit Hadamards, so it has no single-qubit gate layers). For the colour code `"cnot"` and
-`"uniform"` are exactly the engine's `ColorNoise` models used in `research/qec-r4.md` and
-`research/colour-global.md`; `"si1000"` is the uniform circuit with each location rescaled.
+`"uniform"` are exactly the engine's `ColorNoise` models used in `research/qec/qec-r4.md` and
+`research/qec/colour-global.md`; `"si1000"` is the uniform circuit with each location rescaled.
 
 ## Colour codes: schedules and flags
 
 `schedule=` accepts `"kf"` (Kishony–Fowler, the default), `"tri"` (Lee et al.'s tri-optimal),
-`"global"` (the exact schedules of `research/colour-global.md`: d = 9 with circuit distance 8
+`"global"` (the exact schedules of `research/qec/colour-global.md`: d = 9 with circuit distance 8
 against K–F's 7, and d = 11 with 7 + 7 layers and distance 10), a `.sched` file, or a
 `(plaquettes, 6)` array. `flags=True` puts a flag qubit on every boundary-touching plaquette
-(`research/colour-flags.md`). The sector search makes these distances cheap:
+(`research/qec/colour-flags.md`). The sector search makes these distances cheap:
 
 ```python
 >>> kf, lk = qec.color_code_memory(9, 1, schedule="kf", p=1e-3, return_layout=True)

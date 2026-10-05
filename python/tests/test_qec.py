@@ -1,6 +1,6 @@
 """Tests for qsimlab.qec against independent references (Stim, PyMatching).
 
-Statistical tests follow research/fast-sampler-audit.md: two-sample z-tests on
+Statistical tests follow research/qec/fast-sampler-audit.md: two-sample z-tests on
 per-detector marginals and on DEM-correlated detector pairs, Bonferroni at a
 1% family-wise error rate per circuit, plus a negative control that must be
 rejected.
@@ -374,7 +374,7 @@ def test_distance_sector_and_budgets():
 
 
 def test_global_schedule_raises_distance():
-    """research/colour-global.md: d = 9 K-F has d_circ 7, the global schedule 8."""
+    """research/qec/colour-global.md: d = 9 K-F has d_circ 7, the global schedule 8."""
     kf, lk = qec.color_code_memory(9, 1, schedule="kf", p=1e-3, return_layout=True)
     gl, lg = qec.color_code_memory(9, 1, schedule="global", p=1e-3, return_layout=True)
     a = qec.circuit_distance(kf, detectors=lk.memory_detectors)
