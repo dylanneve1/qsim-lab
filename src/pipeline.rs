@@ -14,9 +14,9 @@
 //!      qubits) goes to Planner v2, which ranks state vector, sparse, MPS
 //!      perfect sampling, HSF and the compressed sampler by evolution +
 //!      read-out cost for the requested number of shots
-//!   -> amplitudes: per component (<= 63 qubits), Planner v2 over the
+//!   -> amplitudes: per component (<= 128 qubits), Planner v2 over the
 //!      engines that keep the global phase (state vector, sparse, MPS, HSF
-//!      path sums for the requested basis states)
+//!      path sums for the requested basis states, tensor-network contraction)
 //!   -> mid-circuit measurements: rule-based (tableau or state vector, shot by shot)
 //!   -> combine (product of components, classical suffix)
 //! ```
@@ -500,7 +500,7 @@ fn simulate_plain(
         }
         Request::Amplitudes(xs) => {
             let plan = compile_unitary(circuit, opts)?;
-            if plan.components().iter().all(|c| c.qubits.len() <= 63) {
+            if plan.components().iter().all(|c| c.qubits.len() <= 128) {
                 let (amps, engines) = plan.amplitudes_planned(xs, &planner_cfg)?;
                 return Ok(Simulation {
                     output: Output::Amplitudes(amps),

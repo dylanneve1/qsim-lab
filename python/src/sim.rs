@@ -108,6 +108,7 @@ pub fn engine_name(e: Engine) -> &'static str {
         Engine::Mps => "mps",
         Engine::Hsf => "hsf",
         Engine::Compressed => "compressed",
+        Engine::Tn => "tn",
     }
 }
 

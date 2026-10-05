@@ -17,6 +17,7 @@
 //! * [`stab_rank`] — branching-rank (sum of stabilizer states) simulator.
 //! * [`mps`], [`mps_cost`] — matrix product states, and a cost predictor for exact MPS runs.
 //! * [`hsf`] — hybrid Schrödinger–Feynman simulation.
+//! * [`tn`] — exact tensor-network contraction (amplitudes, batches, Pauli expectations).
 //! * [`spd`] — sparse Pauli dynamics for kicked-Ising Trotter circuits.
 //! * [`monitored`] — monitored Clifford+T circuits (measurement-induced transitions).
 
@@ -39,3 +40,4 @@ pub mod spd;
 pub mod stab_rank;
 pub mod stabilizer;
 pub mod statevector;
+pub mod tn;
