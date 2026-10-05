@@ -143,7 +143,9 @@ symmetric `G=1` split *and* matches the VPS's small memory budget.
   f64 and f32, layouts `01`, `00000001`, `01101001`, `10000000`, restore on and
   off, gathered on the Mac and compared with the single-node blocked executor:
   max error **3.4e-17 (f64)**, **1.2e-8 (f32)**; QFT-24 f64 on a basis state
-  vs analytic: 8.9e-19. (The VPS runs the AVX2 kernels and the Mac the NEON
+  vs analytic: 8.9e-19. Re-checked with the final rebased binaries
+  (deep brickwork with 9 swaps, a 4/4 parity layout): <= 1.2e-17 / 4.9e-9.
+  (The VPS runs the AVX2 kernels and the Mac the NEON
   ones, so f32 agreement is to rounding, not bitwise.)
 
 ## Timings
