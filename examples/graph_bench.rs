@@ -709,6 +709,53 @@ fn fusable_bench() {
     }
 }
 
+/// Basis-state folding: ops removed and compiled run time with folding on
+/// and off (full state, so nothing else removes the work).
+fn fold_bench() {
+    use qsim_lab::graph::fold::fold_basis;
+    use qsim_lab::{shor_ripple, shor_window};
+    let wrap = |c: &qsim_lab::Circuit| ParamCircuit::from_circuit(c).unwrap();
+    let cases: Vec<(&str, ParamCircuit)> = vec![
+        ("adder n=4 (16q)", {
+            let lay = shor_ripple::RippleLayout::new(4);
+            wrap(&shor_ripple::controlled_ua(&lay, lay.ctrl, 7, 15))
+        }),
+        ("window n=4 w=2", {
+            let lay = shor_window::WindowLayout::new(4, 2);
+            wrap(&shor_window::controlled_ua(&lay, 7, 15))
+        }),
+        ("trotter n=16 s=10", trotter(16, 10).0),
+        ("qaoa n=16 p=3", qaoa(16, 3).0),
+    ];
+    for (name, pc) in cases {
+        let (f, st) = fold_basis(&pc);
+        let p: Vec<f64> = (0..pc.num_params).map(|i| 0.4 + 0.1 * i as f64).collect();
+        let mut off = GraphOptions::default();
+        off.fold_basis = false;
+        let on = GraphOptions::default();
+        let mut best = [f64::INFINITY; 2];
+        for _ in 0..reps() {
+            let a = CompiledCircuit::compile(&pc, None, &off).unwrap();
+            let (t, _) = time(|| a.bind(&p).unwrap().statevector().unwrap());
+            best[0] = best[0].min(t);
+            let b = CompiledCircuit::compile(&pc, None, &on).unwrap();
+            let (t, _) = time(|| b.bind(&p).unwrap().statevector().unwrap());
+            best[1] = best[1].min(t);
+        }
+        println!(
+            "{name:20} n={} ops {} -> {} (removed {}, simplified {}) | run: fold off {:.3}ms on {:.3}ms ({:.2}x)",
+            pc.num_qubits,
+            pc.ops.len(),
+            f.ops.len(),
+            st.removed,
+            st.simplified,
+            best[0] * 1e3,
+            best[1] * 1e3,
+            best[0] / best[1]
+        );
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let pipe = std::env::var("PIPE").is_ok();
@@ -756,6 +803,7 @@ fn main() {
         }
         Some("dedup") => dedup_bench(),
         Some("fusable") => fusable_bench(),
+        Some("fold") => fold_bench(),
         Some("partition") => {
             let a: Vec<usize> = args[2..7].iter().map(|x| x.parse().unwrap()).collect();
             let dl: f64 = args.get(7).map_or(30.0, |x| x.parse().unwrap());
