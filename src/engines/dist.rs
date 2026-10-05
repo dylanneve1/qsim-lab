@@ -547,7 +547,7 @@ pub fn plan_gates(
                 .filter(|&&o| needs_local(&gates[o]).iter().all(|&q| hyp[q] < l))
                 .count();
             let score = (hits as f64 + 1.0) / needed.len() as f64;
-            if best.as_ref().map_or(true, |b| score > b.0) {
+            if best.as_ref().is_none_or(|b| score > b.0) {
                 best = Some((score, needed, evict));
             }
         }
