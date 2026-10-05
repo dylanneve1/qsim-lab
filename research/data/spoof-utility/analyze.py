@@ -81,7 +81,9 @@ def references(fig):
     if fig in ("3a", "3b", "3c"):
         return load_xy(f"kim/fig{fig}_exact.txt"), "exact (Kim et al.)"
     if fig == "4a":
-        return load_xy("tindall/w17_6layers_bptns.csv", 1, W17_SIGN), "BP-TNS χ→∞ (Tindall et al.)"
+        # χ = 500 column: SPD at δ = 1e-5 agrees with it to ≤ 3e-4, while their
+        # 1/χ → 0 extrapolation (column 1) deviates by up to 3e-3 (see the doc).
+        return load_xy("tindall/w17_6layers_bptns.csv", 2, W17_SIGN), "BP-TNS χ=500 (Tindall et al.)"
     if fig == "4b":
         return load_xy("tindall/z62_20steps_bptns.csv", 1), "BP-TNS χ→∞ (Tindall et al.)"
     return {}, ""
@@ -370,6 +372,41 @@ def main():
     wc = [r for r in runs if r.get("max_weight", -1) != -1]
     if wc:
         ref, _ = references("4b")
+        ws = sorted({r["max_weight"] for r in wc})
+        ths = sorted({round(r["theta"], 4) for r in wc})
+        out.append("\n### 20-step ⟨Z62⟩ (127 qubits) with a Pauli-weight cap, δ = 1e-5: value (error vs BP-TNS)\n")
+        out.append("| θ_h | BP-TNS | uncapped (best δ) | " + " | ".join(f"w ≤ {w}" for w in ws) + " | ZNE exp. |")
+        out.append("|---" * (len(ws) + 4) + "|")
+        exp4 = {round(float(r["theta_h"]), 4): r for r in np.genfromtxt("kim_fig4b_experiment.csv", delimiter=",", names=True)}
+        unc = select(runs, "4b", steps=20)
+        for t in ths:
+            rv = ref.get(t, float("nan"))
+            cells = []
+            for w in ws:
+                c = [r for r in wc if round(r["theta"], 4) == t and r["max_weight"] == w and r["delta"] == 1e-5 and r["steps"] == 20 and not r["aborted"]]
+                cells.append(f"{c[-1]['value']:+.3f} ({c[-1]['value'] - rv:+.3f})" if c else "–")
+            u = unc.get(t)
+            ucell = f"{u[-1][1]:+.3f} ({u[-1][1] - rv:+.3f})" if u else "–"
+            e = exp4.get(t)
+            out.append(f"| {t} | {rv:+.3f} | {ucell} | " + " | ".join(cells) + f" | {e['mitigated'] if e is not None else float('nan'):+.3f} |")
+        fw, axw = plt.subplots(figsize=(7.5, 4.4))
+        rx = sorted(ref)
+        axw.plot(rx, [ref[x] for x in rx], "-", color=C_REF, lw=2, label="BP-TNS χ→∞ (Tindall et al.)")
+        ux = sorted(unc)
+        axw.plot(ux, [unc[x][-1][1] for x in ux], "o-", color=C1, ms=4, label="SPD, δ only (best δ in 3 GB)")
+        for w, col in zip([8, 10], [C3, C2]):
+            pts = sorted((round(r["theta"], 4), r["value"]) for r in wc if r["max_weight"] == w and r["delta"] == 1e-5 and r["steps"] == 20 and not r["aborted"])
+            if pts:
+                axw.plot([p[0] for p in pts], [p[1] for p in pts], "s--", color=col, ms=4, label=f"SPD, δ = 1e-5 and weight ≤ {w}")
+        exp = np.genfromtxt("kim_fig4b_experiment.csv", delimiter=",", names=True)
+        axw.errorbar(exp["theta_h"], exp["mitigated"], yerr=[np.abs(exp["mitigated"] - exp["boot_lo68"]), np.abs(exp["boot_hi68"] - exp["mitigated"])], fmt="^", color=C4, ms=5, capsize=2, label="experiment, ZNE")
+        axw.set_xlabel("$\\theta_h$")
+        axw.set_ylabel("$\\langle Z_{62}\\rangle$, 20 steps")
+        axw.grid(alpha=0.3)
+        axw.legend(frameon=False, fontsize=8)
+        fw.tight_layout()
+        fw.savefig("weight_cap.png", dpi=120)
+        ref, _ = references("4b")
         out.append("\n### 20-step ⟨Z62⟩ with an added Pauli-weight cap\n")
         out.append("| θ_h | max weight | δ | value | BP-TNS | err | 1−‖O‖² | peak terms | time (s) | aborted |")
         out.append("|---|---|---|---|---|---|---|---|---|---|")
@@ -390,11 +427,36 @@ def main():
         out.append("| qubits | θ_h | steps | exact ⟨Z⟩ | δ | SPD | error | 1−‖O‖² | peak terms | time (s) |")
         out.append("|---|---|---|---|---|---|---|---|---|---|")
         for r in sorted(prs, key=lambda r: (r["k"], r["theta"], r["steps"], -r["delta"])):
-            if r["aborted"] or r.get("branch_factor", 1) != 1:
+            if r["aborted"] or r.get("branch_factor", 1) != 1 or r.get("max_weight", -1) != -1:
                 continue
             out.append(
                 f"| {r['k']} | {r['theta']} | {r['steps']} | {r['exact']:+.4f} | {r['delta']:.0e} | {r['spd']:+.4f} | {r['err']:+.4f} | {1 - r['norm2']:.3f} | {r['peak_terms']} | {r['seconds']:.1f} |"
             )
+
+    wp = [r for r in prs if r.get("max_weight", -1) != -1 and not r["aborted"]]
+    if wp:
+        out.append("\n### Weight-capped SPD on the exact 24-qubit patch, 20 steps\n")
+        ths = sorted({r["theta"] for r in wp})
+        ws = sorted({r["max_weight"] for r in wp})
+        unc = {}
+        for r in prs:
+            if r.get("max_weight", -1) == -1 and r["k"] == 24 and r["steps"] == 20 and not r["aborted"] and r.get("branch_factor", 1) == 1:
+                if r["theta"] not in unc or r["delta"] < unc[r["theta"]]["delta"]:
+                    unc[r["theta"]] = r
+        out.append("| θ_h | exact | " + " | ".join(f"w={w} err" for w in ws) + " | uncapped err (δ) |")
+        out.append("|---" * (len(ws) + 3) + "|")
+        for t in ths:
+            cells = []
+            ex = None
+            for w in ws:
+                c = [r for r in wp if r["theta"] == t and r["max_weight"] == w and r["delta"] == 1e-5 and r["steps"] == 20]
+                if c:
+                    cells.append(f"{c[-1]['err']:+.4f}")
+                    ex = c[-1]["exact"]
+                else:
+                    cells.append("–")
+            u = unc.get(t)
+            out.append(f"| {t} | {ex if ex is not None else float('nan'):+.4f} | " + " | ".join(cells) + f" | {u['err'] if u else float('nan'):+.4f} ({u['delta'] if u else float('nan'):.0e}) |")
 
     # ---------------- locked timings ----------------
     bt = defaultdict(list)
