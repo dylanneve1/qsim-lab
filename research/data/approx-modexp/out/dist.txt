@@ -1,0 +1,3 @@
+N=899 n=10 g=2 regs=[(20, 2)] m=20 w=(2,2,2,2) f=8 mask=7 gap=8 ell=11 |P|=12 L_bits=131 LmodN=2 dropped=2 T=224 nw1=10 nw3a=6 nw3b=6 nw4=6 len_dlog=16 additions=72
+paper_model eps=8.4375e-1 S=5.0000e-1 P_deviant_bound=2.1875e0
+periods=[1039, 1709, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039]

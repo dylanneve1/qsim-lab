@@ -6,7 +6,7 @@
 #   export GIDNEY_SRC=/path/to/gidney25/src   (the Zenodo release's src/, for the Python checks)
 #   bash research/data/approx-modexp/run_experiments.sh [part]
 #
-# parts: xcheck verify dist sweep gate model moon (default: all but moon)
+# parts: xcheck verify dist sweep sweep2 gate model moon (default: all but moon)
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 bin="${CARGO_TARGET_DIR:-$here/../../../target}/release/examples/approx_modexp"
@@ -61,11 +61,15 @@ fi
 if [[ $part == all || $part == sweep ]]; then
   base="$N12 mode=eh w1=3 w3a=2 w3b=3 w4=4"
   run "$bin" sweep $base f=10 key=mask vals=0,1,2,3,4,5,6,7,8,9 out="$out/sweep_mask_f10.csv"
-  run "$bin" sweep $N12 m=22 w1=4 w3a=2 w3b=3 w4=4 f=10 key=mask vals=0,2,4,5,6,7,8,9 out="$out/sweep_mask_f10_shor.csv"
+  run "$bin" sweep $N12 m=22 w1=4 w3a=2 w3b=3 w4=4 f=10 key=mask vals=0,2,4,5,6,7,8 out="$out/sweep_mask_f10_shor.csv"
+fi
+
+if [[ $part == all || $part == sweep2 ]]; then
+  base="$N12 mode=eh w1=3 w3a=2 w3b=3 w4=4"
   run "$bin" sweep $base mask=4 key=f vals=6,7,8,9,10,11 out="$out/sweep_f_mask4.csv"
-  run "$bin" sweep $base f=10 mask=paper key=w1 vals=1,2,3,4,5,6 out="$out/sweep_w1.csv"
-  run "$bin" sweep $base f=10 mask=paper key=w3 vals=1,2,3,4 out="$out/sweep_w3.csv"
-  run "$bin" sweep $base f=10 mask=paper key=w4 vals=1,2,3,4,5,6 out="$out/sweep_w4.csv"
+  run "$bin" sweep $base f=10 mask=6 key=w1 vals=2,3,4,6 out="$out/sweep_w1.csv"
+  run "$bin" sweep $base f=10 mask=6 key=w3 vals=1,2,3 out="$out/sweep_w3.csv"
+  run "$bin" sweep $base f=10 mask=6 key=w4 vals=2,3,4,6 out="$out/sweep_w4.csv"
 fi
 
 if [[ $part == all || $part == gate ]]; then

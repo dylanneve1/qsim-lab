@@ -2,25 +2,30 @@
 //! exponentiation (`research/shor/approx-modexp.md`, `src/shor/approx.rs`).
 //!
 //! ```text
-//! cargo run --release --example approx_modexp -- config  N=3127 g=3122 mode=shor m=24 f=10 mask=paper
-//! cargo run --release --example approx_modexp -- verify  N=... seeds=16
-//! cargo run --release --example approx_modexp -- dist    N=... [unmasked=1] [succ=paper|repo|eh]
-//! cargo run --release --example approx_modexp -- dump    N=... out=DIR      (tables + F̃ for the Python checks)
+//! cargo run --release --example approx_modexp -- config  N=3127 g=3122 m=22 f=10 mask=paper
+//! cargo run --release --example approx_modexp -- verify  N=... seeds=8      (every branch; all-0, all-1, random streams)
+//! cargo run --release --example approx_modexp -- dist    N=... [unmasked=1] [dist_out=F] [peaks_out=F]
+//! cargo run --release --example approx_modexp -- sweep   N=... key=mask|f|w1|w3|w4 vals=a,b,.. [out=F.csv]
+//! cargo run --release --example approx_modexp -- dump    N=... out=DIR      (tables for the Python checks)
 //! cargo run --release --example approx_modexp -- replay  N=... log=FILE out=FILE
-//! cargo run --release --example approx_modexp -- gate    w4=2 f=6 [trials=..]
+//! cargo run --release --example approx_modexp -- gate    w4=2 f=6 [T=..] [trials=..]
 //! ```
 //!
-//! Parameters are `key=value`: `N`, `g`, `mode` (`shor` | `eh`), `m` (Shor
-//! exponent qubits, default `2n`), `w1 w3a w3b w4` (windows, default 2),
-//! `f` (accumulator bits), `mask` (bits or `paper`), `gap` (default `f`),
-//! `ell` (prime bits), `minprimes` (default 100), `seed`.
+//! Parameters are `key=value`: `N`, `g`, `mode` (`shor` | `eh`), `s`
+//! (Ekerå–Håstad tradeoff, default 1), `m` (Shor exponent qubits, default
+//! `2n`), `w1 w3a w3b w4` (windows, default 2), `f` (accumulator bits),
+//! `mask` (bits or `paper`), `gap` (default `f`), `ell` (prime bits; default:
+//! the paper's estimate, incremented while the prime search fails, as the
+//! paper prescribes), `primes` (force a prime set), `minprimes` (default
+//! 100), `seed`.
 
-use qsim_lab::algorithms::{gcd, pow_mod};
+#![allow(clippy::needless_range_loop)]
+
+use qsim_lab::algorithms::gcd;
 use qsim_lab::shor::approx::{
-    best_shift, cond_fidelity, distribution, evaluate, gate_loop4_step, overlap,
-    paper_mask_bits, paper_success, plan, shifted, tv,
-    ApproxConfig, ApproxParams, ConstOutcomes, Loop4Layout, Outcomes, RandomOutcomes,
-    ReplayOutcomes, Verify,
+    best_shift, cond_fidelity, distribution, evaluate, gate_loop4_step, overlap, paper_mask_bits,
+    paper_success, plan, shifted, tv, ApproxConfig, ApproxParams, ConstOutcomes, Loop4Layout,
+    Outcomes, RandomOutcomes, ReplayOutcomes, Verify,
 };
 use qsim_lab::shor::ge;
 use qsim_lab::shor::mbu::{eval_on_key, MbuOp};
@@ -31,7 +36,10 @@ use std::time::Instant;
 
 fn kv(args: &[String]) -> HashMap<String, String> {
     args.iter()
-        .filter_map(|a| a.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
+        .filter_map(|a| {
+            a.split_once('=')
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+        })
         .collect()
 }
 
@@ -313,7 +321,10 @@ fn cmd_dist(a: &HashMap<String, String>) {
     print_verify("verify", &v, t0.elapsed().as_secs_f64());
     println!("dev_hist {}", hist_str(&v.dev_hist));
     let (dm, ds, dlo, dhi) = hist_stats(&v.dev_hist);
-    println!("dev_stats mean={dm:.4} std={ds:.4} min={dlo} max={dhi} (units of 2^t; spread max-min={})", dhi - dlo);
+    println!(
+        "dev_stats mean={dm:.4} std={ds:.4} min={dlo} max={dhi} (units of 2^t; spread max-min={})",
+        dhi - dlo
+    );
     let t1 = Instant::now();
     let d = run_dists(&c, &ft);
     let w = 1u64 << p.mask_bits;
@@ -538,8 +549,22 @@ fn cmd_dump(a: &HashMap<String, String>) {
         .map(|&x| x & 0xFFFF_FFFF)
         .collect();
     writeln!(fh, "table1 = {flat1:?}").unwrap();
-    let f3a: Vec<u64> = c.table3a.iter().flatten().flatten().flatten().copied().collect();
-    let f3b: Vec<u64> = c.table3b.iter().flatten().flatten().flatten().copied().collect();
+    let f3a: Vec<u64> = c
+        .table3a
+        .iter()
+        .flatten()
+        .flatten()
+        .flatten()
+        .copied()
+        .collect();
+    let f3b: Vec<u64> = c
+        .table3b
+        .iter()
+        .flatten()
+        .flatten()
+        .flatten()
+        .copied()
+        .collect();
     let f3c: Vec<u64> = c.table3c.iter().flatten().copied().collect();
     let f4: Vec<u64> = c.table4.iter().flatten().flatten().copied().collect();
     writeln!(fh, "table3a = {f3a:?}").unwrap();
@@ -711,7 +736,13 @@ fn cmd_sweep(a: &HashMap<String, String>) {
                 success_shor(c.m, p.n_mod, p.generator, &d.ideal, false),
             )
         } else {
-            let (s, _) = success_eh(p.regs[0].0, p.n_mod, p.generator, &[&d.actual, &d.ideal], 1e-13);
+            let (s, _) = success_eh(
+                p.regs[0].0,
+                p.n_mod,
+                p.generator,
+                &[&d.actual, &d.ideal],
+                1e-13,
+            );
             (s[0], s[1])
         };
         let (eps, s, pdev) = c.paper_deviation_model();
@@ -779,7 +810,8 @@ fn main() {
         "replay" => cmd_replay(&a),
         "gate" => cmd_gate(&a),
         "sweep" => cmd_sweep(&a),
-        _ => eprintln!("usage: approx_modexp config|verify|dist|dump|replay|gate|sweep key=value..."),
+        _ => {
+            eprintln!("usage: approx_modexp config|verify|dist|dump|replay|gate|sweep key=value...")
+        }
     }
-    let _ = pow_mod(2, 3, 5);
 }

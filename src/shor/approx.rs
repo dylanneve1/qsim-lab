@@ -40,6 +40,8 @@
 //!   (plus X-basis measurements and Z/CZ phase fix-ups) with the repo's
 //!   measurement-based building blocks, for the gate-level check.
 
+#![allow(clippy::needless_range_loop)]
+
 use crate::algorithms::{gcd, pow_mod};
 use crate::shor::mod_inverse;
 use num_complex::Complex64;
@@ -437,7 +439,9 @@ impl ApproxConfig {
     pub fn new(p: &ApproxParams) -> Result<Self, ApproxError> {
         let n_mod = p.n_mod;
         if n_mod >= 1 << 32 || n_mod < 15 {
-            return Err(ApproxError::Params(format!("N = {n_mod} outside [15, 2^32)")));
+            return Err(ApproxError::Params(format!(
+                "N = {n_mod} outside [15, 2^32)"
+            )));
         }
         if p.regs.is_empty() || p.regs.iter().any(|r| r.0 == 0) {
             return Err(ApproxError::Params("empty exponent register".into()));
@@ -481,9 +485,13 @@ impl ApproxConfig {
             off += len;
         }
         let nw1 = windows1.len();
-        let ell = p.prime_bits.unwrap_or_else(|| estimate_prime_bits(n_mod, nw1));
+        let ell = p
+            .prime_bits
+            .unwrap_or_else(|| estimate_prime_bits(n_mod, nw1));
         if !(4..=20).contains(&ell) {
-            return Err(ApproxError::Params(format!("prime bit length {ell} outside 4..=20")));
+            return Err(ApproxError::Params(format!(
+                "prime bit length {ell} outside 4..=20"
+            )));
         }
         let len_dlog = ell + bit_len(m as u64);
         if len_dlog > 40 {
@@ -1027,7 +1035,11 @@ pub struct ReplayOutcomes {
 impl Outcomes for ReplayOutcomes {
     fn draw(&mut self, len: usize) -> u64 {
         let (v, l) = self.log[self.pos];
-        assert_eq!(l, len, "outcome {} has length {l}, expected {len}", self.pos);
+        assert_eq!(
+            l, len,
+            "outcome {} has length {l}, expected {len}",
+            self.pos
+        );
         self.pos += 1;
         v
     }
@@ -1223,12 +1235,7 @@ impl<O: Outcomes + ?Sized> Planner<'_, O> {
                 let l0 = full(res).sub(k * p.w3b, p.w3b);
                 let addr = Addr(vec![(l0, 0), (l1, p.w3b as u8)]);
                 let v = self.lookup(full(hel), addr, c.table3a[i][j][k].clone(), LMode::Sub);
-                self.ghz(
-                    View::new(hel, 0, ell),
-                    View::new(hel, ell, 1),
-                    q,
-                    false,
-                );
+                self.ghz(View::new(hel, 0, ell), View::new(hel, ell, 1), q, false);
                 let pw = self.mxrz(View::new(hel, ell, 1));
                 self.stack.push(Unc::WrapVent(pw, v));
             }
@@ -1438,7 +1445,14 @@ fn apply_scalar(op: &Op, pl: &Plan, c: &ApproxConfig, r: &mut [u64; 5], sign: &m
             let cb = ctrl.get(r) == 1;
             let v = if cb { val & mask(t.len as usize) } else { 0 };
             let x = t.get(r);
-            t.set(r, if *sub { x.wrapping_sub(v) } else { x.wrapping_add(v) });
+            t.set(
+                r,
+                if *sub {
+                    x.wrapping_sub(v)
+                } else {
+                    x.wrapping_add(v)
+                },
+            );
             *sign ^= parity(mx & v); // kickback of the measured lookup output
             if parity(val & mx) {
                 *sign ^= ctrl.get(r) == 1; // fix-up Z(ctrl)
@@ -1490,9 +1504,7 @@ fn apply_scalar(op: &Op, pl: &Plan, c: &ApproxConfig, r: &mut [u64; 5], sign: &m
 
 fn touches_acc(op: &Op) -> bool {
     match op {
-        Op::Lookup { t, .. } | Op::AddConst { t, .. } | Op::PhaseCmp { t, .. } => {
-            t.reg == REG_ACC
-        }
+        Op::Lookup { t, .. } | Op::AddConst { t, .. } | Op::PhaseCmp { t, .. } => t.reg == REG_ACC,
         Op::Ghz { t, .. } => t.reg == REG_ACC,
         Op::MxRz { v, .. } | Op::Cz { v, .. } | Op::AssertZero { v } => v.reg == REG_ACC,
         Op::CheckResidue { .. } | Op::GlobalFlip | Op::PhaseLookup { .. } => false,
@@ -1560,7 +1572,11 @@ fn eval_chunk(c: &ApproxConfig, pl: &Plan, e0: u64, n: usize) -> (Verify, Vec<u3
                             let cb = (*a >> ctrl.off) & 1 == 1;
                             let v = if cb { val & mask(tv.len as usize) } else { 0 };
                             let x = (*a >> tv.off) & mask(tv.len as usize);
-                            let y = if *sub { x.wrapping_sub(v) } else { x.wrapping_add(v) };
+                            let y = if *sub {
+                                x.wrapping_sub(v)
+                            } else {
+                                x.wrapping_add(v)
+                            };
                             *a = (*a & !mk) | ((y << tv.off) & mk);
                             *sgn ^= parity(mx & v);
                             if fix {
@@ -1750,7 +1766,13 @@ pub fn fft(a: &mut [Complex64]) {
 
 /// 2-D FFT of a row-major `rows × cols` array (index `x + cols·y`), both
 /// powers of two, with precomputed twiddle tables for both sizes.
-pub fn fft2_with(a: &mut [Complex64], cols: usize, rows: usize, twc: &[Complex64], twr: &[Complex64]) {
+pub fn fft2_with(
+    a: &mut [Complex64],
+    cols: usize,
+    rows: usize,
+    twc: &[Complex64],
+    twr: &[Complex64],
+) {
     assert_eq!(a.len(), cols * rows);
     for r in a.chunks_mut(cols) {
         fft_with(r, twc);
@@ -1816,10 +1838,8 @@ pub fn distribution(f: &[u32], t: u64, w: u64, ma: usize, mb: usize) -> (Vec<f64
         pv[v] = run as f64 * norm_v;
     }
     let vs: Vec<usize> = (0..tt).filter(|&v| pv[v] > 0.0).collect();
-    let pairs: Vec<(usize, Option<usize>)> = vs
-        .chunks(2)
-        .map(|ch| (ch[0], ch.get(1).copied()))
-        .collect();
+    let pairs: Vec<(usize, Option<usize>)> =
+        vs.chunks(2).map(|ch| (ch[0], ch.get(1).copied())).collect();
     let nthreads = rayon::current_num_threads().max(1);
     let per = pairs.len().div_ceil(nthreads).max(1);
     let fill = |buf: &mut [Complex64], v: usize, imag: bool| {
@@ -1903,7 +1923,9 @@ pub fn overlap(fa: &[u32], fb: &[u32], t: u64, w: u64) -> f64 {
 pub fn best_shift(fa: &[u32], fb: &[u32], t: u64, w: u64) -> (i64, f64) {
     let mut hist = std::collections::BTreeMap::<i64, u64>::new();
     for (&a, &b) in fa.iter().zip(fb) {
-        *hist.entry(cyc_diff(u64::from(a), u64::from(b), t)).or_default() += 1;
+        *hist
+            .entry(cyc_diff(u64::from(a), u64::from(b), t))
+            .or_default() += 1;
     }
     let lo = *hist.keys().next().unwrap();
     let hi = *hist.keys().next_back().unwrap();
@@ -2103,8 +2125,7 @@ pub fn gate_loop4_step(
 ) -> Vec<crate::shor::mbu::MbuOp> {
     use crate::gate::Gate;
     use crate::shor::mbu::{
-        add_g, lookup_ops, phase_lt_g, phase_table, resolve, sub_g, LOp, LookupSpec, MbuOp,
-        NO_CTRL,
+        add_g, lookup_ops, phase_lt_g, phase_table, resolve, sub_g, LOp, LookupSpec, MbuOp, NO_CTRL,
     };
     let f = lay.tmp.len();
     let mut out: Vec<MbuOp> = Vec::new();
@@ -2244,8 +2265,7 @@ pub fn gate_loop3_pair(
 ) -> Vec<crate::shor::mbu::MbuOp> {
     use crate::gate::Gate;
     use crate::shor::mbu::{
-        add_g, lookup_ops, phase_lt_g, phase_table, resolve, sub_g, LOp, LookupSpec, MbuOp,
-        NO_CTRL,
+        add_g, lookup_ops, phase_lt_g, phase_table, resolve, sub_g, LOp, LookupSpec, MbuOp, NO_CTRL,
     };
     let ell = lay.hel.len() - 1;
     let addr: Vec<usize> = lay.r.iter().chain(&lay.l1).copied().collect();
@@ -2259,17 +2279,18 @@ pub fn gate_loop3_pair(
         meas_unlookup: true,
     };
     let mut out: Vec<MbuOp> = Vec::new();
-    let unlookup = |out: &mut Vec<MbuOp>, tab: &[u64], qs: &[usize], bit: &mut dyn FnMut() -> bool| {
-        let mut mx = 0u64;
-        for (j, &q) in qs.iter().enumerate() {
-            let m = bit();
-            out.push(MbuOp::MeasX(q, m));
-            if m {
-                mx |= 1 << j;
+    let unlookup =
+        |out: &mut Vec<MbuOp>, tab: &[u64], qs: &[usize], bit: &mut dyn FnMut() -> bool| {
+            let mut mx = 0u64;
+            for (j, &q) in qs.iter().enumerate() {
+                let m = bit();
+                out.push(MbuOp::MeasX(q, m));
+                if m {
+                    mx |= 1 << j;
+                }
             }
-        }
-        tab.iter().map(|&t| parity(t & mx)).collect::<Vec<bool>>()
-    };
+            tab.iter().map(|&t| parity(t & mx)).collect::<Vec<bool>>()
+        };
     // hel −= tmp over ℓ + 1 bits: sub_g needs an ℓ-bit subtrahend and an
     // (ℓ + 1)-bit target; T < p < 2^ℓ so tmp[ℓ] stays 0.
     let sub = |out: &mut Vec<MbuOp>, bit: &mut dyn FnMut() -> bool| {

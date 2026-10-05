@@ -38,3 +38,32 @@ verify[seed1] ops=2131 draws=1566 bits=13971 fixups=294 branches=1073741824 bad_
 verify[seed2] ops=2089 draws=1544 bits=13727 fixups=252 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=55.15
 verify[seed3] ops=2084 draws=1537 bits=13654 fixups=247 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=53.37
 verify[seed4] ops=2114 draws=1545 bits=13739 fixups=277 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=54.46
+verify[seed5] ops=2108 draws=1546 bits=13753 fixups=271 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=61.33
+verify[seed6] ops=2105 draws=1551 bits=13802 fixups=268 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=74.82
+verify[seed7] ops=2095 draws=1547 bits=13762 fixups=258 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=74.09
+verify[seed8] ops=2093 draws=1532 bits=13598 fixups=256 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.3783 max_mod_dev=1.2472e-2 secs=73.35
+ALL_OK=true
+N=3127 n=12 g=3122 regs=[(12, 3122), (6, 2530)] m=18 w=(3,2,3,4) f=10 mask=8 gap=10 ell=11 |P|=8 L_bits=87 LmodN=1 dropped=2 T=781 nw1=6 nw3a=6 nw3b=4 nw4=3 len_dlog=16 additions=24
+paper_model eps=7.0312e-2 S=2.5000e-1 P_deviant_bound=5.3125e-1
+periods=[1033, 1453, 1999, 2011, 2017, 2027, 2029, 2039]
+verify[zero] ops=1543 draws=1406 bits=12224 fixups=0 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=3.71
+dev_hist -6:1,-5:13,-4:144,-3:1144,-2:5312,-1:17505,0:38922,1:58802,2:61796,3:45177,4:23055,5:7983,6:1966,7:291,8:31,9:2
+verify[one] ops=2237 draws=1558 bits=13872 fixups=408 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.77
+verify[seed1] ops=2131 draws=1566 bits=13971 fixups=294 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.96
+verify[seed2] ops=2089 draws=1544 bits=13727 fixups=252 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.75
+verify[seed3] ops=2084 draws=1537 bits=13654 fixups=247 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.70
+verify[seed4] ops=2114 draws=1545 bits=13739 fixups=277 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.73
+verify[seed5] ops=2108 draws=1546 bits=13753 fixups=271 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.98
+verify[seed6] ops=2105 draws=1551 bits=13802 fixups=268 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.61
+verify[seed7] ops=2095 draws=1547 bits=13762 fixups=258 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.96
+verify[seed8] ops=2093 draws=1532 bits=13598 fixups=256 branches=67108864 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=9 mean_dev=1.8935 max_mod_dev=1.0873e-2 secs=4.96
+ALL_OK=true
+N=11663 n=14 g=2 regs=[(14, 2), (7, 2836)] m=21 w=(5,1,2,4) f=12 mask=9 gap=12 ell=11 |P|=8 L_bits=87 LmodN=1 dropped=2 T=2915 nw1=5 nw3a=11 nw3b=6 nw4=3 len_dlog=16 additions=24
+paper_model eps=1.7578e-2 S=1.2500e-1 P_deviant_bound=2.6562e-1
+periods=[1237, 1307, 1999, 2003, 2017, 2027, 2029, 2039]
+verify[zero] ops=4350 draws=4173 bits=34544 fixups=0 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.8848 max_mod_dev=3.4296e-3 secs=62.74
+dev_hist -5:3,-4:30,-3:398,-2:4299,-1:26470,0:104376,1:269680,2:458669,3:525048,4:405458,5:209751,6:73187,7:17031,8:2513,9:219,10:20
+verify[one] ops=6537 draws=4629 bits=39584 fixups=1320 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.8848 max_mod_dev=3.4296e-3 secs=80.72
+verify[seed1] ops=6113 draws=4611 bits=39375 fixups=870 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.8848 max_mod_dev=3.4296e-3 secs=90.76
+verify[seed2] ops=6118 draws=4615 bits=39418 fixups=883 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.8848 max_mod_dev=3.4296e-3 secs=82.98
+verify[seed3] ops=6115 draws=4620 bits=39474 fixups=874 branches=1073741824 bad_sign=0 dirty=0 bad_residue=0 bad_acc=0 bad_e=0 bad_formula=0 max_dev=10 mean_dev=2.8848 max_mod_dev=3.4296e-3 secs=110.14
