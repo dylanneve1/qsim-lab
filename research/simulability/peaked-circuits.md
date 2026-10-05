@@ -70,6 +70,18 @@ Full output: [`run.log`](../data/peaked-circuits/run.log).
 
 ## Reproduction
 
+One command, from a clean checkout (Python >= 3.10; pinned `requirements.txt`; downloads the two
+circuits at a pinned tracker commit and checks their sha256; about 5 minutes on one CPU):
+
+```sh
+research/data/peaked-circuits/reproduce.sh
+```
+
+It prints both peaks and confirms they match the Helios-1 results. Verified from scratch in a fresh
+virtual environment on 5 Oct 2026 (98.5 s and 166.2 s).
+
+Manual route:
+
 ```sh
 pip install numpy scipy quimb cotengra
 git clone --depth 1 https://github.com/quantum-advantage-tracker/quantum-advantage-tracker.github.io qat
