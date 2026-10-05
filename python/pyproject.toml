@@ -41,6 +41,6 @@ features = ["extension-module"]
 include = [{ path = "qsimlab/py.typed", format = ["sdist", "wheel"] }]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "qsimlab", "README.md"]
-addopts = "--doctest-modules --doctest-glob=README.md"
+testpaths = ["tests", "qsimlab", "README.md", "docs"]
+addopts = "--doctest-modules --doctest-glob=*.md"
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS", "NUMBER"]

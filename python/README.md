@@ -21,3 +21,6 @@ array([1., 1.])
 
 Install for development: `pip install maturin && maturin develop --release` in this
 directory (or `pip install -e python` from the repository root).
+
+Tutorials (all executed in CI): [core simulation](docs/simulate.md), [QEC](docs/qec.md),
+[Shor](docs/shor.md), [analysis](docs/analysis.md).
