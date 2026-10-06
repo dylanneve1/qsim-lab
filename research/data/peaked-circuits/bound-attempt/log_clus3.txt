@@ -1,0 +1,4 @@
+CZ invariants (np.complex128(-0-0j), np.complex128(1-0j))  identity (np.complex128(1+0j), np.complex128(3+0j))  SWAP (np.complex128(-1-0j), np.complex128(-3-0j))
+opSchmidt {8,10}|{72,75} [1. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+factor {8,10} (np.complex128(-0-0j), np.complex128(-1+0j))  factor {72,75} (np.complex128(-0j), np.complex128(-1+0j))
+SWAP*CZ (np.complex128(0j), np.complex128(-1+0j))

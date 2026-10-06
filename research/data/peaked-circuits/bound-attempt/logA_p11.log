@@ -1,0 +1,57 @@
+pairs firsts 190 seconds 186 overlap 0
+downset 262 upset 246 overlap 0
+  step 10 V 258 W 269 k 8 cost 0.0000 forced 0
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.410e+00 k=9
+    forced peel d=2.000e+00 k=9
+    forced peel d=2.000e+00 k=9
+    forced peel d=2.000e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.411e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.397e+00 k=9
+  step 20 V 254 W 263 k 10 cost 16.2175 forced 6
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.408e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.405e+00 k=9
+    forced peel d=1.974e+00 k=10
+    forced peel d=6.983e-15 k=9
+    forced peel d=1.603e+00 k=10
+    forced peel d=6.096e-15 k=9
+    forced peel d=1.363e+00 k=10
+    forced peel d=1.207e-14 k=9
+    forced peel d=1.993e+00 k=10
+    forced peel d=6.353e-15 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=6.477e-12 k=9
+    forced peel d=1.982e+00 k=10
+    forced peel d=6.745e-15 k=9
+    forced peel d=1.480e+00 k=10
+    forced peel d=4.113e-14 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=6.031e-15 k=9
+  step 30 V 249 W 258 k 10 cost 37.4257 forced 16
+    forced peel d=1.998e+00 k=10
+    forced peel d=6.023e-15 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.399e+00 k=9
+    forced peel d=2.000e+00 k=9
+    forced peel d=1.990e+00 k=10
+    forced peel d=6.236e-15 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.413e+00 k=9
+    forced peel d=1.361e+00 k=10
+    forced peel d=1.493e-14 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.405e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.413e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=6.932e-15 k=9
+  step 40 V 243 W 254 k 9 cost 60.4054 forced 25
+    forced peel d=2.000e+00 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=6.098e-15 k=9
+    forced peel d=2.000e+00 k=10
+    forced peel d=1.406e+00 k=9

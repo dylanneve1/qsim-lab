@@ -1,0 +1,13 @@
+sec2: hull 458, boundary tCZ 28, transported 24 cost 0.1305, kept-in-outer 4
+sec4: hull 460, boundary tCZ 32, transported 30 cost 0.1517, kept-in-outer 2
+outer: 743 gates, cut 341, final map == Core.L: True
+[O]   step 20 V 331 W 392 k 0 cost 0.0000 forced 0
+[O]   step 40 V 321 W 382 k 0 cost 0.0146 forced 0
+[O]   step 60 V 311 W 372 k 2 cost 0.0252 forced 0
+[O]   step 80 V 301 W 362 k 0 cost 0.0372 forced 0
+[O]   step 100 V 291 W 352 k 0 cost 0.0466 forced 0
+[O]   step 121 V 278 W 344 k 0 cost 0.0529 forced 0
+[O]   step 141 V 269 W 333 k 0 cost 0.0647 forced 0
+[O]   step 160 V 262 W 321 k 5 cost 0.1142 forced 0
+[O]   step 181 V 252 W 310 k 4 cost 0.1671 forced 0
+[O]   step 201 V 243 W 299 k 8 cost 0.2066 forced 0

@@ -1,0 +1,8 @@
+P11_Hqap_98x1999: p_model 0.3029, sqrt 0.5504; middle gates 1715; certified central gates 200
+  lossy op-norm rate 1.03e-03/gate -> linear extrapolation (what a complete telescoping bound would cost even with NO structural residuals) 1.77  => vacuous
+  incoherent (RSS) extrapolation of op-norm peel costs: 0.110 -> p >~ 0.194   [heuristic: assumes errors add in quadrature]
+  incoherent average-case (normalised Frobenius) extrapolation: 0.077 -> p ~ 0.224   [heuristic: Haar-typical states + quadrature]
+P12_Hqap_98x2457: p_model 0.2366, sqrt 0.4864; middle gates 2178; certified central gates 140
+  lossy op-norm rate 5.96e-04/gate -> linear extrapolation (what a complete telescoping bound would cost even with NO structural residuals) 1.30  => vacuous
+  incoherent (RSS) extrapolation of op-norm peel costs: 0.063 -> p >~ 0.179   [heuristic: assumes errors add in quadrature]
+  incoherent average-case (normalised Frobenius) extrapolation: 0.053 -> p ~ 0.187   [heuristic: Haar-typical states + quadrature]
