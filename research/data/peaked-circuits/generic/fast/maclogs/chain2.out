@@ -1,0 +1,1 @@
+./chain2.sh: line 9:  3407 Terminated: 15          $PY -u bench_tnos.py P9_hqap_1917.qasm 50 $v 900 3e5 > logs/p9_tnos_$v.log 2>&1

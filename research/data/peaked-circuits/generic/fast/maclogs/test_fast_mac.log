@@ -1,0 +1,14 @@
+=== test_tno.py with fast gate/unswap ===
+random 4q/8 gates: rel err 3.32e-15, max bond 4
+random 4q/8 gates: rel err 2.57e-15, max bond 16
+random 4q/8 gates: rel err 4.45e-15, max bond 16
+random 4q/8 gates: rel err 1.39e-15, max bond 16
+mirror with hidden relabelling: max bond 1 size 24 (n identity tensors = 24)
+  recovered out->in map {0: np.int64(4), 1: np.int64(2), 4: np.int64(1), 2: np.int64(3), 3: np.int64(0), 5: np.int64(5)}  true pi {3: 0, 4: 1, 1: 2, 2: 3, 0: 4, 5: 5}
+ALL OK
+unswap_pass on random 4q: accepted 0, rel err 2.86e-15
+unswap_pass on random 4q: accepted 0, rel err 2.23e-15
+unswap_pass on random 4q: accepted 0, rel err 3.56e-15
+interleaved 3-CZ swaps: max bond before unswap 4 after 1 map {0: 1, 1: 0, 2: 3, 3: 2}
+ALL OK
+random 4q/10 gates x20 (with unswap passes): identical rank/accept sequences: True; max rel diff of dense operators 6.03e-15

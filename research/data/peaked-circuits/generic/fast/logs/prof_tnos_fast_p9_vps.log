@@ -1,0 +1,106 @@
+   {'lo': 50, 'hi': 51, 'side': 'after', 'elems': 352, 'max_bond': 2, 'nbonds': 16, 'moved': 0, 't': 2.2}
+   {'lo': 50, 'hi': 52, 'side': 'after', 'elems': 576, 'max_bond': 2, 'nbonds': 33, 'moved': 0, 't': 2.4}
+   {'lo': 49, 'hi': 52, 'side': 'before', 'elems': 756, 'max_bond': 4, 'nbonds': 39, 'moved': 4, 't': 2.8}
+   {'lo': 48, 'hi': 52, 'side': 'before', 'elems': 984, 'max_bond': 4, 'nbonds': 46, 'moved': 12, 't': 3.3}
+   {'lo': 47, 'hi': 52, 'side': 'before', 'elems': 1108, 'max_bond': 4, 'nbonds': 48, 'moved': 12, 't': 3.7}
+   {'lo': 46, 'hi': 52, 'side': 'before', 'elems': 1180, 'max_bond': 4, 'nbonds': 48, 'moved': 32, 't': 4.4}
+   {'lo': 45, 'hi': 52, 'side': 'before', 'elems': 928, 'max_bond': 4, 'nbonds': 37, 'moved': 46, 't': 5.3}
+   {'lo': 45, 'hi': 53, 'side': 'after', 'elems': 900, 'max_bond': 4, 'nbonds': 34, 'moved': 48, 't': 5.7}
+   {'lo': 45, 'hi': 54, 'side': 'after', 'elems': 856, 'max_bond': 4, 'nbonds': 40, 'moved': 52, 't': 6.2}
+   {'lo': 45, 'hi': 55, 'side': 'after', 'elems': 1028, 'max_bond': 4, 'nbonds': 46, 'moved': 52, 't': 6.5}
+   {'lo': 44, 'hi': 55, 'side': 'before', 'elems': 1292, 'max_bond': 4, 'nbonds': 45, 'moved': 52, 't': 7.0}
+   {'lo': 44, 'hi': 56, 'side': 'after', 'elems': 1804, 'max_bond': 4, 'nbonds': 53, 'moved': 52, 't': 7.6}
+   {'lo': 44, 'hi': 57, 'side': 'after', 'elems': 2996, 'max_bond': 4, 'nbonds': 69, 'moved': 52, 't': 8.7}
+   {'lo': 43, 'hi': 57, 'side': 'before', 'elems': 4924, 'max_bond': 4, 'nbonds': 69, 'moved': 52, 't': 10.2}
+   {'lo': 42, 'hi': 57, 'side': 'before', 'elems': 8496, 'max_bond': 4, 'nbonds': 77, 'moved': 52, 't': 12.2}
+   {'lo': 41, 'hi': 57, 'side': 'before', 'elems': 13768, 'max_bond': 4, 'nbonds': 84, 'moved': 52, 't': 14.9}
+   {'lo': 40, 'hi': 57, 'side': 'before', 'elems': 18336, 'max_bond': 4, 'nbonds': 88, 'moved': 52, 't': 22.2}
+   {'lo': 39, 'hi': 57, 'side': 'before', 'elems': 26660, 'max_bond': 4, 'nbonds': 101, 'moved': 52, 't': 28.5}
+   {'lo': 38, 'hi': 57, 'side': 'before', 'elems': 34024, 'max_bond': 4, 'nbonds': 119, 'moved': 52, 't': 33.2}
+   {'lo': 37, 'hi': 57, 'side': 'before', 'elems': 53232, 'max_bond': 4, 'nbonds': 142, 'moved': 52, 't': 43.0}
+   {'lo': 36, 'hi': 57, 'side': 'before', 'elems': 82976, 'max_bond': 8, 'nbonds': 162, 'moved': 52, 't': 85.7}
+   {'lo': 36, 'hi': 58, 'side': 'after', 'elems': 147664, 'max_bond': 15, 'nbonds': 165, 'moved': 52, 't': 210.4}
+STOP at 302.2 s
+         45768901 function calls (45676405 primitive calls) in 302.092 seconds
+
+   Ordered by: internal time
+   List reduced from 5525 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     3512  119.887    0.034  119.970    0.034 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:1639(svd)
+   105038   61.642    0.001   65.313    0.001 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:968(tensordot)
+   689747   25.065    0.000   29.100    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:1496(__call__)
+     1586   22.604    0.014   22.782    0.014 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:928(qr)
+   546976    5.262    0.000    5.262    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+   795054    3.463    0.000   80.654    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:33(do)
+  1143356    3.114    0.000    4.369    0.000 {built-in method fromkeys}
+   101728    2.655    0.000   46.435    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:471(tensor_split)
+     3866    2.026    0.001  127.865    0.033 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6212(_compute_tree_gauges)
+  1469337    1.810    0.000    3.659    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:164(_default_infer_from_sig)
+    93996    1.732    0.000    3.051    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:2575(norm)
+   186760    1.702    0.000    6.526    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1756(modify)
+   101728    1.604    0.000    8.737    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2267(transpose)
+  1484801    1.561    0.000    5.244    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:610(_choose_backend)
+   266667    1.432    0.000    5.239    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1299(bonds)
+   101728    1.432    0.000    2.190    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1341(group_inds)
+   473618    1.417    0.000   13.485    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/networking.py:276(_check_candidate)
+     3866    1.341    0.000   22.399    0.006 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/networking.py:187(get_tree_span)
+   207820    1.307    0.000    4.610    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1585(__init__)
+   101728    1.274    0.000    4.314    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/array_ops.py:148(fuse)
+   101728    1.212    0.000   73.435    0.001 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2591(gate)
+  1143184    1.179    0.000    5.547    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/utils.py:339(__init__)
+  1367609    1.164    0.000    1.164    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:2269(default_dispatcher)
+  1148907    1.162    0.000    2.150    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/networking.py:304(_sorter)
+   269691    1.107    0.000    1.620    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/utils.py:396(intersection)
+  1399793    1.057    0.000    1.057    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/utils.py:459(__iter__)
+   519052    1.034    0.000    3.296    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:130(tags_to_oset)
+2447979/2446426    1.018    0.000    1.181    0.000 {built-in method builtins.len}
+   187992    0.962    0.000    0.962    0.000 {method 'dot' of 'numpy.ndarray' objects}
+  2466513    0.920    0.000    0.922    0.000 {built-in method builtins.isinstance}
+
+
+
+         45768901 function calls (45676405 primitive calls) in 302.092 seconds
+
+   Ordered by: cumulative time
+   List reduced from 5525 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.017    0.017  302.187  302.187 /tmp/mlx-port/tnos.py:119(grow_adaptive)
+       45    0.013    0.000  301.902    6.709 /tmp/mlx-port/tnos.py:130(absorb)
+       54    0.017    0.000  157.438    2.916 /tmp/mlx-port/tno.py:202(canonical_compress)
+       54    0.000    0.000  155.015    2.871 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_arbgeom_compress.py:521(tensor_network_ag_compress)
+       54    0.012    0.000  155.014    2.871 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_arbgeom_compress.py:258(tensor_network_ag_compress_local_late)
+       54    0.087    0.002  153.837    2.849 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6674(compress_all)
+     3866    0.070    0.000  153.724    0.040 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6484(_compress_between_tids)
+     3866    0.158    0.000  153.569    0.040 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6272(_compress_between_virtual_tree_tids)
+       45    0.040    0.001  142.898    3.176 /tmp/mlx-port/tno_fast.py:79(unswap_pass_fast)
+     3866    2.026    0.001  127.865    0.033 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6212(_compute_tree_gauges)
+     3512    0.258    0.000  120.671    0.034 /tmp/mlx-port/tno.py:65(_split)
+     3512  119.887    0.034  119.970    0.034 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:1639(svd)
+   795054    3.463    0.000   80.654    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:33(do)
+   101728    1.212    0.000   73.435    0.001 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2591(gate)
+   105038   61.642    0.001   65.313    0.001 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:968(tensordot)
+   101728    0.608    0.000   48.260    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2564(compute_reduced_factor)
+104771/104767    0.786    0.000   48.005    0.000 /usr/lib/python3.12/functools.py:904(wrapper)
+   101728    2.655    0.000   46.435    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:471(tensor_split)
+   689747   25.065    0.000   29.100    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:1496(__call__)
+     2618    0.057    0.000   22.930    0.009 /tmp/mlx-port/tno_fast.py:17(_qr_reduce)
+     1586   22.604    0.014   22.782    0.014 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:928(qr)
+     3866    1.341    0.000   22.399    0.006 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/networking.py:187(get_tree_span)
+   473618    1.417    0.000   13.485    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/networking.py:276(_check_candidate)
+   266667    0.233    0.000   11.043    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:3230(bonds_size)
+   266667    0.730    0.000   10.810    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1331(bonds_size)
+   101728    1.604    0.000    8.737    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2267(transpose)
+   186760    1.702    0.000    6.526    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1756(modify)
+  1143184    1.179    0.000    5.547    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/utils.py:339(__init__)
+   546976    5.262    0.000    5.262    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+  1484801    1.561    0.000    5.244    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/autoray/autoray.py:610(_choose_backend)
+   266667    1.432    0.000    5.239    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1299(bonds)
+   266667    0.666    0.000    4.841    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2255(inds_size)
+   201772    0.323    0.000    4.796    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1665(copy)
+   207820    1.307    0.000    4.610    0.000 /tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1585(__init__)
+   692055    0.820    0.000    4.561    0.000 {built-in method math.prod}
+
+
+

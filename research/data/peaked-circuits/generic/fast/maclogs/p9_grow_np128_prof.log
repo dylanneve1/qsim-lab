@@ -1,0 +1,106 @@
+   {'elems': 576, 'max_bond': 2, 'ntensors': 56, 'nbonds': 33, 'lo': 49, 'hi': 51, 't': 0.09, 'step': 0.089}
+   {'elems': 1128, 'max_bond': 4, 'ntensors': 56, 'nbonds': 46, 'lo': 48, 'hi': 52, 't': 0.26, 'step': 0.173}
+   {'elems': 1688, 'max_bond': 4, 'ntensors': 56, 'nbonds': 51, 'lo': 47, 'hi': 53, 't': 0.48, 'step': 0.222}
+   {'elems': 1920, 'max_bond': 4, 'ntensors': 56, 'nbonds': 54, 'lo': 46, 'hi': 54, 't': 0.78, 'step': 0.295}
+   {'elems': 2080, 'max_bond': 8, 'ntensors': 56, 'nbonds': 55, 'lo': 45, 'hi': 55, 't': 0.96, 'step': 0.178}
+   {'elems': 5344, 'max_bond': 8, 'ntensors': 56, 'nbonds': 93, 'lo': 44, 'hi': 56, 't': 1.71, 'step': 0.748}
+   {'elems': 14272, 'max_bond': 16, 'ntensors': 56, 'nbonds': 129, 'lo': 43, 'hi': 57, 't': 3.5, 'step': 1.796}
+   {'elems': 38272, 'max_bond': 16, 'ntensors': 56, 'nbonds': 161, 'lo': 42, 'hi': 58, 't': 6.43, 'step': 2.925}
+   {'elems': 102784, 'max_bond': 16, 'ntensors': 56, 'nbonds': 189, 'lo': 41, 'hi': 59, 't': 9.8, 'step': 3.371}
+   {'elems': 241408, 'max_bond': 16, 'ntensors': 56, 'nbonds': 213, 'lo': 40, 'hi': 60, 't': 13.38, 'step': 3.578}
+   {'elems': 505856, 'max_bond': 16, 'ntensors': 56, 'nbonds': 240, 'lo': 39, 'hi': 61, 't': 19.31, 'step': 5.933}
+   {'elems': 1200128, 'max_bond': 16, 'ntensors': 56, 'nbonds': 267, 'lo': 38, 'hi': 62, 't': 30.31, 'step': 10.997}
+         34811606 function calls (34800156 primitive calls) in 30.306 seconds
+
+   Ordered by: internal time
+   List reduced from 691 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   526080   10.855    0.000   11.516    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:1496(__call__)
+    65335    2.154    0.000    3.646    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/numpy/_core/numeric.py:997(tensordot)
+   336412    2.101    0.000    2.101    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+   527355    0.796    0.000    7.649    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:33(do)
+905992/905144    0.761    0.000    0.987    0.000 {built-in method fromkeys}
+     1565    0.532    0.000   23.724    0.015 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6212(_compute_tree_gauges)
+    65335    0.519    0.000   16.053    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:471(tensor_split)
+  1047175    0.410    0.000    0.758    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:164(_default_infer_from_sig)
+    65335    0.383    0.000    1.906    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2267(transpose)
+    65335    0.346    0.000    0.539    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1341(group_inds)
+   478714    0.342    0.000    3.458    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/networking.py:276(_check_candidate)
+    62909    0.327    0.000    0.854    0.000 {method 'sort' of 'list' objects}
+   128366    0.326    0.000    1.282    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1756(modify)
+   254825    0.322    0.000    1.298    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1299(bonds)
+   254825    0.311    0.000    0.423    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/utils.py:396(intersection)
+  1053435    0.302    0.000    1.061    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:610(_choose_backend)
+905992/905144    0.274    0.000    1.261    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/utils.py:339(__init__)
+  2283122    0.273    0.000    0.296    0.000 {built-in method builtins.len}
+   261773    0.272    0.000    0.272    0.000 {method 'transpose' of 'numpy.ndarray' objects}
+   256356    0.265    0.000    0.999    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2251(ind_size)
+  1113305    0.263    0.000    0.528    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/networking.py:304(_sorter)
+   130692    0.254    0.000    1.031    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1585(__init__)
+   516837    0.249    0.000    1.341    0.000 {built-in method math.prod}
+     1565    0.245    0.000    5.550    0.004 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/networking.py:187(get_tree_span)
+    65335    0.239    0.000   16.522    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2564(compute_reduced_factor)
+   327369    0.229    0.000    0.668    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:130(tags_to_oset)
+    65335    0.224    0.000    5.721    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2591(gate)
+  1145037    0.222    0.000    0.222    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/utils.py:459(__iter__)
+   264140    0.212    0.000    1.524    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:48(_wrapfunc)
+  1178640    0.211    0.000    0.294    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2206(ndim)
+    65571    0.198    0.000    1.504    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/array_ops.py:148(fuse)
+  1401543    0.192    0.000    0.192    0.000 {method 'append' of 'list' objects}
+   980992    0.189    0.000    0.189    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:2269(default_dispatcher)
+  1707841    0.186    0.000    0.186    0.000 {built-in method builtins.isinstance}
+   657437    0.185    0.000    0.185    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:762(get_lib_fn)
+
+
+
+         34811606 function calls (34800156 primitive calls) in 30.306 seconds
+
+   Ordered by: cumulative time
+   List reduced from 691 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.001    0.000   30.212   30.212 /private/tmp/peaked-mac/mlx/tnob.py:57(grow)
+       12    0.002    0.000   30.134    2.511 /private/tmp/peaked-mac/mlx/tnob.py:43(compress)
+       12    0.000    0.000   30.129    2.511 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_arbgeom_compress.py:521(tensor_network_ag_compress)
+       12    0.001    0.000   30.118    2.510 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_arbgeom_compress.py:258(tensor_network_ag_compress_local_late)
+       12    0.016    0.001   29.721    2.477 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6674(compress_all)
+     1565    0.009    0.000   29.699    0.019 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6484(_compress_between_tids)
+     1565    0.029    0.000   29.676    0.019 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6272(_compress_between_virtual_tree_tids)
+     1565    0.532    0.000   23.724    0.015 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:6212(_compute_tree_gauges)
+66018/66014    0.173    0.000   16.554    0.000 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/functools.py:904(wrapper)
+    65335    0.239    0.000   16.522    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2564(compute_reduced_factor)
+    65335    0.519    0.000   16.053    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:471(tensor_split)
+   526080   10.855    0.000   11.516    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:1496(__call__)
+   527355    0.796    0.000    7.649    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:33(do)
+    65335    0.224    0.000    5.721    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2591(gate)
+     1565    0.245    0.000    5.550    0.004 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/networking.py:187(get_tree_span)
+    65335    2.154    0.000    3.646    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/numpy/_core/numeric.py:997(tensordot)
+   478714    0.342    0.000    3.458    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/networking.py:276(_check_candidate)
+   254825    0.054    0.000    2.780    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:3230(bonds_size)
+   254825    0.142    0.000    2.726    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1331(bonds_size)
+   336412    2.101    0.000    2.101    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+    65335    0.383    0.000    1.906    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2267(transpose)
+   264140    0.212    0.000    1.524    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:48(_wrapfunc)
+    65571    0.198    0.000    1.504    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/array_ops.py:148(fuse)
+   133461    0.157    0.000    1.361    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:207(reshape)
+   516837    0.249    0.000    1.341    0.000 {built-in method math.prod}
+   254825    0.322    0.000    1.298    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1299(bonds)
+   254825    0.161    0.000    1.286    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2255(inds_size)
+   128366    0.326    0.000    1.282    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1756(modify)
+905992/905144    0.274    0.000    1.261    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/utils.py:339(__init__)
+   129116    0.136    0.000    1.157    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1665(copy)
+   389957    0.178    0.000    1.115    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2201(shape)
+  1053435    0.302    0.000    1.061    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:610(_choose_backend)
+   130692    0.254    0.000    1.031    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1585(__init__)
+   256356    0.265    0.000    0.999    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:2251(ind_size)
+905992/905144    0.761    0.000    0.987    0.000 {built-in method fromkeys}
+    62909    0.327    0.000    0.854    0.000 {method 'sort' of 'list' objects}
+    65335    0.069    0.000    0.853    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:7022(_get_neighbor_tids)
+  1047175    0.410    0.000    0.758    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/autoray/autoray.py:164(_default_infer_from_sig)
+   327369    0.229    0.000    0.668    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:130(tags_to_oset)
+    65335    0.073    0.000    0.619    0.000 /Users/dylan/mlx-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py:1046(tensor_make_single_bond)
+
+
+
+RESULT {"mode": "grow", "file": "P9_hqap_1917.qasm", "backend": "np128", "centre": 50.0, "lo": 38, "hi": 62, "steps": 12, "final": {"elems": 1200128, "max_bond": 16, "ntensors": 56, "nbonds": 267, "lo": 38, "hi": 62, "t": 30.31, "step": 10.997}, "wall": 30.31, "t_gate": 0.15, "t_compress": 30.13, "t_sync": 0.0, "step_times": [0.089, 0.173, 0.222, 0.295, 0.178, 0.748, 1.796, 2.925, 3.371, 3.578, 5.933, 10.997], "elems": [576, 1128, 1688, 1920, 2080, 5344, 14272, 38272, 102784, 241408, 505856, 1200128], "rss_mb": 314}

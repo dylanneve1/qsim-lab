@@ -1,0 +1,13 @@
+   {'elems': 576, 'max_bond': 2, 'ntensors': 56, 'nbonds': 33, 'lo': 49, 'hi': 51, 't': 0.01, 'step': 0.014}
+   {'elems': 1128, 'max_bond': 4, 'ntensors': 56, 'nbonds': 46, 'lo': 48, 'hi': 52, 't': 0.05, 'step': 0.034}
+   {'elems': 1688, 'max_bond': 4, 'ntensors': 56, 'nbonds': 51, 'lo': 47, 'hi': 53, 't': 0.11, 'step': 0.059}
+   {'elems': 1920, 'max_bond': 4, 'ntensors': 56, 'nbonds': 54, 'lo': 46, 'hi': 54, 't': 0.21, 'step': 0.101}
+   {'elems': 2080, 'max_bond': 8, 'ntensors': 56, 'nbonds': 55, 'lo': 45, 'hi': 55, 't': 0.33, 'step': 0.119}
+   {'elems': 5344, 'max_bond': 8, 'ntensors': 56, 'nbonds': 93, 'lo': 44, 'hi': 56, 't': 0.63, 'step': 0.304}
+   {'elems': 14272, 'max_bond': 16, 'ntensors': 56, 'nbonds': 129, 'lo': 43, 'hi': 57, 't': 1.85, 'step': 1.221}
+   {'elems': 38272, 'max_bond': 16, 'ntensors': 56, 'nbonds': 161, 'lo': 42, 'hi': 58, 't': 3.03, 'step': 1.176}
+   {'elems': 102784, 'max_bond': 16, 'ntensors': 56, 'nbonds': 189, 'lo': 41, 'hi': 59, 't': 4.69, 'step': 1.661}
+   {'elems': 241408, 'max_bond': 16, 'ntensors': 56, 'nbonds': 213, 'lo': 40, 'hi': 60, 't': 7.84, 'step': 3.148}
+   {'elems': 505856, 'max_bond': 16, 'ntensors': 56, 'nbonds': 240, 'lo': 39, 'hi': 61, 't': 17.47, 'step': 9.628}
+   {'elems': 1200128, 'max_bond': 16, 'ntensors': 56, 'nbonds': 267, 'lo': 38, 'hi': 62, 't': 39.39, 'step': 21.928}
+RESULT {"mode": "grow", "file": "P9_hqap_1917.qasm", "impl": "fast", "opts": "c128", "centre": 50.0, "steps": 12, "lo": 38, "hi": 62, "wall": 39.49, "cpu_s": 14.85, "elems": [576, 1128, 1688, 1920, 2080, 5344, 14272, 38272, 102784, 241408, 505856, 1200128], "max_bond": [2, 4, 4, 4, 8, 8, 16, 16, 16, 16, 16, 16], "nbonds": [33, 46, 51, 54, 55, 93, 129, 161, 189, 213, 240, 267], "step_times": [0.014, 0.034, 0.059, 0.101, 0.119, 0.304, 1.221, 1.176, 1.661, 3.148, 9.628, 21.928], "rss_mb": 188}
