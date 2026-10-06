@@ -1,0 +1,42 @@
+I 2 4 9
+I 0 2 4
+I 0 4 2
+I 2 5 5
+I 4 5 5
+I 0 5 1
+fA 2 4 7
+fA 0 2 4
+fA 0 4 3
+fA 2 5 5
+fA 4 5 3
+fA 0 5 1
+fB 2 4 10
+fB 0 2 3
+fB 0 4 4
+fB 2 5 7
+fB 4 5 6
+fB 0 5 2
+fAfB 2 4 13
+fAfB 0 2 4
+fAfB 0 4 3
+fAfB 2 5 10
+fAfB 4 5 5
+fAfB 0 5 49
+fBfA 2 4 11
+fBfA 0 2 8
+fBfA 0 4 2
+fBfA 2 5 6
+fBfA 4 5 5
+fBfA 0 5 1
+A split 0.25 I A1~sec2 17 A1~sec4 11 A2~sec2 25 A2~sec4 34
+A split 0.25 fA A1~sec2 68 A1~sec4 8 A2~sec2 144 A2~sec4 35
+A split 0.25 fB A1~sec2 11 A1~sec4 14 A2~sec2 36 A2~sec4 32
+A split 0.25 fAfB A1~sec2 9 A1~sec4 192 A2~sec2 31 A2~sec4 37
+A split 0.5 I A1~sec2 27 A1~sec4 25 A2~sec2 15 A2~sec4 23
+A split 0.5 fA A1~sec2 197 A1~sec4 22 A2~sec2 14 A2~sec4 25
+A split 0.5 fB A1~sec2 23 A1~sec4 24 A2~sec2 24 A2~sec4 20
+A split 0.5 fAfB A1~sec2 21 A1~sec4 199 A2~sec2 21 A2~sec4 19
+A split 0.75 I A1~sec2 32 A1~sec4 36 A2~sec2 9 A2~sec4 12
+A split 0.75 fA A1~sec2 197 A1~sec4 33 A2~sec2 6 A2~sec4 16
+A split 0.75 fB A1~sec2 33 A1~sec4 30 A2~sec2 15 A2~sec4 14
+A split 0.75 fAfB A1~sec2 31 A1~sec4 201 A2~sec2 14 A2~sec4 12

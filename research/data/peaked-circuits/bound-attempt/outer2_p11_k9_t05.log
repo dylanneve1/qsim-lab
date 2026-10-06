@@ -1,0 +1,52 @@
+P11_Hqap_98x1999 outer gates 634 cut 317 L==mp True
+  step 20 V 307 W 307 k 0 cost 0.0162 forced 0
+  step 40 V 297 W 297 k 0 cost 0.0251 forced 0
+  step 60 V 287 W 287 k 0 cost 0.0348 forced 0
+  step 80 V 277 W 277 k 0 cost 0.0445 forced 0
+  step 100 V 267 W 267 k 0 cost 0.0553 forced 0
+  step 120 V 257 W 257 k 0 cost 0.0644 forced 0
+  step 140 V 247 W 247 k 0 cost 0.0711 forced 0
+  step 160 V 237 W 237 k 0 cost 0.0780 forced 0
+  step 180 V 227 W 227 k 0 cost 0.0879 forced 0
+  step 200 V 217 W 217 k 2 cost 0.0979 forced 0
+  step 220 V 207 W 207 k 0 cost 0.1095 forced 0
+  step 240 V 197 W 197 k 0 cost 0.1245 forced 0
+  step 261 V 185 W 188 k 5 cost 0.1786 forced 0
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+  step 280 V 172 W 182 k 9 cost 2.4919 forced 3
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=4.441e-15 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=2.043e-14 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=9.770e-15 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=1.066e-14 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=7.105e-15 k=10
+  step 300 V 167 W 167 k 9 cost 15.5031 forced 20
+    forced peel d=7.654e-01 k=11
+    forced peel d=1.021e-14 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=1.021e-14 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=1.066e-14 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=7.994e-15 k=10
+    forced peel d=7.654e-01 k=11
+    forced peel d=1.110e-14 k=10
+    forced peel d=7.654e-01 k=10

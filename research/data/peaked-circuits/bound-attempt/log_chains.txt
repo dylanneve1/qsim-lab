@@ -1,0 +1,41 @@
+P11_Hqap_98x1999 15 same-pair adjacent chains
+  cost 0.0001  units 1695,1732 wires (51, 90) sec 5 perm {}
+  cost 0.0003  units 253,275 wires (6, 16) sec 1 perm {}
+  cost 0.0004  units 1367,1387 wires (60, 91) sec 4 perm {}
+  cost 0.0004  units 1060,1061 wires (6, 13) sec 3 perm {}
+  cost 0.0083  units 992,1041 wires (35, 66) sec 3 perm {}
+  cost 0.0087  units 311,335 wires (91, 90) sec 1 perm {}
+  cost 0.0088  units 962,1010 wires (85, 95) sec 3 perm {}
+  cost 0.0097  units 176,216 wires (50, 30) sec 1 perm {}
+  cost 0.0108  units 768,786 wires (53, 73) sec 2 perm {}
+  cost 0.0109  units 166,206 wires (46, 15) sec 1 perm {}
+  cost 0.0126  units 1185,1213 wires (56, 11) sec 4 perm {}
+  cost 0.1550  units 906,909 wires (14, 26) sec 2 perm {}
+  cost 1.4143  units 1263,1290 wires (97, 74) sec 4 perm {74: 97, 97: 74}
+  cost 1.7433  units 557,576 wires (14, 59) sec 2 perm {14: 59, 59: 14}
+  cost 1.7433  units 1306,1334 wires (40, 78) sec 4 perm {40: 78, 78: 40}
+P12_Hqap_98x2457 24 same-pair adjacent chains
+  cost 0.0001  units 1445,1475 wires (90, 97) sec 3 perm {}
+  cost 0.0014  units 441,446 wires (31, 37) sec 1 perm {}
+  cost 0.0035  units 2036,2081 wires (67, 21) sec 4 perm {}
+  cost 0.0038  units 1378,1422 wires (45, 18) sec 3 perm {}
+  cost 0.0053  units 184,215 wires (37, 73) sec 1 perm {}
+  cost 0.0088  units 1466,1495 wires (57, 33) sec 3 perm {}
+  cost 0.0088  units 1846,1864 wires (26, 40) sec 3 perm {}
+  cost 0.0091  units 1451,1480 wires (14, 5) sec 3 perm {}
+  cost 0.0094  units 978,996 wires (49, 94) sec 1 perm {}
+  cost 0.4843  units 1356,1358 wires (8, 12) sec 2 perm {}
+  cost 0.4930  units 565,597 wires (0, 84) sec 1 perm {}
+  cost 0.7342  units 996,1013 wires (49, 94) sec 1 perm {}
+  cost 0.7668  units 1989,1995 wires (59, 79) sec 3 perm {}
+  cost 0.9967  units 146,190 wires (57, 89) sec 1 perm {}
+  cost 0.9968  units 2107,2148 wires (82, 77) sec 4 perm {}
+  cost 1.0218  units 2234,2235 wires (61, 90) sec 4 perm {}
+  cost 1.0923  units 1017,1038 wires (64, 87) sec 1 perm {64: 87, 87: 64}
+  cost 1.1043  units 2002,2061 wires (72, 75) sec 4 perm {}
+  cost 1.1053  units 1380,1424 wires (20, 60) sec 3 perm {}
+  cost 1.6471  units 1403,1443 wires (66, 86) sec 3 perm {66: 86, 86: 66}
+  cost 1.7433  units 735,761 wires (20, 3) sec 1 perm {3: 20, 20: 3}
+  cost 1.7433  units 1596,1619 wires (33, 40) sec 3 perm {33: 40, 40: 33}
+  cost 1.8686  units 18,81 wires (91, 21) sec 1 perm {21: 91, 91: 21}
+  cost 1.9997  units 1685,1708 wires (17, 51) sec 3 perm {17: 51, 51: 17}

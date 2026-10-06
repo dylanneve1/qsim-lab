@@ -44,3 +44,10 @@ probability picks the right one even though the first step is close.  On P11 eve
 on the same peak.  Bit comparison to the hardware peak is post hoc only.
 
 Raw logs/JSON: `v2-runs/`.
+
+## Full-circuit bound (follow-up, negative)
+`bound-attempt/README.md` tries to turn the reduced-core peak into a rigorous lower bound on the real circuit's peak probability
+(p_true ≥ (√p_model − ε)², ε ≥ ‖M − Π‖). It is vacuous for both circuits. Even where the mirror unzips cleanly, the deliberate
+sweep loss is ~1e-3 per gate, and a worst-case (triangle-inequality) sum over the ~1700–2200 middle gates gives ε ≈ 1.8 / 1.3,
+against thresholds of 0.55 / 0.49. The inner mirror centres are SWAP·CZ, and their compensating CZ sits ~9 segments away.
+Estimates (not bounds), assuming independent errors: p_true ≈ 0.19–0.22 (P11), 0.18–0.19 (P12).

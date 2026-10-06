@@ -2,7 +2,7 @@
 
 Generated from the docstrings in [`python/qsimlab`](https://github.com/dylanneve1/qsim-lab/tree/main/python/qsimlab).
 The normative contract (conventions, error types, threading and stability guarantees) is the
-[API contract](../API.md); where the two disagree, the contract wins and the docstring is a bug.
+[API contract](../../API.md); where the two disagree, the contract wins and the docstring is a bug.
 
 | Module | What it holds | Status |
 |---|---|---|

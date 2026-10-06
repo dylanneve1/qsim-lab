@@ -1,0 +1,2 @@
+eps 0 cost 8.881784197001252e-16 Pi==sig True maxk 2 forced 0 npeel 92
+eps 0.001 cost 0.038705963215642465 Pi==sig True maxk 2 forced 0 npeel 92
