@@ -1,0 +1,7 @@
+  parsed: n=49, 4020 CZ units, depth 222  (0.5s)
+  coarse centre scan (step 9): 9:181, 18:179, 27:182, 36:178, 45:181, 54:181, 63:176, 72:184, 81:179, 90:177, 99:186, 108:4020, 117:185, 126:180, 135:182, 144:179, 153:179, 162:181, 171:176, 180:179, 189:178, 198:181, 207:178, 216:183
+  fine scan: 104:182(0.5s), 105:183(0.3s), 106:4020(8.4s), 107:4020(4.5s), 109:4020(2.3s), 110:4020(1.1s), 111:4020(2.7s), 112:4020(4.1s)
+  centre layer 112  (scan 44.5s, RSS 183664 MB)
+  window layers [0,222) of [0,222): 4020/4020 gates absorbed; W elems 7820, max bond 8  (4.1s)
+  final core: window [0,222) (4020 gates in W), state max bond 5, contraction width 6.6, log2 flops 13.2
+RESULT {"mode": "solve", "file": "P10_heavy_hex_4020.qasm", "backend": "np128", "centre": 112, "window": [0, 222], "absorbed": 4020, "W_max_bond": 8, "width": 6.6, "peak_sha1": "4c6e30c00425944e642b03af286a32f590ed7550", "p": 0.7034477895773682, "norm": 0.8914552118833857, "min_abs_z": 0.8388880862629545, "seconds": 62.99, "t_gate": 2.27, "t_compress": 44.9, "t_sync": 0.0, "rss_mb": 197, "t_scan": 44.5, "t_grow_main": 4.1}
