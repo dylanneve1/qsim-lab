@@ -4,7 +4,8 @@ Python API for [qsim-lab](https://github.com/dylanneve1/qsim-lab): exact quantum
 simulation (state vector, stabilizer tableau, sparse, MPS, hybrid Schrödinger–Feynman,
 compressed Clifford+T, batched noisy-Clifford sampling) with a cost-model planner that picks
 the engine for you. The Rust crate does the work; this package is a thin, typed layer with
-numpy in and out. The full contract is in [API.md](API.md).
+numpy in and out. The full contract is in [API.md](API.md); guides and the API reference are
+at [dylanneve1.github.io/qsim-lab](https://dylanneve1.github.io/qsim-lab/).
 
 ```python
 >>> import qsimlab as qs
