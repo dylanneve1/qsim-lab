@@ -1,0 +1,14 @@
+hull sec1: 593 gates, covers 98 wires
+hull sec3: 610 gates, covers 98 wires
+DIAGNOSTIC: dropped 21 boundary transposition-pair CZ units of sec1
+DIAGNOSTIC: dropped 14 boundary transposition-pair CZ units of sec3
+outer: 940 gates, cut 441, final map == Core.L: True
+[O]   step 20 V 431 W 489 k 0 cost 0.0086 forced 0
+[O]   step 40 V 421 W 479 k 0 cost 0.0190 forced 0
+[O]   step 60 V 411 W 469 k 0 cost 0.0287 forced 0
+[O]   step 80 V 401 W 459 k 0 cost 0.0411 forced 0
+[O]   step 100 V 391 W 449 k 0 cost 0.0506 forced 0
+[O]   step 120 V 381 W 439 k 0 cost 0.0638 forced 0
+[O]   step 140 V 370 W 430 k 2 cost 0.0726 forced 0
+[O]     forced peel d=7.654e-01 k=9
+[O]     forced peel d=7.654e-01 k=9

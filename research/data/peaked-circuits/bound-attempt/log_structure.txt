@@ -1,0 +1,23 @@
+P11_Hqap_98x1999 n 98 units 1999
+ secs [(0, 58), (59, 376), (377, 913), (914, 1069), (1070, 1613), (1614, 1774), (1775, 1998)] [59, 318, 537, 156, 544, 161, 224]
+ maps sections [2, 4] fixed pts [0, 0]
+ anchors 419
+ anchors by centre section {2: 211, 4: 208}
+  sec0 [0,58] gates 59 depth 7 qubits 98 distinct pairs 56
+  sec1 [59,376] gates 318 depth 19 qubits 98 distinct pairs 302
+  sec2 [377,913] gates 537 depth 31 qubits 98 distinct pairs 389
+  sec3 [914,1069] gates 156 depth 7 qubits 98 distinct pairs 151
+  sec4 [1070,1613] gates 544 depth 32 qubits 98 distinct pairs 389
+  sec5 [1614,1774] gates 161 depth 11 qubits 98 distinct pairs 155
+  sec6 [1775,1998] gates 224 depth 22 qubits 98 distinct pairs 113
+P12_Hqap_98x2457 n 98 units 2457
+ secs [(0, 59), (60, 1140), (1141, 1366), (1367, 2015), (2016, 2239), (2240, 2456)] [60, 1081, 226, 649, 224, 217]
+ maps sections [1, 3] fixed pts [0, 0]
+ anchors 569
+ anchors by centre section {1: 291, 3: 278}
+  sec0 [0,59] gates 60 depth 11 qubits 98 distinct pairs 57
+  sec1 [60,1140] gates 1081 depth 69 qubits 98 distinct pairs 840
+  sec2 [1141,1366] gates 226 depth 20 qubits 98 distinct pairs 212
+  sec3 [1367,2015] gates 649 depth 44 qubits 98 distinct pairs 469
+  sec4 [2016,2239] gates 224 depth 24 qubits 98 distinct pairs 206
+  sec5 [2240,2456] gates 217 depth 16 qubits 98 distinct pairs 111

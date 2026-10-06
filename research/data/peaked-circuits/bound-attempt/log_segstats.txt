@@ -1,0 +1,26 @@
+P11_Hqap_98x1999 sections [(0, 58), (59, 376), (377, 913), (914, 1069), (1070, 1613), (1614, 1774), (1775, 1998)]
+  secs (0, 0): n    20 exact(<1e-9)    0  near(1e-9..0.05)   10 sum_near 0.004  mid(0.05..0.3)    0  generic(>=0.3)   10  med_near 0.0003
+  secs (0, 1): n    98 exact(<1e-9)    0  near(1e-9..0.05)    3 sum_near 0.025  mid(0.05..0.3)   16  generic(>=0.3)   79  med_near 0.0003
+  secs (1, 1): n   538 exact(<1e-9)    0  near(1e-9..0.05)  506 sum_near 2.439  mid(0.05..0.3)    3  generic(>=0.3)   29  med_near 0.0050
+  secs (1, 2): n    98 exact(<1e-9)    0  near(1e-9..0.05)   46 sum_near 0.094  mid(0.05..0.3)    5  generic(>=0.3)   47  med_near 0.0019
+  secs (2, 2): n   976 exact(<1e-9)   94  near(1e-9..0.05)  442 sum_near 1.667  mid(0.05..0.3)   34  generic(>=0.3)  406  med_near 0.0040
+  secs (2, 3): n    98 exact(<1e-9)    0  near(1e-9..0.05)   42 sum_near 0.089  mid(0.05..0.3)    8  generic(>=0.3)   48  med_near 0.0022
+  secs (3, 3): n   214 exact(<1e-9)    0  near(1e-9..0.05)  197 sum_near 0.871  mid(0.05..0.3)    4  generic(>=0.3)   13  med_near 0.0047
+  secs (3, 4): n    98 exact(<1e-9)    0  near(1e-9..0.05)   26 sum_near 0.096  mid(0.05..0.3)    8  generic(>=0.3)   64  med_near 0.0040
+  secs (4, 4): n   990 exact(<1e-9)   92  near(1e-9..0.05)  434 sum_near 1.661  mid(0.05..0.3)   38  generic(>=0.3)  426  med_near 0.0041
+  secs (4, 5): n    98 exact(<1e-9)    0  near(1e-9..0.05)   26 sum_near 0.065  mid(0.05..0.3)    9  generic(>=0.3)   63  med_near 0.0019
+  secs (5, 5): n   224 exact(<1e-9)    0  near(1e-9..0.05)  205 sum_near 0.920  mid(0.05..0.3)    4  generic(>=0.3)   15  med_near 0.0045
+  secs (5, 6): n    98 exact(<1e-9)    0  near(1e-9..0.05)    5 sum_near 0.084  mid(0.05..0.3)   26  generic(>=0.3)   67  med_near 0.0173
+  secs (6, 6): n   350 exact(<1e-9)    0  near(1e-9..0.05)  127 sum_near 0.985  mid(0.05..0.3)   68  generic(>=0.3)  155  med_near 0.0036
+P12_Hqap_98x2457 sections [(0, 59), (60, 1140), (1141, 1366), (1367, 2015), (2016, 2239), (2240, 2456)]
+  secs (0, 0): n    22 exact(<1e-9)    0  near(1e-9..0.05)    8 sum_near 0.001  mid(0.05..0.3)    4  generic(>=0.3)   10  med_near 0.0001
+  secs (0, 1): n    98 exact(<1e-9)    0  near(1e-9..0.05)    1 sum_near 0.037  mid(0.05..0.3)   14  generic(>=0.3)   83  med_near 0.0369
+  secs (1, 1): n  2064 exact(<1e-9)   89  near(1e-9..0.05) 1126 sum_near 4.742  mid(0.05..0.3)   81  generic(>=0.3)  768  med_near 0.0045
+  secs (1, 2): n    98 exact(<1e-9)    0  near(1e-9..0.05)   37 sum_near 0.101  mid(0.05..0.3)   10  generic(>=0.3)   51  med_near 0.0020
+  secs (2, 2): n   354 exact(<1e-9)    0  near(1e-9..0.05)  321 sum_near 1.371  mid(0.05..0.3)    5  generic(>=0.3)   28  med_near 0.0045
+  secs (2, 3): n    98 exact(<1e-9)    0  near(1e-9..0.05)   21 sum_near 0.094  mid(0.05..0.3)   18  generic(>=0.3)   59  med_near 0.0042
+  secs (3, 3): n  1200 exact(<1e-9)   92  near(1e-9..0.05)  551 sum_near 2.164  mid(0.05..0.3)   43  generic(>=0.3)  514  med_near 0.0041
+  secs (3, 4): n    98 exact(<1e-9)    0  near(1e-9..0.05)   18 sum_near 0.046  mid(0.05..0.3)   19  generic(>=0.3)   61  med_near 0.0017
+  secs (4, 4): n   350 exact(<1e-9)    0  near(1e-9..0.05)  129 sum_near 0.478  mid(0.05..0.3)   38  generic(>=0.3)  183  med_near 0.0038
+  secs (4, 5): n    98 exact(<1e-9)    0  near(1e-9..0.05)    2 sum_near 0.056  mid(0.05..0.3)   22  generic(>=0.3)   74  med_near 0.0282
+  secs (5, 5): n   336 exact(<1e-9)    0  near(1e-9..0.05)  141 sum_near 0.382  mid(0.05..0.3)   42  generic(>=0.3)  153  med_near 0.0002

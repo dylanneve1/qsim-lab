@@ -1,0 +1,84 @@
+P11_Hqap_98x1999 outer gates 635 cut 318 L==mp True
+  step 10 V 313 W 312 k 7 cost 0.0039 forced 0
+  step 20 V 307 W 308 k 7 cost 0.0163 forced 0
+    forced peel d=6.831e-01 k=9
+  step 30 V 302 W 303 k 6 cost 0.7197 forced 1
+  step 40 V 297 W 298 k 6 cost 0.7358 forced 1
+    forced peel d=1.377e+00 k=9
+  step 50 V 292 W 293 k 8 cost 2.1189 forced 2
+  step 60 V 285 W 290 k 6 cost 2.1239 forced 2
+  step 70 V 279 W 286 k 8 cost 2.1267 forced 2
+    forced peel d=8.579e-01 k=10
+    forced peel d=7.654e-01 k=9
+  step 80 V 274 W 281 k 5 cost 3.7569 forced 3
+  step 90 V 269 W 276 k 5 cost 3.7618 forced 3
+  step 100 V 264 W 271 k 5 cost 3.7693 forced 3
+  step 110 V 259 W 266 k 5 cost 3.7744 forced 3
+  step 120 V 253 W 262 k 5 cost 3.7790 forced 3
+  step 130 V 248 W 257 k 5 cost 3.7836 forced 3
+  step 140 V 244 W 251 k 5 cost 3.7884 forced 3
+  step 150 V 240 W 245 k 3 cost 3.8021 forced 3
+  step 160 V 235 W 240 k 3 cost 3.8045 forced 3
+  step 170 V 229 W 236 k 3 cost 3.8198 forced 3
+  step 180 V 224 W 231 k 3 cost 3.8208 forced 3
+  step 190 V 219 W 226 k 3 cost 3.8382 forced 3
+  step 200 V 214 W 221 k 3 cost 3.8475 forced 3
+  step 210 V 209 W 216 k 3 cost 3.8518 forced 3
+  step 220 V 204 W 211 k 3 cost 3.8690 forced 3
+  step 230 V 199 W 206 k 3 cost 3.8763 forced 3
+  step 240 V 194 W 201 k 6 cost 3.8805 forced 3
+  step 250 V 190 W 195 k 4 cost 3.9196 forced 3
+  step 260 V 184 W 191 k 7 cost 3.9234 forced 3
+  step 270 V 180 W 185 k 6 cost 3.9380 forced 3
+  step 280 V 176 W 179 k 8 cost 3.9436 forced 3
+  step 290 V 170 W 175 k 8 cost 3.9491 forced 3
+    forced peel d=7.652e-01 k=9
+  step 300 V 166 W 169 k 6 cost 4.7186 forced 4
+  step 310 V 160 W 165 k 7 cost 4.7225 forced 4
+  step 320 V 155 W 160 k 6 cost 4.7352 forced 4
+  step 330 V 150 W 155 k 6 cost 4.7420 forced 4
+  step 340 V 144 W 151 k 6 cost 4.7483 forced 4
+  step 350 V 139 W 146 k 4 cost 4.7643 forced 4
+  step 360 V 133 W 142 k 6 cost 4.7708 forced 4
+  step 370 V 128 W 137 k 6 cost 4.7743 forced 4
+    forced peel d=2.939e-01 k=10
+    forced peel d=7.305e-01 k=9
+  step 380 V 123 W 132 k 8 cost 5.8003 forced 5
+  step 390 V 118 W 127 k 8 cost 5.8064 forced 5
+    forced peel d=6.741e-01 k=10
+    forced peel d=2.742e-13 k=9
+  step 400 V 113 W 122 k 8 cost 6.4920 forced 6
+  step 410 V 108 W 117 k 8 cost 6.5006 forced 6
+  step 420 V 102 W 113 k 8 cost 6.5137 forced 6
+    forced peel d=6.845e-01 k=9
+  step 430 V 99 W 106 k 7 cost 7.2112 forced 7
+    forced peel d=7.485e-01 k=9
+  step 440 V 95 W 100 k 8 cost 7.9750 forced 8
+  step 450 V 89 W 96 k 8 cost 7.9837 forced 8
+  step 460 V 85 W 90 k 8 cost 8.0045 forced 8
+  step 470 V 80 W 85 k 8 cost 8.0202 forced 8
+  step 480 V 75 W 80 k 8 cost 8.0371 forced 8
+  step 490 V 70 W 75 k 8 cost 8.0693 forced 8
+  step 500 V 65 W 70 k 8 cost 8.0744 forced 8
+    forced peel d=1.892e-01 k=9
+  step 510 V 61 W 64 k 5 cost 8.3135 forced 9
+  step 520 V 56 W 59 k 5 cost 8.3268 forced 9
+  step 530 V 50 W 55 k 5 cost 8.3482 forced 9
+  step 540 V 46 W 49 k 5 cost 8.3629 forced 9
+  step 550 V 41 W 44 k 5 cost 8.3717 forced 9
+  step 560 V 36 W 39 k 5 cost 8.3959 forced 9
+  step 570 V 31 W 34 k 5 cost 8.4119 forced 9
+  step 580 V 26 W 29 k 5 cost 8.4213 forced 9
+  step 590 V 21 W 24 k 7 cost 8.4518 forced 9
+  step 600 V 18 W 17 k 5 cost 8.4611 forced 9
+  step 610 V 13 W 12 k 5 cost 8.4694 forced 9
+  step 620 V 8 W 7 k 5 cost 8.4948 forced 9
+  step 630 V 3 W 2 k 5 cost 8.5017 forced 9
+    forced peel d=7.652e-01 k=7
+    forced peel d=7.654e-01 k=6
+    forced peel d=1.830e+00 k=4
+    forced peel d=1.788e+00 k=2
+TOTAL cost 13.6525 peels 558 nonzero(>1e-9) 310 forced 9 maxk 10 time 215s
+cost quantiles [0.00021, 0.00428, 0.76528, 1.82982]
+sorted top [1.8298, 1.7876, 1.3765, 0.8579, 0.7654, 0.7654, 0.7652, 0.7652, 0.7485, 0.7305, 0.6845, 0.6831, 0.6741, 0.2939, 0.1892, 0.0187, 0.018, 0.0179, 0.0178, 0.017]
+final Pi nontrivial 0 dangling 98
