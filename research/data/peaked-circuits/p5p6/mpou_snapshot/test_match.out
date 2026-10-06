@@ -1,0 +1,11 @@
+perm [6, 2, 5, 1, 4, 7, 0, 3] swaps 17
+eps 0.0 no-unswap W: {'max_bond': 16, 'elems': 4640, 'trunc': np.float64(0.0)}
+    match-unswap: 14 swaps, assignment scores min 1.000 median 1.000 -> {'max_bond': 1, 'elems': 32, 'trunc': np.float64(0.0)}
+   perm recovered: True 0.3s final {'max_bond': 1, 'elems': 32, 'trunc': np.float64(0.0)}
+eps 0.05 no-unswap W: {'max_bond': 256, 'elems': 139808, 'trunc': np.float64(0.0)}
+    match-unswap: 14 swaps, assignment scores min 0.850 median 0.897 -> {'max_bond': 64, 'elems': 25184, 'trunc': np.float64(0.0)}
+   perm recovered: True 3.6s final {'max_bond': 64, 'elems': 25184, 'trunc': np.float64(0.0)}
+eps 0.15 no-unswap W: {'max_bond': 256, 'elems': 139808, 'trunc': np.float64(0.0)}
+    match-unswap: 14 swaps, assignment scores min 0.236 median 0.418 -> {'max_bond': 64, 'elems': 25184, 'trunc': np.float64(0.0)}
+   perm recovered: True 5.3s final {'max_bond': 64, 'elems': 25184, 'trunc': np.float64(0.0)}
+done
