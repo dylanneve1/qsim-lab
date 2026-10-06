@@ -19,3 +19,11 @@
 .doc-heading code { font-weight: 600; }
 .md-typeset h1 { color: var(--md-default-fg-color); }
 .md-typeset .doc-heading { margin-top: 1.6rem; }
+.md-typeset .hero-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1.2rem 0 0.4rem; }
+.md-typeset .hero-buttons p { display: contents; }
+.md-typeset .hero-buttons .md-button { margin: 0; text-align: center; }
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .hero h1 { font-size: 2.1rem; }
+  .md-typeset .hero .tagline { font-size: 1rem; }
+  .md-typeset .hero-buttons .md-button { flex: 1 1 100%; padding: 0.55em 1em; }
+}
