@@ -1,0 +1,42 @@
+   {'lo': 50, 'hi': 51, 'side': 'after', 'elems': 352, 'max_bond': 2, 'nbonds': 16, 'moved': 0, 't': 0.7}
+   {'lo': 50, 'hi': 52, 'side': 'after', 'elems': 576, 'max_bond': 2, 'nbonds': 33, 'moved': 0, 't': 0.7}
+   {'lo': 49, 'hi': 52, 'side': 'before', 'elems': 804, 'max_bond': 4, 'nbonds': 39, 'moved': 0, 't': 0.8}
+   {'lo': 48, 'hi': 52, 'side': 'before', 'elems': 1104, 'max_bond': 4, 'nbonds': 46, 'moved': 2, 't': 0.9}
+   {'lo': 47, 'hi': 52, 'side': 'before', 'elems': 1244, 'max_bond': 4, 'nbonds': 48, 'moved': 2, 't': 1.0}
+   {'lo': 47, 'hi': 53, 'side': 'after', 'elems': 1624, 'max_bond': 4, 'nbonds': 50, 'moved': 2, 't': 1.1}
+   {'lo': 47, 'hi': 54, 'side': 'after', 'elems': 1644, 'max_bond': 4, 'nbonds': 52, 'moved': 2, 't': 1.3}
+   {'lo': 46, 'hi': 54, 'side': 'before', 'elems': 1884, 'max_bond': 4, 'nbonds': 53, 'moved': 2, 't': 1.4}
+   {'lo': 45, 'hi': 54, 'side': 'before', 'elems': 1616, 'max_bond': 4, 'nbonds': 40, 'moved': 14, 't': 1.6}
+   {'lo': 45, 'hi': 55, 'side': 'after', 'elems': 1684, 'max_bond': 4, 'nbonds': 49, 'moved': 14, 't': 1.8}
+   {'lo': 45, 'hi': 56, 'side': 'after', 'elems': 2672, 'max_bond': 4, 'nbonds': 66, 'moved': 14, 't': 2.0}
+   {'lo': 45, 'hi': 57, 'side': 'after', 'elems': 4232, 'max_bond': 4, 'nbonds': 83, 'moved': 14, 't': 2.5}
+   {'lo': 44, 'hi': 57, 'side': 'before', 'elems': 6752, 'max_bond': 4, 'nbonds': 106, 'moved': 14, 't': 3.3}
+   {'lo': 44, 'hi': 58, 'side': 'after', 'elems': 11328, 'max_bond': 4, 'nbonds': 123, 'moved': 14, 't': 4.6}
+   {'lo': 44, 'hi': 59, 'side': 'after', 'elems': 18880, 'max_bond': 8, 'nbonds': 141, 'moved': 14, 't': 7.1}
+   {'lo': 44, 'hi': 60, 'side': 'after', 'elems': 30976, 'max_bond': 8, 'nbonds': 154, 'moved': 14, 't': 13.6}
+   {'lo': 44, 'hi': 61, 'side': 'after', 'elems': 47296, 'max_bond': 8, 'nbonds': 167, 'moved': 14, 't': 29.3}
+   {'lo': 44, 'hi': 62, 'side': 'after', 'elems': 76288, 'max_bond': 8, 'nbonds': 180, 'moved': 14, 't': 86.2}
+Command terminated by signal 15
+	Command being timed: "/tmp/pk/research/data/peaked-circuits/.venv/bin/python -u run_tnos.py /tmp/peaked-gen/peaked_circuit_P9_Hqap_56x1917.qasm 50 1e-3 4e6 --adaptive"
+	User time (seconds): 391.66
+	System time (seconds): 6.61
+	Percent of CPU this job got: 189%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 3:29.68
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1821252
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 3
+	Minor (reclaiming a frame) page faults: 4706724
+	Voluntary context switches: 69
+	Involuntary context switches: 41209
+	Swaps: 0
+	File system inputs: 1672
+	File system outputs: 48
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

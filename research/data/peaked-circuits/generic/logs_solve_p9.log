@@ -1,0 +1,14 @@
+peaked_circuit_P9_Hqap_56x1917.qasm
+  parsed: n=56, 1917 CZ units, depth 103  (0.3s)
+  coarse centre scan (step 4): 4:197, 8:188, 12:175, 16:206, 20:167, 24:197, 28:227, 32:167, 36:195, 40:196, 44:207, 48:279, 52:296, 56:185, 60:183, 64:207, 68:201, 72:197, 76:172, 80:213, 84:188, 88:196, 92:200, 96:177, 100:178
+  fine scan: 50:292(2.5s), 51:298(2.7s), 53:255(2.9s), 54:221(2.7s)
+  centre layer 51  (scan 83.5s, RSS 200 MB)
+  window layers [39,63) of [0,103): 422/1917 gates absorbed; W elems 1327104, max bond 16  (21.3s)
+  final network: 1663 tensors; norm contraction width 160.0, log2 flops 171.3
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/solve_generic.py", line 149, in <module>
+    r = solve(a.qasm, a.centre, a.cutoff, a.budget, log=lambda s: print(s, flush=True))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/solve_generic.py", line 134, in solve
+    raise RuntimeError(f"contraction width {width:.1f} too large for this machine")
+RuntimeError: contraction width 160.0 too large for this machine

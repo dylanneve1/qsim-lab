@@ -1,0 +1,8 @@
+   {'lo': 109, 'hi': 111, 'elems': 660, 'maxbond': 2, 'nbonds': 41, 'moved': 0, 'err': 6.881214860351757e-31, 't': 0.0}
+   {'lo': 108, 'hi': 112, 'elems': 1024, 'maxbond': 4, 'nbonds': 38, 'moved': 4, 'err': 8.857003116072548e-06, 't': 0.1}
+   {'lo': 107, 'hi': 113, 'elems': 1576, 'maxbond': 7, 'nbonds': 39, 'moved': 2, 'err': 1.3447611071834565e-05, 't': 0.1}
+   {'lo': 106, 'hi': 114, 'elems': 3796, 'maxbond': 10, 'nbonds': 48, 'moved': 2, 'err': 1.931438110045877e-05, 't': 0.2}
+   {'lo': 105, 'hi': 115, 'elems': 10520, 'maxbond': 12, 'nbonds': 57, 'moved': 2, 'err': 2.03610530096699e-05, 't': 1.5}
+   {'lo': 104, 'hi': 116, 'elems': 28780, 'maxbond': 24, 'nbonds': 57, 'moved': 2, 'err': 2.427307662260655e-05, 't': 21.3}
+   {'lo': 103, 'hi': 117, 'elems': 94168, 'maxbond': 28, 'nbonds': 57, 'moved': 2, 'err': 2.7489488228256872e-05, 't': 67.2}
+   {'lo': 102, 'hi': 118, 'elems': 326768, 'maxbond': 36, 'nbonds': 58, 'moved': 2, 'err': 3.276446125805875e-05, 't': 350.4}

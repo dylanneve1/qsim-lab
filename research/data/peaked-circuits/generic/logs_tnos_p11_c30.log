@@ -1,0 +1,13 @@
+   {'lo': 29, 'hi': 31, 'elems': 892, 'max_bond': 2, 'nbonds': 48, 'moved': 0, 't': 0.7}
+   {'lo': 28, 'hi': 32, 'elems': 1428, 'max_bond': 4, 'nbonds': 65, 'moved': 10, 't': 0.8}
+   {'lo': 27, 'hi': 33, 'elems': 2060, 'max_bond': 4, 'nbonds': 82, 'moved': 24, 't': 0.9}
+   {'lo': 26, 'hi': 34, 'elems': 2756, 'max_bond': 4, 'nbonds': 99, 'moved': 30, 't': 1.0}
+   {'lo': 25, 'hi': 35, 'elems': 3800, 'max_bond': 4, 'nbonds': 116, 'moved': 32, 't': 1.3}
+   {'lo': 24, 'hi': 36, 'elems': 5776, 'max_bond': 4, 'nbonds': 127, 'moved': 38, 't': 1.7}
+   {'lo': 23, 'hi': 37, 'elems': 7984, 'max_bond': 4, 'nbonds': 137, 'moved': 42, 't': 2.2}
+   {'lo': 22, 'hi': 38, 'elems': 11724, 'max_bond': 4, 'nbonds': 159, 'moved': 42, 't': 3.0}
+   {'lo': 21, 'hi': 39, 'elems': 17404, 'max_bond': 4, 'nbonds': 184, 'moved': 44, 't': 4.3}
+   {'lo': 20, 'hi': 40, 'elems': 24304, 'max_bond': 4, 'nbonds': 201, 'moved': 44, 't': 9.3}
+   {'lo': 19, 'hi': 41, 'elems': 35616, 'max_bond': 4, 'nbonds': 212, 'moved': 46, 't': 11.8}
+   {'lo': 18, 'hi': 42, 'elems': 50656, 'max_bond': 4, 'nbonds': 235, 'moved': 46, 't': 20.4}
+   {'lo': 17, 'hi': 43, 'elems': 89624, 'max_bond': 4, 'nbonds': 252, 'moved': 46, 't': 57.9}
