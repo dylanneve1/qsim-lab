@@ -294,12 +294,26 @@ impl Builder<'_> {
                             Mode::Live(a)
                         }
                         Mode::Tied(p, u) => {
-                            let h = [[C1 * S2, C1 * S2], [C1 * S2, -C1 * S2]];
-                            self.u1(a, h);
+                            // out(p, q) = u[q][p] * Σ_b (-1)^{bq} v(p, b)
                             let mask = (1 << p) | (1 << a);
-                            for bp in 0..2 {
-                                for q in 0..2 {
-                                    self.phase(mask, (bp << p) | (q << a), u[q][bp]);
+                            if u.iter().flatten().all(|z| z.norm() > 1e-12) {
+                                // u[q][p] = A_p B_q C^{pq}: the 1-bit factors fuse
+                                // with neighbouring 1q matrices, one 2-bit term left
+                                let (b0, b1) = (u[0][0], u[1][0]);
+                                let a1 = u[0][1] / u[0][0];
+                                let cc = u[1][1] * u[0][0] / (u[1][0] * u[0][1]);
+                                self.u1(a, [[b0 * S2, b0 * S2], [b1 * S2, -b1 * S2]]);
+                                self.phase(1 << p, 1 << p, a1);
+                                if (cc - C1).norm() > 1e-13 {
+                                    self.phase(mask, mask, cc);
+                                }
+                            } else {
+                                let h = [[C1 * S2, C1 * S2], [C1 * S2, -C1 * S2]];
+                                self.u1(a, h);
+                                for bp in 0..2 {
+                                    for q in 0..2 {
+                                        self.phase(mask, (bp << p) | (q << a), u[q][bp]);
+                                    }
                                 }
                             }
                             Mode::Live(a)
