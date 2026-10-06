@@ -20,6 +20,8 @@
 //! * [`mps`], [`mps_cost`] — matrix product states, and a cost predictor for exact MPS runs.
 //! * [`hsf`] — hybrid Schrödinger–Feynman simulation.
 //! * [`tn`] — exact tensor-network contraction (amplitudes, batches, Pauli expectations).
+//! * [`chain_sweep`] — exact amplitudes of open-chain CZ circuits by sweeping a `D/2`-bit
+//!   bond register along the chain (runs on the blocked CPU and Metal executors).
 //! * [`spd`] — sparse Pauli dynamics for kicked-Ising Trotter circuits.
 //! * [`monitored`] — monitored Clifford+T circuits (measurement-induced transitions).
 
