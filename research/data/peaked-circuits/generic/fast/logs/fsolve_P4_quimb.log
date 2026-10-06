@@ -1,0 +1,7 @@
+  parsed: n=48, 5096 CZ units, depth 218  (0.7s)
+  coarse centre scan (step 9): 9:288, 18:240, 27:287, 36:235, 45:282, 54:235, 63:235, 72:235, 81:239, 90:240, 99:505, 108:5096, 117:401, 126:224, 135:270, 144:272, 153:235, 162:238, 171:240, 180:240, 189:235, 198:235, 207:235, 216:252
+  fine scan: 104:5096(8.6s), 105:5096(7.9s), 106:5096(6.6s), 107:5096(5.3s), 109:5096(6.8s), 110:5096(7.3s), 111:5096(8.3s), 112:622(0.7s)
+  centre layer 107  (scan 67.0s, RSS 203 MB)
+  window layers [0,218) of [0,218): 5096/5096 gates absorbed; W elems 15536, max bond 14  (5.1s)
+  final core: window [0,218) (5096 gates in W), state max bond 9, contraction width 9.2, log2 flops 16.3
+RESULT {"mode": "solve", "file": "P4_golden_mountain.qasm", "impl": "quimb", "opts": "c128", "centre": 107, "window": [0, 218], "W_max_bond": 14, "width": 9.2, "peak_sha1": "18dc22e297ab06b21aae6b90c2d44c4f9ae18ec9", "p": 0.010454999018243705, "norm": 0.8536612605846713, "seconds": 83.49, "cpu_s": 77.9, "rss_mb": 220, "t_scan": 67.0, "t_grow_main": 5.1}
