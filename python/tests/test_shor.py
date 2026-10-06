@@ -271,7 +271,8 @@ def test_support_trace_follows_the_law():
             deficient += int((tr < b).sum())
             assert run.peak_support >= tr.max()
             assert run.predicted_peak_support == b.max()
-            assert run.p1_trace is not None and ((0 <= run.p1_trace) & (run.p1_trace <= 1)).all()
+            # p1 is a rayon parallel sum: reduction order varies with thread count, so allow ulp-level overshoot
+            assert run.p1_trace is not None and ((-1e-12 <= run.p1_trace) & (run.p1_trace <= 1 + 1e-12)).all()
     # theory-shor T1(c): deficient rounds have probability <= 4/r_odd each
     assert rounds > 50 and deficient <= 0.05 * rounds
 
