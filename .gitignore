@@ -24,3 +24,5 @@ venv/
 ._*
 *.swp
 *~
+site-src/
+site/
