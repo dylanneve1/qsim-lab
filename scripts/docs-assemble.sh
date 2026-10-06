@@ -7,6 +7,7 @@ cp python/API.md site-src/API.md
 cp python/notebooks/README.md site-src/notebooks.md
 # Rewrite repo-relative links to site-relative ones.
 sed -i 's#(\.\./API\.md#(API.md#g' site-src/*.md
+sed -i 's#(\.\./\.\./API\.md#(../API.md#g' site-src/reference/*.md
 sed -i 's#(docs/\([a-z_]*\.md\)#(\1#g' site-src/API.md
 # Links outside python/ point at GitHub.
 sed -i -E 's#\((\.\./)+(research/[^)]*)\)#(https://github.com/dylanneve1/qsim-lab/blob/main/\2)#g' site-src/*.md

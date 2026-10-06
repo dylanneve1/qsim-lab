@@ -103,4 +103,4 @@ More in [Research](research.md) and the full [results summary](https://github.co
 
 !!! note "Status"
     `qsimlab` is **alpha** (v0.1). The core API (`circuit`, `sim`, `errors`, `interop`) is stable
-    under the [API contract](API.md). `qec`, `shor` and `analysis` are provisional.
+    under the [API contract](../API.md). `qec`, `shor` and `analysis` are provisional.

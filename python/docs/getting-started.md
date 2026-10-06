@@ -48,7 +48,7 @@ pass `engine=...` (a forced engine that can't do the job raises instead of falli
 
 !!! tip "Conventions"
     Bitstrings and state-vector indices are **little-endian** in qubit index; the full set of
-    conventions is in §5 of the [API contract](API.md#5-conventions).
+    conventions is in §5 of the [API contract](../API.md#5-conventions).
 
 ## Next steps
 
