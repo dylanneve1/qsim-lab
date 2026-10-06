@@ -1,0 +1,9 @@
+    step 100: inside 100 size 937 weight 124.0 loss 2.220e-16
+    step 200: inside 200 size 1021 weight 103.0 loss 2.998e-15
+    step 300: inside 300 size 1028 weight 99.0 loss -6.661e-16
+    step 400: inside 400 size 834 weight 98.0 loss -1.110e-16
+    step 500: inside 500 size 439 weight 98.0 loss -2.776e-15
+    step 600: inside 600 size 396 weight 98.0 loss -2.331e-15
+    step 700: inside 700 size 486 weight 98.0 loss -1.776e-15
+    step 800: inside 800 size 1178 weight 98.0 loss -2.220e-16
+    step 900: inside 900 size 5855 weight 98.3 loss 1.110e-15

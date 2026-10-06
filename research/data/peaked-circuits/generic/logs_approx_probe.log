@@ -1,0 +1,32 @@
+== peaked_circuit_P9_Hqap_56x1917.qasm: n=56 units=1917 depth=103 segments=3778
+  quotient=False: duplicated-fingerprint segments 169, anchors 0
+  quotient=True: duplicated-fingerprint segments 176, anchors 0
+== peaked_circuit_heavy_hex_49x4020.qasm: n=49 units=4020 depth=222 segments=7991
+  quotient=False: duplicated-fingerprint segments 14, anchors 0
+  quotient=True: duplicated-fingerprint segments 12, anchors 0
+== peaked_circuit_heavy_hex_49x5072.qasm: n=49 units=5072 depth=282 segments=10095
+  quotient=False: duplicated-fingerprint segments 4, anchors 0
+  quotient=True: duplicated-fingerprint segments 4, anchors 0
+== peaked_circuit_P11_Hqap_98x1999.qasm: n=98 units=1999 depth=115 segments=3900
+  quotient=False: duplicated-fingerprint segments 367, anchors 419
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 77, 119, 15, 0, 0, 0, 33, 157, 16, 2, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 24.0..76.0
+  quotient=True: duplicated-fingerprint segments 367, anchors 419
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 77, 119, 15, 0, 0, 0, 33, 157, 16, 2, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 24.0..76.0
+== peaked_circuit_P9_Hqap_56x1917.qasm: segments 3778; 1-max|<q,q'^-1>| histogram:
+    [(1e-12, 113), (1e-09, 29), (1e-06, 9), (0.0001, 26), (0.001, 441), (0.01, 3091), (0.03, 69), (0.1, 0), (1, 0)]
+   segments with |q0|>1-1e-9 (identity): 18  diag (Z-rot): 43
+   back-to-back same-pair CZs: 32; distinct pairs 1069; CZs/pair max 9
+== peaked_circuit_heavy_hex_49x4020.qasm: segments 7991; 1-max|<q,q'^-1>| histogram:
+    [(1e-12, 0), (1e-09, 0), (1e-06, 6), (0.0001, 114), (0.001, 1848), (0.01, 6016), (0.03, 7), (0.1, 0), (1, 0)]
+   segments with |q0|>1-1e-9 (identity): 0  diag (Z-rot): 0
+   back-to-back same-pair CZs: 541; distinct pairs 54; CZs/pair max 75
+== peaked_circuit_heavy_hex_49x5072.qasm: segments 10095; 1-max|<q,q'^-1>| histogram:
+    [(1e-12, 0), (1e-09, 0), (1e-06, 0), (0.0001, 162), (0.001, 3172), (0.01, 6761), (0.03, 0), (0.1, 0), (1, 0)]
+   segments with |q0|>1-1e-9 (identity): 0  diag (Z-rot): 0
+   back-to-back same-pair CZs: 40; distinct pairs 54; CZs/pair max 95
+== peaked_circuit_P11_Hqap_98x1999.qasm: segments 3900; 1-max|<q,q'^-1>| histogram:
+    [(1e-12, 930), (1e-09, 10), (1e-06, 733), (0.0001, 960), (0.001, 135), (0.01, 642), (0.03, 212), (0.1, 2), (1, 0)]
+   segments with |q0|>1-1e-9 (identity): 186  diag (Z-rot): 186
+   back-to-back same-pair CZs: 15; distinct pairs 1356; CZs/pair max 5

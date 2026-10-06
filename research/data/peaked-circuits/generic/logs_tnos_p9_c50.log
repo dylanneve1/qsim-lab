@@ -1,0 +1,33 @@
+   {'lo': 49, 'hi': 51, 'elems': 576, 'max_bond': 2, 'nbonds': 33, 'moved': 0, 't': 0.7}
+   {'lo': 48, 'hi': 52, 'elems': 1072, 'max_bond': 4, 'nbonds': 46, 'moved': 6, 't': 0.7}
+   {'lo': 47, 'hi': 53, 'elems': 1552, 'max_bond': 4, 'nbonds': 50, 'moved': 6, 't': 0.8}
+   {'lo': 46, 'hi': 54, 'elems': 1728, 'max_bond': 4, 'nbonds': 51, 'moved': 6, 't': 0.9}
+   {'lo': 45, 'hi': 55, 'elems': 1540, 'max_bond': 4, 'nbonds': 47, 'moved': 20, 't': 1.0}
+   {'lo': 44, 'hi': 56, 'elems': 3852, 'max_bond': 4, 'nbonds': 83, 'moved': 20, 't': 1.2}
+   {'lo': 43, 'hi': 57, 'elems': 10272, 'max_bond': 4, 'nbonds': 118, 'moved': 20, 't': 1.9}
+   {'lo': 42, 'hi': 58, 'elems': 27968, 'max_bond': 4, 'nbonds': 149, 'moved': 20, 't': 4.8}
+   {'lo': 41, 'hi': 59, 'elems': 75840, 'max_bond': 4, 'nbonds': 177, 'moved': 20, 't': 25.7}
+Command terminated by signal 15
+	Command being timed: "/tmp/pk/research/data/peaked-circuits/.venv/bin/python -u run_tnos.py /tmp/peaked-gen/peaked_circuit_P9_Hqap_56x1917.qasm 50 1e-3 3e6"
+	User time (seconds): 71.64
+	System time (seconds): 1.17
+	Percent of CPU this job got: 191%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:38.01
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 557204
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 856775
+	Voluntary context switches: 9
+	Involuntary context switches: 449
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

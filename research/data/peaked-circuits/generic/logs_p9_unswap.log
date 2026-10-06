@@ -1,0 +1,33 @@
+   {'lo': 49, 'hi': 51, 'unswaps': 0, 'elems': 576, 'max_bond': 2, 'nbonds': 33, 'moved': 0, 't': 1.3}
+   {'lo': 48, 'hi': 52, 'unswaps': 3, 'elems': 984, 'max_bond': 4, 'nbonds': 46, 'moved': 12, 't': 1.8}
+   {'lo': 47, 'hi': 53, 'unswaps': 1, 'elems': 1396, 'max_bond': 4, 'nbonds': 49, 'moved': 14, 't': 2.3}
+   {'lo': 46, 'hi': 54, 'unswaps': 3, 'elems': 1476, 'max_bond': 4, 'nbonds': 48, 'moved': 20, 't': 2.9}
+   {'lo': 45, 'hi': 55, 'unswaps': 9, 'elems': 696, 'max_bond': 4, 'nbonds': 32, 'moved': 52, 't': 3.5}
+   {'lo': 44, 'hi': 56, 'unswaps': 0, 'elems': 1180, 'max_bond': 4, 'nbonds': 36, 'moved': 52, 't': 3.9}
+   {'lo': 43, 'hi': 57, 'unswaps': 0, 'elems': 2780, 'max_bond': 4, 'nbonds': 50, 'moved': 52, 't': 5.8}
+   {'lo': 42, 'hi': 58, 'unswaps': 0, 'elems': 9392, 'max_bond': 4, 'nbonds': 71, 'moved': 52, 't': 54.7}
+   {'lo': 41, 'hi': 59, 'unswaps': 0, 'elems': 28012, 'max_bond': 4, 'nbonds': 87, 'moved': 52, 't': 541.1}
+Command terminated by signal 15
+	Command being timed: "/tmp/pk/research/data/peaked-circuits/.venv/bin/python -u run_tnos.py /tmp/peaked-gen/portal/P9_hqap_1917.qasm 50 1e-3 2e6 --unswap"
+	User time (seconds): 706.32
+	System time (seconds): 8.68
+	Percent of CPU this job got: 115%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 10:17.17
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1503064
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 7
+	Minor (reclaiming a frame) page faults: 4692647
+	Voluntary context switches: 331
+	Involuntary context switches: 320592
+	Swaps: 0
+	File system inputs: 3376
+	File system outputs: 48
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
