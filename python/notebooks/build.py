@@ -62,7 +62,7 @@ def convert(md: pathlib.Path) -> nbformat.NotebookNode:
 
 def main():
     run = "--no-exec" not in sys.argv
-    for md in sorted(DOCS.glob("*.md")):
+    for md in (DOCS / f"{n}.md" for n in ("simulate", "qec", "shor", "analysis")):  # tutorials only
         nb = convert(md)
         if run:
             from nbclient import NotebookClient

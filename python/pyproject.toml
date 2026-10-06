@@ -31,7 +31,7 @@ all = ["qiskit>=1.0", "qiskit-aer>=0.13", "cirq-core>=1.2", "stim>=1.12"]
 
 [project.urls]
 Repository = "https://github.com/dylanneve1/qsim-lab"
-Documentation = "https://github.com/dylanneve1/qsim-lab/blob/main/python/API.md"
+Documentation = "https://dylanneve1.github.io/qsim-lab/"
 
 [tool.maturin]
 module-name = "qsimlab._native"

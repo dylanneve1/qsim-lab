@@ -1,16 +1,115 @@
 site_name: qsimlab
-site_description: Python API for the qsim-lab quantum simulator
+site_description: Exact quantum circuit simulation for Python, with a cost-model planner that picks the engine for you.
+site_url: https://dylanneve1.github.io/qsim-lab/
 repo_url: https://github.com/dylanneve1/qsim-lab
+repo_name: dylanneve1/qsim-lab
+edit_uri: edit/main/python/docs/
+copyright: Copyright &copy; 2026 qsim-lab contributors &middot; MIT License
 docs_dir: site-src
+
 theme:
   name: material
-  features: [navigation.sections, content.code.copy]
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle: { icon: material/weather-night, name: Switch to dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle: { icon: material/weather-sunny, name: Switch to light mode }
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+
+extra_css:
+  - assets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dylanneve1/qsim-lab
+      name: qsim-lab on GitHub
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [python]
+          options:
+            extensions:
+              - scripts/griffe_rst.py:RstToMarkdown
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_signature_annotations: true
+            separate_signature: true
+            signature_crossrefs: true
+            members_order: source
+            filters: ["!^_"]
+            merge_init_into_class: true
+            heading_level: 2
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - toc: { permalink: true }
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight: { anchor_linenums: true, line_spans: __span, pygments_lang_class: true }
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed: { alternate_style: true }
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
 nav:
   - Home: index.md
-  - API contract: API.md
-  - Tutorials:
-      - Core & simulate: simulate.md
-      - QEC: qec.md
-      - Shor: shor.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Core simulation: simulate.md
+      - Quantum error correction: qec.md
+      - Shor's algorithm: shor.md
       - Analysis: analysis.md
-  - Notebooks: notebooks.md
+      - Notebooks: notebooks.md
+  - API reference:
+      - reference/index.md
+      - Circuits: reference/circuit.md
+      - Simulation: reference/sim.md
+      - Errors: reference/errors.md
+      - Interop: reference/interop.md
+      - qsimlab.qec: reference/qec.md
+      - qsimlab.shor: reference/shor.md
+      - qsimlab.analysis: reference/analysis.md
+  - API contract: API.md
+  - Research: research.md

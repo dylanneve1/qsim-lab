@@ -13,6 +13,7 @@ audit before merge (see [research/process/audit.md](research/process/audit.md)).
 - **Results summary:** [RESULTS.md](RESULTS.md)
 - **Architecture:** [research/ARCHITECTURE.md](research/ARCHITECTURE.md)
 - **Lab notebooks:** [research/](research/), indexed [below](#research-index)
+- **Documentation:** [dylanneve1.github.io/qsim-lab](https://dylanneve1.github.io/qsim-lab/) (guides and API reference)
 - **Python API:** `qsimlab` (PyO3 + maturin, abi3 wheels, numpy in/out): [quickstart](#python-quickstart), contract in [python/API.md](python/API.md)
 
 ## Highlights
