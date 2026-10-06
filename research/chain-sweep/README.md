@@ -139,7 +139,8 @@ Pro CPU.
 | IBM, middle edge | 20 | 40 | 8 | 1.000000 | all 2^-8 | 0.0000 | 0.0039, 0.0625, 0.2500, 0.5000 (sd 0) |
 | IBM, 8 different edges | 20 | 40 | 8 | 1.000000 | all 2^-8 | 0.0000 | 0.0039, 0.0625, 0.2500, 0.5000 (sd 0) |
 | IBM, middle edge (k = 300 bitstrings) | 70 | 40 | 8 of 20 | | | | 0.008, 0.069, 0.262, 0.505 (sd over subsets 0.006–0.024) |
-| random U3 brickwork (control) | 20 | 40 | 8 | 1.000000 | 1.7e-4 … 1.8e-2 | 0.011 | 0.0067, 0.062, 0.248, 0.502 (sd 0.011–0.055) |
+| random U3 brickwork (control), middle edge | 20 | 40 | 8 | 1.000000 | 1.7e-4 … 1.8e-2 | 0.011 | 0.0067, 0.062, 0.248, 0.502 (sd 0.011–0.055) |
+| random U3 brickwork (control), 8 different edges | 20 | 40 | 8 | 1.000000 | 1.4e-3 … 1.3e-2 | 0.0000 | 0.0040, 0.063, 0.250, 0.500 (sd 0.002–0.014) |
 
 - On IBM's circuit, the slices of CZ bonds are, to f32 precision, exactly
   orthogonal and of exactly equal norm `2^-s`. Every subset of a fraction `f`
@@ -148,7 +149,8 @@ Pro CPU.
   non-Clifford gates are diagonal `T`s, and the projector side of each CZ is
   then an unbiased, uncorrelated Z bit, as in a stabilizer state.
 - On a generic random circuit the rule only holds on average: slice norms
-  vary by 100×, and individual subsets scatter widely around `f`.
+  vary by 10–100×, and individual subsets scatter around `f` (sd up to 0.055
+  at `f = 1/2` for bonds on one edge, 0.014 for bonds on different edges).
 - Either way, `F ≈ f` buys time, not memory. With bond slicing it cannot
   bring this circuit onto a 16 GB machine.
 
