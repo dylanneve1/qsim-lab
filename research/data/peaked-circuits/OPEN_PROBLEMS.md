@@ -33,8 +33,8 @@ stays small.
 *Open:* predict W's maximum bond dimension from the circuit before running, and find which features
 of the construction control it.
 
-## 5. Certifying the global peak
-`parent_verify.py` shows that no single-bit flip of a candidate scores higher. That is a local
-maximum test. It does not prove the candidate is the global argmax.
-*Open:* a cheap global certificate, e.g. a bound on the total weight outside a Hamming ball, from
-quantities the fold already computes.
+## 5. Certifying the global peak (partly solved)
+`tools/collision_cert.py` gives a global certificate when the 4-copy collision network is contractible: if
+Σ_x p(x)² − p(s)² < p(s)², s is the unique peak. It certified P4 and P7. It does not scale to P8 (40-qubit grid, norm
+network log2 flops ≈ 53 even sliced), and on reduced-model solves (P5, P11, P12) it certifies the model, not the circuit.
+*Open:* a certificate that scales to wide 2D networks, and one that covers the dropped middle (see `bound-attempt/`).
