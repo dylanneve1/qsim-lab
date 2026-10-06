@@ -54,9 +54,14 @@ for k, q, M in fused:
         sub = T[tuple(idx)]; bb = b if b < a else b-1
         sub = np.moveaxis(sub, bb, 0); tmp = sub[0].copy(); sub[0] = sub[1]; sub[1] = tmp
 print('simulated in', round(time.time()-t), 's; norm', float(np.vdot(psi, psi).real), flush=True)
-pr = (psi.real**2 + psi.imag**2)
-top = np.argpartition(pr, -5)[-5:]; top = top[np.argsort(pr[top])[::-1]]
-for i in top:
-    s = format(int(i), f'0{n}b')[::-1]   # qubit 0 first
-    print('  ', s, float(pr[i]))
-print('PEAK (q0 first)', format(int(top[0]), f'0{n}b')[::-1], 'p', float(pr[top[0]]), 'runner-up', float(pr[top[1]]))
+# top-5 by probability, chunked (no full-size temporaries)
+best = []
+CH = 1 << 22
+for i in range(0, psi.size, CH):
+    c = psi[i:i+CH]; pc = c.real*c.real + c.imag*c.imag
+    j = np.argpartition(pc, -5)[-5:]
+    best += [(float(pc[k]), i + int(k)) for k in j]
+best = sorted(best, reverse=True)[:5]
+for pv, i in best:
+    print('  ', format(i, f'0{n}b')[::-1], pv)
+print('PEAK (q0 first)', format(best[0][1], f'0{n}b')[::-1], 'p', best[0][0], 'runner-up', best[1][0])
