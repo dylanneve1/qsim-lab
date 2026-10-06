@@ -148,20 +148,20 @@ pub fn parse_bitstring(obj: &Bound<'_, PyAny>, n: usize) -> PyResult<u128> {
         let s = s.as_str();
         let t = s.trim().trim_start_matches("0b").replace('_', "");
         if t.is_empty() || !t.chars().all(|c| c == '0' || c == '1') {
-            return Err(value_err(format!(
+            return Err(circuit_err(format!(
                 "bitstring '{s}' must contain only 0 and 1 (rightmost = qubit 0)"
             )));
         }
         if t.len() != n {
-            return Err(value_err(format!(
+            return Err(circuit_err(format!(
                 "bitstring '{s}' has {} characters for a {n}-qubit circuit",
                 t.len()
             )));
         }
-        u128::from_str_radix(&t, 2).map_err(|e| value_err(e.to_string()))?
+        u128::from_str_radix(&t, 2).map_err(|e| circuit_err(e.to_string()))?
     } else {
         obj.extract::<u128>().map_err(|_| {
-            value_err(format!(
+            circuit_err(format!(
                 "a basis state must be a non-negative int or a 0/1 string, got {}",
                 obj.repr().map(|r| r.to_string()).unwrap_or_default()
             ))
