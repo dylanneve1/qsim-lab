@@ -255,6 +255,8 @@ impl Builder<'_> {
     }
 
     /// Processes one worldline; `init` is the initial ket, `fin` the final bra.
+    // the 2x2 index loops mirror the formulas (u[q][bp])
+    #[allow(clippy::needless_range_loop)]
     fn line(&mut self, evs: &[Ev], backward: bool, init: [Complex64; 2], fin: [Complex64; 2]) {
         let mut mode = Mode::Product(init);
         let n = evs.len();
