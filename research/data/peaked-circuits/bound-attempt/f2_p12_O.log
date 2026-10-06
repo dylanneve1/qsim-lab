@@ -1,0 +1,35 @@
+sec1: hull 593, boundary tCZ 21, transported 18 cost 0.0962, kept-in-outer 3
+sec3: hull 610, boundary tCZ 14, transported 13 cost 0.0757, kept-in-outer 1
+outer: 944 gates, cut 443, final map == Core.L: True
+[O]   step 20 V 433 W 491 k 0 cost 0.0086 forced 0
+[O]   step 40 V 423 W 481 k 0 cost 0.0182 forced 0
+[O]   step 60 V 413 W 471 k 0 cost 0.0288 forced 0
+[O]   step 80 V 403 W 461 k 0 cost 0.0435 forced 0
+[O]   step 100 V 393 W 451 k 0 cost 0.0509 forced 0
+[O]   step 121 V 382 W 441 k 3 cost 0.0627 forced 0
+[O]   step 141 V 371 W 432 k 7 cost 0.0692 forced 0
+Traceback (most recent call last):
+  File "/tmp/peaked-bound/run_full2.py", line 83, in <module>
+    z, r = zip_run(gates, cut, 'O')
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-bound/run_full2.py", line 28, in zip_run
+    z = Zipper(gates, cut, c.n, kmax=kmax, tau=tau, log=lambda s: print(f'[{label}] ' + s, flush=True)).run_paired(maxsteps=maxsteps)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-bound/zipper2.py", line 125, in run_paired
+    self.peel_all(force=True); self.journal = []
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-bound/zipper2.py", line 78, in peel_all
+    d, u, A = self.candidate(ri, qi)
+              ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-bound/zipper2.py", line 59, in candidate
+    A = polar_unitary(np.einsum('ab,abij->ij', u.conj(), Mr))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-bound/zipper.py", line 15, in polar_unitary
+    U, s, Vh = np.linalg.svd(M)
+               ^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 1812, in svd
+    u, s, vh = gufunc(a, signature=signature)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 113, in _raise_linalgerror_svd_nonconvergence
+    raise LinAlgError("SVD did not converge")
+numpy.linalg.LinAlgError: SVD did not converge

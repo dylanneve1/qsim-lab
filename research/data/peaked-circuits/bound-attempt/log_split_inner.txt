@@ -1,0 +1,4 @@
+P11_Hqap_98x1999 sec 2 size 537 inner 458 before 38 after 41 inconsistent 0
+P11_Hqap_98x1999 sec 4 size 544 inner 460 before 40 after 44 inconsistent 0
+P12_Hqap_98x2457 sec 1 size 1081 inner 593 before 455 after 33 inconsistent 0
+P12_Hqap_98x2457 sec 3 size 649 inner 610 before 22 after 17 inconsistent 0

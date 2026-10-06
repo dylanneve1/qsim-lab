@@ -1,0 +1,9 @@
+P11_Hqap_98x1999 outer gates 634 cut 317 L==mp True
+  step 10 V 312 W 312 k 7 cost 0.0039 forced 0
+  step 20 V 306 W 308 k 7 cost 0.0163 forced 0
+  step 30 V 301 W 303 k 7 cost 0.0344 forced 0
+  step 40 V 296 W 298 k 7 cost 0.0507 forced 0
+  step 50 V 291 W 293 k 10 cost 0.0573 forced 0
+  step 60 V 283 W 291 k 8 cost 0.0616 forced 0
+    forced peel d=7.654e-01 k=12
+    forced peel d=6.262e-14 k=11

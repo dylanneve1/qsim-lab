@@ -1,0 +1,19 @@
+sec2: hull 458, boundary tCZ 28, transported 24 cost 0.1305, kept-in-outer 4
+sec4: hull 460, boundary tCZ 32, transported 30 cost 0.1517, kept-in-outer 2
+outer: 743 gates, cut 341, final map == Core.L: True
+[O]   step 20 V 331 W 392 k 0 cost 0.0000 forced 0
+[O]   step 40 V 321 W 382 k 0 cost 0.0146 forced 0
+[O]   step 60 V 311 W 372 k 2 cost 0.0252 forced 0
+[O]   step 80 V 301 W 362 k 0 cost 0.0372 forced 0
+[O]   step 100 V 291 W 352 k 0 cost 0.0466 forced 0
+[O]   step 121 V 278 W 344 k 0 cost 0.0529 forced 0
+[O]   step 141 V 269 W 333 k 0 cost 0.0647 forced 0
+[O]   step 160 V 262 W 321 k 5 cost 0.1142 forced 0
+[O]   step 181 V 252 W 310 k 4 cost 0.1671 forced 0
+[O]   step 201 V 243 W 299 k 8 cost 0.2066 forced 0
+[O]     forced peel d=7.654e-01 k=8
+[O]     forced peel d=7.654e-01 k=6
+[O]     forced peel d=7.654e-01 k=4
+[O]     forced peel d=7.654e-01 k=2
+[O] RESULT {"total": 3.2680803888580106, "peels": 172, "forced_n": 4, "forced_sum": 3.061457893933873, "unforced_sum": 0.20662249492413753, "maxk": 9, "remaining_V": 243, "remaining_W": 299, "nf_sum": 3.2123375522533384, "nf_rss": 1.5309529330982514, "rss": 1.5311875767442475, "top": [0.7654, 0.7654, 0.7654, 0.7654, 0.0154, 0.0138, 0.0117, 0.0113, 0.0102, 0.0089], "secs": 449}
+DONE {"O": 3.2680803888580106}

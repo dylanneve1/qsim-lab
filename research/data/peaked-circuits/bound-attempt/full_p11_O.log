@@ -1,0 +1,19 @@
+hull sec2: 458 gates, covers 98 wires
+hull sec4: 460 gates, covers 98 wires
+outer: 797 gates, cut 355, final map == Core.L: True
+[O]   step 21 V 343 W 433 k 0 cost 0.0061 forced 0
+[O]     forced peel d=7.654e-01 k=9
+[O]     forced peel d=7.654e-01 k=9
+[O]     forced peel d=7.654e-01 k=9
+[O]     forced peel d=7.654e-01 k=10
+[O]     forced peel d=3.553e-15 k=9
+[O]     forced peel d=7.654e-01 k=10
+[O]     forced peel d=3.997e-15 k=9
+[O]     forced peel d=7.654e-01 k=9
+[O]     forced peel d=7.654e-01 k=10
+[O]     forced peel d=3.997e-15 k=9
+[O]     forced peel d=7.654e-01 k=9
+[O]   step 40 V 335 W 422 k 8 cost 6.1291 forced 8
+[O]     forced peel d=7.654e-01 k=10
+[O]     forced peel d=4.441e-15 k=9
+[O]     forced peel d=7.654e-01 k=10
