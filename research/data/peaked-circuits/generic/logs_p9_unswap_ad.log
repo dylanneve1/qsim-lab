@@ -1,0 +1,61 @@
+   {'lo': 50, 'hi': 51, 'side': 'after', 'elems': 352, 'max_bond': 2, 'nbonds': 16, 'moved': 0, 't': 1.5}
+   {'lo': 50, 'hi': 52, 'side': 'after', 'elems': 576, 'max_bond': 2, 'nbonds': 33, 'moved': 0, 't': 1.5}
+   {'lo': 49, 'hi': 52, 'side': 'before', 'elems': 756, 'max_bond': 4, 'nbonds': 39, 'moved': 4, 't': 1.7}
+   {'lo': 48, 'hi': 52, 'side': 'before', 'elems': 984, 'max_bond': 4, 'nbonds': 46, 'moved': 12, 't': 1.8}
+   {'lo': 47, 'hi': 52, 'side': 'before', 'elems': 1108, 'max_bond': 4, 'nbonds': 48, 'moved': 12, 't': 2.0}
+   {'lo': 46, 'hi': 52, 'side': 'before', 'elems': 1180, 'max_bond': 4, 'nbonds': 48, 'moved': 32, 't': 2.3}
+   {'lo': 45, 'hi': 52, 'side': 'before', 'elems': 928, 'max_bond': 4, 'nbonds': 37, 'moved': 46, 't': 2.5}
+   {'lo': 45, 'hi': 53, 'side': 'after', 'elems': 900, 'max_bond': 4, 'nbonds': 34, 'moved': 48, 't': 2.7}
+   {'lo': 45, 'hi': 54, 'side': 'after', 'elems': 856, 'max_bond': 4, 'nbonds': 40, 'moved': 52, 't': 2.9}
+   {'lo': 45, 'hi': 55, 'side': 'after', 'elems': 1028, 'max_bond': 4, 'nbonds': 46, 'moved': 52, 't': 3.1}
+   {'lo': 44, 'hi': 55, 'side': 'before', 'elems': 1292, 'max_bond': 4, 'nbonds': 45, 'moved': 52, 't': 3.4}
+   {'lo': 44, 'hi': 56, 'side': 'after', 'elems': 1804, 'max_bond': 4, 'nbonds': 53, 'moved': 52, 't': 4.0}
+   {'lo': 44, 'hi': 57, 'side': 'after', 'elems': 2996, 'max_bond': 4, 'nbonds': 69, 'moved': 52, 't': 4.5}
+   {'lo': 43, 'hi': 57, 'side': 'before', 'elems': 4924, 'max_bond': 4, 'nbonds': 69, 'moved': 52, 't': 5.6}
+   {'lo': 42, 'hi': 57, 'side': 'before', 'elems': 8496, 'max_bond': 4, 'nbonds': 77, 'moved': 52, 't': 8.9}
+   {'lo': 41, 'hi': 57, 'side': 'before', 'elems': 13768, 'max_bond': 4, 'nbonds': 84, 'moved': 52, 't': 19.2}
+   {'lo': 40, 'hi': 57, 'side': 'before', 'elems': 18336, 'max_bond': 4, 'nbonds': 88, 'moved': 52, 't': 41.9}
+   {'lo': 39, 'hi': 57, 'side': 'before', 'elems': 26660, 'max_bond': 4, 'nbonds': 101, 'moved': 52, 't': 91.1}
+   {'lo': 38, 'hi': 57, 'side': 'before', 'elems': 34024, 'max_bond': 4, 'nbonds': 119, 'moved': 52, 't': 190.0}
+   {'lo': 37, 'hi': 57, 'side': 'before', 'elems': 53232, 'max_bond': 4, 'nbonds': 142, 'moved': 52, 't': 406.3}
+init_gesdd failed init
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/run_tnos.py", line 4, in <module>
+    W, lo, hi, hist = (tnos.grow_adaptive if "--adaptive" in sys.argv else tnos.grow)(n, units, L, c, cutoff=cutoff, max_elems=maxe, log=True, **({"unswap": True} if "--unswap" in sys.argv else {}))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/tnos.py", line 142, in grow_adaptive
+    Wa = absorb(copy.deepcopy(W), 'after', hi); opts.append((Wa.size(), 0, 'after', Wa))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/tnos.py", line 133, in absorb
+    Wx.gate(unitG(units[k]), units[k][0], units[k][1], side)
+  File "/tmp/peaked-generic/tno.py", line 115, in gate
+    r = self._split(C, lc, rest_x + [gx], [gy] + rest_y)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/tno.py", line 84, in _split
+    Rt = (sq[:, None] * Vh).reshape([keep] + [C.shape[i] for i in pr])
+          ~~~~~~~~~~~~^~~~
+numpy._core._exceptions._ArrayMemoryError: Unable to allocate 253. MiB for an array with shape (2026, 8192) and data type complex128
+Command exited with non-zero status 1
+	Command being timed: "/tmp/pk/research/data/peaked-circuits/.venv/bin/python -u run_tnos.py /tmp/peaked-gen/portal/P9_hqap_1917.qasm 50 1e-3 2e6 --unswap --adaptive"
+	User time (seconds): 668.14
+	System time (seconds): 10.86
+	Percent of CPU this job got: 150%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 7:32.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1841784
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 67
+	Minor (reclaiming a frame) page faults: 6683051
+	Voluntary context switches: 2467
+	Involuntary context switches: 193137
+	Swaps: 0
+	File system inputs: 61424
+	File system outputs: 128
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

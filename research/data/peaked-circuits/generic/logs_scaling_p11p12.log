@@ -1,0 +1,2 @@
+{"file": "peaked_circuit_P11_Hqap_98x1999.qasm", "core_units": 284, "amp_width": 12.0, "amp_log2flops": 17.9, "worst_marginal_qubit": 6, "worst_cone_gates": 83, "marg_width": 11.0, "marg_log2flops": 17.0}
+{"file": "peaked_circuit_P12_Hqap_98x2457.qasm", "core_units": 279, "amp_width": 8.0, "amp_log2flops": 15.4, "worst_marginal_qubit": 1, "worst_cone_gates": 78, "marg_width": 11.0, "marg_log2flops": 17.1}

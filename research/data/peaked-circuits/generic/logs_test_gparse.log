@@ -1,0 +1,48 @@
+synthetic#0 qasm2: n=6 ops=120 units=71 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#0 qasm3: n=6 ops=120 units=71 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#1 qasm2: n=6 ops=120 units=75 fidelity=0.999999999999985 nearest-fold=0.999999999999985 OK
+synthetic#1 qasm3: n=6 ops=120 units=75 fidelity=0.999999999999985 nearest-fold=0.999999999999985 OK
+synthetic#2 qasm2: n=6 ops=120 units=70 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#2 qasm3: n=6 ops=120 units=70 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#3 qasm2: n=6 ops=120 units=59 fidelity=0.999999999999989 nearest-fold=0.999999999999989 OK
+synthetic#3 qasm3: n=6 ops=120 units=59 fidelity=0.999999999999989 nearest-fold=0.999999999999989 OK
+synthetic#4 qasm2: n=6 ops=120 units=71 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#4 qasm3: n=6 ops=120 units=71 fidelity=0.999999999999987 nearest-fold=0.999999999999987 OK
+synthetic#5 qasm2: n=6 ops=120 units=78 fidelity=0.999999999999985 nearest-fold=0.999999999999985 OK
+synthetic#5 qasm3: n=6 ops=120 units=78 fidelity=0.999999999999985 nearest-fold=0.999999999999985 OK
+iswap macro expands to ['s', 's', 'h', 'cx', 'cx', 'h'] == iSWAP: True
+iswap macro units: n=2 ops=6 units=2 fidelity=0.999999999999999 nearest-fold=0.999999999999999 OK
+non-CZ-class rzz(0.3) rejected: OK
+P8_grid_888_iswap.qasm sub0: n=11 ops=1693 units=356 fidelity=0.999999999999773 nearest-fold=0.999999999999783 OK
+P8_grid_888_iswap.qasm sub1: n=11 ops=1843 units=386 fidelity=0.999999999999755 nearest-fold=0.999999999999767 OK
+P8_grid_888_iswap.qasm sub2: n=11 ops=1693 units=356 fidelity=0.999999999999773 nearest-fold=0.999999999999784 OK
+   full parse: n=40 2q units=1776 (2q ops in file 1776)
+peaked_circuit_P9_Hqap_56x1917.qasm sub0: n=11 ops=855 units=81 fidelity=0.999999999999999 nearest-fold=0.999999999999998 OK
+peaked_circuit_P9_Hqap_56x1917.qasm sub1: n=11 ops=844 units=79 fidelity=0.999999999999998 nearest-fold=0.999999999999997 OK
+peaked_circuit_P9_Hqap_56x1917.qasm sub2: n=11 ops=850 units=83 fidelity=0.999999999999995 nearest-fold=0.999999999999994 OK
+   full parse: n=56 2q units=1917 (2q ops in file 1917)
+peaked_circuit_heavy_hex_49x4020.q2.qasm sub0: n=11 ops=2545 units=745 fidelity=0.999999999999998 nearest-fold=0.999999999999996 OK
+peaked_circuit_heavy_hex_49x4020.q2.qasm sub1: n=11 ops=2546 units=746 fidelity=1.000000000000002 nearest-fold=1.000000000000002 OK
+peaked_circuit_heavy_hex_49x4020.q2.qasm sub2: n=11 ops=2611 units=743 fidelity=0.999999999999997 nearest-fold=0.999999999999997 OK
+   full parse: n=49 2q units=4020 (2q ops in file 4020)
+peaked_circuit_heavy_hex_49x4020.qasm sub0: n=11 ops=2608 units=741 fidelity=1.000000000000002 nearest-fold=1.000000000000002 OK
+peaked_circuit_heavy_hex_49x4020.qasm sub1: n=11 ops=2549 units=747 fidelity=1.000000000000000 nearest-fold=0.999999999999999 OK
+peaked_circuit_heavy_hex_49x4020.qasm sub2: n=11 ops=2475 units=747 fidelity=0.999999999999998 nearest-fold=0.999999999999997 OK
+   full parse: n=49 2q units=4020 (2q ops in file 4020)
+peaked_circuit_heavy_hex_49x5072.q2.qasm sub0: n=11 ops=3391 units=938 fidelity=0.999999999999989 nearest-fold=0.999999999999990 OK
+peaked_circuit_heavy_hex_49x5072.q2.qasm sub1: n=11 ops=3401 units=941 fidelity=0.999999999999996 nearest-fold=0.999999999999996 OK
+peaked_circuit_heavy_hex_49x5072.q2.qasm sub2: n=11 ops=3107 units=939 fidelity=1.000000000000004 nearest-fold=1.000000000000004 OK
+   full parse: n=49 2q units=5072 (2q ops in file 5072)
+peaked_circuit_heavy_hex_49x5072.qasm sub0: n=11 ops=3306 units=941 fidelity=0.999999999999997 nearest-fold=0.999999999999996 OK
+peaked_circuit_heavy_hex_49x5072.qasm sub1: n=11 ops=3296 units=938 fidelity=0.999999999999991 nearest-fold=0.999999999999991 OK
+peaked_circuit_heavy_hex_49x5072.qasm sub2: n=11 ops=3291 units=936 fidelity=1.000000000000000 nearest-fold=1.000000000000001 OK
+   full parse: n=49 2q units=5072 (2q ops in file 5072)
+peaked_circuit_P11_Hqap_98x1999.qasm sub0: n=11 ops=905 units=29 fidelity=1.000000000000000 nearest-fold=1.000000000000000 OK
+peaked_circuit_P11_Hqap_98x1999.qasm sub1: n=11 ops=866 units=30 fidelity=0.999999999999998 nearest-fold=0.999999999999997 OK
+peaked_circuit_P11_Hqap_98x1999.qasm sub2: n=11 ops=928 units=28 fidelity=1.000000000000000 nearest-fold=1.000000000000000 OK
+   full parse: n=98 2q units=1999 (2q ops in file 1999)
+peaked_circuit_P12_Hqap_98x2457.qasm sub0: n=11 ops=1169 units=49 fidelity=1.000000000000002 nearest-fold=1.000000000000001 OK
+peaked_circuit_P12_Hqap_98x2457.qasm sub1: n=11 ops=1215 units=49 fidelity=0.999999999999997 nearest-fold=0.999999999999996 OK
+peaked_circuit_P12_Hqap_98x2457.qasm sub2: n=11 ops=1189 units=39 fidelity=0.999999999999997 nearest-fold=0.999999999999997 OK
+   full parse: n=98 2q units=2457 (2q ops in file 2457)
+ALL OK
