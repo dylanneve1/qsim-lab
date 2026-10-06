@@ -1,0 +1,7 @@
+centre  110.0 cutoff   1e-03: peak#1 p 0.6990 norm 0.9896 min|Z| 0.837 W bond 8 width 14.3 log2flops 20.6 20.1s RSS 206MB
+centre  110.0 cutoff   1e-04: peak#1 p 0.7016 norm 0.9862 min|Z| 0.833 W bond 8 width 15.2 log2flops 22.3 20.0s RSS 218MB
+centre 110.0 cutoff 1e-05: FAILED contraction width 77.0 too large for this machine
+centre  108.0 cutoff   1e-03: peak#1 p 0.6984 norm 0.9807 min|Z| 0.837 W bond 8 width 15.2 log2flops 21.3 23.3s RSS 504MB
+centre  108.0 cutoff   1e-04: peak#1 p 0.7018 norm 0.9873 min|Z| 0.833 W bond 8 width 14.6 log2flops 21.6 22.9s RSS 504MB
+centre 108.0 cutoff 1e-05: FAILED contraction width 70.4 too large for this machine
+distinct peaks: 1

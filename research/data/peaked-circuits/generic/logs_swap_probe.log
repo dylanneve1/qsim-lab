@@ -1,0 +1,60 @@
+/tmp/peaked-generic/swap_probe.py:27: RuntimeWarning: invalid value encountered in scalar power
+  U = U / np.linalg.det(U)**0.25
+peaked_circuit_heavy_hex_49x4020.qasm run length histogram: [(1, 2938), (2, 541)]
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/swap_probe.py", line 31, in <module>
+    swapev = kak_class(np.eye(4)[[0,2,1,3]])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/swap_probe.py", line 29, in kak_class
+    ev = np.linalg.eigvals(Um.T @ Um)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 1206, in eigvals
+    _assert_finite(a)
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 207, in _assert_finite
+    raise LinAlgError("Array must not contain infs or NaNs")
+numpy.linalg.LinAlgError: Array must not contain infs or NaNs
+/tmp/peaked-generic/swap_probe.py:27: RuntimeWarning: invalid value encountered in scalar power
+  U = U / np.linalg.det(U)**0.25
+peaked_circuit_heavy_hex_49x5072.qasm run length histogram: [(1, 4996), (2, 32), (3, 4)]
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/swap_probe.py", line 31, in <module>
+    swapev = kak_class(np.eye(4)[[0,2,1,3]])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/swap_probe.py", line 29, in kak_class
+    ev = np.linalg.eigvals(Um.T @ Um)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 1206, in eigvals
+    _assert_finite(a)
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 207, in _assert_finite
+    raise LinAlgError("Array must not contain infs or NaNs")
+numpy.linalg.LinAlgError: Array must not contain infs or NaNs
+/tmp/peaked-generic/swap_probe.py:27: RuntimeWarning: invalid value encountered in scalar power
+  U = U / np.linalg.det(U)**0.25
+peaked_circuit_P9_Hqap_56x1917.qasm run length histogram: [(1, 1853), (2, 32)]
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/swap_probe.py", line 31, in <module>
+    swapev = kak_class(np.eye(4)[[0,2,1,3]])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/swap_probe.py", line 29, in kak_class
+    ev = np.linalg.eigvals(Um.T @ Um)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 1206, in eigvals
+    _assert_finite(a)
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 207, in _assert_finite
+    raise LinAlgError("Array must not contain infs or NaNs")
+numpy.linalg.LinAlgError: Array must not contain infs or NaNs
+/tmp/peaked-generic/swap_probe.py:27: RuntimeWarning: invalid value encountered in scalar power
+  U = U / np.linalg.det(U)**0.25
+peaked_circuit_P11_Hqap_98x1999.qasm run length histogram: [(1, 1969), (2, 15)]
+Traceback (most recent call last):
+  File "/tmp/peaked-generic/swap_probe.py", line 31, in <module>
+    swapev = kak_class(np.eye(4)[[0,2,1,3]])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/peaked-generic/swap_probe.py", line 29, in kak_class
+    ev = np.linalg.eigvals(Um.T @ Um)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 1206, in eigvals
+    _assert_finite(a)
+  File "/tmp/pk/research/data/peaked-circuits/.venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py", line 207, in _assert_finite
+    raise LinAlgError("Array must not contain infs or NaNs")
+numpy.linalg.LinAlgError: Array must not contain infs or NaNs

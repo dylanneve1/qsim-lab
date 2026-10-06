@@ -1,0 +1,23 @@
+== peaked_circuit_P9_Hqap_56x1917.qasm: n=56 units=1917 depth=103 segments=3778
+  quotient=False: duplicated-fingerprint segments 169, anchors 0
+  quotient=True: duplicated-fingerprint segments 176, anchors 0
+== peaked_circuit_heavy_hex_49x4020.qasm: n=49 units=4020 depth=222 segments=7991
+  quotient=False: duplicated-fingerprint segments 14, anchors 0
+  quotient=True: duplicated-fingerprint segments 12, anchors 0
+== peaked_circuit_heavy_hex_49x5072.qasm: n=49 units=5072 depth=282 segments=10095
+  quotient=False: duplicated-fingerprint segments 4, anchors 0
+  quotient=True: duplicated-fingerprint segments 4, anchors 0
+== peaked_circuit_P11_Hqap_98x1999.qasm: n=98 units=1999 depth=115 segments=3900
+  quotient=False: duplicated-fingerprint segments 367, anchors 419
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 77, 119, 15, 0, 0, 0, 33, 157, 16, 2, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 24.0..76.0
+  quotient=True: duplicated-fingerprint segments 367, anchors 419
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 77, 119, 15, 0, 0, 0, 33, 157, 16, 2, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 24.0..76.0
+== peaked_circuit_P12_Hqap_98x2457.qasm: n=98 units=2457 depth=175 segments=4816
+  quotient=False: duplicated-fingerprint segments 362, anchors 569
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 5, 204, 82, 0, 0, 0, 0, 177, 101, 0, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 41.5..110.0
+  quotient=True: duplicated-fingerprint segments 362, anchors 569
+   centre(layer) histogram 20 bins: [0, 0, 0, 0, 5, 204, 82, 0, 0, 0, 0, 177, 101, 0, 0, 0, 0, 0, 0, 0]
+   same-wire anchors 0; centre layer range 41.5..110.0

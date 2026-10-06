@@ -1,0 +1,30 @@
+peaked_circuit_P11_Hqap_98x1999.qasm
+  structure: 1999 units, 419 anchors -> 2 blocks [(211, 29.5, 0), (208, 65.0, 0)]; 7 sections (Otsu jump x5.2); R=59 P=224 units
+  initial core: p 0.1279  (7.2s)
+  step 1: frontier 95, p 0.1279 -> top [(0.302893, 'R', 59), (0.121486, 'R', 63), (0.105641, 'R', 73)]  (205s)
+  step 2: frontier 96, p 0.3029 -> top [(0.287737, 'R', 63), (0.250259, 'R', 73), (0.250099, 'P', 1735)]  (279s)
+  PEAK (qubit 0 leftmost): 10101110111010011111100010110011101011101011111001010101101100001110101110010000010100001001100000
+  core peak probability 0.3029; added R[59] P[]; 278.7s; peak RSS 277 MB
+	Command being timed: "/tmp/pk/research/data/peaked-circuits/.venv/bin/python -u solve_anchor.py /tmp/pk/research/data/peaked-circuits/peaked_circuit_P11_Hqap_98x1999.qasm --json results/p11_anchor.json"
+	User time (seconds): 357.74
+	System time (seconds): 0.35
+	Percent of CPU this job got: 128%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:39.68
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 284400
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 121509
+	Voluntary context switches: 631
+	Involuntary context switches: 5231
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 32
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
