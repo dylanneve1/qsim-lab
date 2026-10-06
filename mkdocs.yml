@@ -1,0 +1,16 @@
+site_name: qsimlab
+site_description: Python API for the qsim-lab quantum simulator
+repo_url: https://github.com/dylanneve1/qsim-lab
+docs_dir: site-src
+theme:
+  name: material
+  features: [navigation.sections, content.code.copy]
+nav:
+  - Home: index.md
+  - API contract: API.md
+  - Tutorials:
+      - Core & simulate: simulate.md
+      - QEC: qec.md
+      - Shor: shor.md
+      - Analysis: analysis.md
+  - Notebooks: notebooks.md
