@@ -411,6 +411,8 @@ def simulate(
     explain
         Attach the planner's :class:`Explanation` to the result.
 
+    Examples
+    --------
     >>> from qsimlab import Circuit, simulate, expectation
     >>> r = simulate(Circuit(1).ry(0, 0.5), expectation("Z0"), explain=True)
     >>> round(float(r.values[0]), 6), r.explanation is not None
