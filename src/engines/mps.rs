@@ -49,7 +49,7 @@ impl Site {
 /// exact reformulations that only change rounding: the SVD of `m†` (roles of
 /// `U` and `V` swapped), then of `D m` for a fixed diagonal unitary `D`
 /// (`U = D† U'`).
-fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
+pub(crate) fn robust_thin_svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
     let unpack = |svd: &faer::linalg::solvers::Svd<C>| -> (Mat<C>, Vec<f64>, Mat<C>) {
         let k = svd.S().column_vector().nrows();
         let s = (0..k).map(|i| svd.S().column_vector()[i].re).collect();
