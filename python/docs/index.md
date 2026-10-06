@@ -11,19 +11,25 @@ hide:
 <p class="tagline">Exact quantum circuit simulation for Python. A Rust core with seven engines and a
 cost-model planner that picks the fastest exact one for each circuit. numpy in, numpy out.</p>
 
+<div class="hero-buttons" markdown>
 [Get started](getting-started.md){ .md-button .md-button--primary }
 [API reference](reference/index.md){ .md-button }
 [GitHub](https://github.com/dylanneve1/qsim-lab){ .md-button }
+</div>
 
 </div>
 
 ```python
 import qsimlab as qs
 
-c = qs.Circuit(3).h(0).cx(0, 1).cx(1, 2)                     # GHZ state
-qs.simulate(c, qs.amplitudes(["000", "111"])).amplitudes      # [0.7071, 0.7071]
-qs.simulate(c, qs.expectation(["Z0 Z2", "X0 X1 X2"])).values  # [1., 1.]
-qs.simulate(c.copy().measure_all(), qs.samples(1000), seed=42).counts()
+# GHZ state on 3 qubits
+c = qs.Circuit(3).h(0).cx(0, 1).cx(1, 2)
+
+qs.simulate(c, qs.amplitudes(["000", "111"])).amplitudes
+# array([0.7071+0.j, 0.7071+0.j])
+
+qs.simulate(c, qs.expectation(["Z0 Z2", "X0 X1 X2"])).values
+# array([1., 1.])
 ```
 
 <div class="grid cards" markdown>
