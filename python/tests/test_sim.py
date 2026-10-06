@@ -362,3 +362,15 @@ def test_samples_engines_with_f32():
     r = simulate(c, samples(4000), engine="statevector", precision="f32", seed=1)
     assert r.precision == "f32"
     assert tv_distance(r.counts(), exact_probs(c), 4000) < 0.05
+
+
+def test_amplitudes_bad_bitstring_is_circuit_error():
+    """API.md: bad arguments raise CircuitError (a ValueError subclass)."""
+    import qsimlab.errors
+
+    c = Circuit(2).h(0)
+    for bad in ("101", "0x"):
+        with pytest.raises(qsimlab.errors.CircuitError):
+            simulate(c, amplitudes(bad))
+    with pytest.raises(ValueError):
+        simulate(c, amplitudes("1"))
