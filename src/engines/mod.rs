@@ -25,6 +25,7 @@
 
 pub mod adaptive;
 pub mod blocked;
+pub mod chain_sweep;
 pub mod dense_fusion;
 pub(crate) mod dense_kernels;
 pub mod dist;

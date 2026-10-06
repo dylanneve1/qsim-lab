@@ -92,6 +92,10 @@ name = "adaptive"
 path = "tests/engines/adaptive.rs"
 
 [[test]]
+name = "chain_sweep"
+path = "tests/engines/chain_sweep.rs"
+
+[[test]]
 name = "blocked"
 path = "tests/engines/blocked.rs"
 
