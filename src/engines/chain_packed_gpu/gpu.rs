@@ -385,6 +385,26 @@ impl GpuSweeper {
         cfg: &BlockConfig,
     ) -> Result<(HostStore, Codec, GpuRun), SimError> {
         let codec = Codec::new(lp)?;
+        let mut store = HostStore::new(plan.width, &codec)?;
+        let run = self.run_into(&mut store, &codec, plan, stages, cfg, &mut |_, _| {})?;
+        Ok((store, codec, run))
+    }
+
+    /// Runs `stages` on `store` (reset to `|0..0>` first; its width must be
+    /// `plan.width`), calling `on_pass(j, total)` after pass `j` (1-based).
+    pub fn run_into(
+        &self,
+        store: &mut HostStore,
+        codec: &Codec,
+        plan: &SweepPlan,
+        stages: &[Stage],
+        cfg: &BlockConfig,
+        on_pass: &mut dyn FnMut(usize, usize),
+    ) -> Result<GpuRun, SimError> {
+        if store.width != plan.width {
+            return Err(err("GPU packed sweep: store width differs from the plan"));
+        }
+        store.reset();
         let plans = gpu_plans(stages, plan.width, cfg)?;
         if plans
             .iter()
@@ -394,7 +414,6 @@ impl GpuSweeper {
                 "GPU packed sweep: a cache block exceeds the shader's (lower cfg.block_bytes)",
             ));
         }
-        let mut store = HostStore::new(plan.width, &codec)?;
         let width = plan.width;
         let maxl = plans.iter().map(|p| p.l).max().unwrap_or(0);
         if plans.iter().any(|p| (1usize << p.bc) < codec.block) {
@@ -464,8 +483,8 @@ impl GpuSweeper {
         for (pi, p) in plans.iter().enumerate() {
             let t0 = Instant::now();
             let st = self.run_pass(
-                &mut store,
-                &codec,
+                store,
+                codec,
                 p,
                 chunk,
                 &mut slots,
@@ -478,6 +497,7 @@ impl GpuSweeper {
             of += st[2] as u64;
             inx += st[3] as u64;
             pass_secs.push(t0.elapsed().as_secs_f64());
+            on_pass(pi + 1, plans.len());
             if self.opts.progress {
                 eprintln!(
                     "  gpu pass {}/{} l={} bc={} subs={} {:.2}s (t={:.1}s)",
@@ -492,7 +512,7 @@ impl GpuSweeper {
             }
         }
         let secs = t_all.elapsed().as_secs_f64();
-        let a = store.amplitude(&codec, 0);
+        let a = store.amplitude(codec, 0);
         let run = GpuRun {
             amp: Complex64::new(a.re as f64, a.im as f64) * plan.scale,
             passes: plans.len(),
@@ -503,7 +523,7 @@ impl GpuSweeper {
             secs,
             pass_secs,
         };
-        Ok((store, codec, run))
+        Ok(run)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -783,5 +803,108 @@ impl GpuSweeper {
             store.maxexp = st[0];
         }
         Ok(st)
+    }
+}
+
+/// The GPU packed sweep as a [`SweepBackend`] (run loop, tail-open
+/// batches): same stages as `CpuPacked` (`l`, `slots`, 1q fusion), the
+/// FMA-tier config [`super::gpu_cfg`] with cache blocks of
+/// `2^opts.nested_bits`, the store allocated once and kept between sweeps.
+pub struct GpuPacked {
+    /// The device.
+    pub gpu: GpuSweeper,
+    /// Storage format.
+    pub lp: LowPrec,
+    /// Executor configuration (must pass `cfg_exportable`).
+    pub cfg: BlockConfig,
+    /// Gather-buffer bits of the big-buffer planner.
+    pub l: usize,
+    /// Gathered (non-contiguous) bits per stage.
+    pub slots: usize,
+    /// Fuse 1q gates before planning.
+    pub fuse: bool,
+    codec: Codec,
+    store: Option<HostStore>,
+}
+
+impl GpuPacked {
+    /// A GPU backend on the first suitable adapter.
+    pub fn new(opts: &GpuOptions, lp: LowPrec, l: usize, slots: usize) -> Result<Self, SimError> {
+        let gpu =
+            GpuSweeper::new(opts).map_err(|_| err("GPU packed sweep: no usable GPU adapter"))?;
+        let codec = Codec::new(&lp)?;
+        Ok(GpuPacked {
+            cfg: super::gpu_cfg(opts.nested_bits),
+            gpu,
+            lp,
+            l,
+            slots,
+            fuse: true,
+            codec,
+            store: None,
+        })
+    }
+
+    /// The memory passes of `plan` (as `CpuPacked::stages`).
+    pub fn stages(&self, plan: &SweepPlan) -> Vec<Stage> {
+        let ops = if self.fuse {
+            crate::engines::blocked::fuse_1q(&plan.ops, plan.width, false)
+        } else {
+            plan.ops.clone()
+        };
+        crate::engines::chain_packed::packed_stages(&ops, plan.width, self.l, self.slots)
+    }
+
+    /// Allocates the store for a `width`-bit register now (fails cleanly).
+    pub fn allocate(&mut self, width: usize) -> Result<usize, SimError> {
+        if self.store.as_ref().map(|s| s.width) != Some(width) {
+            self.store = None;
+            self.store = Some(HostStore::new(width, &self.codec)?);
+        }
+        Ok(self.store.as_ref().unwrap().bytes())
+    }
+}
+
+impl crate::engines::chain_tail::SweepBackend for GpuPacked {
+    fn describe(&self) -> String {
+        format!(
+            "gpu-packed {} l={} slots={} nb={} rb={} on {}",
+            self.lp,
+            self.l,
+            self.slots,
+            self.gpu.opts.nested_bits,
+            self.gpu.opts.reg_bits,
+            self.gpu.adapter_info()
+        )
+    }
+    fn sweep(
+        &mut self,
+        plan: &SweepPlan,
+        on_pass: &mut dyn FnMut(usize, usize),
+    ) -> Result<crate::engines::chain_tail::SweepStats, SimError> {
+        let stages = self.stages(plan);
+        self.allocate(plan.width)?;
+        let store = self.store.as_mut().unwrap();
+        let r = self
+            .gpu
+            .run_into(store, &self.codec, plan, &stages, &self.cfg, on_pass)?;
+        Ok(crate::engines::chain_tail::SweepStats {
+            passes: r.passes,
+            secs: r.secs,
+            store_bytes: r.store_bytes,
+            underflow: r.underflow,
+            overflow: r.overflow,
+        })
+    }
+    fn amp(&self, i: usize) -> Complex64 {
+        let z = self
+            .store
+            .as_ref()
+            .expect("sweep first")
+            .amplitude(&self.codec, i);
+        Complex64::new(z.re as f64, z.im as f64)
+    }
+    fn count_passes(&self, plan: &SweepPlan) -> usize {
+        self.stages(plan).len()
     }
 }
