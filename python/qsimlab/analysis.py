@@ -29,6 +29,10 @@ exact invariants the engines use, mostly without simulating it::
   bound on the stabilizer rank.
 * :func:`simulability`: the planner's features (per-engine log2 work
   estimates) and its explanation (ranked predicted costs per engine).
+* :func:`gaussian`: the free-fermion (matchgate) detector: is the circuit a
+  fermionic Gaussian circuit under some Jordan–Wigner order, after undoing
+  SWAP networks, and how far from it (``docs/ENGINE_GAUSSIAN.md``);
+  :func:`gaussian_expectations` runs the Gaussian engine.
 * :func:`monitored`: exact simulation of Clifford+T circuits with mid-circuit
   measurements in the rotation frame: ``d(t)``, Born probabilities, and cut
   entropies.
@@ -60,6 +64,10 @@ __all__ = [
     "Simulability",
     "monitored",
     "MonitoredResult",
+    "gaussian",
+    "GaussianReport",
+    "gaussian_expectations",
+    "GaussianExpectations",
 ]
 
 
@@ -329,6 +337,128 @@ def simulability(
     )
     ex = plan(circuit, request if request is not None else samples(1024), budget=budget)
     return Simulability(features=dict(f), log2_costs=costs, explanation=ex)
+
+
+# --------------------------------------------------------------------------- free fermions
+
+
+@dataclass(frozen=True)
+class GaussianReport:
+    """Result of :func:`gaussian` (``docs/ENGINE_GAUSSIAN.md`` §2).
+
+    * ``exact``: every fused block is Gaussian in the chosen Jordan–Wigner
+      order (to ``tol``): the Gaussian engine applies; ``free``: Gaussian up
+      to diagonal interaction phases;
+    * ``gaussian_fraction``: Gaussian blocks / all blocks; ``max_residual``:
+      largest distance of a non-interaction block from the Gaussian set (1
+      for a matchgate on non-adjacent modes or a three-qubit gate);
+    * ``interactions``: ``(block, (wire_a, wire_b), (mode_a, mode_b), g)`` for
+      every diagonal block ``exp(i g n_a n_b)`` with ``g != 0``;
+      ``interaction_total`` = ``Σ|g|``, ``interaction_max``;
+    * ``ordering`` (``"identity"``, ``"paths"``, ``"greedy_cover"``),
+      ``order[k]`` = wire (initial qubit) on mode ``k``, ``paths`` (chains of
+      wires), ``mode_of_qubit[q]`` = mode held by qubit ``q`` at the end;
+    * ``swaps_relabelled``: SWAP gates and SWAP-equivalent blocks turned
+      into wire renamings; ``number_conserving``: every Gaussian block
+      conserves the particle number.
+    """
+
+    num_qubits: int
+    exact: bool
+    free: bool
+    blocks: int
+    blocks_2q: int
+    gaussian_blocks: int
+    gaussian_fraction: float
+    max_residual: float
+    non_gaussian: int
+    nonadjacent: int
+    interaction_total: float
+    interaction_max: float
+    swaps_relabelled: int
+    ordering: str
+    number_conserving: bool
+    seconds: float
+    interactions: List[Tuple[int, Tuple[int, int], Tuple[int, int], float]] = field(repr=False)
+    order: List[int] = field(repr=False)
+    paths: List[List[int]] = field(repr=False)
+    mode_of_qubit: List[int] = field(repr=False)
+
+
+def _report(d: Dict[str, Any]) -> GaussianReport:
+    return GaussianReport(**{k: d[k] for k in GaussianReport.__dataclass_fields__})
+
+
+def gaussian(
+    circuit: Circuit,
+    *,
+    tol: float = 1e-10,
+    relabel_swaps: bool = True,
+    reorder: bool = True,
+    threads: Optional[int] = None,
+) -> GaussianReport:
+    """Free-fermion detector: fuses the gates into blocks and tests each for
+    the matchgate property in a Jordan–Wigner order it searches for.
+
+    Takes the unitary part (terminal measurements dropped). ``relabel_swaps``
+    treats SWAP gates as wire renamings; ``reorder`` allows an order other
+    than the qubit order.
+
+    >>> import qsimlab as qs
+    >>> c = qs.Circuit(2).x(0).h(0).h(1).cx(0, 1).rz(1, 0.3).cx(0, 1).h(0).h(1)
+    >>> r = gaussian(c)
+    >>> r.exact, r.gaussian_fraction, r.blocks
+    (True, 1.0, 1)
+    >>> gaussian(c.copy().h(0)).exact
+    False
+    """
+    circuit = _check_circuit(circuit)
+    d = _native_analysis.gaussian(
+        circuit._core, tol=float(tol), relabel_swaps=bool(relabel_swaps),
+        reorder=bool(reorder), threads=threads,
+    )
+    return _report(d)
+
+
+@dataclass(frozen=True)
+class GaussianExpectations:
+    """Result of :func:`gaussian_expectations`: ``z[q]`` = ``⟨Z_q⟩``,
+    ``zz[i]`` = ``⟨Z_a Z_b⟩`` for ``pairs[i] = (a, b)``, and the detector's
+    :class:`GaussianReport`."""
+
+    z: np.ndarray = field(repr=False)
+    zz: np.ndarray = field(repr=False)
+    report: GaussianReport
+
+
+def gaussian_expectations(
+    circuit: Circuit,
+    pairs: Sequence[Tuple[int, int]] = (),
+    *,
+    drop_interactions: bool = False,
+    tol: float = 1e-10,
+    threads: Optional[int] = None,
+) -> GaussianExpectations:
+    """``⟨Z_q⟩`` of every qubit and ``⟨Z_a Z_b⟩`` (Wick's theorem) on the
+    Gaussian engine, in ``O(gates · n)`` plus ``O(1)`` per pair.
+
+    The circuit must be exactly Gaussian (``UnsupportedOperationError``
+    otherwise). ``drop_interactions=True`` instead sets every diagonal
+    interaction phase ``exp(i g n_a n_b)`` to zero, which gives the free-fermion
+    part of the circuit. That is an approximation unless ``report.exact``.
+
+    >>> import qsimlab as qs
+    >>> c = qs.Circuit(2).x(0).h(0).h(1).cx(0, 1).rz(1, 0.3).cx(0, 1).h(0).h(1)
+    >>> e = gaussian_expectations(c, [(0, 1)])
+    >>> print(f"{e.z[0]:.6f} {e.z[1]:.6f} {e.zz[0]:.6f}")
+    -0.955336 0.955336 -1.000000
+    """
+    circuit = _check_circuit(circuit)
+    d = _native_analysis.gaussian_z(
+        circuit._core, pairs=[(int(a), int(b)) for a, b in pairs],
+        drop_interactions=bool(drop_interactions), tol=float(tol), threads=threads,
+    )
+    return GaussianExpectations(z=d["z"], zz=d["zz"], report=_report(d["report"]))
 
 
 # --------------------------------------------------------------------------- monitored

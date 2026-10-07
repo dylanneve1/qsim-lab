@@ -28,6 +28,12 @@
 //!   runner-up's predicted time, then run the runner-up).
 //! ```
 //!
+//! Free-fermion circuits: when `PlannerConfig::gaussian` is on and the
+//! detector could pay off (same value-of-information rule), tier 1 also runs
+//! the free-fermion detector ([`crate::engines::gaussian::detect`]); an
+//! exactly Gaussian circuit makes [`Engine::Gaussian`] a candidate for
+//! expectations and samples (docs/ENGINE_GAUSSIAN.md).
+//!
 //! `PlannerConfig { tiered: false, cache: false, .. }` (see
 //! [`PlannerConfig::v1`]) reproduces Planner v0/v1 exactly.
 //!
@@ -39,6 +45,7 @@
 use crate::circuit::{Circuit, Op, SimError};
 use crate::engines::adaptive::{CompressedState, Sampler};
 use crate::engines::blocked::BlockConfig;
+use crate::engines::gaussian::{self, GaussianOptions, GaussianReport, GaussianState};
 use crate::engines::hsf::{HsfOptions, HybridSchrodingerFeynman};
 use crate::engines::mps::Mps;
 use crate::engines::mps_cost::{self, BondSource, Estimator};
@@ -75,6 +82,9 @@ pub enum Engine {
     /// Exact tensor-network contraction ([`crate::engines::tn`]): amplitudes
     /// and Z-product expectations (through the light cone) without a state.
     Tn,
+    /// Free-fermion (matchgate) circuits: Majorana covariance matrix
+    /// ([`crate::engines::gaussian`]); Z-products and samples, no amplitudes.
+    Gaussian,
 }
 
 impl Engine {
@@ -89,6 +99,7 @@ impl Engine {
             Engine::Hsf => "hsf",
             Engine::Compressed => "cstate",
             Engine::Tn => "tn",
+            Engine::Gaussian => "gauss",
         }
     }
 
@@ -103,6 +114,7 @@ impl Engine {
             "hsf" => Engine::Hsf,
             "cstate" => Engine::Compressed,
             "tn" => Engine::Tn,
+            "gauss" => Engine::Gaussian,
             _ => return None,
         })
     }
@@ -222,6 +234,39 @@ pub struct CostModel {
     pub state: [EngineModel; 5],
     /// Tensor-network contraction model.
     pub tn: TnModel,
+    /// Free-fermion engine model.
+    pub gauss: GaussModel,
+}
+
+/// Time model of the free-fermion engine and its detector. Unlike the other
+/// models these constants are not fitted on the Mac session: they were
+/// measured on one core of the development VPS (docs/ENGINE_GAUSSIAN.md §4)
+/// and only need to be right to an order of magnitude, because the engine is
+/// polynomial and the others are not.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GaussModel {
+    /// Seconds per block per mode of the covariance update.
+    pub evolve: f64,
+    /// Seconds per `(2k)^3` of a `2k x 2k` Pfaffian (a k-fold Z product).
+    pub pfaffian: f64,
+    /// Seconds per `(2n)^3` of one sample.
+    pub shot: f64,
+    /// Fixed seconds (allocation, compile).
+    pub fixed: f64,
+    /// Detector seconds per gate (block fusion and the matchgate tests).
+    pub detect: f64,
+}
+
+impl Default for GaussModel {
+    fn default() -> Self {
+        GaussModel {
+            evolve: 2e-8,
+            pfaffian: 2e-9,
+            shot: 4e-10,
+            fixed: 2e-5,
+            detect: 1e-6,
+        }
+    }
 }
 
 /// Tensor-network time model (research/simulability/tn.md §6): one
@@ -306,6 +351,7 @@ impl CostModel {
                 m(-28.5187, 0.98508),
             ],
             tn: TnModel::default(),
+            gauss: GaussModel::default(),
         }
     }
 
@@ -428,6 +474,9 @@ pub struct PlannerConfig {
     /// Consider the tensor-network engine (v2 tiers only) for amplitudes
     /// and expectation values.
     pub tn: bool,
+    /// Run the free-fermion detector (v2 tiers only) and consider
+    /// [`Engine::Gaussian`].
+    pub gaussian: bool,
 }
 
 impl Default for PlannerConfig {
@@ -452,6 +501,7 @@ impl Default for PlannerConfig {
             feature_cost: FeatureCost::default(),
             cache: true,
             tn: true,
+            gaussian: true,
         }
     }
 }
@@ -463,6 +513,7 @@ impl PlannerConfig {
             tiered: false,
             cache: false,
             tn: false,
+            gaussian: false,
             model: CostModel::mac_m1_v1(),
             ..Default::default()
         }
@@ -490,7 +541,8 @@ impl PlannerConfig {
         h.u64(
             u64::from(self.use_certificate)
                 | (u64::from(self.tiered) << 1)
-                | (u64::from(self.tn) << 2),
+                | (u64::from(self.tn) << 2)
+                | (u64::from(self.gaussian) << 3),
         );
         h.u64(self.probe_cap.map_or(u64::MAX, u64::from));
         h.0
@@ -661,6 +713,8 @@ pub struct PlanFeatures {
     pub hsf_split: Option<Vec<bool>>,
     /// The tensor-network tier (tier 4): the tree the engine runs.
     pub tn: Option<TnFeature>,
+    /// The free-fermion detector's report (tier 1g), when it ran.
+    pub gaussian: Option<Arc<GaussianReport>>,
 }
 
 /// The tensor-network tier's result.
@@ -734,6 +788,7 @@ pub fn plan_features(
         computed: [true; 6],
         hsf_split: None,
         tn: None,
+        gaussian: None,
     })
 }
 
@@ -782,6 +837,12 @@ pub fn hsf_amp_units(f: &Features) -> (f64, f64) {
 
 /// Predicted seconds of `e` for `req` (evolution + read-out).
 pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    if e == Engine::Gaussian {
+        let Some(r) = &f.gaussian else {
+            return f64::INFINITY;
+        };
+        return gauss_secs(r.blocks as f64, r.n, req, &m.gauss);
+    }
     if e == Engine::Tn {
         let Some(t) = &f.tn else {
             return f64::INFINITY;
@@ -857,11 +918,30 @@ pub fn predict_secs(e: Engine, f: &PlanFeatures, req: &PlanRequest, m: &CostMode
     evolve + read
 }
 
+/// Predicted seconds of the free-fermion engine for `blocks` fused blocks
+/// on `n` modes.
+fn gauss_secs(blocks: f64, n: usize, req: &PlanRequest, g: &GaussModel) -> f64 {
+    let nn = n.max(1) as f64;
+    let evolve = g.fixed + g.evolve * blocks * nn;
+    evolve
+        + match req {
+            PlanRequest::Expectation(obs) => {
+                g.pfaffian * (2.0 * odd_qubits(obs).len() as f64).powi(3)
+            }
+            PlanRequest::Samples(s) => *s as f64 * g.shot * (2.0 * nn).powi(3),
+            PlanRequest::Amplitudes(_) => f64::INFINITY,
+        }
+}
+
 /// A lower bound on [`predict_secs`] from the tier-0 features alone (the
 /// model evaluated at the smallest work the engine can do: support 1,
 /// active dimension 0, every MPS bond 1, a balanced HSF partition without
 /// paths). Used to skip features of engines that cannot win.
 pub fn lower_bound_secs(e: Engine, q: &QuickFeatures, req: &PlanRequest, m: &CostModel) -> f64 {
+    if e == Engine::Gaussian {
+        // a block holds at most a handful of gates; 8 is generous
+        return gauss_secs(q.gates as f64 / 8.0, q.n, req, &m.gauss);
+    }
     if e == Engine::Tn {
         // every two-qubit gate tensor (16 entries) is contracted at least once
         let lc = (16.0 * q.g2.max(1) as f64).log10();
@@ -928,6 +1008,12 @@ fn applicable(e: Engine, f: &PlanFeatures, req: &PlanRequest, mem: u128) -> bool
         // the tree is sliced to the budget; amplitudes are indexed by u128
         Engine::Tn => {
             f.tn.is_some() && !matches!(req, PlanRequest::Samples(_)) && (!amps || n <= 128)
+        }
+        Engine::Gaussian => {
+            f.gaussian.as_ref().is_some_and(|r| r.exact)
+                && !amps
+                && (!indexed || n <= 128)
+                && gaussian::covariance_bytes(n) <= mem
         }
     }
 }
@@ -1340,6 +1426,23 @@ fn plan_v2(c: &Circuit, req: &PlanRequest, cfg: &PlannerConfig) -> Result<Plan, 
         return Ok(finish(empty_plan(Engine::Tableau, r, f), stage));
     }
     let mut considered: Vec<Engine> = cheap.to_vec();
+    // Tier 1g: the free-fermion detector, if the Gaussian engine could beat
+    // the best prediction by more than `voi` x the detector's cost.
+    if cfg.gaussian && !amps && c.gates().all(|g| g.arity() <= 2) {
+        let cg = cfg.model.gauss.detect * g;
+        let lb = lower_bound_secs(Engine::Gaussian, &q, req, &cfg.model);
+        if best(&ranked) - lb > cfg.voi * cg {
+            let t1 = Instant::now();
+            let r = gaussian::detect(c, &Default::default());
+            let exact = r.exact;
+            f.gaussian = Some(Arc::new(r));
+            stage[1] += t1.elapsed().as_secs_f64();
+            if exact {
+                considered.push(Engine::Gaussian);
+                ranked = rank(&f, req, cfg, &considered);
+            }
+        }
+    }
     // Tier 2: MPS replay, if MPS could beat the best prediction by more
     // than `voi` x the replay's cost.
     let c2 = fc.mps[0] + fc.mps[1] * q.mps_steps as f64 * nn;
@@ -1618,6 +1721,15 @@ fn run_one(
                 .sum(),
         ));
     }
+    if e == Engine::Gaussian {
+        let opts = GaussianOptions {
+            max_bytes: cfg.mem_bytes,
+            ..GaussianOptions::default()
+        };
+        return Ok(Outcome::Value(gaussian::expectation_z_product(
+            c, obs, &opts,
+        )?));
+    }
     let t0 = Instant::now();
     let over = |t0: &Instant| deadline.is_some_and(|d| t0.elapsed().as_secs_f64() > d);
     match e {
@@ -1655,7 +1767,12 @@ fn run_one(
         // the compressed state runs exactly as the cost model measured it
         // (frame + dense register, always evolved: `Strategy::Auto`'s
         // run-time hand-over is not used, its cost is not predictable).
-        Engine::Tableau | Engine::StateVector | Engine::Hsf | Engine::Compressed | Engine::Tn => {
+        Engine::Tableau
+        | Engine::StateVector
+        | Engine::Hsf
+        | Engine::Compressed
+        | Engine::Tn
+        | Engine::Gaussian => {
             let r = simulability::run_engine_obs(e.name(), c, cfg.mem_bytes, obs)?;
             Ok(Outcome::Value(r.value))
         }
@@ -1785,6 +1902,8 @@ pub enum Prepared {
     Tableau(Box<Tableau>),
     /// Tensor-network contraction (amplitudes only; no state).
     Tn(Box<TnPrepared>),
+    /// Free-fermion covariance matrix (samples only; no global phase).
+    Gaussian(Box<GaussianState>),
 }
 
 /// Evolves `c|0^n>` on `e`; `Ok(None)` if the deadline (seconds) or the
@@ -1879,6 +1998,13 @@ pub fn prepare_split(
                 what: "planner: the Zero engine has no state",
             })
         }
+        Engine::Gaussian => {
+            let opts = GaussianOptions {
+                max_bytes: cfg.mem_bytes,
+                ..GaussianOptions::default()
+            };
+            Prepared::Gaussian(Box::new(GaussianState::from_circuit(c, &opts)?.0))
+        }
         Engine::Tn => Prepared::Tn(Box::new(TnPrepared {
             circuit: c.clone(),
             path: None,
@@ -1969,6 +2095,7 @@ impl Prepared {
                     "planner: the tensor-network engine computes amplitudes, not samples",
                 ))
             }
+            Prepared::Gaussian(g) => g.sample(shots, rng)?,
             Prepared::Tableau(t) => {
                 if t.num_qubits() > 128 {
                     return Err(not_indexed("planner samples need n <= 128"));
@@ -2011,9 +2138,9 @@ impl Prepared {
                     })
                     .collect::<Result<Vec<_>, _>>()?
             }
-            Prepared::Compressed(..) | Prepared::Tableau(_) => {
+            Prepared::Compressed(..) | Prepared::Tableau(_) | Prepared::Gaussian(_) => {
                 return Err(not_indexed(
-                    "planner: compressed state / tableau amplitudes drop the global phase",
+                    "planner: compressed state / tableau / Gaussian amplitudes drop the global phase",
                 ))
             }
         })
@@ -2123,7 +2250,10 @@ pub fn execute_amplitudes(
     let mut out = None;
     for i in 0..order.len() {
         let e = order[i].0;
-        if matches!(e, Engine::Zero | Engine::Tableau | Engine::Compressed) {
+        if matches!(
+            e,
+            Engine::Zero | Engine::Tableau | Engine::Compressed | Engine::Gaussian
+        ) {
             continue;
         }
         let r = prepare_split(

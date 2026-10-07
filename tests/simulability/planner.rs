@@ -386,6 +386,7 @@ fn dataset_regret_no_worse_than_published() {
         Engine::Compressed => "cstate",
         Engine::Zero => "zero",
         Engine::Tn => "tn",
+        Engine::Gaussian => "gauss",
     };
     // the model's choice (staging off: every feature computed)
     let cfg = PlannerConfig {
