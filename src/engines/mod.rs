@@ -22,12 +22,15 @@
 //! * [`tn`] — exact tensor-network contraction (amplitudes, batches, Pauli expectations).
 //! * [`spd`] — sparse Pauli dynamics for kicked-Ising Trotter circuits.
 //! * [`monitored`] — monitored Clifford+T circuits (measurement-induced transitions).
+//! * [`gaussian`] — free-fermion (matchgate) circuits: detector plus Majorana
+//!   covariance engine, polynomial in `n`.
 
 pub mod adaptive;
 pub mod blocked;
 pub mod dense_fusion;
 pub(crate) mod dense_kernels;
 pub mod dist;
+pub mod gaussian;
 pub mod hsf;
 #[cfg(all(feature = "metal", target_os = "macos"))]
 pub mod metal_sv;

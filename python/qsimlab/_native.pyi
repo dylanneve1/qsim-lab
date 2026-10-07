@@ -260,6 +260,22 @@ class _AnalysisModule:
     def features(
         self, circuit: CircuitCore, hsf: bool = ..., threads: Optional[int] = ...
     ) -> Dict[str, Any]: ...
+    def gaussian(
+        self,
+        circuit: CircuitCore,
+        tol: float = ...,
+        relabel_swaps: bool = ...,
+        reorder: bool = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
+    def gaussian_z(
+        self,
+        circuit: CircuitCore,
+        pairs: Optional[Sequence[Tuple[int, int]]] = ...,
+        drop_interactions: bool = ...,
+        tol: float = ...,
+        threads: Optional[int] = ...,
+    ) -> Dict[str, Any]: ...
     def monitored(
         self,
         circuit: CircuitCore,

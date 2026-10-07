@@ -10,6 +10,8 @@
 //! * [`branching_rank`]: the branching-rank simulator (`stab_rank`): the
 //!   number of stabilizer terms after every gate;
 //! * [`features`]: the simulability features (`simulability::features`);
+//! * [`gaussian`], [`gaussian_z`]: the free-fermion detector report and the
+//!   Gaussian engine's Z read-outs (`engines::gaussian`);
 //! * [`monitored`]: exact monitored Clifford+T simulation with mid-circuit
 //!   measurements (`monitored`): `d(t)`, Born probabilities, cut entropies.
 
@@ -21,6 +23,10 @@ use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use qsim_lab::circuit::{Circuit, Op};
+use qsim_lab::engines::gaussian::{
+    detect as gaussian_detect, DetectOptions, GaussianOptions, GaussianReport, GaussianState,
+    InteractionPolicy, Ordering,
+};
 use qsim_lab::engines::monitored::{ent, Cliff2, Mode, Monitored};
 use qsim_lab::engines::stab_rank::RankState;
 use qsim_lab::gate::Gate;
@@ -201,10 +207,157 @@ fn features<'py>(
         ($($k:ident),*) => {$( d.set_item(stringify!($k), f.$k)?; )*};
     }
     put!(
-        n, gates, g2, g3, depth2, t_count, rotations, d, dense_l, redundant, frame_l, obs_zero,
-        chi_bits, mps_l, chi_bits0, mps_l0, hsf_k, hsf_na, hsf_nb, hsf_l, hsf_keff, hsf_l0, sup,
-        sparse_l, sv_l, secs
+        n,
+        gates,
+        g2,
+        g3,
+        depth2,
+        t_count,
+        rotations,
+        d,
+        dense_l,
+        redundant,
+        frame_l,
+        obs_zero,
+        chi_bits,
+        mps_l,
+        chi_bits0,
+        mps_l0,
+        hsf_k,
+        hsf_na,
+        hsf_nb,
+        hsf_l,
+        hsf_keff,
+        hsf_l0,
+        sup,
+        sparse_l,
+        sv_l,
+        secs,
+        gauss_fraction,
+        gauss_residual,
+        gauss_interaction,
+        gauss_exact
     );
+    Ok(d)
+}
+
+// ---------------------------------------------------------------------------
+// free fermions
+
+fn detect_opts(tol: f64, relabel_swaps: bool, reorder: bool) -> PyResult<DetectOptions> {
+    if !(tol >= 0.0) {
+        return Err(value_err(format!("tol must be >= 0, got {tol}")));
+    }
+    Ok(DetectOptions {
+        tol,
+        relabel_swaps,
+        reorder,
+    })
+}
+
+fn report_dict<'py>(py: Python<'py>, r: &GaussianReport) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item("num_qubits", r.n)?;
+    d.set_item("blocks", r.blocks)?;
+    d.set_item("blocks_2q", r.blocks_2q)?;
+    d.set_item("gaussian_blocks", r.gaussian_blocks)?;
+    d.set_item("gaussian_fraction", r.gaussian_fraction)?;
+    d.set_item("max_residual", r.max_residual)?;
+    d.set_item("non_gaussian", r.non_gaussian)?;
+    d.set_item("nonadjacent", r.nonadjacent)?;
+    let ints: Vec<(usize, (usize, usize), (usize, usize), f64)> = r
+        .interactions
+        .iter()
+        .map(|i| (i.block, i.wires, i.modes, i.g))
+        .collect();
+    d.set_item("interactions", ints)?;
+    d.set_item("interaction_total", r.interaction_total)?;
+    d.set_item("interaction_max", r.interaction_max)?;
+    d.set_item("swaps_relabelled", r.swaps_relabelled)?;
+    d.set_item(
+        "ordering",
+        match r.ordering {
+            Some(Ordering::Identity) | None => "identity",
+            Some(Ordering::Paths) => "paths",
+            Some(Ordering::GreedyCover) => "greedy_cover",
+        },
+    )?;
+    d.set_item("order", r.order.clone())?;
+    d.set_item("paths", r.paths.clone())?;
+    d.set_item("mode_of_qubit", r.mode_of_qubit.clone())?;
+    d.set_item("number_conserving", r.number_conserving)?;
+    d.set_item("free", r.free)?;
+    d.set_item("exact", r.exact)?;
+    d.set_item("seconds", r.secs)?;
+    Ok(d)
+}
+
+#[pyfunction]
+#[pyo3(signature = (circuit, tol=1e-10, relabel_swaps=true, reorder=true, threads=None))]
+fn gaussian<'py>(
+    py: Python<'py>,
+    circuit: &PyCircuit,
+    tol: f64,
+    relabel_swaps: bool,
+    reorder: bool,
+    threads: Option<usize>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let c = unitary(circuit, "gaussian")?;
+    let opts = detect_opts(tol, relabel_swaps, reorder)?;
+    let r = heavy(py, threads, move || {
+        Ok::<_, qsim_lab::SimError>(gaussian_detect(&c, &opts))
+    })
+    .map_err(map_sim_err)?;
+    report_dict(py, &r)
+}
+
+/// `<Z_q>` of every qubit and `<Z_i Z_j>` of the given pairs on the
+/// Gaussian engine; `drop_interactions` sets the interaction phases to 0.
+#[pyfunction]
+#[pyo3(signature = (circuit, pairs=None, drop_interactions=false, tol=1e-10, threads=None))]
+fn gaussian_z<'py>(
+    py: Python<'py>,
+    circuit: &PyCircuit,
+    pairs: Option<Vec<(usize, usize)>>,
+    drop_interactions: bool,
+    tol: f64,
+    threads: Option<usize>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let c = unitary(circuit, "gaussian_expectations")?;
+    let n = c.num_qubits;
+    let pairs = pairs.unwrap_or_default();
+    for &(i, j) in &pairs {
+        if i >= n || j >= n {
+            return Err(value_err(format!(
+                "pair ({i}, {j}) out of range for {n} qubits"
+            )));
+        }
+    }
+    let opts = GaussianOptions {
+        detect: detect_opts(tol, true, true)?,
+        interactions: if drop_interactions {
+            InteractionPolicy::Drop
+        } else {
+            InteractionPolicy::Refuse
+        },
+        ..Default::default()
+    };
+    let (z, zz, r) = heavy(py, threads, move || {
+        let (st, r) = GaussianState::from_circuit(&c, &opts)?;
+        let z: Vec<f64> = (0..n)
+            .map(|q| st.expectation_z(q))
+            .collect::<Result<_, _>>()?;
+        let zz: Vec<f64> = pairs
+            .iter()
+            .map(|&(i, j)| st.z_correlation(i, j))
+            .collect::<Result<_, _>>()?;
+        Ok::<_, qsim_lab::SimError>((z, zz, r))
+    })
+    .map_err(map_sim_err)?;
+    let d = PyDict::new(py);
+    d.set_item("z", PyArray1::from_vec(py, z))?;
+    d.set_item("zz", PyArray1::from_vec(py, zz))?;
+    d.set_item("report", report_dict(py, &r)?)?;
     Ok(d)
 }
 
@@ -557,6 +710,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(state_magic, m)?)?;
     m.add_function(wrap_pyfunction!(branching_rank, m)?)?;
     m.add_function(wrap_pyfunction!(features, m)?)?;
+    m.add_function(wrap_pyfunction!(gaussian, m)?)?;
+    m.add_function(wrap_pyfunction!(gaussian_z, m)?)?;
     m.add_function(wrap_pyfunction!(monitored, m)?)?;
     Ok(())
 }
