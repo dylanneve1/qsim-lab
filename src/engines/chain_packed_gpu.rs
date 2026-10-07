@@ -84,7 +84,7 @@ impl Codec {
                 what: "GPU packed storage needs an intB:bN[:h] format",
             });
         };
-        if !(2..=8).contains(&bits) || block % 16 != 0 || block > 64 || lp.stochastic {
+        if !(2..=8).contains(&bits) || !block.is_multiple_of(16) || block > 64 || lp.stochastic {
             return Err(SimError::NotSupported {
                 what: "GPU packed storage needs intB:bN[:h] with B in 2..=8, N in {16, 32, 48, 64}, no :sr",
             });
@@ -280,7 +280,7 @@ pub mod exact32 {
         let e = es + 23 + 127;
         (1..=254)
             .contains(&e)
-            .then(|| ((e as u32) << 23) | (sm & 0x7f_ffff))
+            .then_some(((e as u32) << 23) | (sm & 0x7f_ffff))
     }
 
     /// `fl64(1 / sm)` for `sm` in `[2^23, 2^24)` as `([lo, hi], adj)`:
@@ -497,7 +497,7 @@ impl HostStore {
     /// is not available.
     pub fn new(width: usize, codec: &Codec) -> Result<Self, SimError> {
         let n = 1usize << width;
-        if n % codec.block != 0 {
+        if !n.is_multiple_of(codec.block) {
             return Err(SimError::NotSupported {
                 what: "GPU packed storage: the scale block does not tile the register",
             });
