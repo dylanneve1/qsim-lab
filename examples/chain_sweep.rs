@@ -452,6 +452,200 @@ fn fidmitm(a: &Args) {
     }
 }
 
+/// Writes the left and right boundary tensors of edge `e` for `k` random
+/// bitstrings as raw little-endian f64 (re, im) pairs, for offline spectra.
+fn dumpcut(a: &Args) {
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let e: usize = a.get("e", n / 2 - 1);
+    let k: usize = a.get("k", 1);
+    let out = a.s("out", "cut");
+    let cfg = BlockConfig::default();
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    for i in 0..k {
+        let x = rand_x(&mut rng, n);
+        let ct = chain_sweep::cut_tensors_cpu::<f64>(&cc, x, e, &cfg).unwrap();
+        for (tag, v) in [("L", &ct.left), ("R", &ct.right)] {
+            let bytes: Vec<u8> = v
+                .iter()
+                .flat_map(|z| [z.re.to_le_bytes(), z.im.to_le_bytes()].concat())
+                .collect();
+            std::fs::write(format!("{out}_{i}_{tag}.bin"), bytes).unwrap();
+        }
+        let layers: Vec<usize> = ct.bonds.iter().map(|&b| cc.bond_layer[b]).collect();
+        println!(
+            "dumpcut i={i} x={x} e={e} bonds={} layers={layers:?} amp={}",
+            ct.bonds.len(),
+            ct.amplitude()
+        );
+    }
+}
+
+/// Exact amplitudes of `k` uniformly random bitstrings, one per line
+/// (`x re im seconds`), for the boundary-MPS fidelity runs.
+fn exactamps(a: &Args) {
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let k: usize = a.get("k", 10);
+    let backend = a.s("backend", "cpu32");
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    for _ in 0..k {
+        let x = rand_x(&mut rng, n);
+        let plan = compile(&cc, x, &HashMap::new());
+        let (amp, t, _) = run(&plan, &backend);
+        println!("{x} {:.12e} {:.12e} {t:.3}", amp.re, amp.im);
+    }
+}
+
+fn parse_chis(a: &Args) -> Vec<usize> {
+    a.s("chis", "16,64,256")
+        .split(',')
+        .map(|v| v.parse().expect("chi"))
+        .collect()
+}
+
+/// Boundary-MPS amplitudes against exact ones (from `exactamps`, or computed
+/// here on the CPU if `--amps` is not given): fidelity, truncation estimate,
+/// time and memory per bond cap.
+fn mpsfid(a: &Args) {
+    use rayon::prelude::*;
+    faer::set_global_parallelism(faer::Par::Seq);
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let cutoff: f64 = a.get("cutoff", 1e-13);
+    let pairs: Vec<(u128, Complex64)> = match a.0.iter().position(|x| x == "--amps") {
+        Some(i) => std::fs::read_to_string(&a.0[i + 1])
+            .expect("read amps")
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| {
+                let f: Vec<&str> = l.split_whitespace().collect();
+                (
+                    f[0].parse().unwrap(),
+                    Complex64::new(f[1].parse().unwrap(), f[2].parse().unwrap()),
+                )
+            })
+            .collect(),
+        None => {
+            // --noexact: truncation estimates only (exact amplitudes set to 0)
+            let exact = !a.0.iter().any(|x| x == "--noexact");
+            let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+            (0..a.get("k", 8))
+                .map(|_| {
+                    let x = rand_x(&mut rng, n);
+                    let plan = compile(&cc, x, &HashMap::new());
+                    let amp = if exact {
+                        chain_sweep::amplitude_cpu::<f64>(&plan, &BlockConfig::default()).unwrap()
+                    } else {
+                        Complex64::new(0.0, 0.0)
+                    };
+                    (x, amp)
+                })
+                .collect()
+        }
+    };
+    let d: usize = a.get("d", 70);
+    println!(
+        "mpsfid n={n} d={d} bitstrings={} cutoff={cutoff:e}",
+        pairs.len()
+    );
+    for chi in parse_chis(a) {
+        let t0 = Instant::now();
+        let res: Vec<_> = pairs
+            .par_iter()
+            .map(|&(x, ex)| {
+                let plan = compile(&cc, x, &HashMap::new());
+                let t = Instant::now();
+                let r = qsim_lab::engines::chain_mps::amplitude_mps(&plan, chi, cutoff);
+                (ex, r, t.elapsed().as_secs_f64())
+            })
+            .collect();
+        let wall = t0.elapsed().as_secs_f64();
+        let ov: Complex64 = res.iter().map(|(ex, r, _)| ex.conj() * r.amp).sum();
+        let ne: f64 = res.iter().map(|(ex, _, _)| ex.norm_sqr()).sum();
+        let na: f64 = res.iter().map(|(_, r, _)| r.amp.norm_sqr()).sum();
+        let fid = ov.norm_sqr() / (ne * na).max(1e-300);
+        // bootstrap standard error of F over the bitstrings
+        let mut brng = StdRng::seed_from_u64(99);
+        let boots: Vec<f64> = (0..200)
+            .map(|_| {
+                let (mut o, mut e2, mut a2) = (Complex64::new(0.0, 0.0), 0.0, 0.0);
+                for _ in 0..res.len() {
+                    let (ex, r, _) = &res[brng.random_range(0..res.len())];
+                    o += ex.conj() * r.amp;
+                    e2 += ex.norm_sqr();
+                    a2 += r.amp.norm_sqr();
+                }
+                o.norm_sqr() / (e2 * a2).max(1e-300)
+            })
+            .collect();
+        let bm = boots.iter().sum::<f64>() / boots.len() as f64;
+        let fse = (boots.iter().map(|f| (f - bm).powi(2)).sum::<f64>() / boots.len() as f64).sqrt();
+        let fe: Vec<f64> = res.iter().map(|(_, r, _)| r.fid_est).collect();
+        let fe_mean = fe.iter().sum::<f64>() / fe.len() as f64;
+        let lfe = fe.iter().map(|f| f.max(1e-300).log10()).sum::<f64>() / fe.len() as f64;
+        let tmean = res.iter().map(|r| r.2).sum::<f64>() / res.len() as f64;
+        let pchi = res.iter().map(|r| r.1.counters.peak_chi).max().unwrap();
+        let pbytes = res.iter().map(|r| r.1.counters.peak_bytes).max().unwrap();
+        let svds = res.iter().map(|r| r.1.counters.svds).sum::<usize>() / res.len();
+        let swaps = res.iter().map(|r| r.1.counters.swaps).sum::<usize>() / res.len();
+        // error over the RMS amplitude 2^-n/2 (exact zeros are common)
+        let rms = 0.5f64.powf(n as f64 / 2.0);
+        let maxrel = res
+            .iter()
+            .map(|(ex, r, _)| (r.amp - ex).norm() / rms)
+            .fold(0.0f64, f64::max);
+        println!(
+            "chi={chi} F={fid:.5} F_se={fse:.5} norm_ratio={:.5} fid_est_mean={fe_mean:.4e} log10_fid_est_mean={lfe:.3} \
+             max_err/rms={maxrel:.2e} t_per_amp={tmean:.3}s wall={wall:.1}s peak_chi={pchi} \
+             peak_mib={:.1} svds={svds} swaps={swaps}",
+            na / ne,
+            pbytes as f64 / 1048576.0
+        );
+    }
+}
+
+/// Bond dimensions and the truncation estimate after every qubit of one
+/// bitstring's sweep.
+fn mpsprofile(a: &Args) {
+    faer::set_global_parallelism(faer::Par::Seq);
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    let x = rand_x(&mut rng, n);
+    let plan = compile(&cc, x, &HashMap::new());
+    let chi: usize = a.get("chi", 64);
+    let cutoff: f64 = a.get("cutoff", 1e-13);
+    let mut m = qsim_lab::engines::chain_mps::BoundaryMps::new(plan.width, chi, cutoff);
+    let t = Instant::now();
+    for i in 0..n {
+        for op in &plan.ops[plan.qubit_ops[i]..plan.qubit_ops[i + 1]] {
+            m.apply_kop(op);
+        }
+        let bd = m.bond_dims();
+        let lb: Vec<String> = bd
+            .iter()
+            .map(|&b| format!("{:.1}", (b as f64).log2()))
+            .collect();
+        println!(
+            "q={i:2} cut_width={} fid_est={:.4e} log2_chi=[{}] t={:.1}s",
+            plan.cut_width[i],
+            m.fid_est(),
+            lb.join(" "),
+            t.elapsed().as_secs_f64()
+        );
+    }
+    println!(
+        "amp={} counters={:?}",
+        m.zero_amplitude() * plan.scale,
+        m.counters
+    );
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let a = Args(args.clone());
@@ -461,6 +655,10 @@ fn main() {
         Some("bench") => bench(&a),
         Some("fidsv") => fidsv(&a),
         Some("fidmitm") => fidmitm(&a),
+        Some("dumpcut") => dumpcut(&a),
+        Some("exactamps") => exactamps(&a),
+        Some("mpsfid") => mpsfid(&a),
+        Some("mpsprofile") => mpsprofile(&a),
         Some("lowprec") => lowprec(&a),
         Some("packed") => packed(&a),
         Some("packedgpu") => packedgpu(&a),
@@ -469,7 +667,7 @@ fn main() {
         Some("run") => runloop(&a),
         Some("tailbench") => tailbench(&a),
         _ => eprintln!(
-            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed|packedgpu|tailinfo|tailcheck|run [--n N --d D ...]"
+            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed|packedgpu|tailinfo|tailcheck|run|dumpcut|exactamps|mpsfid|mpsprofile [--n N --d D ...]"
         ),
     }
 }

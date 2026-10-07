@@ -1,0 +1,11 @@
+n=16 D=70 x#0 red=full: ref=4.995e-04+3.159e-04j raw=4.995e-04+3.159e-04j zx=4.995e-04+3.159e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 2935->73 edges 3444->190
+n=16 D=70 x#1 red=full: ref=3.839e-03+4.771e-03j raw=3.839e-03+4.771e-03j zx=3.839e-03+4.771e-03j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 2935->73 edges 3444->190
+n=16 D=70 x#2 red=full: ref=-2.451e-03-7.656e-04j raw=-2.451e-03-7.656e-04j zx=-2.451e-03-7.656e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 2935->73 edges 3444->190
+n=20 D=56 x#0 red=full: ref=9.766e-04-9.766e-04j raw=9.766e-04-9.766e-04j zx=9.766e-04-9.766e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 2913->0 edges 3425->0
+  print(f'n={n} D={D} x#{trial} red={red}: ref={ref:.3e} raw={complex(a_raw):.3e} zx={a:.3e} |zx|/|ref|={abs(a)/abs(ref):.6f} '
+n=20 D=56 x#1 red=full: ref=0.000e+00+0.000e+00j raw=-5.584e-18+2.873e-18j zx=0.000e+00+0.000e+00j |zx|/|ref|=nan phase-diff=nan  spiders 2913->0 edges 3425->0
+  print(f'n={n} D={D} x#{trial} red={red}: ref={ref:.3e} raw={complex(a_raw):.3e} zx={a:.3e} |zx|/|ref|={abs(a)/abs(ref):.6f} '
+n=20 D=56 x#2 red=full: ref=0.000e+00+0.000e+00j raw=5.042e-18+6.288e-18j zx=0.000e+00+0.000e+00j |zx|/|ref|=nan phase-diff=nan  spiders 2913->0 edges 3425->0
+n=20 D=70 x#0 red=full: ref=1.305e-03+2.193e-04j raw=nan+0.000e+00j zx=1.305e-03+2.193e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 3721->85 edges 4366->242
+n=20 D=70 x#1 red=full: ref=1.085e-03-4.470e-04j raw=nan+0.000e+00j zx=1.085e-03-4.470e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 3721->85 edges 4366->242
+n=20 D=70 x#2 red=full: ref=-3.198e-05-2.718e-04j raw=nan+0.000e+00j zx=-3.198e-05-2.718e-04j |zx|/|ref|=1.000000 phase-diff=-0.0000  spiders 3721->85 edges 4366->242
