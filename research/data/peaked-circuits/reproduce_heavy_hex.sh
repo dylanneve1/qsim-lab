@@ -10,7 +10,11 @@ here=$(pwd)
 t_start=$(date +%s)
 python3 -m venv .venv && . .venv/bin/activate && pip install -q -r requirements.txt
 base=https://raw.githubusercontent.com/quantum-advantage-tracker/quantum-advantage-tracker.github.io/1db844f1540a198c5620af49247e09fc28e7f61b/data/classically-verifiable-problems/circuit-models/peaked_circuit
-shacheck() { if command -v sha256sum >/dev/null; then sha256sum -c; else shasum -a 256 -c; fi; }
+shacheck() { python3 -c 'import hashlib,sys
+for line in sys.stdin:
+    h,f=line.split()
+    d=hashlib.sha256(open(f,"rb").read()).hexdigest()
+    print(f+": "+("OK" if d==h else "FAILED")); sys.exit(0 if d==h else 1)'; }
 curl -sLO $base/peaked_circuit_heavy_hex_49x4020.qasm
 curl -sLO $base/peaked_circuit_heavy_hex_49x5072.qasm
 echo "ef92424a8e365905037e2a610a50ec8cd46b032a0fb01fd12b80d2d8ed0f112f  peaked_circuit_heavy_hex_49x4020.qasm" | shacheck
