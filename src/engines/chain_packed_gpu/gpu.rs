@@ -4,7 +4,6 @@
 
 use super::{gather_chunk, gpu_plans, next_base, scatter_chunk, Codec, GpuRun, HostStore};
 use crate::circuit::SimError;
-use crate::engines::blocked::gpu_export::{GpuOp, GpuSubStage};
 use crate::engines::blocked::{BlockConfig, Stage};
 use crate::engines::chain_lowprec::LowPrec;
 use crate::engines::chain_packed::GpuStagePlan;
@@ -19,7 +18,6 @@ const WG: u32 = 256;
 const PSLOT: u64 = 256;
 /// Words of the op program uniform (`array<vec4<u32>, 4096>`).
 const PROG_WORDS: usize = 4 * 4096;
-const NONE: u32 = u32::MAX;
 
 /// Options of the GPU backend.
 #[derive(Clone, Debug)]
@@ -28,6 +26,10 @@ pub struct GpuOptions {
     /// config's nested block must not exceed it (`2^bits · 8` bytes of
     /// workgroup memory).
     pub nested_bits: usize,
+    /// Amplitudes each thread of the sub-stage kernel keeps in registers
+    /// (`2^reg_bits`; workgroups of `2^(nested_bits - reg_bits)` threads);
+    /// 0: the plain kernel (cache block in workgroup memory).
+    pub reg_bits: usize,
     /// Amplitudes per streamed chunk (rounded to whole gathered blocks).
     pub chunk_amps: usize,
     /// Chunks in flight.
@@ -42,6 +44,7 @@ impl Default for GpuOptions {
     fn default() -> Self {
         GpuOptions {
             nested_bits: 12,
+            reg_bits: 0,
             chunk_amps: 1 << 27,
             slots: 3,
             backends: None,
@@ -131,76 +134,6 @@ fn shape(groups: u32) -> (u32, u32) {
     } else {
         (32768, groups.div_ceil(32768))
     }
-}
-
-/// Encodes the ops of a sub-stage into the program words, appending the
-/// diagonal tables to `tables` (as f32 bits).
-fn encode_sub(s: &GpuSubStage, tables: &mut Vec<u32>) -> Vec<u32> {
-    let mut w = vec![0u32];
-    let mut nops = 0u32;
-    let fb = |m: &[f32; 8]| m.map(f32::to_bits);
-    for op in &s.ops {
-        match op {
-            GpuOp::U1 {
-                t,
-                m,
-                kind,
-                cin,
-                cout,
-            } => {
-                w.extend([
-                    1,
-                    *t,
-                    *kind as u32,
-                    *cin,
-                    *cout as u32,
-                    (*cout >> 32) as u32,
-                ]);
-                w.extend(fb(m));
-                nops += 1;
-            }
-            GpuOp::Swap { a, b } => {
-                w.extend([2, *a, *b]);
-                nops += 1;
-            }
-            GpuOp::Pair {
-                t1,
-                m1,
-                real1,
-                t2,
-                m2,
-                real2,
-                cx,
-            } => {
-                w.extend([3, *t1, *t2, *real1 as u32, *real2 as u32, *cx as u32]);
-                w.extend(fb(m1));
-                w.extend(fb(m2));
-                nops += 1;
-            }
-            GpuOp::Diag(gs) => {
-                for g in gs {
-                    // variant offsets, then the tables of each variant
-                    let voff = tables.len() as u32;
-                    tables.resize(tables.len() + g.variants.len(), NONE);
-                    for (i, v) in g.variants.iter().enumerate() {
-                        if let Some(t) = v {
-                            tables[voff as usize + i] = tables.len() as u32;
-                            for part in [&t.lor, &t.loi, &t.hr, &t.hi] {
-                                tables.extend(part.iter().map(|x| x.to_bits()));
-                            }
-                        }
-                    }
-                    w.extend([4, g.cmask, g.cpat, g.lb, g.conds.len() as u32, voff]);
-                    for &(om, op) in &g.conds {
-                        w.extend([om as u32, (om >> 32) as u32, op as u32, (op >> 32) as u32]);
-                    }
-                    nops += 1;
-                }
-            }
-        }
-    }
-    w[0] = nops;
-    w
 }
 
 fn whole(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
@@ -298,9 +231,17 @@ impl GpuSweeper {
                         continue;
                     }
                 };
+            let rb = opts.reg_bits.min(nb) as u32;
+            let sub_src = if rb == 0 {
+                super::gen::substage_shared_wgsl()
+            } else {
+                super::gen::substage_wgsl(rb)
+            };
             let src = SHADER
+                .replace("__SUBSTAGE__", &sub_src)
                 .replace("__MAXN__", &(1u32 << nb).to_string())
-                .replace("__WG__", &WG.to_string());
+                .replace("__WG__", &WG.to_string())
+                + &format!("\nconst SWG: u32 = {}u;\n", (1u32 << nb) >> rb);
             let desc = wgpu::ShaderModuleDescriptor {
                 label: Some("packed kernels"),
                 source: wgpu::ShaderSource::Wgsl(src.into()),
@@ -582,7 +523,16 @@ impl GpuSweeper {
         let mut prog: Vec<u8> = Vec::new();
         let mut prog_off = Vec::new();
         for s in &p.subs {
-            let mut w = encode_sub(s, &mut tables);
+            if s.l < self.opts.reg_bits {
+                return Err(err(
+                    "GPU packed sweep: a cache block is smaller than the register tile",
+                ));
+            }
+            let mut w = if self.opts.reg_bits == 0 {
+                super::gen::encode_sub_shared(s, &mut tables)
+            } else {
+                super::gen::encode_sub(s, self.opts.reg_bits as u32, &mut tables).0
+            };
             if std::env::var_os("QSIM_GPU_NOOPS").is_some() {
                 w[0] = 0; // timing experiments only: load / store, no ops
             }
