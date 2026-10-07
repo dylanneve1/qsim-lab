@@ -426,7 +426,19 @@ impl<T: Real> SweepBackend for CpuExact<T> {
     ) -> Result<SweepStats, SimError> {
         let t = std::time::Instant::now();
         self.sv = None;
-        let mut sv = StateVector::<T>::try_new(plan.width)?;
+        // the state-vector cap (MAX_STATE_BYTES) is for interactive use; a
+        // reference sweep may want a bigger register, so allocate directly
+        let len = 1usize << plan.width;
+        let mut amps: Vec<num_complex::Complex<T>> = Vec::new();
+        amps.try_reserve_exact(len)
+            .map_err(|_| SimError::TooLarge {
+                what: "exact chain-sweep register (allocation failed)",
+                bytes: (len * 2 * std::mem::size_of::<T>()) as u128,
+                limit: 0,
+            })?;
+        amps.resize(len, num_complex::Complex::new(T::zero(), T::zero()));
+        amps[0] = num_complex::Complex::new(T::one(), T::zero());
+        let mut sv = StateVector::<T>::from_amplitudes(amps);
         sv.apply_kops_blocked(&plan.ops, &self.cfg);
         on_pass(1, 1);
         let bytes = sv.amplitudes().len() * 2 * std::mem::size_of::<T>();
