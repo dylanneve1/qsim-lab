@@ -1500,6 +1500,82 @@ pub fn run_prepared_stage<T: Real>(
     run_stage(amps, n, &p.0, Isa::select(simd, true));
 }
 
+/// Runs a prepared stage on one contiguous block of `2^l` amplitudes that
+/// is the stage's whole buffer: the stage's inner qubits must be exactly
+/// the low `l` qubits of the register it was prepared for, and `hi` is the
+/// register index of `block[0]` (the outer bits, used by diagonal terms
+/// and controls on outer qubits). Same kernels and arithmetic as
+/// [`run_prepared_stage`] on that block (`simd` as there). Runs on the
+/// calling thread.
+pub fn run_prepared_on_block<T: Real>(
+    block: &mut [Complex<T>],
+    p: &PreparedStage<T>,
+    simd: bool,
+    hi: usize,
+) {
+    let p = &p.0;
+    let l = block.len().trailing_zeros() as usize;
+    assert!(block.len().is_power_of_two() && p.l == l);
+    assert_eq!(p.inner_mask, block.len() - 1, "stage inner qubits must be the low ones");
+    assert_eq!(hi & (block.len() - 1), 0);
+    let isa = Isa::select(simd, true);
+    with_scratch::<T, _>(l, |buf, sc| {
+        load_isa(buf, 0, block, isa);
+        run_ops(p, buf, hi, sc, isa);
+        store_isa(buf, 0, block, isa);
+    })
+}
+
+/// Runs every stage of `plan` on one contiguous block of `2^l` amplitudes
+/// starting at register index `hi` (a multiple of `2^l`) of the register
+/// the plan was compiled for. Valid when every stage's inner qubits are
+/// below `l` (ops may still have controls / diagonal terms on higher
+/// qubits: those are read from `hi`). Cache-blocked like
+/// [`StateVector::run_compiled`], but on the calling thread only.
+pub fn run_compiled_on_block<T: Real>(plan: &CompiledKOps<T>, block: &mut [Complex<T>], hi: usize) {
+    let l = block.len().trailing_zeros() as usize;
+    assert!(block.len().is_power_of_two());
+    assert_eq!(hi & (block.len() - 1), 0);
+    let isa = plan.isa;
+    for p in &plan.stages {
+        assert!(p.inner_mask < block.len(), "stage reaches outside the block");
+        if p.l >= l {
+            with_scratch::<T, _>(p.l, |buf, sc| {
+                load_isa(buf, 0, block, isa);
+                run_ops(p, buf, hi, sc, isa);
+                store_isa(buf, 0, block, isa);
+            });
+            continue;
+        }
+        let full = block.len() - 1;
+        let outer = full & !p.inner_mask;
+        let bc = p.inner_mask.trailing_ones() as usize;
+        let runlen = 1usize << bc;
+        let nruns = 1usize << (p.l - bc);
+        with_scratch::<T, _>(p.l, |buf, sc| {
+            for c in 0..1usize << (l - p.l) {
+                let base = deposit(c, outer);
+                for r in 0..nruns {
+                    let start = base | deposit(r << bc, p.inner_mask);
+                    load_isa(buf, r << bc, &block[start..start + runlen], isa);
+                }
+                run_ops(p, buf, hi | base, sc, isa);
+                for r in 0..nruns {
+                    let start = base | deposit(r << bc, p.inner_mask);
+                    store_isa(buf, r << bc, &mut block[start..start + runlen], isa);
+                }
+            }
+        });
+    }
+}
+
+impl<T: Real> CompiledKOps<T> {
+    /// Number of cache-blocked stages.
+    pub fn num_stages(&self) -> usize {
+        self.stages.len()
+    }
+}
+
 // ----- buffer kernels -----------------------------------------------------
 //
 // Inside a block the amplitudes are kept as separate real and imaginary

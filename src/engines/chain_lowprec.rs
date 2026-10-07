@@ -275,7 +275,7 @@ pub fn round_to(x: f64, format: Format, u: Option<f64>) -> f64 {
 
 /// Scale `s` (values are stored as `round(x * s)`) for a block whose
 /// largest component is `maxabs`.
-fn scale_for(maxabs: f64, lp: &LowPrec) -> f64 {
+pub(crate) fn scale_for(maxabs: f64, lp: &LowPrec) -> f64 {
     if maxabs == 0.0 || !maxabs.is_finite() {
         return 1.0;
     }
@@ -292,20 +292,27 @@ fn scale_for(maxabs: f64, lp: &LowPrec) -> f64 {
             };
             1.0 / r
         }
-        Format::Int(_) => {
-            let step = maxabs / maxv;
-            let step = if lp.half_scale {
-                // an f16 mantissa (11 significant bits, rounded up so the
-                // block never saturates) on a per-pass global exponent
-                let e = ((step.to_bits() >> 52) & 0x7ff) as i32 - 1023;
-                let q = pow2(e - 10);
-                (step / q).ceil() * q
-            } else {
-                step as f32 as f64
-            };
-            1.0 / step
-        }
+        Format::Int(_) => 1.0 / int_step(maxabs, lp),
         _ => pow2((maxv / maxabs).log2().floor() as i32),
+    }
+}
+
+/// Quantisation step of an integer block format (`lp.format` must be
+/// [`Format::Int`]) for a block whose largest component is `maxabs` (> 0,
+/// finite): an f32 value, or with `half_scale` an 11-significant-bit
+/// mantissa rounded up. The block scale is `s = 1 / step` and a component
+/// `x` is stored as `round_to(x * s)`, decoded as `q * (1 / s)`.
+pub(crate) fn int_step(maxabs: f64, lp: &LowPrec) -> f64 {
+    let (_, _, maxv) = lp.format.params();
+    let step = maxabs / maxv;
+    if lp.half_scale {
+        // an f16 mantissa (11 significant bits, rounded up so the
+        // block never saturates) on a per-pass global exponent
+        let e = ((step.to_bits() >> 52) & 0x7ff) as i32 - 1023;
+        let q = pow2(e - 10);
+        (step / q).ceil() * q
+    } else {
+        step as f32 as f64
     }
 }
 
@@ -357,7 +364,7 @@ fn block_stat(v: &[Complex32], lp: &LowPrec) -> f64 {
     }
 }
 
-fn maxabs(v: &[Complex32]) -> f64 {
+pub(crate) fn maxabs(v: &[Complex32]) -> f64 {
     v.iter()
         .fold(0.0f32, |m, z| m.max(z.re.abs()).max(z.im.abs())) as f64
 }
