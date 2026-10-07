@@ -425,44 +425,63 @@ impl BoundaryMps {
 }
 
 /// Thin SVD for the truncation step. faer's SVD occasionally fails to
-/// converge on the exactly degenerate matrices this circuit produces
-/// (seen at D = 36, `128x128`, after `mps::robust_thin_svd`'s own retries);
-/// a relative perturbation of `1e-13` is far below the truncation error
-/// here, so it is tried before the exact reformulations.
+/// converge on the exactly degenerate matrices this circuit produces (seen
+/// at D = 36 on `128x128` matrices, even after `mps::robust_thin_svd`'s
+/// retries and after a `1e-13` perturbation). The fallback diagonalises the
+/// smaller Gram matrix (`M M†` or `M† M`) instead: singular values then
+/// carry an absolute error of about `1e-16 s_max^2` in `s^2`, far below
+/// the truncation error, and vectors with `s = 0` are zero (they are always
+/// below the cutoff).
 fn svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
     let finite = |s: &[f64], u: &Mat<C>, v: &Mat<C>| {
         s.iter().all(|x| x.is_finite())
             && (0..u.nrows()).all(|r| (0..u.ncols()).all(|c| u[(r, c)].re.is_finite()))
             && (0..v.nrows()).all(|r| (0..v.ncols()).all(|c| v[(r, c)].re.is_finite()))
     };
-    let try_svd = |m: &Mat<C>| -> Option<(Mat<C>, Vec<f64>, Mat<C>)> {
-        let svd = m.thin_svd().ok()?;
+    if let Ok(svd) = m.thin_svd() {
         let k = svd.S().column_vector().nrows();
         let s: Vec<f64> = (0..k).map(|i| svd.S().column_vector()[i].re).collect();
         let (u, v) = (svd.U().to_owned(), svd.V().to_owned());
-        finite(&s, &u, &v).then_some((u, s, v))
-    };
-    if let Some(out) = try_svd(m) {
-        return out;
-    }
-    let scale = (0..m.nrows())
-        .flat_map(|r| (0..m.ncols()).map(move |c| (r, c)))
-        .map(|(r, c)| m[(r, c)].norm())
-        .fold(0.0f64, f64::max);
-    for salt in 1..=4u64 {
-        let noise = |r: usize, c: usize| {
-            let h = ((r * 7919 + c * 104_729 + 1) as u64)
-                .wrapping_mul(0x9E37_79B9_7F4A_7C15 ^ salt.wrapping_mul(0xD1B5_4A32_D192_ED03));
-            let x = (h >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
-            let y = ((h.rotate_left(29)) >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
-            C::new(x, y) * (1e-13 * scale)
-        };
-        let mp = Mat::from_fn(m.nrows(), m.ncols(), |r, c| m[(r, c)] + noise(r, c));
-        if let Some(out) = try_svd(&mp) {
-            return out;
+        if finite(&s, &u, &v) {
+            return (u, s, v);
         }
     }
-    robust_thin_svd(m)
+    gram_svd(m).unwrap_or_else(|| robust_thin_svd(m))
+}
+
+/// Thin SVD from the eigendecomposition of the smaller Gram matrix.
+fn gram_svd(m: &Mat<C>) -> Option<(Mat<C>, Vec<f64>, Mat<C>)> {
+    let wide = m.nrows() <= m.ncols();
+    let a = if wide {
+        m.to_owned()
+    } else {
+        m.adjoint().to_owned()
+    };
+    let g = &a * a.adjoint();
+    let eig = g.self_adjoint_eigen(faer::Side::Lower).ok()?;
+    let k = a.nrows();
+    // eigenvalues ascending: reverse
+    let order: Vec<usize> = (0..k).rev().collect();
+    let s: Vec<f64> = order
+        .iter()
+        .map(|&i| eig.S().column_vector()[i].re.max(0.0).sqrt())
+        .collect();
+    let left = Mat::from_fn(k, k, |r, c| eig.U()[(r, order[c])]);
+    // right vectors: a† left_c / s_c
+    let ah_l = a.adjoint() * &left;
+    let smax = s.first().copied().unwrap_or(0.0);
+    let right = Mat::from_fn(a.ncols(), k, |r, c| {
+        if s[c] > 1e-150 * smax.max(1e-300) {
+            ah_l[(r, c)] / s[c]
+        } else {
+            C0
+        }
+    });
+    Some(if wide {
+        (left, s, right)
+    } else {
+        (right, s, left)
+    })
 }
 
 /// Result of an approximate sweep.
@@ -501,4 +520,29 @@ pub fn run_prefix(plan: &SweepPlan, upto: usize, chi: usize, cutoff: f64) -> Bou
         m.apply_kop(op);
     }
     m
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gram_svd_reconstructs() {
+        for (r, c) in [(5, 9), (9, 5), (6, 6)] {
+            let m = Mat::from_fn(r, c, |i, j| {
+                let x = ((i * 31 + j * 17 + 3) % 23) as f64 / 7.0 - 1.5;
+                C::new(x, ((i * 13 + j * 5) % 11) as f64 / 5.0 - 1.0)
+            });
+            let (u, s, v) = gram_svd(&m).unwrap();
+            assert!(s.windows(2).all(|w| w[0] >= w[1]));
+            for i in 0..r {
+                for j in 0..c {
+                    let z: C = (0..s.len())
+                        .map(|k| u[(i, k)] * s[k] * v[(j, k)].conj())
+                        .sum();
+                    assert!((z - m[(i, j)]).norm() < 1e-10, "{r}x{c} ({i},{j})");
+                }
+            }
+        }
+    }
 }
