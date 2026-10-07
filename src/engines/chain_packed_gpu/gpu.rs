@@ -909,6 +909,28 @@ impl crate::engines::chain_tail::SweepBackend for GpuPacked {
             .amplitude(&self.codec, i);
         Complex64::new(z.re as f64, z.im as f64)
     }
+    fn read_run(&self, start: usize, out: &mut [Complex64]) {
+        // whole-block decodes (the per-entry `amp` decodes a block per call)
+        let store = self.store.as_ref().expect("sweep first");
+        let b = self.codec.block;
+        const PIECE: usize = 1024;
+        if !start.is_multiple_of(b) || !out.len().is_multiple_of(b) || PIECE % b != 0 {
+            for (k, o) in out.iter_mut().enumerate() {
+                *o = self.amp(start + k);
+            }
+            return;
+        }
+        let mut buf = [num_complex::Complex32::new(0.0, 0.0); PIECE];
+        let mut done = 0;
+        while done < out.len() {
+            let len = PIECE.min(out.len() - done);
+            store.decode(&self.codec, start + done, &mut buf[..len]);
+            for (x, z) in out[done..done + len].iter_mut().zip(&buf[..len]) {
+                *x = Complex64::new(z.re as f64, z.im as f64);
+            }
+            done += len;
+        }
+    }
     fn count_passes(&self, plan: &SweepPlan) -> usize {
         self.stages(plan).len()
     }
