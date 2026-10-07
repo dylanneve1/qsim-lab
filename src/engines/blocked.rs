@@ -1516,7 +1516,11 @@ pub fn run_prepared_on_block<T: Real>(
     let p = &p.0;
     let l = block.len().trailing_zeros() as usize;
     assert!(block.len().is_power_of_two() && p.l == l);
-    assert_eq!(p.inner_mask, block.len() - 1, "stage inner qubits must be the low ones");
+    assert_eq!(
+        p.inner_mask,
+        block.len() - 1,
+        "stage inner qubits must be the low ones"
+    );
     assert_eq!(hi & (block.len() - 1), 0);
     let isa = Isa::select(simd, true);
     with_scratch::<T, _>(l, |buf, sc| {
@@ -1538,7 +1542,10 @@ pub fn run_compiled_on_block<T: Real>(plan: &CompiledKOps<T>, block: &mut [Compl
     assert_eq!(hi & (block.len() - 1), 0);
     let isa = plan.isa;
     for p in &plan.stages {
-        assert!(p.inner_mask < block.len(), "stage reaches outside the block");
+        assert!(
+            p.inner_mask < block.len(),
+            "stage reaches outside the block"
+        );
         if p.l >= l {
             with_scratch::<T, _>(p.l, |buf, sc| {
                 load_isa(buf, 0, block, isa);
