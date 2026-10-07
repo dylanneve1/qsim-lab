@@ -1167,7 +1167,7 @@ fn runloop(a: &Args) {
     use qsim_lab::engines::chain_run::{
         bitstring, draw, hex, jamps, jnum, json_field, parse_job, read_seed, seed_jobs, sha256, Job,
     };
-    use qsim_lab::engines::chain_tail::{tail_amplitudes, TailPlan};
+    use qsim_lab::engines::chain_tail::{tail_amplitudes_backend, TailPlan};
     use std::io::Write;
     keepawake::on();
     let c = circuit(a);
@@ -1286,8 +1286,7 @@ fn runloop(a: &Args) {
             .unwrap_or_else(|e| panic!("sweep {key}: {e}"));
         beat(&key, "tail", st.passes, st.passes, t0);
         let tt = Instant::now();
-        let bref: &dyn qsim_lab::engines::chain_tail::SweepBackend = be.as_ref();
-        let amps = tail_amplitudes(&tp, &|i| bref.amp(i));
+        let amps = tail_amplitudes_backend(&tp, be.as_ref());
         let ttail = tt.elapsed().as_secs_f64();
         let tsweep = ts.elapsed().as_secs_f64();
         let fmt = a.s("format", "int6:b64");
@@ -1390,6 +1389,10 @@ fn packedgpu(a: &Args) {
             ps.max_conds,
             ps.max_table_bytes as f64 / 1024.0,
             t.elapsed().as_secs_f64()
+        );
+        println!(
+            "  diagonal ops {} with {} groups in total",
+            ps.diag_ops, ps.diag_groups
         );
         for rb in [3, 4, 5, 6] {
             let (o, loc, ph) = qsim_lab::engines::chain_packed_gpu::reg_stats(&gp, rb);

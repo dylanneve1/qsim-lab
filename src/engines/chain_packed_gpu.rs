@@ -395,6 +395,70 @@ pub mod exact32 {
         (f32::from_bits(bits), bad)
     }
 
+    /// Same result as [`dec_v`] with a few integer operations: `|q|·sm`
+    /// has at most 31 bits, the f32 rounding drops `d = bitlen - 24` of
+    /// them, and the `k` perturbation (rounded once at 53 bits, so it
+    /// survives only if `|q·k| > 2^(d-1)`) only decides exact ties.
+    #[inline]
+    pub fn dec_fast(q: i32, sm: u32, es: i32, k: i32) -> (f32, bool) {
+        if q == 0 {
+            return (0.0, false);
+        }
+        let aq = q.unsigned_abs();
+        let a = aq * sm;
+        let bl = bitlen(a);
+        let mut e = bl as i32 - 1 + es;
+        let m = if bl > 24 {
+            let d = bl - 24;
+            let low = a & ((1u32 << d) - 1);
+            let half = 1u32 << (d - 1);
+            let t = aq * k.unsigned_abs();
+            let up = if low != half {
+                low > half
+            } else if t > half {
+                k > 0
+            } else {
+                (a >> d) & 1 == 1
+            };
+            let mut m = (a >> d) + up as u32;
+            if m == 1 << 24 {
+                m = 1 << 23;
+                e += 1;
+            }
+            m
+        } else {
+            a << (24 - bl)
+        };
+        let bad = !(-126..=127).contains(&e);
+        let bits =
+            ((q < 0) as u32) << 31 | (((e + 127).clamp(1, 254) as u32) << 23) | (m & 0x7f_ffff);
+        (f32::from_bits(bits), bad)
+    }
+
+    /// Same result as [`enc_q`]: a fast f32 path (`|x| · (1/step)`, with
+    /// any reciprocal within a few ulp) away from rounding ties and the
+    /// clamp, the exact emulation near them.
+    #[inline]
+    pub fn enc_fast(x: f32, rinv: f32, r: [u32; 2], adj: i32, es: i32, maxv: u32) -> i32 {
+        const MARGIN: f32 = 1.0 / 4096.0;
+        let y = x.abs() * rinv;
+        let n = if y > maxv as f32 + 0.5 + MARGIN {
+            maxv
+        } else {
+            let f = y - y.floor();
+            if (f - 0.5).abs() > MARGIN && y < maxv as f32 + 0.5 - MARGIN {
+                (y + 0.5).floor() as u32
+            } else {
+                return enc_q(x, r, adj, es, maxv);
+            }
+        };
+        if x.to_bits() >> 31 == 1 {
+            -(n as i32)
+        } else {
+            n as i32
+        }
+    }
+
     /// `k` with `fl64(1/fl64(1/sm)) = (sm·2^29 + k)·2^-29` for every
     /// `sm` in `[2^23, 2^24)`, stored as `k + 1` in 2 bits (16 per word).
     pub fn k_table() -> Vec<u32> {
@@ -655,7 +719,7 @@ pub fn decode_block(
         let k = codec.k_of(sm);
         unpack_ints(bytes, codec.bits, 2 * out.len())
             .map(|u| {
-                let (v, bad) = exact32::dec_v(u as i32 - maxv, sm, es, k);
+                let (v, bad) = exact32::dec_fast(u as i32 - maxv, sm, es, k);
                 *inexact += bad as u64;
                 v
             })
@@ -730,13 +794,14 @@ pub fn encode_block(
             }
         }
         let (r, adj) = exact32::recip(sm);
+        let rinv = 1.0 / f32::from_bits(sc);
         v.iter()
             .flat_map(|z| [z.re, z.im])
             .map(|x| {
                 if sc == 0 {
                     0
                 } else {
-                    exact32::enc_q(x, r, adj, es, maxv)
+                    exact32::enc_fast(x, rinv, r, adj, es, maxv)
                 }
             })
             .collect()
@@ -944,6 +1009,10 @@ pub struct PlanStats {
     pub max_table_bytes: usize,
     /// Smallest contiguous run bits.
     pub min_bc: usize,
+    /// Diagonal groups over all sub-stages (each one record on the GPU).
+    pub diag_groups: usize,
+    /// Diagonal ops (blocks of groups).
+    pub diag_ops: usize,
 }
 
 /// Register-residency analysis of `plans` for `rbits` register bits per
@@ -1006,6 +1075,8 @@ pub fn plan_stats(plans: &[GpuStagePlan]) -> PlanStats {
             s.ops += sub.ops.len();
             for op in &sub.ops {
                 if let GpuOp::Diag(gs) = op {
+                    s.diag_ops += 1;
+                    s.diag_groups += gs.len();
                     for g in gs {
                         s.max_conds = s.max_conds.max(g.conds.len());
                         tb += g
@@ -1216,6 +1287,15 @@ mod tests {
                         want,
                         "{f} enc x={x:e} step={step:e}"
                     );
+                    // any reciprocal within a few ulp
+                    let rinv = 1.0f32 / (step as f32);
+                    let rinv =
+                        f32::from_bits((rinv.to_bits() + (r1 >> 60) as u32 % 7).wrapping_sub(3));
+                    assert_eq!(
+                        enc_fast(x, rinv, rr, adj, es, maxv) as f64,
+                        want,
+                        "{f} enc_fast x={x:e} step={step:e}"
+                    );
                 }
                 // decode every q
                 let k = codec.k_of(sm);
@@ -1225,6 +1305,13 @@ mod tests {
                     let (got, bad) = dec_v(q, sm, es, k);
                     assert!(!bad);
                     assert_eq!(got.to_bits(), want.to_bits(), "{f} dec q={q} step={step:e}");
+                    let (got, bad) = dec_fast(q, sm, es, k);
+                    assert!(!bad);
+                    assert_eq!(
+                        got.to_bits(),
+                        want.to_bits(),
+                        "{f} dec_fast q={q} step={step:e}"
+                    );
                 }
             }
         }
