@@ -29,12 +29,12 @@
 //! stored as zero. Neither happens on the doped-Clifford circuit.
 
 use crate::circuit::SimError;
+use crate::engines::blocked::gpu_export::{
+    export_compiled, export_prepared_stage, ExportError, GpuSubStage,
+};
 use crate::engines::blocked::{
     plan_stages_lookahead, prepare_stage_cfg, run_compiled_on_block, run_prepared_on_block,
     BlockConfig, CompiledKOps, KOp, PreparedStage, Stage,
-};
-use crate::engines::blocked::gpu_export::{
-    export_compiled, export_prepared_stage, ExportError, GpuSubStage,
 };
 use crate::engines::chain_lowprec::{int_step, quantize, round_to, Format, LowPrec, Scaling};
 use crate::engines::chain_sweep::SweepPlan;
@@ -546,7 +546,11 @@ impl StageExec {
         let base = deposit(c, self.outer_mask);
         let runlen = 1usize << self.bc;
         for r in 0..1usize << (self.l - self.bc) {
-            f(base | deposit(r << self.bc, self.inner_mask), r << self.bc, runlen);
+            f(
+                base | deposit(r << self.bc, self.inner_mask),
+                r << self.bc,
+                runlen,
+            );
         }
     }
 
@@ -709,9 +713,13 @@ mod tests {
         let mut z = seed;
         (0..n)
             .map(|i| {
-                z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let a = ((z >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * (1.0 + i as f32 / 7.0);
-                z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let b = ((z >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * 3e-3;
                 Complex32::new(a, b)
             })
@@ -721,7 +729,14 @@ mod tests {
     /// Pack + unpack of arbitrary data equals the emulator's `quantize`.
     #[test]
     fn roundtrip_matches_quantize() {
-        for f in ["int4:b16:h", "int5:b64", "int5:b16:h", "int6:b64", "int3:b16", "int8:b256"] {
+        for f in [
+            "int4:b16:h",
+            "int5:b64",
+            "int5:b16:h",
+            "int6:b64",
+            "int3:b16",
+            "int8:b256",
+        ] {
             let lp = LowPrec::parse(f).unwrap();
             let w = 10;
             let mut v = ramp(1 << w, 7);
@@ -770,7 +785,9 @@ mod tests {
         assert_eq!(PackedStore::bytes_for(35, &lp), Some(36 << 30));
         let lp = LowPrec::parse("int5:b64").unwrap();
         assert_eq!(PackedStore::bytes_for(35, &lp), Some(42 << 30));
-        assert!(!PackedStore::supports(&LowPrec::parse("int4:b64:sr").unwrap()));
+        assert!(!PackedStore::supports(
+            &LowPrec::parse("int4:b64:sr").unwrap()
+        ));
         assert!(!PackedStore::supports(&LowPrec::parse("bf16").unwrap()));
         assert!(!PackedStore::supports(&LowPrec::parse("int5:b6").unwrap()));
     }

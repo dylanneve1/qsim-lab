@@ -58,7 +58,13 @@ fn cases(lo: usize, hi: usize, k: usize, l_minus: usize, slots: usize, fuse: boo
 
 #[test]
 fn emulated_gpu_pipeline_is_bit_exact_with_cpu_packed() {
-    let fmts = ["int4:b16:h", "int5:b16:h", "int3:b32:h", "int8:b16:h"];
+    let fmts = [
+        "int4:b16:h",
+        "int5:b16:h",
+        "int6:b64",
+        "int4:b16",
+        "int8:b32",
+    ];
     // nested plans (cache blocks of 2^6 and 2^8 amplitudes inside the
     // gathered blocks) on the last 28 layers, fused and unfused
     for (fuse, nb) in [(false, 6), (true, 8)] {
@@ -115,7 +121,7 @@ fn gpu_is_bit_exact_with_cpu_packed() {
     eprintln!("adapter: {}", gpu.adapter_info());
     for fuse in [false, true] {
         for case in cases(42, 70, 2, 4, 3, fuse) {
-            for f in ["int4:b16:h", "int5:b16:h", "int3:b32:h"] {
+            for f in ["int4:b16:h", "int6:b64", "int5:b16"] {
                 let lp = LowPrec::parse(f).unwrap();
                 let cpu = run_packed(&case.plan, &case.stages, &lp, &cfg).unwrap();
                 let g = gpu.run(&case.plan, &case.stages, &lp, &cfg).unwrap();

@@ -2,9 +2,7 @@
 //! chunk pipeline (host gather → upload → unpack → sub-stages → pack →
 //! download → host scatter, `slots` chunks in flight).
 
-use super::{
-    gather_chunk, gpu_plans, next_base, scatter_chunk, GpuRun, HalfCodec, HostStore, NMANT,
-};
+use super::{gather_chunk, gpu_plans, next_base, scatter_chunk, Codec, GpuRun, HostStore};
 use crate::circuit::SimError;
 use crate::engines::blocked::gpu_export::{GpuOp, GpuSubStage};
 use crate::engines::blocked::{BlockConfig, Stage};
@@ -86,8 +84,8 @@ struct Params {
     total: u32,
     dec_off: u32,
     thr_off: u32,
-    pad0: u32,
-    pad1: u32,
+    half: u32,
+    koff: u32,
 }
 
 impl Params {
@@ -111,8 +109,8 @@ impl Params {
             self.total,
             self.dec_off,
             self.thr_off,
-            self.pad0,
-            self.pad1,
+            self.half,
+            self.koff,
         ];
         let mut out = [0u8; 80];
         for (o, v) in out.chunks_exact_mut(4).zip(w) {
@@ -133,10 +131,6 @@ fn shape(groups: u32) -> (u32, u32) {
     } else {
         (32768, groups.div_ceil(32768))
     }
-}
-
-fn f32_bytes(v: &[f32]) -> Vec<u8> {
-    v.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
 /// Encodes the ops of a sub-stage into the program words, appending the
@@ -209,6 +203,18 @@ fn encode_sub(s: &GpuSubStage, tables: &mut Vec<u32>) -> Vec<u32> {
     w
 }
 
+fn whole(b: &wgpu::Buffer) -> wgpu::BindingResource<'_> {
+    b.as_entire_binding()
+}
+
+fn sized(b: &wgpu::Buffer, size: u64) -> wgpu::BindingResource<'_> {
+    wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+        buffer: b,
+        offset: 0,
+        size: wgpu::BufferSize::new(size),
+    })
+}
+
 /// Per-slot device and staging buffers.
 struct Slot {
     pk: wgpu::Buffer,
@@ -231,28 +237,33 @@ impl GpuSweeper {
             None => vec![
                 wgpu::Backends::VULKAN,
                 wgpu::Backends::DX12,
-                wgpu::Backends::all(),
+                wgpu::Backends::METAL,
             ],
         };
+        let enabled = wgpu::Instance::enabled_backend_features();
         let mut last = String::from("no adapter");
         for b in tries {
+            let b = b & enabled;
+            if b.is_empty() {
+                continue;
+            }
             let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                 backends: b,
                 ..wgpu::InstanceDescriptor::new_without_display_handle()
             });
-            let adapter = match pollster::block_on(instance.request_adapter(
-                &wgpu::RequestAdapterOptions {
+            let adapter =
+                match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     force_fallback_adapter: false,
                     compatible_surface: None,
-                },
-            )) {
-                Ok(a) => a,
-                Err(e) => {
-                    last = format!("{b:?}: {e}");
-                    continue;
-                }
-            };
+                    apply_limit_buckets: false,
+                })) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        last = format!("{b:?}: {e}");
+                        continue;
+                    }
+                };
             let al = adapter.limits();
             if al.max_compute_workgroup_storage_size < need_wg + 64 {
                 last = format!(
@@ -274,20 +285,19 @@ impl GpuSweeper {
                 max_storage_buffers_per_shader_stage: al.max_storage_buffers_per_shader_stage,
                 ..wgpu::Limits::default()
             };
-            let (device, queue) = match pollster::block_on(adapter.request_device(
-                &wgpu::DeviceDescriptor {
+            let (device, queue) =
+                match pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("qsim packed sweep"),
                     required_features: wgpu::Features::empty(),
                     required_limits: limits,
                     ..Default::default()
-                },
-            )) {
-                Ok(d) => d,
-                Err(e) => {
-                    last = format!("{b:?}: {e}");
-                    continue;
-                }
-            };
+                })) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        last = format!("{b:?}: {e}");
+                        continue;
+                    }
+                };
             let src = SHADER
                 .replace("__MAXN__", &(1u32 << nb).to_string())
                 .replace("__WG__", &WG.to_string());
@@ -369,7 +379,13 @@ impl GpuSweeper {
         self.info.clone()
     }
 
-    fn buffer(&self, label: &str, size: u64, usage: wgpu::BufferUsages, mapped: bool) -> wgpu::Buffer {
+    fn buffer(
+        &self,
+        label: &str,
+        size: u64,
+        usage: wgpu::BufferUsages,
+        mapped: bool,
+    ) -> wgpu::Buffer {
         self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: size.max(16).next_multiple_of(16),
@@ -398,7 +414,7 @@ impl GpuSweeper {
         lp: &LowPrec,
         cfg: &BlockConfig,
     ) -> Result<GpuRun, SimError> {
-        let codec = HalfCodec::new(lp)?;
+        let codec = Codec::new(lp)?;
         let plans = gpu_plans(stages, plan.width, cfg)?;
         if plans
             .iter()
@@ -407,9 +423,6 @@ impl GpuSweeper {
             return Err(err(
                 "GPU packed sweep: a cache block exceeds the shader's (lower cfg.block_bytes)",
             ));
-        }
-        if codec.block > 64 {
-            return Err(err("GPU packed sweep: scale blocks of at most 64 amplitudes"));
         }
         let mut store = HostStore::new(plan.width, &codec)?;
         let width = plan.width;
@@ -426,18 +439,30 @@ impl GpuSweeper {
             .max(1 << maxl)
             .min(1 << width);
         if (chunk as u64) * 8 > self.max_binding {
-            return Err(err("GPU packed sweep: chunk work buffer exceeds the binding limit"));
+            return Err(err(
+                "GPU packed sweep: chunk work buffer exceeds the binding limit",
+            ));
         }
         let bb = codec.block_bytes();
         let nsb = chunk / codec.block; // scale blocks per chunk
         let pk_bytes = (nsb * bb) as u64;
-        let cd_bytes = (nsb * 2) as u64;
+        let cd_bytes = (nsb * codec.scale_bytes()) as u64;
         let stage_bytes = pk_bytes + cd_bytes.next_multiple_of(4);
         use wgpu::BufferUsages as U;
         let mut slots: Vec<Slot> = (0..self.opts.slots.max(1))
             .map(|_| Slot {
-                pk: self.buffer("pk", pk_bytes, U::STORAGE | U::COPY_DST | U::COPY_SRC, false),
-                cd: self.buffer("cd", cd_bytes, U::STORAGE | U::COPY_DST | U::COPY_SRC, false),
+                pk: self.buffer(
+                    "pk",
+                    pk_bytes,
+                    U::STORAGE | U::COPY_DST | U::COPY_SRC,
+                    false,
+                ),
+                cd: self.buffer(
+                    "cd",
+                    cd_bytes,
+                    U::STORAGE | U::COPY_DST | U::COPY_SRC,
+                    false,
+                ),
                 work: self.buffer("work", chunk as u64 * 8, U::STORAGE, false),
                 up: self.buffer("up", stage_bytes, U::MAP_WRITE | U::COPY_SRC, true),
                 down: self.buffer("down", stage_bytes, U::MAP_READ | U::COPY_DST, false),
@@ -445,13 +470,21 @@ impl GpuSweeper {
                 up_mapped: true,
             })
             .collect();
-        // codec tables: dec rows then thresholds
-        let mut cvec = codec.dec.clone();
+        // codec tables: dec rows, thresholds, k table
+        let mut cvec: Vec<u32> = codec.dec.iter().map(|x| x.to_bits()).collect();
         let thr_off = cvec.len() as u32;
-        cvec.extend_from_slice(&codec.thr);
-        debug_assert_eq!(codec.thr.len(), NMANT * codec.maxv as usize);
-        let codec_buf = self.buffer("codec", cvec.len() as u64 * 4, U::STORAGE | U::COPY_DST, false);
-        self.queue.write_buffer(&codec_buf, 0, &f32_bytes(&cvec));
+        cvec.extend(codec.thr.iter().map(|x| x.to_bits()));
+        let koff = cvec.len() as u32;
+        cvec.extend_from_slice(&codec.ktab);
+        cvec.push(0);
+        let codec_buf = self.buffer(
+            "codec",
+            cvec.len() as u64 * 4,
+            U::STORAGE | U::COPY_DST,
+            false,
+        );
+        let cb: Vec<u8> = cvec.iter().flat_map(|x| x.to_le_bytes()).collect();
+        self.queue.write_buffer(&codec_buf, 0, &cb);
         let stats = self.buffer("stats", 16, U::STORAGE | U::COPY_DST | U::COPY_SRC, false);
         let stats_rb = self.buffer("stats rb", 16, U::MAP_READ | U::COPY_DST, false);
 
@@ -461,7 +494,15 @@ impl GpuSweeper {
         for (pi, p) in plans.iter().enumerate() {
             let t0 = Instant::now();
             let st = self.run_pass(
-                &mut store, &codec, p, chunk, &mut slots, &codec_buf, thr_off, &stats, &stats_rb,
+                &mut store,
+                &codec,
+                p,
+                chunk,
+                &mut slots,
+                &codec_buf,
+                (thr_off, koff),
+                &stats,
+                &stats_rb,
             )?;
             uf += st[1] as u64;
             of += st[2] as u64;
@@ -498,12 +539,12 @@ impl GpuSweeper {
     fn run_pass(
         &self,
         store: &mut HostStore,
-        codec: &HalfCodec,
+        codec: &Codec,
         p: &GpuStagePlan,
         chunk: usize,
         slots: &mut [Slot],
         codec_buf: &wgpu::Buffer,
-        thr_off: u32,
+        (thr_off, koff): (u32, u32),
         stats: &wgpu::Buffer,
         stats_rb: &wgpu::Buffer,
     ) -> Result<[i32; 4], SimError> {
@@ -515,7 +556,7 @@ impl GpuSweeper {
         let amps = g << p.l;
         let nsb = amps / codec.block;
         let bb = codec.block_bytes();
-        let (pk_len, cd_len) = ((nsb * bb) as u64, (nsb * 2) as u64);
+        let (pk_len, cd_len) = ((nsb * bb) as u64, (nsb * codec.scale_bytes()) as u64);
         let cd_off = pk_len; // within the staging buffers
         let base_in = store.base;
         let base_out = next_base(store.maxexp);
@@ -537,7 +578,12 @@ impl GpuSweeper {
         tables.push(0);
         let prog_buf = self.buffer("prog", prog.len() as u64, U::UNIFORM | U::COPY_DST, false);
         self.queue.write_buffer(&prog_buf, 0, &prog);
-        let tab_buf = self.buffer("tables", tables.len() as u64 * 4, U::STORAGE | U::COPY_DST, false);
+        let tab_buf = self.buffer(
+            "tables",
+            tables.len() as u64 * 4,
+            U::STORAGE | U::COPY_DST,
+            false,
+        );
         let tb: Vec<u8> = tables.iter().flat_map(|x| x.to_le_bytes()).collect();
         self.queue.write_buffer(&tab_buf, 0, &tb);
 
@@ -556,6 +602,8 @@ impl GpuSweeper {
             wpb: (bb / 4) as u32,
             dec_off: 0,
             thr_off,
+            half: codec.half as u32,
+            koff,
             ..Default::default()
         };
         let full = (1usize << p.l) - 1;
@@ -589,7 +637,12 @@ impl GpuSweeper {
                 params[o..o + 80].copy_from_slice(&q.bytes());
             }
         }
-        let par_buf = self.buffer("params", params.len() as u64, U::UNIFORM | U::COPY_DST, false);
+        let par_buf = self.buffer(
+            "params",
+            params.len() as u64,
+            U::UNIFORM | U::COPY_DST,
+            false,
+        );
         self.queue.write_buffer(&par_buf, 0, &params);
         let mut init = Vec::new();
         for v in [i32::MIN, 0, 0, 0] {
@@ -600,29 +653,42 @@ impl GpuSweeper {
         let groups: Vec<wgpu::BindGroup> = slots
             .iter()
             .map(|s| {
-                let whole = |b: &wgpu::Buffer| b.as_entire_binding();
-                let sized = |b: &wgpu::Buffer, size: u64| {
-                    wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: b,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(size),
-                    })
-                };
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("packed bind group"),
                     layout: &self.layout,
                     entries: &[
-                        wgpu::BindGroupEntry { binding: 0, resource: whole(&s.pk) },
-                        wgpu::BindGroupEntry { binding: 1, resource: whole(&s.cd) },
-                        wgpu::BindGroupEntry { binding: 2, resource: whole(&s.work) },
-                        wgpu::BindGroupEntry { binding: 3, resource: whole(codec_buf) },
-                        wgpu::BindGroupEntry { binding: 4, resource: whole(stats) },
-                        wgpu::BindGroupEntry { binding: 5, resource: sized(&par_buf, 80) },
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: whole(&s.pk),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: whole(&s.cd),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: whole(&s.work),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 3,
+                            resource: whole(codec_buf),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 4,
+                            resource: whole(stats),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 5,
+                            resource: sized(&par_buf, 80),
+                        },
                         wgpu::BindGroupEntry {
                             binding: 6,
                             resource: sized(&prog_buf, (PROG_WORDS * 4) as u64),
                         },
-                        wgpu::BindGroupEntry { binding: 7, resource: whole(&tab_buf) },
+                        wgpu::BindGroupEntry {
+                            binding: 7,
+                            resource: whole(&tab_buf),
+                        },
                     ],
                 })
             })
@@ -638,12 +704,8 @@ impl GpuSweeper {
             {
                 let v = slot.down.get_mapped_range(..).expect("map down");
                 let data = &v[..pk_len as usize];
-                let cb = &v[cd_off as usize..(cd_off + cd_len) as usize];
-                let codes: Vec<u16> = cb
-                    .chunks_exact(2)
-                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
-                    .collect();
-                scatter_chunk(store, codec, p, ci * g, g, data, &codes);
+                let sc = &v[cd_off as usize..(cd_off + cd_len) as usize];
+                scatter_chunk(store, codec, p, ci * g, g, data, sc);
             }
             slot.down.unmap();
         };
@@ -655,12 +717,12 @@ impl GpuSweeper {
             assert!(slot.up_mapped, "upload staging not mapped");
             {
                 let mut v = slot.up.get_mapped_range_mut(..).expect("map up range");
-                let mut codes = vec![0u16; nsb];
-                let (data, rest) = v.split_at_mut(pk_len as usize);
-                gather_chunk(store, codec, p, ci * g, g, data, &mut codes);
-                for (o, c) in rest[..cd_len as usize].chunks_exact_mut(2).zip(&codes) {
-                    o.copy_from_slice(&c.to_le_bytes());
-                }
+                let mut w = v.slice(..);
+                let ptr = w.as_raw_element_ptr().as_ptr();
+                // SAFETY: the mapped range holds the chunk's data
+                // (`pk_len` bytes) then its scales (`cd_len`); gather only
+                // writes inside them.
+                unsafe { gather_chunk(store, codec, p, ci * g, g, ptr, ptr.add(cd_off as usize)) };
             }
             slot.up.unmap();
             slot.up_mapped = false;
@@ -683,7 +745,11 @@ impl GpuSweeper {
                         &self.substage
                     };
                     let po = ((ci * nk + k) as u64 * PSLOT) as u32;
-                    let gofs = if k == 0 || k == nk - 1 { 0 } else { prog_off[k - 1] };
+                    let gofs = if k == 0 || k == nk - 1 {
+                        0
+                    } else {
+                        prog_off[k - 1]
+                    };
                     cp.set_pipeline(pipe);
                     cp.set_bind_group(0, &groups[si], &[po, gofs]);
                     cp.dispatch_workgroups(nx, ny, 1);
@@ -692,8 +758,10 @@ impl GpuSweeper {
             enc.copy_buffer_to_buffer(&slot.pk, 0, &slot.down, 0, pk_len);
             enc.copy_buffer_to_buffer(&slot.cd, 0, &slot.down, cd_off, cd_len.next_multiple_of(4));
             let idx = self.queue.submit([enc.finish()]);
-            slot.down.map_async(wgpu::MapMode::Read, .., |r| r.expect("map down"));
-            slot.up.map_async(wgpu::MapMode::Write, .., |r| r.expect("map up"));
+            slot.down
+                .map_async(wgpu::MapMode::Read, .., |r| r.expect("map down"));
+            slot.up
+                .map_async(wgpu::MapMode::Write, .., |r| r.expect("map up"));
             slot.busy = Some((ci, idx));
         }
         for slot in slots.iter_mut() {

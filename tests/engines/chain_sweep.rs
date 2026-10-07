@@ -224,7 +224,13 @@ fn packed_storage_is_bit_exact_with_emulation() {
     use qsim_lab::engines::chain_lowprec::{passes, run_lowprec, Granularity, LowPrec};
     use qsim_lab::engines::chain_packed::{packed_stages, run_emulated_stages, run_packed};
     let full = Circuit::from_qasm(QASM).unwrap();
-    let fmts = ["int4:b16:h", "int5:b64", "int5:b16:h", "int6:b64", "int8:b64"];
+    let fmts = [
+        "int4:b16:h",
+        "int5:b64",
+        "int5:b16:h",
+        "int6:b64",
+        "int8:b64",
+    ];
     let mut rng = StdRng::seed_from_u64(11);
 
     // (a) small register (one block per pass, as in run_lowprec)
@@ -266,7 +272,9 @@ fn packed_storage_is_bit_exact_with_emulation() {
         let ex = chain_sweep::amplitude_cpu::<f64>(&plan, &Default::default()).unwrap();
         let stages = packed_stages(&plan.ops, plan.width, plan.width - 4, 3);
         assert!(stages.len() > plan.width);
-        assert!(stages.iter().any(|s| s.inner != (0..s.inner.len()).collect::<Vec<_>>()));
+        assert!(stages
+            .iter()
+            .any(|s| s.inner != (0..s.inner.len()).collect::<Vec<_>>()));
         // direct: the stage runs as one block; nested: re-planned inside the
         // gather buffer with 2^6-amplitude cache blocks
         let nested = BlockConfig {
@@ -283,7 +291,10 @@ fn packed_storage_is_bit_exact_with_emulation() {
             assert_eq!(pn.amp, en, "{f} nested");
             // the two compute paths agree to f32 rounding (amplified a little
             // by the requantization)
-            assert!((pn.amp - p.amp).norm() <= 0.05 * ex.norm().max(p.amp.norm()), "{f}");
+            assert!(
+                (pn.amp - p.amp).norm() <= 0.05 * ex.norm().max(p.amp.norm()),
+                "{f}"
+            );
             acc[j].0 += ex.conj() * p.amp;
             acc[j].1 += ex.norm_sqr();
             acc[j].2 += p.amp.norm_sqr();
