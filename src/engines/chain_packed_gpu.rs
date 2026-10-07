@@ -64,7 +64,7 @@ pub struct Codec {
     /// `:h`: `thr[mant * maxv + n]`, smallest `x >= 0` (f32) that the CPU
     /// rounds to at least `n + 1` for the step `1024 + mant`.
     pub thr: Vec<f32>,
-    /// f32 steps: `k` of [`exact32::recip_back`] for each 24-bit step
+    /// f32 steps: `k` of `exact32::recip_back` for each 24-bit step
     /// mantissa, 2 bits each (16 per word).
     pub ktab: Vec<u32>,
 }
