@@ -1,0 +1,41 @@
+n=70 D=70 register width W=35 (sequential plan ops 10907)
+k=1 w=26: passes=71 stored_max=35 (+0 bits, x1) max_local=22 dir0=f stride=1 T0=29
+k=1 w=27: passes=71 stored_max=35 (+0 bits, x1) max_local=22 dir0=f stride=1 T0=29
+k=1 w=28: passes=71 stored_max=35 (+0 bits, x1) max_local=22 dir0=f stride=1 T0=29
+k=1 w=29: passes=71 stored_max=35 (+0 bits, x1) max_local=22 dir0=f stride=1 T0=29
+k=2 w=26: passes=36 stored_max=36 (+1 bits, x2) max_local=23 dir0=f stride=1 T0=29
+k=2 w=27: passes=36 stored_max=36 (+1 bits, x2) max_local=23 dir0=f stride=1 T0=29
+k=2 w=28: passes=36 stored_max=36 (+1 bits, x2) max_local=23 dir0=f stride=1 T0=29
+k=2 w=29: passes=36 stored_max=36 (+1 bits, x2) max_local=23 dir0=f stride=1 T0=29
+k=3 w=26: passes=25 stored_max=36 (+1 bits, x2) max_local=24 dir0=f stride=1 T0=29
+k=3 w=27: passes=25 stored_max=36 (+1 bits, x2) max_local=24 dir0=f stride=1 T0=29
+k=3 w=28: passes=25 stored_max=36 (+1 bits, x2) max_local=24 dir0=f stride=1 T0=29
+k=3 w=29: passes=25 stored_max=36 (+1 bits, x2) max_local=24 dir0=f stride=1 T0=29
+k=4 w=26: passes=19 stored_max=37 (+2 bits, x4) max_local=26 dir0=f stride=1 T0=29
+k=4 w=27: passes=19 stored_max=37 (+2 bits, x4) max_local=26 dir0=f stride=1 T0=29
+k=4 w=28: passes=19 stored_max=37 (+2 bits, x4) max_local=26 dir0=f stride=1 T0=29
+k=4 w=29: passes=19 stored_max=37 (+2 bits, x4) max_local=26 dir0=f stride=1 T0=29
+k=5 w=26: passes=15 stored_max=37 (+2 bits, x4) max_local=26 dir0=f stride=1 T0=31
+k=5 w=27: passes=15 stored_max=37 (+2 bits, x4) max_local=27 dir0=f stride=1 T0=29
+k=5 w=28: passes=15 stored_max=37 (+2 bits, x4) max_local=27 dir0=f stride=1 T0=29
+k=5 w=29: passes=15 stored_max=37 (+2 bits, x4) max_local=27 dir0=f stride=1 T0=29
+k=6 w=26: passes=13 stored_max=38 (+3 bits, x8) max_local=26 dir0=f stride=1 T0=35
+k=6 w=27: passes=13 stored_max=38 (+3 bits, x8) max_local=27 dir0=f stride=1 T0=33
+k=6 w=28: passes=13 stored_max=38 (+3 bits, x8) max_local=28 dir0=f stride=1 T0=31
+k=6 w=29: passes=13 stored_max=38 (+3 bits, x8) max_local=29 dir0=f stride=1 T0=29
+k=7 w=26: passes=11 stored_max=38 (+3 bits, x8) max_local=26 dir0=f stride=1 T0=37
+k=7 w=27: passes=11 stored_max=38 (+3 bits, x8) max_local=27 dir0=f stride=1 T0=35
+k=7 w=28: passes=11 stored_max=38 (+3 bits, x8) max_local=28 dir0=f stride=1 T0=33
+k=7 w=29: passes=11 stored_max=38 (+3 bits, x8) max_local=29 dir0=f stride=1 T0=31
+k=8 w=26: no schedule fits
+k=8 w=27: passes=10 stored_max=39 (+4 bits, x16) max_local=27 dir0=f stride=1 T0=39
+k=8 w=28: passes=10 stored_max=39 (+4 bits, x16) max_local=28 dir0=f stride=1 T0=37
+k=8 w=29: passes=10 stored_max=39 (+4 bits, x16) max_local=29 dir0=f stride=1 T0=35
+k=9 w=26: no schedule fits
+k=9 w=27: no schedule fits
+k=9 w=28: passes=9 stored_max=39 (+4 bits, x16) max_local=28 dir0=f stride=1 T0=39
+k=9 w=29: passes=9 stored_max=39 (+4 bits, x16) max_local=29 dir0=f stride=1 T0=37
+k=11 w=26: no schedule fits
+k=11 w=27: no schedule fits
+k=11 w=28: no schedule fits
+k=11 w=29: no schedule fits
