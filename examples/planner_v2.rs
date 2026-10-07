@@ -421,6 +421,7 @@ fn cmd_feat(spec: &str, seed: u64) -> String {
         computed: [true; 6],
         hsf_split: None,
         tn: None,
+        gaussian: None,
         base: base.clone(),
     };
     let mut choices = Vec::new();
