@@ -89,8 +89,11 @@ correlation matrices.
 
 - a2 matches exact-statevector finite differences in g on 10–12-qubit windows to all printed
   digits.
-- a2 matches full 120-qubit ladder-MPS TEBD to 1e-6 through step 9 at χ = 128. This uses
-  TEBD(g) − TEBD(0), so the truncation error cancels.
+- a2 matches full 120-qubit ladder-MPS TEBD. The comparison uses TEBD(g) − TEBD(0), so the
+  truncation error cancels; the difference is converged in χ to 1.5e-8.
+  - stag_SCV: agreement ≤ 2e-6 through step 9 (χ = 256).
+  - n_f: agreement ≤ 4e-7 through step 10 (χ = 128).
+  - The residual is the O(g⁴) term.
 - The pipeline reproduces the published n_f at steps 1–3 (1.825336, 1.347301, 0.690350).
 
 **Error bar.** It is set by the neglected O(g⁴) remainder:
