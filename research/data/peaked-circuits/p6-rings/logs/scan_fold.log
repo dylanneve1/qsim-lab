@@ -1,0 +1,9 @@
+f=0.100 centre=349 absorbed=47 (left 12, right 35) final {'max_bond': 128, 'elems': 125280, 'trunc': np.float64(5e-06)} t=59s
+f=0.200 centre=699 absorbed=69 (left 1, right 68) final {'max_bond': 64, 'elems': 115212, 'trunc': np.float64(3e-06)} t=127s
+f=0.300 centre=1048 absorbed=51 (left 23, right 28) final {'max_bond': 64, 'elems': 328008, 'trunc': np.float64(1e-06)} t=127s
+f=0.400 centre=1398 absorbed=49 (left 10, right 39) final {'max_bond': 32, 'elems': 12740, 'trunc': np.float64(0.0)} t=121s
+f=0.500 centre=1747 absorbed=37 (left 8, right 29) final {'max_bond': 128, 'elems': 89560, 'trunc': np.float64(1e-06)} t=59s
+f=0.600 centre=2096 absorbed=36 (left 27, right 9) final {'max_bond': 64, 'elems': 295560, 'trunc': np.float64(0.0)} t=160s
+f=0.700 centre=2446 absorbed=56 (left 24, right 32) final {'max_bond': 128, 'elems': 175392, 'trunc': np.float64(1e-06)} t=160s
+f=0.800 centre=2795 absorbed=55 (left 15, right 40) final {'max_bond': 256, 'elems': 641424, 'trunc': np.float64(2e-06)} t=44s
+f=0.900 centre=3145 absorbed=48 (left 20, right 28) final {'max_bond': 128, 'elems': 98480, 'trunc': np.float64(0.0)} t=33s
