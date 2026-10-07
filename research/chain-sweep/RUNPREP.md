@@ -77,6 +77,45 @@ Plan facts at D = 70 (`tailinfo`, l = 22, slots = 14):
 - Prefixes derived on Windows from the seed are identical to `analyze.py prefixes`.
 - `analyze.py samples` reports no missing indices.
 
-## D = 70 calibration (go/no-go)
+## D = 70 calibration (go/no-go): GO
 
-See the section appended after the run.
+- Job: SUTD row 1502, the first row drawn by `analyze.py calrows` from a fresh calibration seed
+  (sha256 f5037baf7ebbb6524446f1f7f4fa0cb68d08713f07d1493961f1a821682c76ff). m = 8, so all 256 of
+  SUTD's amplitudes are compared.
+- Binary: `exp/runprep-gpu` c915f91 = exp/packed-wgpu + this branch + `GpuPacked::read_run`.
+- Run: `run --gpu`, int4:b64, l = 26, slots = 14, RTX 4090 (Vulkan), on win.
+
+| quantity | value |
+|---|---|
+| R (roundings) | 63 |
+| F̂ vs SUTD (256 amplitudes) | **0.455 ± 0.034** (bootstrap over amplitudes) |
+| predicted, exp(−1.2e-2 · 63) / same config at D = 50 vs exact f64 | 0.47 / 0.51 |
+| F if conjugated / tail index bit-reversed / both | 0.008 / 0.004 / 0.004 → conventions confirmed |
+| sampler XEB on this prefix: ours / exact sampler / ratio | 0.348 / 0.714 / 0.487 |
+| Σ\|l\|² / Σ\|e\|² | 2.76 (int4 inflates the norm the same way vs exact at D = 50: 2.3–2.5) |
+| time | sweep 568 s (9.0 s/pass), tail 56.5 s, total 628 s |
+| memory | working set 34.6 GB, free ≥ 16.7 GB, no paging |
+
+An earlier attempt with the 9109f5e GPU binary finished the sweep in 609 s, but its tail pass did not
+finish in 30 min. `GpuPacked::amp` decoded a whole block and allocated twice per entry, for 2^35 reads.
+It was killed. `read_run`, which reads rows with whole-block decodes, fixed it (56.5 s).
+
+## Before production
+
+- Use a GPU binary that has `read_run` (`exp/runprep-gpu` c915f91 or later, or merge it into
+  exp/packed-wgpu). Use the CPU path otherwise.
+- Format. int4:b64 (F ≈ 0.45) cannot beat IBM's XEB. int6:b64 (F ≈ 0.96) needs a 50 GiB host store plus
+  the GPU path's ~8 GB extra private memory. The PC's commit limit after the reboot is 65.4 GB, and the base
+  commit with apps closed is 13.5 GB, so int6 does not fit. Even int5:b16:h (44 GiB, F ≈ 0.88 at R = 63)
+  is at the limit. Options:
+  - a larger (system-managed) pagefile: commit only, the register stays in RAM;
+  - VRAM residency for part of the store;
+  - or accept int5:b16:h.
+- `llama-server` (E:\ai, qwen 35B, port 8080) starts with the machine and takes ~18 GB VRAM + ~18 GB RAM.
+  It must be stopped for the run.
+- Monitor rule. After a reboot the system reads files at ~25k pages-in/s with the pagefile at 0 %. Kill on
+  pages-out / pagefile growth / free < 4 GB, not on pages-in.
+- Seed. Generate the production seed, publish sha256 before the first production sweep, and run
+  `calrows --m 6` for the 6 interleaved calibration jobs.
+- One calibration sweep gives ±0.034 at F ≈ 0.45. At int6, one m = 6 sweep gives about ±0.008.
+- No large pages or VirtualLock yet. "RAM only" rests on the monitor.
