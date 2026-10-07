@@ -266,6 +266,91 @@ def test_simulability_features_and_explanation():
     assert "log2 work" in str(s2)
 
 
+# --------------------------------------------------------------------------- free fermions
+
+
+def _pair_rotation(c, a, b, pa, pb, theta):
+    """exp(-i theta/2 P_a P_b), P in {X, Y}: a quadratic Majorana term."""
+    for q, p in ((a, pa), (b, pb)):
+        if p == "Y":
+            c.sdg(q)
+        c.h(q)
+    c.cx(a, b).rz(b, theta).cx(a, b)
+    for q, p in ((a, pa), (b, pb)):
+        c.h(q)
+        if p == "Y":
+            c.s(q)
+
+
+def random_matchgate(rng, n, depth):
+    c = qs.Circuit(n)
+    for q in range(n):
+        if rng.random() < 0.5:
+            c.x(q)
+    for _ in range(depth):
+        u = rng.random()
+        if u < 0.25:
+            c.rz(int(rng.integers(n)), float(rng.uniform(-3, 3)))
+        elif u < 0.35:
+            c.x(int(rng.integers(n)))
+        else:
+            a = int(rng.integers(n - 1))
+            a, b = (a, a + 1) if rng.random() < 0.5 else (a + 1, a)
+            if u < 0.85:
+                _pair_rotation(c, a, b, "XY"[rng.integers(2)], "XY"[rng.integers(2)],
+                               float(rng.uniform(-3, 3)))
+            else:
+                c.iswap(a, b)
+    return c
+
+
+def test_gaussian_detector_and_engine_match_the_statevector(rng):
+    n = 6
+    c = random_matchgate(rng, n, 40)
+    r = an.gaussian(c)
+    assert r.exact and r.free and r.gaussian_fraction == 1.0 and r.max_residual < 1e-10
+    pairs = [(0, 3), (2, 5), (1, 2)]
+    e = an.gaussian_expectations(c, pairs)
+    psi = qs.simulate(c, qs.statevector()).state
+    p = np.abs(psi) ** 2
+    idx = np.arange(2**n)
+    bit = lambda q: (idx >> q) & 1
+    for q in range(n):
+        assert abs(e.z[q] - np.sum(p * (1 - 2 * bit(q)))) < 1e-10
+    for k, (a, b) in enumerate(pairs):
+        assert abs(e.zz[k] - np.sum(p * (1 - 2 * (bit(a) ^ bit(b))))) < 1e-10
+    # the engine through simulate(): Z strings and samples
+    z = qs.simulate(c, qs.expectation(["Z0 Z2", "Z5"]), engine="gaussian")
+    assert z.engine == "gaussian"
+    assert abs(z.values[0] - np.sum(p * (1 - 2 * (bit(0) ^ bit(2))))) < 1e-10
+    assert abs(z.values[1] - e.z[5]) < 1e-10
+    s = qs.simulate(c.copy().measure_all(), qs.samples(64), engine="gaussian", seed=3)
+    assert s.engine == "gaussian" and s.bits.shape == (64, n)
+    assert qs.ENGINES["gaussian"][0] == ("samples", "expectation")
+
+
+def test_gaussian_rejects_and_reports_interactions(rng):
+    c = random_matchgate(rng, 5, 20)
+    bad = c.copy().h(2)
+    r = an.gaussian(bad)
+    assert not r.exact and r.non_gaussian >= 1 and r.gaussian_fraction < 1
+    with pytest.raises(UnsupportedOperationError):
+        an.gaussian_expectations(bad)
+    with pytest.raises(UnsupportedOperationError):
+        qs.simulate(bad, qs.expectation("IIZII"), engine="gaussian")
+    inter = c.copy().cp(1, 2, 0.2).cp(0, 4, -0.1)
+    r = an.gaussian(inter)
+    assert r.free and not r.exact and len(r.interactions) == 2
+    assert abs(r.interaction_total - 0.3) < 1e-12
+    with pytest.raises(UnsupportedOperationError):
+        an.gaussian_expectations(inter)
+    e = an.gaussian_expectations(inter, drop_interactions=True)
+    ref_z = an.gaussian_expectations(c).z
+    assert np.allclose(e.z, ref_z, atol=1e-10)
+    f = an.simulability(c, hsf=False).features
+    assert f["gauss_exact"] and f["gauss_fraction"] == 1.0
+
+
 # --------------------------------------------------------------------------- monitored
 
 

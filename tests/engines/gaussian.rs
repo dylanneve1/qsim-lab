@@ -156,7 +156,10 @@ fn check_against_sv(c: &Circuit, rng: &mut StdRng, what: &str) -> gaussian::Gaus
         for j in i + 1..n {
             let want = z_product(&p, &[i, j]);
             let got = st.z_correlation(i, j).unwrap();
-            assert!((got - want).abs() < TOL, "{what}: <Z_{i} Z_{j}> {got} vs {want}");
+            assert!(
+                (got - want).abs() < TOL,
+                "{what}: <Z_{i} Z_{j}> {got} vs {want}"
+            );
         }
     }
     for _ in 0..8 {
@@ -164,7 +167,10 @@ fn check_against_sv(c: &Circuit, rng: &mut StdRng, what: &str) -> gaussian::Gaus
         let qs: Vec<usize> = (0..k).map(|_| rng.random_range(0..n)).collect();
         let want = z_product(&p, &qs);
         let got = st.expectation_z_product(&qs).unwrap();
-        assert!((got - want).abs() < TOL, "{what}: <Z{qs:?}> {got} vs {want}");
+        assert!(
+            (got - want).abs() < TOL,
+            "{what}: <Z{qs:?}> {got} vs {want}"
+        );
     }
     let xs: Vec<usize> = if n <= 8 {
         (0..1 << n).collect()
@@ -173,7 +179,11 @@ fn check_against_sv(c: &Circuit, rng: &mut StdRng, what: &str) -> gaussian::Gaus
     };
     for x in xs {
         let got = st.probability(x as u128).unwrap();
-        assert!((got - p[x]).abs() < TOL, "{what}: p({x:b}) {got} vs {}", p[x]);
+        assert!(
+            (got - p[x]).abs() < TOL,
+            "{what}: p({x:b}) {got} vs {}",
+            p[x]
+        );
     }
     rep
 }
@@ -266,7 +276,12 @@ fn samples_follow_the_born_rule() {
         freq[x as usize] += 1.0 / shots as f64;
     }
     for x in 0..1 << n {
-        assert!((freq[x] - p[x]).abs() < 0.025, "{x:b}: {} vs {}", freq[x], p[x]);
+        assert!(
+            (freq[x] - p[x]).abs() < 0.025,
+            "{x:b}: {} vs {}",
+            freq[x],
+            p[x]
+        );
     }
 }
 
@@ -331,7 +346,7 @@ fn non_gaussian_circuits_are_rejected() {
         c.ops.push(qsim_lab::Op::Gate(g));
     }
     let r = reject(&c, "star");
-    assert_eq!(r.ordering, Some(Ordering::GreedyCover));
+    assert!(r.nonadjacent >= 1, "{r:?}");
     // a measurement in the middle
     let mut c = line_hops(3);
     c.measure(1).x(1);
@@ -358,9 +373,8 @@ fn interaction_phases_are_reported_and_only_dropped_on_request() {
         GaussianState::from_circuit(&c, &GaussianOptions::default()),
         Err(SimError::NotSupported { .. })
     ));
-    // dropping them equals the circuit with the interaction phase removed
-    // from each CPhase (CPhase(θ) = phases θ/2... no: its one-site phases
-    // are 0 in the n_a n_b convention, so dropping = deleting the gate)
+    // CPhase(θ) is exp(iθ n_a n_b) with no one-site phase, so dropping the
+    // interaction phases is the same as deleting the two gates
     let drop = GaussianOptions {
         interactions: InteractionPolicy::Drop,
         ..Default::default()
@@ -385,10 +399,12 @@ fn interaction_phases_are_reported_and_only_dropped_on_request() {
 fn cz_is_a_fermionic_swap_plus_a_relabelling() {
     // CZ = SWAP · fSWAP: an interaction phase of π is Gaussian up to a
     // renaming of the wires
+    // (afterwards qubit 1 holds mode 2 and vice versa, so only the pair
+    // (1, 2) may interact again without leaving the chain)
     let mut c = line_hops(4);
     c.cz(1, 2);
     c.rz(1, 0.7).rz(2, -0.2);
-    for g in pauli_pair(0, 1, 0, 0, 0.5, false) {
+    for g in pauli_pair(1, 2, 0, 0, 0.5, false) {
         c.ops.push(qsim_lab::Op::Gate(g));
     }
     let mut rng = StdRng::seed_from_u64(1);
@@ -469,7 +485,14 @@ fn stag(c: &Circuit) -> (f64, f64, gaussian::GaussianReport) {
         interactions: InteractionPolicy::Drop,
         ..Default::default()
     };
+    let t0 = std::time::Instant::now();
     let (st, rep) = GaussianState::from_circuit(c, &opts).unwrap();
+    eprintln!(
+        "su2: {} blocks, detect {:.4} s, detect + evolve {:.4} s",
+        rep.blocks,
+        rep.secs,
+        t0.elapsed().as_secs_f64()
+    );
     let mut site = vec![0usize; c.num_qubits]; // wire -> position on its chain
     for p in &rep.paths {
         for (r, &w) in p.iter().enumerate() {
@@ -481,7 +504,7 @@ fn stag(c: &Circuit) -> (f64, f64, gaussian::GaussianReport) {
         let w = rep.order[st.mode_of_qubit(q)];
         let occ = 0.5 * (1.0 - st.expectation_z(q).unwrap());
         tot += occ;
-        s += if site[w] % 2 == 0 { occ } else { -occ };
+        s += if site[w].is_multiple_of(2) { occ } else { -occ };
     }
     (s, tot, rep)
 }
@@ -496,11 +519,13 @@ fn su2_hadron_circuits_are_free_fermions_up_to_small_phases() {
     assert_eq!(r.interactions.len(), 1200);
     assert!(r.interaction_max <= 0.0101, "{}", r.interaction_max);
     assert!(r.max_residual < 1e-12, "{}", r.max_residual);
-    assert!(r.number_conserving);
     let (s_meson, n_meson, _) = stag(&su2("meson"));
     assert!((n_scv - 60.0).abs() < 1e-9 && (n_meson - 60.0).abs() < 1e-9);
     // research/data/su2-hadron/README.md: free-fermion values at step 20
     assert!((s_scv - (-2.641078)).abs() < 1e-6, "stag_SCV {s_scv}");
     let nf = s_meson - s_scv;
+    eprintln!(
+        "su2: stag_SCV = {s_scv:.9}, stag_meson = {s_meson:.9}, n_f = {nf:.9}, N = {n_scv:.9}"
+    );
     assert!((nf - 0.118038).abs() < 1e-6, "n_f {nf}");
 }

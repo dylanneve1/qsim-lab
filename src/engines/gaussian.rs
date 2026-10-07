@@ -37,9 +37,7 @@ pub use detect::{
     compile, detect, DetectOptions, GaussOp, GaussianProgram, GaussianReport, InteractionPhase,
     Ordering,
 };
-pub use state::{
-    covariance_bytes, pfaffian, GaussianOptions, GaussianState, InteractionPolicy,
-};
+pub use state::{covariance_bytes, pfaffian, GaussianOptions, GaussianState, InteractionPolicy};
 
 use crate::circuit::{Circuit, SimError};
 
