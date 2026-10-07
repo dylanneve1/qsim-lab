@@ -9,6 +9,7 @@
 //! cargo run --release --example chain_sweep -- fidsv    --n 20 --d 20 --s 8 --trials 4
 //! cargo run --release --example chain_sweep -- fidmitm  --n 70 --d 40 --s 8 --k 400
 //! cargo run --release --example chain_sweep -- lowprec  --n 70 --d 40 --k 200 --formats bf16,fp16:b1024
+//! cargo run --release --example chain_sweep -- packed   --n 70 --d 44 --tail --k 100 --formats int4:b16:h,int5:b64
 //! ```
 //! `--backend metal` needs `--features metal` on macOS. `--qasm PATH`
 //! overrides the circuit (default: the bundled nq70 depth-70 file).
@@ -458,8 +459,9 @@ fn main() {
         Some("fidsv") => fidsv(&a),
         Some("fidmitm") => fidmitm(&a),
         Some("lowprec") => lowprec(&a),
+        Some("packed") => packed(&a),
         _ => eprintln!(
-            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec [--n N --d D ...]"
+            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed [--n N --d D ...]"
         ),
     }
 }
@@ -597,4 +599,150 @@ fn lp_stats(e: &[Complex64], l: &[Complex64], n: usize) -> [f64; 5] {
     let num: f64 = e.iter().zip(l).map(|(a, b)| (a - b).norm_sqr()).sum();
     let den: f64 = e.iter().map(|a| a.norm_sqr()).sum();
     [f, sf, x, sx, (num / den).sqrt()]
+}
+
+/// Packed low-precision storage (`chain_packed`): the register is held as
+/// packed `b`-bit ints + block scales and streamed once per stage of the
+/// big-buffer planner (`--l` buffer bits, `--slots` gathered bits; the ops
+/// are 1q-fused first unless `CS_FUSE=0`). With `--k K` (default 20) it
+/// prints the fidelity against the exact f64 amplitude (as `lowprec`); with
+/// `--noexact` it skips the exact runs (timing only); `--emul` also runs
+/// the emulated reference on the same stages and counts bit-exact matches;
+/// `--exact32` times the exact f32 sweep too; `--count` only plans.
+fn packed(a: &Args) {
+    use qsim_lab::engines::blocked::fuse_1q;
+    use qsim_lab::engines::chain_lowprec::LowPrec;
+    use qsim_lab::engines::chain_packed::{
+        packed_stages, run_emulated_stages, run_packed, PackedStore,
+    };
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let d: usize = a.get("d", 70);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let k: usize = a.get("k", 20);
+    let l: usize = a.get("l", 22);
+    let slots: usize = a.get("slots", 14);
+    let flag = |f: &str| a.0.iter().any(|x| x == f);
+    let fmts: Vec<LowPrec> = a
+        .s("formats", "int4:b16:h,int5:b64")
+        .split(',')
+        .map(|f| LowPrec::parse(f).unwrap_or_else(|| panic!("bad format {f}")))
+        .collect();
+    let cfg = block_cfg();
+    let fuse = std::env::var("CS_FUSE").map(|v| v != "0").unwrap_or(true);
+    let stages_for = |plan: &chain_sweep::SweepPlan| {
+        let ops = if fuse {
+            fuse_1q(&plan.ops, plan.width, false)
+        } else {
+            plan.ops.clone()
+        };
+        packed_stages(&ops, plan.width, l, slots)
+    };
+    let threads = rayon::current_num_threads();
+    if flag("--count") {
+        let plan = compile(&cc, 0, &HashMap::new());
+        let st = stages_for(&plan);
+        let minrun = st
+            .iter()
+            .map(|s| s.inner.iter().enumerate().take_while(|(j, q)| j == *q).count())
+            .min()
+            .unwrap_or(0);
+        println!(
+            "packed-count n={n} d={d} width={} ops={} l={l} slots={slots} passes={} min_run_bits={minrun}",
+            plan.width,
+            plan.ops.len(),
+            st.len()
+        );
+        for f in &fmts {
+            println!(
+                "  fmt={f} store={:.3} GiB  + buffers {:.3} GiB ({threads} threads)",
+                PackedStore::bytes_for(plan.width, f).unwrap_or(0) as f64 / (1u64 << 30) as f64,
+                (threads << l) as f64 * 8.0 / (1u64 << 30) as f64
+            );
+        }
+        return;
+    }
+    let noexact = flag("--noexact");
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    let mut ex: Vec<Complex64> = Vec::new();
+    let mut lps: Vec<Vec<Complex64>> = vec![Vec::new(); fmts.len()];
+    let mut tsec = vec![0.0f64; fmts.len()];
+    let mut tparts = vec![[0.0f64; 3]; fmts.len()];
+    let mut exact_ok = vec![0usize; fmts.len()];
+    let t0 = Instant::now();
+    for i in 0..k {
+        let x = rand_x(&mut rng, n);
+        let plan = compile(&cc, x, &HashMap::new());
+        let st = stages_for(&plan);
+        if flag("--exact32") {
+            let t = Instant::now();
+            let e32 = chain_sweep::amplitude_cpu::<f32>(&plan, &cfg).unwrap();
+            println!(
+                "exact32 d={d} width={} t={:.2}s amp={e32:.4e}",
+                plan.width,
+                t.elapsed().as_secs_f64()
+            );
+        }
+        if !noexact {
+            ex.push(chain_sweep::amplitude_cpu::<f64>(&plan, &cfg).unwrap());
+        }
+        for (j, f) in fmts.iter().enumerate() {
+            let r = run_packed(&plan, &st, f, &cfg).unwrap_or_else(|e| panic!("{f}: {e}"));
+            tsec[j] += r.secs;
+            for (t, s) in tparts[j].iter_mut().zip(r.thread_secs) {
+                *t += s;
+            }
+            if r.underflow + r.overflow > 0 {
+                println!("  WARNING fmt={f} underflow={} overflow={}", r.underflow, r.overflow);
+            }
+            if flag("--emul") {
+                let e = run_emulated_stages(&plan, &st, f, &cfg).unwrap();
+                exact_ok[j] += (e == r.amp) as usize;
+            }
+            lps[j].push(r.amp);
+            if noexact {
+                println!(
+                    "packed-time n={n} d={d} width={} fmt={f} passes={} store={:.3} GiB t={:.2}s unpack/compute/pack thread-s={:.1}/{:.1}/{:.1} threads={threads} amp={:.4e}",
+                    plan.width,
+                    r.passes,
+                    r.store_bytes as f64 / (1u64 << 30) as f64,
+                    r.secs,
+                    r.thread_secs[0],
+                    r.thread_secs[1],
+                    r.thread_secs[2],
+                    r.amp
+                );
+            }
+        }
+        if !noexact && ((i + 1) % a.get("report", 25usize) == 0 || i + 1 == k) {
+            println!(
+                "packed n={n} d={d} width={} passes={} l={l} slots={slots} k={} elapsed={:.0}s",
+                plan.width,
+                st.len(),
+                i + 1,
+                t0.elapsed().as_secs_f64()
+            );
+            for (j, f) in fmts.iter().enumerate() {
+                let s = lp_stats(&ex, &lps[j], n);
+                let r = -s[0].ln() / st.len() as f64;
+                println!(
+                    "  fmt={:<12} bits={:.3} F={:.6} ±{:.6} r=-lnF/R={:.3e} xeb_ratio={:.4} ±{:.4} rms_rel={:.3e} t/amp={:.3}s{}",
+                    f.to_string(),
+                    f.bits_per_component(),
+                    s[0],
+                    s[1],
+                    r,
+                    s[2],
+                    s[3],
+                    s[4],
+                    tsec[j] / (i + 1) as f64,
+                    if flag("--emul") {
+                        format!(" bit-exact={}/{}", exact_ok[j], i + 1)
+                    } else {
+                        String::new()
+                    }
+                );
+            }
+        }
+    }
 }
