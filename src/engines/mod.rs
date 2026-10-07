@@ -24,6 +24,8 @@
 //!   bond register along the chain (runs on the blocked CPU and Metal executors).
 //! * [`chain_lowprec`] — emulated 16-bit / 8-bit storage of the chain-sweep register (fidelity cost).
 //! * [`chain_packed`] — the same register stored packed (`b`-bit ints + block scales), streamed per pass.
+//! * [`chain_tail`] — tail-open batches: all `2^m` completions of `q0..q(m-1)` from one mirrored sweep.
+//! * [`chain_run`] — run bookkeeping: seeded prefixes, job / record lines, the tail sampler's draw.
 //! * [`spd`] — sparse Pauli dynamics for kicked-Ising Trotter circuits.
 //! * [`monitored`] — monitored Clifford+T circuits (measurement-induced transitions).
 
@@ -31,7 +33,9 @@ pub mod adaptive;
 pub mod blocked;
 pub mod chain_lowprec;
 pub mod chain_packed;
+pub mod chain_run;
 pub mod chain_sweep;
+pub mod chain_tail;
 pub mod dense_fusion;
 pub(crate) mod dense_kernels;
 pub mod dist;

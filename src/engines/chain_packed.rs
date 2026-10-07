@@ -86,7 +86,10 @@ fn pack_codes(codes: &[u8], b: u32, bytes: &mut [u8]) {
             }
         }
         _ => {
-            for (g, c) in bytes.chunks_exact_mut(b as usize).zip(codes.chunks_exact(8)) {
+            for (g, c) in bytes
+                .chunks_exact_mut(b as usize)
+                .zip(codes.chunks_exact(8))
+            {
                 let w = c
                     .iter()
                     .enumerate()
@@ -337,10 +340,10 @@ impl PackedStore {
                 let s = 1.0 / step;
                 let maxv = self.maxv;
                 for (c, z) in codes.chunks_exact_mut(2).zip(v) {
-                    c[0] = ((z.re as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off)
-                        as u8;
-                    c[1] = ((z.im as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off)
-                        as u8;
+                    c[0] =
+                        ((z.re as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off) as u8;
+                    c[1] =
+                        ((z.im as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off) as u8;
                 }
             }
             pack_codes(codes, b, bytes);
@@ -412,6 +415,68 @@ impl PackedStore {
         Ok(())
     }
 
+    /// Register width (bits).
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    /// `:h` blocks below the per-pass exponent window so far (stored as zero).
+    pub fn underflow(&self) -> u64 {
+        self.underflow
+    }
+
+    /// `:h` blocks above the per-pass exponent window so far.
+    pub fn overflow(&self) -> u64 {
+        self.overflow
+    }
+
+    /// Back to `|0..0>` without reallocating (the first pass of the next
+    /// sweep overwrites every block).
+    pub fn reset(&mut self) {
+        self.fresh = true;
+        self.base = 0;
+        self.maxexp = exp_of(1.0 / self.maxv);
+        self.underflow = 0;
+        self.overflow = 0;
+        self.thread_ns = [0; 3];
+    }
+
+    /// The amplitude at register index `i`, decoded alone (random access
+    /// for the read-only tail pass). Bit-identical to [`Self::amplitude`].
+    #[inline]
+    pub fn get(&self, i: usize) -> Complex32 {
+        if self.fresh {
+            return Complex32::new(if i == 0 { 1.0 } else { 0.0 }, 0.0);
+        }
+        let k = i / self.block;
+        let step = Self::step(
+            self.s32.as_ptr(),
+            self.s16.as_ptr(),
+            self.lp.half_scale,
+            self.base,
+            k,
+        );
+        if step == 0.0 {
+            return Complex32::new(0.0, 0.0);
+        }
+        let s = 1.0 / step;
+        let inv = 1.0 / s;
+        let b = self.bits as usize;
+        let bit = 2 * (i % self.block) * b;
+        let blk = &self.data[k * self.bpb..(k + 1) * self.bpb];
+        let (byte, sh) = (bit / 8, bit % 8);
+        // the 2b <= 16 code bits plus the shift fit in 3 bytes
+        let mut w = 0u32;
+        for (t, &x) in blk[byte..(byte + 3).min(blk.len())].iter().enumerate() {
+            w |= (x as u32) << (8 * t);
+        }
+        let mask = (1u32 << b) - 1;
+        let off = self.maxv as i32;
+        let re = ((w >> sh) & mask) as i32 - off;
+        let im = ((w >> (sh + b)) & mask) as i32 - off;
+        Complex32::new((re as f64 * inv) as f32, (im as f64 * inv) as f32)
+    }
+
     /// The amplitude at register index `i`.
     pub fn amplitude(&mut self, i: usize) -> Complex32 {
         let start = i / self.block * self.block;
@@ -419,6 +484,19 @@ impl PackedStore {
         let ptrs = self.ptrs(0);
         self.unpack_run(&ptrs, start, &mut v);
         v[i - start]
+    }
+
+    /// Decodes the whole register without `&mut` (tests, small registers).
+    pub fn decode_all(&self) -> Vec<Complex32> {
+        let mut v = vec![Complex32::new(0.0, 0.0); 1usize << self.width];
+        let ptrs = Ptrs {
+            data: SyncPtr(self.data.as_ptr() as *mut u8),
+            s32: SyncPtr(self.s32.as_ptr() as *mut f32),
+            s16: SyncPtr(self.s16.as_ptr() as *mut u16),
+            base_out: 0,
+        };
+        self.unpack_run(&ptrs, 0, &mut v);
+        v
     }
 
     /// Decodes the whole register (tests and small registers only).
@@ -588,7 +666,11 @@ impl StageExec {
         let base = deposit(c, self.outer_mask);
         let runlen = 1usize << self.bc;
         for r in 0..1usize << (self.l - self.bc) {
-            f(base | deposit(r << self.bc, self.inner_mask), r << self.bc, runlen);
+            f(
+                base | deposit(r << self.bc, self.inner_mask),
+                r << self.bc,
+                runlen,
+            );
         }
     }
 
@@ -709,9 +791,13 @@ mod tests {
         let mut z = seed;
         (0..n)
             .map(|i| {
-                z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let a = ((z >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * (1.0 + i as f32 / 7.0);
-                z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let b = ((z >> 33) as f32 / (1u64 << 31) as f32 - 0.5) * 3e-3;
                 Complex32::new(a, b)
             })
@@ -721,7 +807,14 @@ mod tests {
     /// Pack + unpack of arbitrary data equals the emulator's `quantize`.
     #[test]
     fn roundtrip_matches_quantize() {
-        for f in ["int4:b16:h", "int5:b64", "int5:b16:h", "int6:b64", "int3:b16", "int8:b256"] {
+        for f in [
+            "int4:b16:h",
+            "int5:b64",
+            "int5:b16:h",
+            "int6:b64",
+            "int3:b16",
+            "int8:b256",
+        ] {
             let lp = LowPrec::parse(f).unwrap();
             let w = 10;
             let mut v = ramp(1 << w, 7);
@@ -770,7 +863,9 @@ mod tests {
         assert_eq!(PackedStore::bytes_for(35, &lp), Some(36 << 30));
         let lp = LowPrec::parse("int5:b64").unwrap();
         assert_eq!(PackedStore::bytes_for(35, &lp), Some(42 << 30));
-        assert!(!PackedStore::supports(&LowPrec::parse("int4:b64:sr").unwrap()));
+        assert!(!PackedStore::supports(
+            &LowPrec::parse("int4:b64:sr").unwrap()
+        ));
         assert!(!PackedStore::supports(&LowPrec::parse("bf16").unwrap()));
         assert!(!PackedStore::supports(&LowPrec::parse("int5:b6").unwrap()));
     }
