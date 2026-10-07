@@ -53,6 +53,15 @@ prlimit --as=2700000000 $PY robust.py FILE.qasm TAG c1,c2 1e-3,1e-4,1e-5      # 
 $PY compare.py private/out.json            # post hoc only
 ```
 
+One-command reproduction of the two tracker heavy-hex circuits from scratch:
+[`../reproduce_heavy_hex.sh`](../reproduce_heavy_hex.sh). It creates a fresh venv, downloads both circuits at a pinned tracker
+commit, checks their sha256 and runs `solve_generic.py`. For 49x5072 it prints the peak in Qiskit order and compares it with
+the public reference (#105) after the run. For 49x4020 (Peak Portal P10, no public reference) it prints only a hash unless
+`SHOW_PEAK=1`. Measured on 7 Oct 2026, Hetzner cloud VM (AMD EPYC-Rome, 4 vCPU, shared, load average 8–9), under
+`prlimit --as=2700000000`: 49x4020 118 s (centre 112, 4020/4020 absorbed, bond ≤ 8, p = 0.703, same peak as our graded answer),
+49x5072 97 s (centre 140, p = 0.706, Hamming 0 vs #105); 236 s in total including venv creation and downloads; 110% CPU,
+341 MB peak RSS. The centre scan is about 80% of each solve.
+
 ## Results (this machine: 4 vCPU, 7.7 GB shared; every run capped at 2.5 GB)
 
 See `NOTES.md` for the running log and `logs_*.log` for raw output. Answer strings for portal problems are only in `private/`.
