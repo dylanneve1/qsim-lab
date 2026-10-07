@@ -164,6 +164,36 @@ pub fn truncate(c: &Circuit, n: usize, d: usize) -> Circuit {
     out
 }
 
+/// Keeps the first `n` qubits and the CZ layers `lo+1..=hi` (ASAP over the
+/// CZs) of a circuit of 1q gates and CZs, starting from `|0..0>` at layer
+/// `lo`. A single-qubit gate is kept when the last CZ before it on its qubit
+/// is in layers `lo..=hi` (`lo` = before the first kept CZ). With `lo = 0`
+/// this is [`truncate`]; `lo = D_total - d` gives the last `d` layers.
+pub fn truncate_window(c: &Circuit, n: usize, lo: usize, hi: usize) -> Circuit {
+    let mut out = Circuit::new(n);
+    let mut depth = vec![0usize; c.num_qubits];
+    for op in &c.ops {
+        let Op::Gate(g) = op else { continue };
+        match *g {
+            Gate::Cz(a, b) => {
+                let layer = depth[a].max(depth[b]) + 1;
+                depth[a] = layer;
+                depth[b] = layer;
+                if layer > lo && layer <= hi && a < n && b < n {
+                    out.gate(*g);
+                }
+            }
+            ref g1 => {
+                let q = g1.qubits();
+                if q.iter().all(|&q| q < n && depth[q] >= lo && depth[q] <= hi) {
+                    out.gate(*g);
+                }
+            }
+        }
+    }
+    out
+}
+
 /// A compiled amplitude: run `ops` on a `width`-bit register from `|0..0>`,
 /// read the `|0..0>` component and multiply by `scale`.
 #[derive(Clone, Debug)]
