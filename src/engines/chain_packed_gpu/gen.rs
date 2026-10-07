@@ -592,13 +592,15 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
     }
     let boff = gi << P.l;
     let lowm = (1u << P.lowb) - 1u;
+    let glid = (lid & lowm) | pdep(lid >> P.lowb, P.himask);
     for (var j = lid; j < n; j += WG) {
-        let a = work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)];
+        // gaddr is bitwise linear: gaddr(lid + k WG) = gaddr(lid) | gaddr(k WG)
+        let a = work[boff | base | glid | pw(1u + j / WG)];
         sre[j] = a.x;
         sim[j] = a.y;
     }
     workgroupBarrier();
-    var pc = 1u;
+    var pc = 1u + MAXN / WG;
     let nops = pw(0u);
     for (var op = 0u; op < nops; op++) {
         let kind = pw(pc);
@@ -611,6 +613,9 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
             let cohi = pw(pc + 5u);
             if ((rlo & colo) == colo && (rhi & cohi) == cohi) {
                 let s = 1u << t;
+                let mr = ldm_r(pc + 6u);
+                let mi = ldm_i(pc + 6u);
+                let real = uk == 1u;
                 for (var p = lid; p < n / 2u; p += WG) {
                     let i = ins0(p, t);
                     if ((i & cin) == cin) {
@@ -620,7 +625,7 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
                             st(i, y);
                             st(i | s, x);
                         } else {
-                            let r = mat(pc + 6u, uk == 1u, x, y);
+                            let r = matv(mr, mi, real, x, y);
                             st(i, r.xy);
                             st(i | s, r.zw);
                         }
@@ -650,12 +655,16 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
             let cx = pw(pc + 5u);
             let s1 = 1u << t1;
             let s2 = 1u << t2;
+            let m1r = ldm_r(pc + 6u);
+            let m1i = ldm_i(pc + 6u);
+            let m2r = ldm_r(pc + 14u);
+            let m2i = ldm_i(pc + 14u);
             for (var p = lid; p < n / 4u; p += WG) {
                 let i = ins0(ins0(p, t1), t2);
-                let b01 = mat(pc + 6u, r1, ld(i), ld(i | s1));
-                let b23 = mat(pc + 6u, r1, ld(i | s2), ld(i | s1 | s2));
-                let c02 = mat(pc + 14u, r2, b01.xy, b23.xy);
-                let c13 = mat(pc + 14u, r2, b01.zw, b23.zw);
+                let b01 = matv(m1r, m1i, r1, ld(i), ld(i | s1));
+                let b23 = matv(m1r, m1i, r1, ld(i | s2), ld(i | s1 | s2));
+                let c02 = matv(m2r, m2i, r2, b01.xy, b23.xy);
+                let c13 = matv(m2r, m2i, r2, b01.zw, b23.zw);
                 var c1 = c13.xy;
                 var c2 = c02.zw;
                 var c3 = c13.zw;
@@ -692,13 +701,14 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
             if (toff != NONE) {
                 let nlo = 1u << lb;
                 let nhi = n >> lb;
-                let lom = nlo - 1u;
+                // nlo <= 256 <= WG divides WG: every j = lid + k WG has the
+                // same low part, so the low-table entry is loaded once
+                let x = lid & (nlo - 1u);
+                let lr = tables[toff + x];
+                let li = tables[toff + nlo + x];
                 for (var j = lid; j < n; j += WG) {
                     if ((j & cmask) == cpat) {
-                        let x = j & lom;
                         let h = j >> lb;
-                        let lr = tables[toff + x];
-                        let li = tables[toff + nlo + x];
                         let hr = tables[toff + 2u * nlo + h];
                         let hi = tables[toff + 2u * nlo + nhi + h];
                         let fr = fma(lr, hr, -(li * hi));
@@ -715,18 +725,45 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
         workgroupBarrier();
     }
     for (var j = lid; j < n; j += WG) {
-        work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)] = vec2<f32>(sre[j], sim[j]);
+        work[boff | base | glid | pw(1u + j / WG)] = vec2<f32>(sre[j], sim[j]);
     }
 }
 
 "#;
 
 /// Encodes the ops of a cache block for [`substage_shared_wgsl`].
-pub fn encode_sub_shared(s: &GpuSubStage, tables: &mut Vec<u32>) -> Vec<u32> {
+pub fn encode_sub_shared(
+    s: &GpuSubStage,
+    tables: &mut Vec<u32>,
+    maxn: usize,
+    wg: usize,
+) -> Vec<u32> {
     let mut w = vec![0u32];
+    // gaddr(k WG) for k < MAXN / WG (the kernel adds gaddr(lid))
+    let lowb = s.inner_mask.trailing_ones() as usize;
+    let himask = s.inner_mask >> lowb << lowb;
+    let lowm = (1usize << lowb) - 1;
+    w.extend((0..maxn / wg).map(|k| {
+        let j = k * wg;
+        ((j & lowm) | pdep(j >> lowb, himask)) as u32
+    }));
     let mut nops = 0u32;
     let fb = |m: &[f32; 8]| m.map(f32::to_bits);
+    // timing experiments only (wrong results): QSIM_GPU_DROP=u1,pair,diag,swap
+    let drop: Vec<String> = std::env::var("QSIM_GPU_DROP")
+        .map(|v| v.split(',').map(str::to_string).collect())
+        .unwrap_or_default();
+    let dropped = |k: &str| drop.iter().any(|d| d == k);
     for op in &s.ops {
+        let kind = match op {
+            GpuOp::U1 { .. } => "u1",
+            GpuOp::Pair { .. } => "pair",
+            GpuOp::Swap { .. } => "swap",
+            GpuOp::Diag(_) => "diag",
+        };
+        if dropped(kind) {
+            continue;
+        }
         match op {
             GpuOp::U1 {
                 t,
