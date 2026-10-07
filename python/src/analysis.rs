@@ -11,7 +11,8 @@
 //!   number of stabilizer terms after every gate;
 //! * [`features`]: the simulability features (`simulability::features`);
 //! * [`gaussian`], [`gaussian_z`]: the free-fermion detector report and the
-//!   Gaussian engine's Z read-outs (`engines::gaussian`);
+//!   Gaussian engine's Z read-outs (`engines::gaussian`); [`gaussian_pt2`]:
+//!   second-order perturbation theory in its interaction phases;
 //! * [`monitored`]: exact monitored Clifford+T simulation with mid-circuit
 //!   measurements (`monitored`): `d(t)`, Born probabilities, cut entropies.
 
@@ -23,6 +24,7 @@ use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use qsim_lab::circuit::{Circuit, Op};
+use qsim_lab::engines::gaussian::pt2::{pt2_circuit, OneBody, Pt2Options};
 use qsim_lab::engines::gaussian::{
     detect as gaussian_detect, DetectOptions, GaussianOptions, GaussianReport, GaussianState,
     InteractionPolicy, Ordering,
@@ -358,6 +360,56 @@ fn gaussian_z<'py>(
     d.set_item("z", PyArray1::from_vec(py, z))?;
     d.set_item("zz", PyArray1::from_vec(py, zz))?;
     d.set_item("report", report_dict(py, &r)?)?;
+    Ok(d)
+}
+
+/// Exact second-order perturbation theory in the interaction phases
+/// (`engines::gaussian::pt2::pt2_circuit`): `observables` is a list of
+/// `(name, constant, [(qubit, coefficient of n_qubit)])`; returns
+/// `{name: {a0, a1, a2, total, est_error, light_cone}}`.
+#[pyfunction]
+#[pyo3(signature = (circuit, observables, lam=1.0, tol=1e-10, threads=None))]
+fn gaussian_pt2<'py>(
+    py: Python<'py>,
+    circuit: &PyCircuit,
+    observables: Vec<(String, f64, Vec<(usize, f64)>)>,
+    lam: f64,
+    tol: f64,
+    threads: Option<usize>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let c = unitary(circuit, "gaussian_pt2")?;
+    let n = c.num_qubits;
+    let mut obs = Vec::with_capacity(observables.len());
+    for (name, constant, terms) in &observables {
+        for &(q, _) in terms {
+            if q >= n {
+                return Err(value_err(format!(
+                    "observable {name:?}: qubit {q} out of range for {n} qubits"
+                )));
+            }
+        }
+        obs.push(OneBody {
+            constant: *constant,
+            density: terms.clone(),
+        });
+    }
+    let opts = Pt2Options {
+        lambda: lam,
+        detect: detect_opts(tol, true, true)?,
+        ..Default::default()
+    };
+    let run = heavy(py, threads, move || pt2_circuit(&c, &obs, &opts)).map_err(map_sim_err)?;
+    let d = PyDict::new(py);
+    for ((name, _, _), r) in observables.iter().zip(&run.results) {
+        let e = PyDict::new(py);
+        e.set_item("a0", r.a0)?;
+        e.set_item("a1", r.a1)?;
+        e.set_item("a2", r.a2)?;
+        e.set_item("total", r.total)?;
+        e.set_item("est_error", r.est_error)?;
+        e.set_item("light_cone", r.light_cone)?;
+        d.set_item(name, e)?;
+    }
     Ok(d)
 }
 
@@ -712,6 +764,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(features, m)?)?;
     m.add_function(wrap_pyfunction!(gaussian, m)?)?;
     m.add_function(wrap_pyfunction!(gaussian_z, m)?)?;
+    m.add_function(wrap_pyfunction!(gaussian_pt2, m)?)?;
     m.add_function(wrap_pyfunction!(monitored, m)?)?;
     Ok(())
 }
