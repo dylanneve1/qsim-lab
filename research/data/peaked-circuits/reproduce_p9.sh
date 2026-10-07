@@ -13,7 +13,11 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -q -r requirements.
 base=https://raw.githubusercontent.com/quantum-advantage-tracker/quantum-advantage-tracker.github.io/1db844f1540a198c5620af49247e09fc28e7f61b/data/classically-verifiable-problems/circuit-models/peaked_circuit
 f=peaked_circuit_P9_Hqap_56x1917.qasm
 curl -sLO $base/$f
-shacheck() { if command -v sha256sum >/dev/null; then sha256sum -c; else shasum -a 256 -c; fi; }
+shacheck() { python3 -c 'import hashlib,sys
+for line in sys.stdin:
+    h,f=line.split()
+    d=hashlib.sha256(open(f,"rb").read()).hexdigest()
+    print(f+": "+("OK" if d==h else "FAILED")); sys.exit(0 if d==h else 1)'; }
 echo "f043c6cdf9e1a1ba9b3e68ea3b893277e8acacab80319d6a8524cc022886a3f9  $f" | shacheck
 mkdir -p out
 export PYTHONPATH="$here/mpou2:$here/generic"
