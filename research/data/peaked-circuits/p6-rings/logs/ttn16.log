@@ -1,0 +1,8 @@
+epoch 0 K (1, 1, 1) trunc 0.000e+00 t=0s
+epoch 1 K (2, 2, 1) trunc 0.000e+00 t=6s
+epoch 2 K (2, 2, 1) trunc 1.059e-08 t=26s
+epoch 3 K (8, 4, 2) trunc 1.059e-08 t=47s
+epoch 4 K (3, 3, 2) trunc 1.677e-08 t=79s
+epoch 5 K (3, 16, 16) trunc 3.096e-05 t=144s
+epoch 6 K (3, 5, 5) trunc 3.099e-05 t=432s
+epoch 7 K (16, 11, 16) trunc 6.742e-01 t=575s
