@@ -371,6 +371,19 @@ impl GpuSweeper {
         lp: &LowPrec,
         cfg: &BlockConfig,
     ) -> Result<GpuRun, SimError> {
+        Ok(self.run_store(plan, stages, lp, cfg)?.2)
+    }
+
+    /// Like [`GpuSweeper::run`], also returning the final packed register
+    /// and its codec (for passes run elsewhere on it, e.g. a read-only
+    /// tail contraction: decode with [`HostStore::decode`]).
+    pub fn run_store(
+        &self,
+        plan: &SweepPlan,
+        stages: &[Stage],
+        lp: &LowPrec,
+        cfg: &BlockConfig,
+    ) -> Result<(HostStore, Codec, GpuRun), SimError> {
         let codec = Codec::new(lp)?;
         let plans = gpu_plans(stages, plan.width, cfg)?;
         if plans
@@ -480,7 +493,7 @@ impl GpuSweeper {
         }
         let secs = t_all.elapsed().as_secs_f64();
         let a = store.amplitude(&codec, 0);
-        Ok(GpuRun {
+        let run = GpuRun {
             amp: Complex64::new(a.re as f64, a.im as f64) * plan.scale,
             passes: plans.len(),
             store_bytes: store.bytes(),
@@ -489,7 +502,8 @@ impl GpuSweeper {
             inexact: inx,
             secs,
             pass_secs,
-        })
+        };
+        Ok((store, codec, run))
     }
 
     #[allow(clippy::too_many_arguments)]
