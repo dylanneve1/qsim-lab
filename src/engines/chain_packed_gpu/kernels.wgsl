@@ -534,6 +534,30 @@ fn mat(mo: u32, real: bool, x: vec2<f32>, y: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(a, b);
 }
 
+// the matrix at `mo` as (re of m00 m01 m10 m11), (im of the same)
+fn ldm_r(mo: u32) -> vec4<f32> {
+    return vec4<f32>(pf(mo), pf(mo + 1u), pf(mo + 2u), pf(mo + 3u));
+}
+
+fn ldm_i(mo: u32) -> vec4<f32> {
+    return vec4<f32>(pf(mo + 4u), pf(mo + 5u), pf(mo + 6u), pf(mo + 7u));
+}
+
+// `mat` with the matrix already loaded (same arithmetic)
+fn matv(mr: vec4<f32>, mi: vec4<f32>, real: bool, x: vec2<f32>, y: vec2<f32>) -> vec4<f32> {
+    if (real) {
+        return vec4<f32>(
+            fma(mr.x, x.x, mr.y * y.x),
+            fma(mr.x, x.y, mr.y * y.y),
+            fma(mr.z, x.x, mr.w * y.x),
+            fma(mr.z, x.y, mr.w * y.y)
+        );
+    }
+    let a = cmul2(mr.x, mi.x, mr.y, mi.y, x.x, x.y, y.x, y.y);
+    let b = cmul2(mr.z, mi.z, mr.w, mi.w, x.x, x.y, y.x, y.y);
+    return vec4<f32>(a, b);
+}
+
 // diagonal factor of buffer index j from the tables at `toff`, applied to z
 fn dfac(z: vec2<f32>, j: u32, lb: u32, nlo: u32, nhi: u32, toff: u32) -> vec2<f32> {
     let x = j & (nlo - 1u);
