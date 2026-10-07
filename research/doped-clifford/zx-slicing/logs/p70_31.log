@@ -1,0 +1,6 @@
+/tmp/doped-zx/venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py:403: UserWarning: Trial error: . Set `HyperOptimizer` kwarg `on_trial_error='raise'` to raise this error, or `on_trial_error='ignore'` to silence.
+  warnings.warn(
+/tmp/doped-zx/venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py:403: UserWarning: Trial error: . Set `HyperOptimizer` kwarg `on_trial_error='raise'` to raise this error, or `on_trial_error='ignore'` to silence.
+  warnings.warn(
+/tmp/doped-zx/venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py:403: UserWarning: Trial error: . Set `HyperOptimizer` kwarg `on_trial_error='raise'` to raise this error, or `on_trial_error='ignore'` to silence.
+  warnings.warn(
