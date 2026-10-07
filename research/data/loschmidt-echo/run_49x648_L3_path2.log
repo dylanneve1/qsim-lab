@@ -1,0 +1,25 @@
+fam 49 L 3 n 49 tensors 1542 exponent 0.0
+search 605 log2flops 36.582937454801296 width 27.0 nslices 1
+sliced log2flops 39.46980872729845 width 22.0 nslices 1024
+ slice 0 / 1024 1
+ slice 51 / 1024 54
+ slice 102 / 1024 111
+ slice 153 / 1024 167
+ slice 204 / 1024 221
+ slice 255 / 1024 274
+ slice 306 / 1024 328
+ slice 357 / 1024 383
+ slice 408 / 1024 439
+ slice 459 / 1024 494
+ slice 510 / 1024 549
+ slice 561 / 1024 603
+ slice 612 / 1024 658
+ slice 663 / 1024 713
+ slice 714 / 1024 768
+ slice 765 / 1024 821
+ slice 816 / 1024 874
+ slice 867 / 1024 929
+ slice 918 / 1024 984
+ slice 969 / 1024 1039
+ slice 1020 / 1024 1092
+RESULT fam=49 L=3 f=0.822488318196 imag=-5.49e-16 time=1095

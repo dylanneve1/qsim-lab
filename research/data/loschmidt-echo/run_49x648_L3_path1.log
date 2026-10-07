@@ -1,0 +1,36 @@
+fam 49 L 3 n 49 tensors 1542 exponent 0.0
+loaded tree
+resliced log2flops 36.53319776985476 width 23.0 nslices 32
+ slice 0 / 32 2
+ slice 1 / 32 5
+ slice 2 / 32 10
+ slice 3 / 32 14
+ slice 4 / 32 18
+ slice 5 / 32 23
+ slice 6 / 32 27
+ slice 7 / 32 30
+ slice 8 / 32 34
+ slice 9 / 32 38
+ slice 10 / 32 42
+ slice 11 / 32 46
+ slice 12 / 32 50
+ slice 13 / 32 55
+ slice 14 / 32 59
+ slice 15 / 32 63
+ slice 16 / 32 66
+ slice 17 / 32 69
+ slice 18 / 32 73
+ slice 19 / 32 76
+ slice 20 / 32 80
+ slice 21 / 32 84
+ slice 22 / 32 87
+ slice 23 / 32 91
+ slice 24 / 32 95
+ slice 25 / 32 99
+ slice 26 / 32 103
+ slice 27 / 32 107
+ slice 28 / 32 111
+ slice 29 / 32 115
+ slice 30 / 32 118
+ slice 31 / 32 121
+RESULT fam=49 L=3 f=0.822488318196 imag=-8.52e-16 time=121
