@@ -245,9 +245,24 @@ const PAR: usize = 10;
 /// sweep's allocator gives that), else the depth-first form.
 pub fn tail_amplitudes(tp: &TailPlan, reg: &(dyn Fn(usize) -> Complex64 + Sync)) -> Vec<Complex64> {
     if gemm_ok(tp) {
-        tail_amplitudes_gemm(tp, reg, None)
+        let runs = |start: usize, out: &mut [Complex64]| {
+            for (k, o) in out.iter_mut().enumerate() {
+                *o = reg(start + k);
+            }
+        };
+        tail_amplitudes_gemm(tp, &runs, None)
     } else {
         tail_amplitudes_dfs(tp, reg)
+    }
+}
+
+/// [`tail_amplitudes`] reading a backend: contiguous rows through
+/// [`SweepBackend::read_run`] (block decodes, no per-entry overhead).
+pub fn tail_amplitudes_backend<B: SweepBackend + ?Sized>(tp: &TailPlan, be: &B) -> Vec<Complex64> {
+    if gemm_ok(tp) {
+        tail_amplitudes_gemm(tp, &|start, out| be.read_run(start, out), None)
+    } else {
+        tail_amplitudes_dfs(tp, &|i| be.amp(i))
     }
 }
 
@@ -384,6 +399,14 @@ pub trait SweepBackend: Sync {
     ) -> Result<SweepStats, SimError>;
     /// Raw register value at index `i` after the last sweep (no plan scale).
     fn amp(&self, i: usize) -> Complex64;
+    /// Raw register values `start..start + out.len()` (the tail pass reads
+    /// rows of `2^11..2^13` entries this way). The default calls `amp` per
+    /// entry; block-coded stores should decode whole blocks.
+    fn read_run(&self, start: usize, out: &mut [Complex64]) {
+        for (k, o) in out.iter_mut().enumerate() {
+            *o = self.amp(start + k);
+        }
+    }
     /// Passes (roundings) the backend would use for `plan`, without running it.
     fn count_passes(&self, plan: &SweepPlan) -> usize;
 }
@@ -396,8 +419,7 @@ pub fn run_tail<B: SweepBackend + ?Sized>(
 ) -> Result<(Vec<Complex64>, SweepStats, f64), SimError> {
     let st = be.sweep(&tp.sweep, on_pass)?;
     let t = std::time::Instant::now();
-    let be: &B = be;
-    let amps = tail_amplitudes(tp, &|i| be.amp(i));
+    let amps = tail_amplitudes_backend(tp, &*be);
     Ok((amps, st, t.elapsed().as_secs_f64()))
 }
 
@@ -426,7 +448,19 @@ impl<T: Real> SweepBackend for CpuExact<T> {
     ) -> Result<SweepStats, SimError> {
         let t = std::time::Instant::now();
         self.sv = None;
-        let mut sv = StateVector::<T>::try_new(plan.width)?;
+        // the state-vector cap (MAX_STATE_BYTES) is for interactive use; a
+        // reference sweep may want a bigger register, so allocate directly
+        let len = 1usize << plan.width;
+        let mut amps: Vec<num_complex::Complex<T>> = Vec::new();
+        amps.try_reserve_exact(len)
+            .map_err(|_| SimError::TooLarge {
+                what: "exact chain-sweep register (allocation failed)",
+                bytes: (len * 2 * std::mem::size_of::<T>()) as u128,
+                limit: 0,
+            })?;
+        amps.resize(len, num_complex::Complex::new(T::zero(), T::zero()));
+        amps[0] = num_complex::Complex::new(T::one(), T::zero());
+        let mut sv = StateVector::<T>::from_amplitudes(amps);
         sv.apply_kops_blocked(&plan.ops, &self.cfg);
         on_pass(1, 1);
         let bytes = sv.amplitudes().len() * 2 * std::mem::size_of::<T>();
@@ -538,6 +572,12 @@ impl SweepBackend for CpuPacked {
         let z = self.store.as_ref().expect("sweep first").get(i);
         Complex64::new(z.re as f64, z.im as f64)
     }
+    fn read_run(&self, start: usize, out: &mut [Complex64]) {
+        self.store
+            .as_ref()
+            .expect("sweep first")
+            .read_run(start, out);
+    }
     fn count_passes(&self, plan: &SweepPlan) -> usize {
         self.stages(plan).len()
     }
@@ -595,7 +635,7 @@ impl Reducer {
 /// `h` defaults to `max(0, 19 - m)` (V of 8 MiB) capped at `K`.
 pub fn tail_amplitudes_gemm(
     tp: &TailPlan,
-    reg: &(dyn Fn(usize) -> Complex64 + Sync),
+    reg: &(dyn Fn(usize, &mut [Complex64]) + Sync),
     h: Option<usize>,
 ) -> Vec<Complex64> {
     use faer::linalg::matmul::matmul;
@@ -634,10 +674,7 @@ pub fn tail_amplitudes_gemm(
         let mut r0 = 0;
         while r0 < rows_per_chunk {
             for (b, col) in rb.chunks_exact_mut(ve).enumerate() {
-                let base = ((c * rows_per_chunk) + r0 + b) << h;
-                for (e, x) in col.iter_mut().enumerate() {
-                    *x = reg(base + e);
-                }
+                reg(((c * rows_per_chunk) + r0 + b) << h, col);
             }
             let rhs = MatRef::from_column_major_slice(&rb[..], ve, batch);
             let dst = MatMut::from_column_major_slice_mut(&mut ub[..], dim, batch);

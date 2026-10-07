@@ -426,6 +426,17 @@ fn tail_batch_packed_is_consistent() {
         let blk = s.decode_all();
         let rnd: Vec<_> = (0..1usize << w).map(|i| s.get(i)).collect();
         assert_eq!(rnd, blk, "{f}: get vs block decode");
+        let mut runs = vec![Complex64::new(0.0, 0.0); 1usize << w];
+        s.read_run(0, &mut runs[..]);
+        let mut odd = vec![Complex64::new(0.0, 0.0); 37];
+        s.read_run(5, &mut odd[..]);
+        for (i, z) in blk.iter().enumerate() {
+            let z = Complex64::new(z.re as f64, z.im as f64);
+            assert_eq!(runs[i], z, "{f}: read_run");
+            if (5..42).contains(&i) {
+                assert_eq!(odd[i - 5], z, "{f}: unaligned read_run");
+            }
+        }
         let copy: Vec<Complex64> = blk
             .iter()
             .map(|a| Complex64::new(a.re as f64, a.im as f64))
@@ -472,10 +483,11 @@ fn tail_gemm_matches_dfs() {
         let mut be = CpuExact::<f64>::new(Default::default());
         be.sweep(&tp.sweep, &mut |_, _| {}).unwrap();
         let reg = |i: usize| be.amp(i);
+        let runs = |s: usize, out: &mut [Complex64]| be.read_run(s, out);
         let r = tail_amplitudes_dfs(&tp, &reg);
         let norm: f64 = r.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
         for h in [0, 1, tp.num_bonds() / 2, tp.num_bonds()] {
-            let g = tail_amplitudes_gemm(&tp, &reg, Some(h));
+            let g = tail_amplitudes_gemm(&tp, &runs, Some(h));
             let err = r
                 .iter()
                 .zip(&g)
