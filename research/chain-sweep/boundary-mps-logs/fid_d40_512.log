@@ -1,0 +1,2 @@
+mpsfid n=70 d=40 bitstrings=36 cutoff=1e-13
+chi=512 F=0.01246 F_se=0.03334 norm_ratio=0.00831 fid_est_mean=1.5089e-2 log10_fid_est_mean=-1.821 max_err/rms=2.26e0 t_per_amp=268.078s wall=2414.6s peak_chi=512 peak_mib=26.7 svds=1501 swaps=171
