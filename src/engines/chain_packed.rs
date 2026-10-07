@@ -486,6 +486,33 @@ impl PackedStore {
         v[i - start]
     }
 
+    /// Decodes `out.len()` amplitudes from register index `start` into f64
+    /// (same values as [`Self::get`]); whole blocks are decoded at once.
+    pub fn read_run(&self, start: usize, out: &mut [Complex64]) {
+        let b = self.block;
+        if start % b != 0 || out.len() % b != 0 {
+            for (k, o) in out.iter_mut().enumerate() {
+                let z = self.get(start + k);
+                *o = Complex64::new(z.re as f64, z.im as f64);
+            }
+            return;
+        }
+        let ptrs = Ptrs {
+            data: SyncPtr(self.data.as_ptr() as *mut u8),
+            s32: SyncPtr(self.s32.as_ptr() as *mut f32),
+            s16: SyncPtr(self.s16.as_ptr() as *mut u16),
+            base_out: 0,
+        };
+        let mut buf = [Complex32::new(0.0, 0.0); MAX_BLOCK];
+        for (j, o) in out.chunks_exact_mut(b).enumerate() {
+            let v = &mut buf[..b];
+            self.unpack_run(&ptrs, start + j * b, v);
+            for (x, z) in o.iter_mut().zip(v.iter()) {
+                *x = Complex64::new(z.re as f64, z.im as f64);
+            }
+        }
+    }
+
     /// Decodes the whole register without `&mut` (tests, small registers).
     pub fn decode_all(&self) -> Vec<Complex32> {
         let mut v = vec![Complex32::new(0.0, 0.0); 1usize << self.width];
