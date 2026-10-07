@@ -481,6 +481,9 @@ fn lowprec(a: &Args) {
     let k: usize = a.get("k", 50);
     let trace: usize = a.get("trace", 0);
     let report: usize = a.get("report", 25);
+    // --reps K: run each format K times (independent stochastic-rounding
+    // streams) and also report the fidelity of the K-run average.
+    let reps: usize = a.get("reps", 1);
     let gs = a.s("gran", "stage");
     let gran = match gs.as_str() {
         "op" => Granularity::Op,
@@ -513,6 +516,7 @@ fn lowprec(a: &Args) {
     let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
     let mut ex: Vec<Complex64> = Vec::new();
     let mut lps: Vec<Vec<Complex64>> = vec![Vec::new(); fmts.len()];
+    let mut avgs: Vec<Vec<Vec<Complex64>>> = vec![vec![Vec::new(); reps]; fmts.len()];
     let mut tsec = vec![0.0f64; fmts.len()];
     let t0 = Instant::now();
     for i in 0..k {
@@ -528,6 +532,13 @@ fn lowprec(a: &Args) {
             let r = run_lowprec(&plan, &ps, f, tr).unwrap();
             tsec[j] += t.elapsed().as_secs_f64();
             lps[j].push(r.amp);
+            let mut acc = r.amp;
+            avgs[j][0].push(acc);
+            for m in 1..reps {
+                let r2 = run_lowprec(&plan, &ps, f, 0).unwrap();
+                acc += r2.amp;
+                avgs[j][m].push(acc / (m + 1) as f64);
+            }
             if !r.trace.is_empty() {
                 let pts: Vec<String> = r
                     .trace
@@ -558,6 +569,12 @@ fn lowprec(a: &Args) {
                     st[4],
                     tsec[j] / (i + 1) as f64
                 );
+                let mut m = 1;
+                while reps > 1 && m <= reps {
+                    let st = lp_stats(&ex, &avgs[j][m - 1], n);
+                    println!("    avg of {m:>3} runs: F={:.6} ±{:.6}", st[0], st[1]);
+                    m *= 2;
+                }
             }
         }
     }

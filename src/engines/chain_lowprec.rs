@@ -145,6 +145,11 @@ pub struct LowPrec {
     pub stochastic: bool,
     /// Integer formats: store the block scale in f16 instead of f32.
     pub half_scale: bool,
+    /// Subtractive dither (`:dz`): store `round(y + d)` and reconstruct
+    /// `round(y + d) - d`, with `d` uniform in `[-1/2, 1/2)` regenerated from
+    /// a seed. Unbiased with round-to-nearest variance; independent runs give
+    /// independent errors, so their amplitudes can be averaged.
+    pub dither: bool,
 }
 
 impl LowPrec {
@@ -176,12 +181,14 @@ impl LowPrec {
             scaling: Scaling::None,
             stochastic: false,
             half_scale: false,
+            dither: false,
         };
         for opt in it {
             match opt {
                 "g" => lp.scaling = Scaling::Global,
                 "sr" => lp.stochastic = true,
                 "h" => lp.half_scale = true,
+                "dz" => lp.dither = true,
                 b => {
                     lp.scaling =
                         Scaling::Block(b.strip_prefix('b')?.parse().ok().filter(|&n| n > 0)?)
@@ -223,6 +230,9 @@ impl std::fmt::Display for LowPrec {
         }
         if self.half_scale {
             write!(f, ":h")?;
+        }
+        if self.dither {
+            write!(f, ":dz")?;
         }
         Ok(())
     }
@@ -328,6 +338,20 @@ fn round_block(v: &mut [Complex32], s: f64, lp: &LowPrec, seed: Option<u64>) {
             (st >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
         })
     };
+    if lp.dither {
+        for z in v {
+            // exact zeros (structurally free halves) are not stored
+            let d = u().unwrap() - 0.5;
+            if z.re != 0.0 {
+                z.re = ((round_to(z.re as f64 * s + d, lp.format, None) - d) * inv) as f32;
+            }
+            let d = u().unwrap() - 0.5;
+            if z.im != 0.0 {
+                z.im = ((round_to(z.im as f64 * s + d, lp.format, None) - d) * inv) as f32;
+            }
+        }
+        return;
+    }
     for z in v {
         z.re = (round_to(z.re as f64 * s, lp.format, u()) * inv) as f32;
         z.im = (round_to(z.im as f64 * s, lp.format, u()) * inv) as f32;
@@ -367,7 +391,7 @@ pub fn quantize(amps: &mut [Complex32], lp: &LowPrec) {
     const CHUNK: usize = 1 << 14;
     let pass = SR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let seed = |i: usize| {
-        lp.stochastic
+        (lp.stochastic || lp.dither)
             .then(|| splitmix(pass.wrapping_mul(0x2545_f491_4f6c_dd1d) ^ i as u64))
     };
     match lp.scaling {
