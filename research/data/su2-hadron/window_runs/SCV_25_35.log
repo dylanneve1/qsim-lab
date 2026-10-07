@@ -1,0 +1,20 @@
+T= 1 max|a2|/site 2.60e-18 max|res(lam=1)| 1.44e-14 max|a4fit| 8.52e-17 max|E(1)-E(-1)| 1.8e-15
+T= 2 max|a2|/site 8.12e-06 max|res(lam=1)| 6.77e-11 max|a4fit| 6.77e-11 max|E(1)-E(-1)| 2.7e-15
+T= 3 max|a2|/site 4.22e-05 max|res(lam=1)| 1.03e-09 max|a4fit| 1.03e-09 max|E(1)-E(-1)| 3.3e-15
+T= 4 max|a2|/site 1.14e-04 max|res(lam=1)| 5.29e-09 max|a4fit| 5.29e-09 max|E(1)-E(-1)| 3.3e-15
+T= 5 max|a2|/site 2.16e-04 max|res(lam=1)| 1.57e-08 max|a4fit| 1.57e-08 max|E(1)-E(-1)| 4.0e-15
+T= 6 max|a2|/site 3.13e-04 max|res(lam=1)| 3.23e-08 max|a4fit| 3.23e-08 max|E(1)-E(-1)| 5.1e-15
+T= 7 max|a2|/site 3.56e-04 max|res(lam=1)| 4.79e-08 max|a4fit| 4.79e-08 max|E(1)-E(-1)| 5.8e-15
+T= 8 max|a2|/site 2.99e-04 max|res(lam=1)| 4.73e-08 max|a4fit| 4.73e-08 max|E(1)-E(-1)| 6.7e-15
+T= 9 max|a2|/site 2.08e-04 max|res(lam=1)| 4.77e-08 max|a4fit| 4.77e-08 max|E(1)-E(-1)| 6.9e-15
+T=10 max|a2|/site 4.78e-04 max|res(lam=1)| 1.26e-07 max|a4fit| 1.26e-07 max|E(1)-E(-1)| 6.9e-15
+T=11 max|a2|/site 6.91e-04 max|res(lam=1)| 2.08e-07 max|a4fit| 2.08e-07 max|E(1)-E(-1)| 7.8e-15
+T=12 max|a2|/site 7.45e-04 max|res(lam=1)| 3.22e-07 max|a4fit| 3.22e-07 max|E(1)-E(-1)| 9.8e-15
+T=13 max|a2|/site 8.55e-04 max|res(lam=1)| 4.08e-07 max|a4fit| 4.08e-07 max|E(1)-E(-1)| 9.8e-15
+T=14 max|a2|/site 7.84e-04 max|res(lam=1)| 3.92e-07 max|a4fit| 3.92e-07 max|E(1)-E(-1)| 9.1e-15
+T=15 max|a2|/site 9.46e-04 max|res(lam=1)| 5.24e-07 max|a4fit| 5.24e-07 max|E(1)-E(-1)| 1.0e-14
+T=16 max|a2|/site 1.23e-03 max|res(lam=1)| 8.47e-07 max|a4fit| 8.48e-07 max|E(1)-E(-1)| 1.2e-14
+T=17 max|a2|/site 1.43e-03 max|res(lam=1)| 1.27e-06 max|a4fit| 1.27e-06 max|E(1)-E(-1)| 1.2e-14
+T=18 max|a2|/site 1.55e-03 max|res(lam=1)| 1.48e-06 max|a4fit| 1.48e-06 max|E(1)-E(-1)| 1.2e-14
+T=19 max|a2|/site 1.31e-03 max|res(lam=1)| 1.36e-06 max|a4fit| 1.36e-06 max|E(1)-E(-1)| 1.1e-14
+T=20 max|a2|/site 1.02e-03 max|res(lam=1)| 1.27e-06 max|a4fit| 1.27e-06 max|E(1)-E(-1)| 1.1e-14
