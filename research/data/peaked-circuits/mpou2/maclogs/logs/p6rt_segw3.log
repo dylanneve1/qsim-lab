@@ -1,0 +1,17 @@
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+wire-aware segmentation: [('B', 0, 2, 44), ('G', 1, 10, 134), ('B', 10, 13, 64), ('G', 13, 23, 148), ('B', 23, 26, 60), ('G', 24, 36, 164), ('B', 36, 39, 63), ('G', 37, 49, 158), ('B', 49, 52, 59), ('G', 52, 62, 158), ('B', 62, 64, 40), ('G', 64, 75, 174), ('B', 75, 77, 38), ('G', 76, 88, 168), ('B', 88, 91, 64), ('G', 91, 101, 165), ('B', 101, 105, 70), ('G', 104, 114, 132), ('B', 114, 118, 80), ('G', 118, 127, 142), ('B', 127, 131, 83), ('G', 129, 140, 153), ('B', 140, 143, 58), ('G', 143, 153, 155), ('B', 153, 156, 63), ('G', 156, 166, 167), ('B', 166, 170, 76), ('G', 168, 179, 135), ('B', 179, 182, 58), ('G', 180, 192, 159), ('B', 192, 196, 82), ('G', 195, 206, 149), ('B', 206, 208, 31)]
+in-burst non-ring units: 0
+  gap [1,10): TNO 572 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 1,1 t=3s
+  gap [13,23): TNO 752 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 1,1 t=5s
+  gap [24,36): TNO 1164 elems, clusters [12, 5, 5, 5, 3, 3], cross clusters so far 3, ranks 2,2 t=11s
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 22.0
+      ring 2 part: 2 tensors, contraction width 24.0
+      ring 1 part: 0 tensors, contraction width 4194304.0
+  gap [37,49): TNO 744 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 4, ranks 4,4 t=17s
+    multi-ring cluster of 15 wires (rings [0, 2]) via contraction
+      ring 0 part: 9 tensors, contraction width 31.0

@@ -1,0 +1,19 @@
+n=56 units=1917 blocks=1885 depth=103 m=49.0 left=930 right=955 band=45,55 (phase1 69+107) eps0=1e-10 eps=0.01 mode=rel maxb=512 sched=dist
+  TNO band d=0.0: +0L +17R, unswaps 0, elems 360, max bond 2, nbonds 17, moved 0, 0.4s
+  TNO band d=1.0: +19L +16R, unswaps 0, elems 852, max bond 4, nbonds 42, moved 2, 0.4s
+  TNO band d=2.0: +18L +17R, unswaps 2, elems 1132, max bond 4, nbonds 48, moved 10, 0.5s
+  TNO band d=3.0: +16L +17R, unswaps 6, elems 1444, max bond 4, nbonds 47, moved 22, 0.5s
+  TNO band d=4.0: +16L +21R, unswaps 9, elems 736, max bond 4, nbonds 28, moved 52, 0.6s
+  TNO band d=5.0: +0L +19R, unswaps 0, elems 824, max bond 4, nbonds 38, moved 52, 0.6s
+  TNO -> MPO: raw bonds [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 8, 4, 4, 2, 2, 2, 2, 8, 8, 2, 2, 4, 8, 4, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 4, 4, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 2, 2, 1, 2, 1, 2]
+  TNO -> MPO: compressed {'max_bond': 6, 'elems': 932, 'trunc': 1.36e-21}
+TNO centre block -> MPO: {'max_bond': 6, 'elems': 932, 'trunc': 1.36e-21} t=0.6s
+[25/1885] L 94 (lay 43) R 107 (lay 55) {'max_bond': 8, 'elems': 1084, 'trunc': 3.26e-06} rs=135 t=0.7s rss=164MB
+[50/1885] L 107 (lay 43) R 119 (lay 55) {'max_bond': 8, 'elems': 1516, 'trunc': 4.09e-06} rs=269 t=0.7s rss=164MB
+[75/1885] L 119 (lay 42) R 132 (lay 56) {'max_bond': 16, 'elems': 2520, 'trunc': 5.17e-06} rs=567 t=0.8s rss=164MB
+[100/1885] L 131 (lay 41) R 145 (lay 57) {'max_bond': 16, 'elems': 4744, 'trunc': 6.95e-06} rs=903 t=0.9s rss=165MB
+    full unswap at step 120: 133904 -> 133904 elems, max bond 128, 1 sweeps 0.9s
+    full unswap at step 122: 534880 -> 534880 elems, max bond 256, 1 sweeps 4.6s
+    slow step 122 (up): absorb 0.8s -> {'max_bond': 256, 'elems': 534880, 'trunc': 9e-06}, unswap 4.6s -> {'max_bond': 256, 'elems': 534880, 'trunc': 9e-06}
+    full unswap at step 123: 2138632 -> 2138632 elems, max bond 512, 1 sweeps 35.7s
+    slow step 123 (up): absorb 5.2s -> {'max_bond': 512, 'elems': 2138632, 'trunc': 9e-06}, unswap 35.7s -> {'max_bond': 512, 'elems': 2138632, 'trunc': 9e-06}

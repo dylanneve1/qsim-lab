@@ -1,0 +1,31 @@
+n=44 units=1892 blocks=902 depth=86 m=41.0 left=446 right=456 band=36,48 (phase1 54+42) eps0=1e-10 eps=0.001 mode=rel maxb=1024 sched=dist
+centre band: 96 blocks, group sizes [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  group [0, 5, 39, 40]: pairing [(0, 40), (5, 39), (39, 5), (40, 0)] scores min 0.974 ranks [1, 1, 1]
+  group [1, 21, 25, 38]: pairing [(1, 1), (21, 21), (25, 38), (38, 25)] scores min 0.994 ranks [1, 1, 1]
+  group [2, 13, 17, 29]: pairing [(2, 29), (13, 13), (17, 17), (29, 2)] scores min 0.980 ranks [1, 1, 1]
+  group [3, 15, 18, 23]: pairing [(3, 15), (15, 3), (18, 23), (23, 18)] scores min 0.982 ranks [1, 1, 1]
+  group [4, 8, 32, 42]: pairing [(4, 42), (8, 4), (32, 32), (42, 8)] scores min 0.976 ranks [1, 1, 1]
+  group [6, 14, 20, 33]: pairing [(6, 33), (14, 14), (20, 6), (33, 20)] scores min 0.970 ranks [1, 1, 1]
+  group [7, 11, 28, 37]: pairing [(7, 7), (11, 37), (28, 11), (37, 28)] scores min 0.972 ranks [1, 1, 1]
+  group [9, 22, 34, 43]: pairing [(9, 22), (22, 34), (34, 9), (43, 43)] scores min 0.964 ranks [1, 1, 1]
+  group [10, 12, 35, 41]: pairing [(10, 10), (12, 41), (35, 12), (41, 35)] scores min 0.974 ranks [1, 1, 1]
+  group [16, 19, 24, 30]: pairing [(16, 30), (19, 24), (24, 16), (30, 19)] scores min 0.977 ranks [1, 1, 1]
+  group [26, 27, 31, 36]: pairing [(26, 36), (27, 31), (31, 26), (36, 27)] scores min 0.969 ranks [1, 1, 1]
+dense centre block: {'max_bond': 1, 'elems': 176, 'trunc': 0.0} t=0.8s
+[10/902] L 59 (lay 34) R 47 (lay 48) {'max_bond': 4, 'elems': 416, 'trunc': 2.33e-30} t=0.9s rss=80MB
+[20/902] L 64 (lay 34) R 52 (lay 48) {'max_bond': 4, 'elems': 520, 'trunc': 5.42e-07} t=1.0s rss=80MB
+[30/902] L 69 (lay 34) R 57 (lay 48) {'max_bond': 4, 'elems': 552, 'trunc': 2.96e-06} t=1.0s rss=80MB
+[40/902] L 74 (lay 34) R 62 (lay 48) {'max_bond': 4, 'elems': 640, 'trunc': 2.99e-06} t=1.1s rss=80MB
+    match at step 48: 0 swaps, score median 0.998 min 0.206; 13780 -> 13780 (kept) 3.1s
+[50/902] L 79 (lay 32) R 67 (lay 50) {'max_bond': 42, 'elems': 19140, 'trunc': 3.17e-05} t=5.3s rss=83MB
+[60/902] L 84 (lay 32) R 72 (lay 50) {'max_bond': 48, 'elems': 29612, 'trunc': 4.82e-05} t=8.8s rss=83MB
+    match at step 69: 1 swaps, score median 0.891 min 0.206; 54948 -> 55012 (reverted) 11.7s
+[70/902] L 89 (lay 32) R 77 (lay 50) {'max_bond': 43, 'elems': 49800, 'trunc': 7.79e-05} t=27.7s rss=86MB
+[80/902] L 94 (lay 32) R 82 (lay 50) {'max_bond': 48, 'elems': 58716, 'trunc': 0.000104} t=31.2s rss=86MB
+[90/902] L 99 (lay 30) R 87 (lay 52) {'max_bond': 56, 'elems': 58768, 'trunc': 0.000139} t=34.0s rss=87MB
+    match at step 93: 0 swaps, score median 0.997 min 0.193; 105652 -> 105652 (kept) 12.1s
+[100/902] L 104 (lay 30) R 92 (lay 52) {'max_bond': 101, 'elems': 179440, 'trunc': 0.000224} t=147.2s rss=98MB
+[110/902] L 109 (lay 30) R 97 (lay 52) {'max_bond': 130, 'elems': 270184, 'trunc': 0.000317} t=307.6s rss=107MB
+[120/902] L 114 (lay 30) R 102 (lay 52) {'max_bond': 130, 'elems': 240660, 'trunc': 0.00036} t=309.9s rss=107MB
+[130/902] L 119 (lay 28) R 107 (lay 54) {'max_bond': 116, 'elems': 204748, 'trunc': 0.000417} t=315.1s rss=107MB
+    checkpoint at step 136
