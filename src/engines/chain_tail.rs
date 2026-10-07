@@ -1,7 +1,7 @@
 //! Tail-open chain sweep: all `2^m` amplitudes `<x_0..x_(m-1), x_m..x_(n-1)| U |0^n>`
 //! for a fixed suffix `x_m..x_(n-1)` from one sweep.
 //!
-//! The sweep runs on the mirrored chain ([`chain_sweep::mirror`]): qubits
+//! The sweep runs on the mirrored chain (`chain_sweep::mirror`): qubits
 //! `n-1, n-2, .., m` in that order, and stops at the clean cut on edge
 //! `(m-1, m)`. The bond register then holds `R(β)`, a function of the
 //! values `β_t` of qubit `m` at the `K` CZs of that edge (on the mirrored
