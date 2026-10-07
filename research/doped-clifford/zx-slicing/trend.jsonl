@@ -1,0 +1,7 @@
+{"D": 40, "method": "chain-seed", "k": 0, "width": 22, "log2C": 33.01889559791435, "log2slices": 0}
+{"D": 40, "method": "chain-seed+slice", "k": 1, "width": 21.0, "log2C": 53.50878511107172, "log2slices": 21.0, "secs": 2}
+{"D": 48, "method": "chain-seed", "k": 0, "width": 26, "log2C": 37.37582635567562, "log2slices": 0}
+{"D": 48, "method": "chain-seed+slice", "k": 1, "width": 25.0, "log2C": 68.63499171106916, "log2slices": 32.0, "secs": 3}
+{"D": 56, "method": "chain-seed", "k": 0, "width": 30, "log2C": 41.67594143950373, "log2slices": 0}
+{"D": 56, "method": "chain-seed+slice", "k": 1, "width": 29.000000000000004, "log2C": 77.87437789722887, "log2slices": 37.0, "secs": 4}
+{"D": 70, "method": "chain-seed", "k": 0, "width": 37, "log2C": 49.080291833806335, "log2slices": 0}

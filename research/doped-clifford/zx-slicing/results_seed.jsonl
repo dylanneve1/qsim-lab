@@ -1,0 +1,9 @@
+{"D": 40, "tag": "chain-sweep linear", "width": 44.0, "log2C": 68.33541916690837, "slices": 1, "log2C_per_slice": 68.33541916690837}
+{"D": 40, "tag": "chain-sweep + subtree_reconf", "width": 45.0, "log2C": 62.83600145973451, "slices": 1, "log2C_per_slice": 62.83600145973451, "secs": 54.952884674072266}
+{"D": 40, "tag": "chain-sweep linear [split]", "ntens": 3890, "width": 44.0, "log2C": 68.33541916690837, "slices": 1, "log2C_per_slice": 68.33541916690837}
+{"D": 40, "tag": "chain-sweep + subtree_reconf [split]", "ntens": 3890, "width": 47.00000000000001, "log2C": 63.02392172486838, "slices": 1, "log2C_per_slice": 63.02392172486838, "secs": 14.538920879364014}
+{"D": 40, "tag": "chain-sweep linear", "ntens": 3890, "width": 23.0, "log2C": 33.608051549064356, "slices": 1, "log2C_per_slice": 33.608051549064356}
+{"D": 40, "tag": "chain-sweep + subtree_reconf", "ntens": 3890, "width": 22.0, "log2C": 33.01889559791435, "slices": 1, "log2C_per_slice": 33.01889559791435, "secs": 5.743128061294556}
+{"D": 40, "tag": "chain-sweep linear", "ntens": 3890, "width": 23.0, "log2C": 33.608051549064356, "slices": 1, "log2C_per_slice": 33.608051549064356}
+{"D": 40, "tag": "chain-sweep + subtree_reconf", "ntens": 3890, "width": 22.0, "log2C": 33.01889559791435, "slices": 1, "log2C_per_slice": 33.01889559791435, "secs": 5.931039810180664}
+{"D": 40, "tag": "seed slice_and_reconfigure -> 18", "ntens": 3890, "width": 18.0, "log2C": 149.20630301783896, "slices": 1329227995784915872903807060280344576, "log2C_per_slice": 29.206303017838973, "secs": 498.2489984035492}

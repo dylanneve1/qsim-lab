@@ -1,0 +1,1 @@
+{"D": 56, "net": "raw", "target": "none", "mode": "-", "secs": 600, "methods": ["kahypar", "greedy"], "trials": 13, "ntens": 5530, "ninds": 3674, "width": 39.00000000000001, "log2C": 48.747112168864824, "slices": 1, "log2C_per_slice": 48.747112168864824, "wall": 614.0332643985748, "sliced_inds": []}
