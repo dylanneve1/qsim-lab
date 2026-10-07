@@ -39,6 +39,10 @@ num-traits = "0.2"
 rand = "0.9"
 rayon = "1"
 
+# GPU backend of the packed chain sweep (`chain_packed_gpu`), feature `wgpu`.
+wgpu = { version = "30", optional = true, default-features = false, features = ["std", "parking_lot", "vulkan", "dx12", "metal", "wgsl"] }
+pollster = { version = "1", optional = true }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = { version = "0.32", optional = true }
 
@@ -46,6 +50,9 @@ metal = { version = "0.32", optional = true }
 # Apple-GPU (Metal) f32 state-vector backend, `qsim_lab::metal_sv`. Only has
 # an effect on macOS; other targets build exactly as without it.
 metal = ["dep:metal"]
+# wgpu (Vulkan / DX12) backend for the packed low-precision chain sweep,
+# `qsim_lab::engines::chain_packed_gpu::gpu`.
+wgpu = ["dep:wgpu", "dep:pollster"]
 
 [[example]]
 name = "metal_bench"
@@ -98,6 +105,10 @@ path = "tests/engines/chain_sweep.rs"
 [[test]]
 name = "chain_mps"
 path = "tests/engines/chain_mps.rs"
+
+[[test]]
+name = "chain_packed_gpu"
+path = "tests/engines/chain_packed_gpu.rs"
 
 [[test]]
 name = "blocked"
