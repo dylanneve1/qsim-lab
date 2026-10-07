@@ -35,8 +35,8 @@
 
 pub mod adaptive;
 pub mod blocked;
-pub mod chain_mps;
 pub mod chain_lowprec;
+pub mod chain_mps;
 pub mod chain_packed;
 pub mod chain_packed_gpu;
 pub mod chain_run;
