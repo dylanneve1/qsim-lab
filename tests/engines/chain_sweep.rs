@@ -168,3 +168,48 @@ fn meet_in_the_middle_matches_sweep_and_slices() {
         }
     }
 }
+
+/// Emulated reduced-precision storage: f32 "storage" reproduces the f32
+/// sweep, 16-bit storage stays close to the exact amplitude, and unscaled
+/// fp16 underflows where block-scaled fp16 does not.
+#[test]
+fn lowprec_storage_fidelity() {
+    use qsim_lab::engines::chain_lowprec::{passes, run_lowprec, Granularity, LowPrec};
+    let c = Circuit::from_qasm(QASM).unwrap();
+    let c = truncate(&c, 70, 20);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let cfg = Default::default();
+    let mut rng = StdRng::seed_from_u64(7);
+    let fmts = ["f32", "bf16", "fp16:b256", "fp16", "e4m3:b64"];
+    let mut acc = vec![(Complex64::new(0.0, 0.0), 0.0, 0.0); fmts.len()];
+    for _ in 0..6 {
+        let x: u128 = (0..70).fold(0, |a, i| a | ((rng.random_bool(0.5) as u128) << i));
+        let plan = compile(&cc, x, &HashMap::new());
+        let e = chain_sweep::amplitude_cpu::<f64>(&plan, &cfg).unwrap();
+        let ps = passes(&plan, &cfg, Granularity::Every(16));
+        for (j, f) in fmts.iter().enumerate() {
+            let r = run_lowprec(&plan, &ps, &LowPrec::parse(f).unwrap(), 0).unwrap();
+            if *f == "f32" {
+                assert!((r.amp - e).norm() <= 1e-4 * e.norm().max(1e-30));
+            }
+            acc[j].0 += e.conj() * r.amp;
+            acc[j].1 += e.norm_sqr();
+            acc[j].2 += r.amp.norm_sqr();
+        }
+    }
+    let fid: Vec<f64> = acc
+        .iter()
+        .map(|(o, a, b)| {
+            if *b > 0.0 {
+                o.norm_sqr() / (a * b)
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    assert!(fid[0] > 1.0 - 1e-9, "{fid:?}");
+    assert!(fid[1] > 0.999, "{fid:?}");
+    assert!(fid[2] > 0.9999, "{fid:?}");
+    assert!(fid[3] < 0.5, "unscaled fp16 should underflow: {fid:?}");
+    assert!(fid[4] > 0.8, "{fid:?}");
+}
