@@ -20,7 +20,7 @@
 //! Layout: block `k` covers register indices `kB..(k+1)B`; its `2B` real
 //! components (re, im of each amplitude in turn) are stored as offset
 //! binary `q + (2^(b-1) - 1)`, LSB first, in `B·b/4` bytes (`B` must be a
-//! multiple of 4). Scales: the f32 step (`intB:bN`), or with `:h` a 16-bit
+//! multiple of 4, at most [`MAX_BLOCK`]). Scales: the f32 step (`intB:bN`), or with `:h` a 16-bit
 //! code (10-bit fraction of the 11-bit mantissa, 6-bit exponent relative to
 //! a per-pass base; code 0 = all-zero block). The per-pass base is set from
 //! the largest exponent of the previous pass, leaving 22 binades of
@@ -36,7 +36,7 @@ use crate::engines::blocked::{
     plan_stages_lookahead, prepare_stage_cfg, run_compiled_on_block, run_prepared_on_block,
     BlockConfig, CompiledKOps, KOp, PreparedStage, Stage,
 };
-use crate::engines::chain_lowprec::{int_step, quantize, round_to, Format, LowPrec, Scaling};
+use crate::engines::chain_lowprec::{int_step, quantize, Format, LowPrec, Scaling};
 use crate::engines::chain_sweep::SweepPlan;
 use crate::engines::statevector::StateVector;
 use num_complex::{Complex32, Complex64};
@@ -47,6 +47,63 @@ use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 /// Headroom (binades) of the `:h` exponent window above the previous
 /// pass's largest block exponent.
 pub(crate) const H_UP: i32 = 22;
+
+/// Largest scale block (amplitudes) the packed store supports.
+pub const MAX_BLOCK: usize = 1024;
+
+/// Unpacks `out.len()` (a multiple of 8) `b`-bit codes stored LSB first.
+#[inline]
+fn unpack_codes(bytes: &[u8], b: u32, out: &mut [u8]) {
+    match b {
+        8 => out.copy_from_slice(bytes),
+        4 => {
+            for (o, &x) in out.chunks_exact_mut(2).zip(bytes) {
+                o[0] = x & 15;
+                o[1] = x >> 4;
+            }
+        }
+        _ => {
+            // 8 codes = b bytes
+            let mask = (1u64 << b) - 1;
+            for (o, g) in out.chunks_exact_mut(8).zip(bytes.chunks_exact(b as usize)) {
+                let w = g
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |w, (i, &x)| w | (x as u64) << (8 * i));
+                for (t, o) in o.iter_mut().enumerate() {
+                    *o = ((w >> (b as usize * t)) & mask) as u8;
+                }
+            }
+        }
+    }
+}
+
+/// Packs `codes.len()` (a multiple of 8) `b`-bit codes LSB first.
+#[inline]
+fn pack_codes(codes: &[u8], b: u32, bytes: &mut [u8]) {
+    match b {
+        8 => bytes.copy_from_slice(codes),
+        4 => {
+            for (x, c) in bytes.iter_mut().zip(codes.chunks_exact(2)) {
+                *x = c[0] | c[1] << 4;
+            }
+        }
+        _ => {
+            for (g, c) in bytes
+                .chunks_exact_mut(b as usize)
+                .zip(codes.chunks_exact(8))
+            {
+                let w = c
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |w, (t, &x)| w | (x as u64) << (b as usize * t));
+                for (i, g) in g.iter_mut().enumerate() {
+                    *g = (w >> (8 * i)) as u8;
+                }
+            }
+        }
+    }
+}
 
 /// A raw pointer that may be shared between the rayon workers of one pass:
 /// every block writes a disjoint byte range.
@@ -89,7 +146,7 @@ impl PackedStore {
     /// with per-block scaling (`B` a multiple of 4), round to nearest.
     pub fn supports(lp: &LowPrec) -> bool {
         matches!(lp.format, Format::Int(b) if (2..=8).contains(&b))
-            && matches!(lp.scaling, Scaling::Block(b) if b % 4 == 0)
+            && matches!(lp.scaling, Scaling::Block(b) if b % 4 == 0 && b <= MAX_BLOCK)
             && !lp.stochastic
     }
 
@@ -202,8 +259,9 @@ impl PackedStore {
             return;
         }
         let b = self.bits;
-        let mask = (1u64 << b) - 1;
-        let off = self.maxv as i64;
+        let off = self.maxv as i32;
+        let mut codes = [0u8; 2 * MAX_BLOCK];
+        let codes = &mut codes[..2 * self.block];
         for (j, out) in out.chunks_exact_mut(self.block).enumerate() {
             let k = start / self.block + j;
             let step = Self::step(ptrs.s32.0, ptrs.s16.0, self.lp.half_scale, self.base, k);
@@ -216,21 +274,10 @@ impl PackedStore {
             // SAFETY: block k's bytes lie inside `data`.
             let bytes =
                 unsafe { std::slice::from_raw_parts(ptrs.data.0.add(k * self.bpb), self.bpb) };
-            let (mut acc, mut na, mut bi) = (0u64, 0u32, 0usize);
-            let mut next = || {
-                while na < b {
-                    acc |= (bytes[bi] as u64) << na;
-                    bi += 1;
-                    na += 8;
-                }
-                let u = (acc & mask) as i64;
-                acc >>= b;
-                na -= b;
-                ((u - off) as f64 * inv) as f32
-            };
-            for z in out.iter_mut() {
-                z.re = next();
-                z.im = next();
+            unpack_codes(bytes, b, codes);
+            for (z, c) in out.iter_mut().zip(codes.chunks_exact(2)) {
+                z.re = ((c[0] as i32 - off) as f64 * inv) as f32;
+                z.im = ((c[1] as i32 - off) as f64 * inv) as f32;
             }
         }
     }
@@ -239,7 +286,11 @@ impl PackedStore {
     #[inline]
     fn pack_run(&self, ptrs: &Ptrs, start: usize, v: &[Complex32], st: &PassStats) {
         let b = self.bits;
-        let off = self.maxv as i64;
+        let off = self.maxv as i32;
+        let mut codes = [0u8; 2 * MAX_BLOCK];
+        let codes = &mut codes[..2 * self.block];
+        // one atomic update per run, not per block (contention)
+        let mut maxexp = i32::MIN;
         for (j, v) in v.chunks_exact(self.block).enumerate() {
             let k = start / self.block + j;
             // the emulator's block statistic, in f32
@@ -259,7 +310,7 @@ impl PackedStore {
                     if step != 0.0 {
                         let e = exp_of(step);
                         let ec = e - ptrs.base_out + 1;
-                        st.maxexp.fetch_max(e, Ordering::Relaxed);
+                        maxexp = maxexp.max(e);
                         if ec < 1 {
                             st.underflow.fetch_add(1, Ordering::Relaxed);
                             step = 0.0;
@@ -283,28 +334,25 @@ impl PackedStore {
             // SAFETY: as above.
             let bytes =
                 unsafe { std::slice::from_raw_parts_mut(ptrs.data.0.add(k * self.bpb), self.bpb) };
-            let s = if step == 0.0 { 0.0 } else { 1.0 / step };
-            let (mut acc, mut na, mut bi) = (0u64, 0u32, 0usize);
-            let mut put = |x: f32| {
+            if step == 0.0 {
                 // a zero block stores offset-binary zero everywhere
-                let q = if step == 0.0 {
-                    0
-                } else {
-                    round_to(x as f64 * s, self.lp.format, None) as i64
-                };
-                acc |= ((q + off) as u64) << na;
-                na += b;
-                while na >= 8 {
-                    bytes[bi] = acc as u8;
-                    acc >>= 8;
-                    na -= 8;
-                    bi += 1;
+                codes.fill(off as u8);
+            } else {
+                // `round_to` for an integer format, inlined: the nearest
+                // integer (ties to even), saturated at ±maxv
+                let s = 1.0 / step;
+                let maxv = self.maxv;
+                for (c, z) in codes.chunks_exact_mut(2).zip(v) {
+                    c[0] =
+                        ((z.re as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off) as u8;
+                    c[1] =
+                        ((z.im as f64 * s).round_ties_even().clamp(-maxv, maxv) as i32 + off) as u8;
                 }
-            };
-            for z in v {
-                put(z.re);
-                put(z.im);
             }
+            pack_codes(codes, b, bytes);
+        }
+        if maxexp != i32::MIN {
+            st.maxexp.fetch_max(maxexp, Ordering::Relaxed);
         }
     }
 
@@ -370,6 +418,68 @@ impl PackedStore {
         Ok(())
     }
 
+    /// Register width (bits).
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    /// `:h` blocks below the per-pass exponent window so far (stored as zero).
+    pub fn underflow(&self) -> u64 {
+        self.underflow
+    }
+
+    /// `:h` blocks above the per-pass exponent window so far.
+    pub fn overflow(&self) -> u64 {
+        self.overflow
+    }
+
+    /// Back to `|0..0>` without reallocating (the first pass of the next
+    /// sweep overwrites every block).
+    pub fn reset(&mut self) {
+        self.fresh = true;
+        self.base = 0;
+        self.maxexp = exp_of(1.0 / self.maxv);
+        self.underflow = 0;
+        self.overflow = 0;
+        self.thread_ns = [0; 3];
+    }
+
+    /// The amplitude at register index `i`, decoded alone (random access
+    /// for the read-only tail pass). Bit-identical to [`Self::amplitude`].
+    #[inline]
+    pub fn get(&self, i: usize) -> Complex32 {
+        if self.fresh {
+            return Complex32::new(if i == 0 { 1.0 } else { 0.0 }, 0.0);
+        }
+        let k = i / self.block;
+        let step = Self::step(
+            self.s32.as_ptr(),
+            self.s16.as_ptr(),
+            self.lp.half_scale,
+            self.base,
+            k,
+        );
+        if step == 0.0 {
+            return Complex32::new(0.0, 0.0);
+        }
+        let s = 1.0 / step;
+        let inv = 1.0 / s;
+        let b = self.bits as usize;
+        let bit = 2 * (i % self.block) * b;
+        let blk = &self.data[k * self.bpb..(k + 1) * self.bpb];
+        let (byte, sh) = (bit / 8, bit % 8);
+        // the 2b <= 16 code bits plus the shift fit in 3 bytes
+        let mut w = 0u32;
+        for (t, &x) in blk[byte..(byte + 3).min(blk.len())].iter().enumerate() {
+            w |= (x as u32) << (8 * t);
+        }
+        let mask = (1u32 << b) - 1;
+        let off = self.maxv as i32;
+        let re = ((w >> sh) & mask) as i32 - off;
+        let im = ((w >> (sh + b)) & mask) as i32 - off;
+        Complex32::new((re as f64 * inv) as f32, (im as f64 * inv) as f32)
+    }
+
     /// The amplitude at register index `i`.
     pub fn amplitude(&mut self, i: usize) -> Complex32 {
         let start = i / self.block * self.block;
@@ -377,6 +487,19 @@ impl PackedStore {
         let ptrs = self.ptrs(0);
         self.unpack_run(&ptrs, start, &mut v);
         v[i - start]
+    }
+
+    /// Decodes the whole register without `&mut` (tests, small registers).
+    pub fn decode_all(&self) -> Vec<Complex32> {
+        let mut v = vec![Complex32::new(0.0, 0.0); 1usize << self.width];
+        let ptrs = Ptrs {
+            data: SyncPtr(self.data.as_ptr() as *mut u8),
+            s32: SyncPtr(self.s32.as_ptr() as *mut f32),
+            s16: SyncPtr(self.s16.as_ptr() as *mut u16),
+            base_out: 0,
+        };
+        self.unpack_run(&ptrs, 0, &mut v);
+        v
     }
 
     /// Decodes the whole register (tests and small registers only).

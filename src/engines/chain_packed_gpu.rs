@@ -490,6 +490,7 @@ pub struct HostStore {
     pub base: i32,
     /// Largest stored block exponent (`:h`).
     pub maxexp: i32,
+    maxexp0: i32,
 }
 
 impl HostStore {
@@ -517,6 +518,7 @@ impl HostStore {
         let mut scales = Vec::new();
         scales.try_reserve_exact(nb * sb).map_err(alloc)?;
         scales.resize(nb * sb, 0u8);
+        let e0 = (((1.0 / codec.maxv as f64).to_bits() >> 52) & 0x7ff) as i32 - 1023;
         Ok(HostStore {
             width,
             data,
@@ -524,13 +526,21 @@ impl HostStore {
             sb,
             fresh: true,
             base: 0,
-            maxexp: (((1.0 / codec.maxv as f64).to_bits() >> 52) & 0x7ff) as i32 - 1023,
+            maxexp: e0,
+            maxexp0: e0,
         })
     }
 
     /// Bytes held.
     pub fn bytes(&self) -> usize {
         self.data.len() + self.scales.len()
+    }
+
+    /// Back to `|0..0>` (keeps the allocation; the data is not touched).
+    pub fn reset(&mut self) {
+        self.fresh = true;
+        self.base = 0;
+        self.maxexp = self.maxexp0;
     }
 
     /// Scale of block `k`.
@@ -751,6 +761,21 @@ pub fn encode_block(
 /// `:h` exponent base of the next pass, from the largest exponent stored.
 pub fn next_base(maxexp: i32) -> i32 {
     maxexp + H_UP - 62
+}
+
+/// The executor config the GPU backend reproduces: FMA kernel tier (no
+/// AVX-512), no dense fusion, no L1 tiling, nested cache blocks of
+/// `2^nested_bits` amplitudes. Run the CPU reference (`run_packed`) with
+/// the same config for bit-exact agreement.
+pub fn gpu_cfg(nested_bits: usize) -> BlockConfig {
+    BlockConfig {
+        block_bytes: 8 << nested_bits,
+        fuse_1q: false,
+        avx512: false,
+        dense_fusion: 0,
+        l1_tile_bytes: 0,
+        ..BlockConfig::default()
+    }
 }
 
 /// Compiles the stages for the GPU (see [`gpu_stage_plan`]).
