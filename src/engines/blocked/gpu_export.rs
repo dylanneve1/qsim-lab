@@ -3,7 +3,7 @@
 //! The GPU backend of the packed chain sweep (`chain_packed_gpu`) must
 //! reproduce the CPU kernels bit for bit. Rather than re-deriving the
 //! plan, it runs the CPU's own compiled plan: the cache-blocked stages
-//! ([`Prepared`]) with their typed ops ([`LOp`]), exported here as
+//! (`Prepared`) with their typed ops (`LOp`), exported here as
 //! [`GpuSubStage`]s. Every per-element formula of the FMA kernel tier
 //! (`F = true`) is a short fixed sequence of f32 `fma`/`mul` operations
 //! that a shader can repeat exactly; the only part computed in f64 on the
