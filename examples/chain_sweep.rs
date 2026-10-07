@@ -795,6 +795,24 @@ fn tail_backend(a: &Args) -> Box<dyn qsim_lab::engines::chain_tail::SweepBackend
     match f.as_str() {
         "cpu64" => Box::new(CpuExact::<f64>::new(cfg)),
         "cpu32" => Box::new(CpuExact::<f32>::new(cfg)),
+        #[cfg(feature = "wgpu")]
+        f if a.0.iter().any(|x| x == "--gpu") => {
+            // GPU packed backend (`chain_packed_gpu`): FMA-tier config with
+            // 2^--nb cache blocks; bit-exact with CpuPacked on that config
+            use qsim_lab::engines::chain_packed_gpu::gpu::{GpuOptions, GpuPacked};
+            let lp = LowPrec::parse(f).unwrap_or_else(|| panic!("bad format {f}"));
+            let opts = GpuOptions {
+                nested_bits: a.get("nb", 12),
+                reg_bits: a.get("rb", 0),
+                chunk_amps: 1usize << a.get("chunk", 27usize),
+                slots: a.get("inflight", 3),
+                ..GpuOptions::default()
+            };
+            let mut be = GpuPacked::new(&opts, lp, a.get("l", 22), a.get("slots", 14))
+                .unwrap_or_else(|e| panic!("GPU backend: {e}"));
+            be.fuse = std::env::var("CS_FUSE").map(|v| v != "0").unwrap_or(true);
+            Box::new(be)
+        }
         f => {
             let lp = LowPrec::parse(f).unwrap_or_else(|| panic!("bad format {f}"));
             let mut be = CpuPacked::new(lp, cfg, a.get("l", 22), a.get("slots", 14));
