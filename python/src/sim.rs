@@ -66,6 +66,11 @@ pub const ENGINES: &[(&str, &str, &str)] = &[
         "stabilizer tableau, Clifford circuits only, any size",
     ),
     (
+        "gaussian",
+        "samples expectation",
+        "free-fermion (matchgate) circuits: Majorana covariance, O(gates n + n^3); Z products only",
+    ),
+    (
         "symphase",
         "samples",
         "batched noisy-Clifford sampler (measurements affine in noise variables)",
@@ -88,6 +93,7 @@ pub fn parse_engine(s: &str) -> PyResult<EngineSel> {
         "hsf" => EngineSel::Planner(Engine::Hsf),
         "compressed" | "cstate" => EngineSel::Planner(Engine::Compressed),
         "tableau" | "stabilizer" => EngineSel::Planner(Engine::Tableau),
+        "gaussian" | "gauss" | "free_fermion" => EngineSel::Planner(Engine::Gaussian),
         "symphase" => EngineSel::Symphase,
         other => {
             return Err(value_err(format!(
@@ -109,6 +115,7 @@ pub fn engine_name(e: Engine) -> &'static str {
         Engine::Hsf => "hsf",
         Engine::Compressed => "compressed",
         Engine::Tn => "tn",
+        Engine::Gaussian => "gaussian",
     }
 }
 

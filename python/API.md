@@ -89,7 +89,8 @@ seed actually used), `precision` (`"f64"`/`"f32"`: what was actually used), `wal
 cone, connected components, classical suffix) and Planner v2 picks the cheapest exact engine
 per component from fitted cost models. Overrides (whole circuit, no compile passes):
 `"statevector"`, `"sparse"`, `"mps"` (exact, refuses to truncate), `"hsf"`, `"compressed"`
-(samples/expectations only: no global phase), `"tableau"` (Clifford only), `"symphase"`
+(samples/expectations only: no global phase), `"tableau"` (Clifford only), `"gaussian"`
+(free-fermion/matchgate circuits; Z-product expectations and samples), `"symphase"`
 (noisy Clifford sampling, batched, the QEC workhorse). `ENGINES` lists them with what each
 supports. An engine that cannot do the job raises; it never silently falls back.
 
@@ -310,13 +311,22 @@ b = branching_rank(circuit, *, max_terms=65536, pair_merge=6, state=False)
     # BranchingRank: rank, max_rank, trace, overflow, *_events, merges, state
 s = simulability(circuit, request=None, *, hsf=True, budget=None)
     # Simulability: features (dict), log2_costs [(engine, log2 work)], explanation (Explanation)
+g = gaussian(circuit, *, tol=1e-10, relabel_swaps=True, reorder=True)
+    # GaussianReport: exact, free, gaussian_fraction, max_residual, interactions
+    #   [(block, wires, modes, g)], interaction_total/max, ordering, order, paths, ...
+e = gaussian_expectations(circuit, pairs=(), *, drop_interactions=False)
+    # GaussianExpectations: z (<Z_q> per qubit), zz (<Z_i Z_j> per pair), report
 r = monitored(circuit, *, seed=None, exact=True, max_d=24, cuts=None, entropy_every=0,
               max_cost_log2=24, state=False)
     # MonitoredResult(Result): d (per op), outcomes, qubits, probabilities, kinds,
     #                          entropies [(op, [(lower, upper, s2)])], stats, state
 ```
 
-* `magic_profile`, `branching_rank`, `simulability` take the unitary part (terminal
+* `gaussian` / `gaussian_expectations`: the free-fermion detector and engine
+  ([docs/ENGINE_GAUSSIAN.md](https://github.com/dylanneve1/qsim-lab/blob/main/docs/ENGINE_GAUSSIAN.md)). `drop_interactions=True` sets the
+  diagonal interaction phases `exp(i g n_a n_b)` to zero (the free-fermion part, not exact);
+  otherwise a circuit that is not exactly Gaussian raises `UnsupportedOperationError`.
+* `magic_profile`, `branching_rank`, `simulability`, `gaussian` take the unitary part (terminal
   measurements dropped; other non-unitary ops raise `UnsupportedOperationError`).
 * `monitored` accepts every op (gates are lowered to Clifford + Z rotations; measurements,
   resets, `c_if`, Pauli noise channels sampled per shot), not `readout_error`. Exact mode refuses

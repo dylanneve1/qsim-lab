@@ -134,7 +134,9 @@ pub struct GaussianReport {
     /// end of the circuit.
     pub mode_of_qubit: Vec<usize>,
     /// Every Gaussian block commutes with the total particle number
-    /// (`U(n)` rather than `O(2n)`).
+    /// (`U(n)` rather than `O(2n)`). A property of the fused blocks: an `X`
+    /// left as a block of its own makes it false even when the circuit as a
+    /// whole conserves the particle number.
     pub number_conserving: bool,
     /// Gaussian with no interaction phase: the engine is exact.
     pub exact: bool,
@@ -222,7 +224,10 @@ fn mul2(a: &Mat2, b: &Mat2) -> Mat2 {
 }
 
 fn dag2(a: &Mat2) -> Mat2 {
-    [[a[0][0].conj(), a[1][0].conj()], [a[0][1].conj(), a[1][1].conj()]]
+    [
+        [a[0][0].conj(), a[1][0].conj()],
+        [a[0][1].conj(), a[1][1].conj()],
+    ]
 }
 
 const ID2: Mat2 = [[O, Z], [Z, O]];
@@ -249,7 +254,12 @@ const PZ: Mat2 = [[O, Z], [Z, C::new(-1.0, 0.0)]];
 /// The four local Majorana operators of two Jordan–Wigner-adjacent modes,
 /// the first qubit of the matrix being the lower mode.
 fn majoranas2() -> [Mat4; 4] {
-    [kron(&PX, &ID2), kron(&PY, &ID2), kron(&PZ, &PX), kron(&PZ, &PY)]
+    [
+        kron(&PX, &ID2),
+        kron(&PY, &ID2),
+        kron(&PZ, &PX),
+        kron(&PZ, &PY),
+    ]
 }
 
 /// `U† c_i U = Σ_j q_ij c_j` on two adjacent modes, and the residual
@@ -447,6 +457,7 @@ struct Seg {
     split: usize,
 }
 
+#[allow(clippy::large_enum_variant)] // one per block, short-lived
 enum RawKind {
     /// Two-qubit block on slots `(a, b)`, `a` the first qubit of `core`.
     Two { a: usize, b: usize, core: Mat4 },
@@ -464,6 +475,7 @@ struct Raw {
 
 /// One fused, classified block in terms of wires (after every renaming).
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)] // one per block
 enum Item {
     One {
         w: usize,
@@ -478,6 +490,9 @@ enum Item {
     },
     Opaque,
 }
+
+/// A cut choice: (score, gates taken from tail a, from tail b, class).
+type Candidate = ((u8, f64, usize), usize, usize, Class2);
 
 /// Longest prefix/suffix of a tail whose cut points are all tried.
 const CUT_WINDOW: usize = 8;
@@ -542,7 +557,10 @@ fn fuse(c: &Circuit, opts: &DetectOptions) -> Fused {
             });
             if let Some(p) = prev {
                 let r: &mut Raw = &mut raws[p];
-                let i = slots_of(&r.kind).iter().position(|&x| x == w).expect("slot");
+                let i = slots_of(&r.kind)
+                    .iter()
+                    .position(|&x| x == w)
+                    .expect("slot");
                 r.close[i] = Some(s);
             }
             open.push(s);
@@ -630,7 +648,10 @@ fn fuse(c: &Circuit, opts: &DetectOptions) -> Fused {
         });
         if let Some(p) = prev {
             let r = &mut raws[p];
-            let i = slots_of(&r.kind).iter().position(|&x| x == w).expect("slot");
+            let i = slots_of(&r.kind)
+                .iter()
+                .position(|&x| x == w)
+                .expect("slot");
             r.close[i] = Some(s);
         }
         final_seg.push(s);
@@ -647,12 +668,11 @@ fn fuse(c: &Circuit, opts: &DetectOptions) -> Fused {
             .map(|&s| time_product(&segs[s].gates[segs[s].split..]))
             .collect();
         match &raw.kind {
-            RawKind::Opaque { slots } => {
+            RawKind::Opaque { .. } => {
                 // everything after an opaque block goes to the next block
                 for s in raw.close.iter().flatten() {
                     segs[*s].split = 0;
                 }
-                let _ = slots;
                 items.push(Item::Opaque);
             }
             RawKind::Two { a, b, core } => {
@@ -666,7 +686,7 @@ fn fuse(c: &Circuit, opts: &DetectOptions) -> Fused {
                         let mut acc = ID2;
                         for (k, g) in segs[s].gates.iter().enumerate() {
                             acc = mul2(g, &acc);
-                            if k + 1 <= CUT_WINDOW || k + 1 + CUT_WINDOW >= len {
+                            if k < CUT_WINDOW || k + 1 + CUT_WINDOW >= len {
                                 v.push((k + 1, acc));
                             }
                         }
@@ -676,7 +696,7 @@ fn fuse(c: &Circuit, opts: &DetectOptions) -> Fused {
                 let (pa, pb) = (prefixes(raw.close[0]), prefixes(raw.close[1]));
                 // score: (0 Gaussian / 1 interaction / 2 neither, residual,
                 // gates taken), lexicographic
-                let mut best: Option<((u8, f64, usize), usize, usize, Class2)> = None;
+                let mut best: Option<Candidate> = None;
                 for &(ka, ref ma) in &pa {
                     for &(kb, ref mb) in &pb {
                         let u = mul4(&kron(ma, mb), &base);
@@ -882,7 +902,8 @@ pub fn compile(c: &Circuit, opts: &DetectOptions) -> GaussianProgram {
         let u: Mat2 = [[O, Z], [Z, C::from_polar(1.0, alpha)]];
         majorana_map1(&u).0
     };
-    let commutes_j2 = |q: &[[f64; 2]; 2]| (q[0][0] - q[1][1]).abs() < 1e-9 && (q[0][1] + q[1][0]).abs() < 1e-9;
+    let commutes_j2 =
+        |q: &[[f64; 2]; 2]| (q[0][0] - q[1][1]).abs() < 1e-9 && (q[0][1] + q[1][0]).abs() < 1e-9;
     for (idx, it) in items.iter().enumerate() {
         match it {
             Item::One { w, u } => {
@@ -997,13 +1018,12 @@ fn number_conserving4(q: &[[f64; 4]; 4]) -> bool {
     // J = diag(j, j), j = [[0, 1], [-1, 0]]; (qJ)_ik = Σ_j q_ij J_jk
     let jm = |i: usize, k: usize| -> f64 {
         if i / 2 != k / 2 {
-            0.0
-        } else if i % 2 == 0 && k % 2 == 1 {
-            1.0
-        } else if i % 2 == 1 && k % 2 == 0 {
-            -1.0
-        } else {
-            0.0
+            return 0.0;
+        }
+        match (i % 2, k % 2) {
+            (0, 1) => 1.0,
+            (1, 0) => -1.0,
+            _ => 0.0,
         }
     };
     for i in 0..4 {

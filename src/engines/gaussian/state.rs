@@ -129,7 +129,10 @@ impl GaussianState {
 
     /// Evolves the vacuum through a compiled program (see
     /// [`Self::from_circuit`] for the errors).
-    pub fn evolve(prog: &GaussianProgram, opts: &GaussianOptions) -> Result<GaussianState, SimError> {
+    pub fn evolve(
+        prog: &GaussianProgram,
+        opts: &GaussianOptions,
+    ) -> Result<GaussianState, SimError> {
         let r = &prog.report;
         if !r.free {
             return Err(not_gaussian(r));
@@ -313,8 +316,8 @@ impl GaussianState {
     }
 
     /// Probability that the qubits `qs` read `bits` (marginal over the
-    /// others): `Pf((M_S + B)/2)` with `B` the covariance of the basis state,
-    /// O(|qs|^3).
+    /// others): `±Pf((M_S + B)/2)` with `B` the covariance of the basis
+    /// state (sign: the parity of `bits`), O(|qs|^3).
     pub fn marginal_probability(&self, qs: &[usize], bits: &[bool]) -> Result<f64, SimError> {
         if qs.len() != bits.len() {
             return Err(SimError::NotSupported {
@@ -333,6 +336,13 @@ impl GaussianState {
             pairs.push((k, b));
         }
         pairs.sort_unstable();
+        // Π_k (1 + s_k Z_k)/2 expands to Σ_S Π_{k∈S} s_k Pf(M_S) / 2^m, and
+        // Pf(M + B) = Π_k s_k · Σ_S Π_{k∈S} s_k Pf(M_S) for B = ⊕ s_k J
+        let sign: f64 = if pairs.iter().filter(|x| x.1).count() % 2 == 1 {
+            -1.0
+        } else {
+            1.0
+        };
         let dim = 2 * pairs.len();
         let mut a = vec![0.0; dim * dim];
         for (r, &(k, b)) in pairs.iter().enumerate() {
@@ -345,7 +355,7 @@ impl GaussianState {
             a[(2 * r) * dim + 2 * r + 1] += s;
             a[(2 * r + 1) * dim + 2 * r] -= s;
         }
-        Ok(pfaffian(&mut a, dim).max(0.0))
+        Ok((sign * pfaffian(&mut a, dim)).max(0.0))
     }
 
     /// Probability of the basis state `x` (bit `q` = qubit `q`, `n ≤ 128`).
@@ -363,7 +373,11 @@ impl GaussianState {
     /// `shots` samples of every qubit (bit `q` = qubit `q`, `n ≤ 128`):
     /// the modes are measured one after the other, each projection a rank-2
     /// update of the remaining covariance (O(n^3) per shot).
-    pub fn sample<R: Rng + ?Sized>(&self, shots: usize, rng: &mut R) -> Result<Vec<u128>, SimError> {
+    pub fn sample<R: Rng + ?Sized>(
+        &self,
+        shots: usize,
+        rng: &mut R,
+    ) -> Result<Vec<u128>, SimError> {
         if self.n > 128 {
             return Err(SimError::NotSupported {
                 what: "gaussian: samples need n <= 128",
@@ -381,14 +395,14 @@ impl GaussianState {
         for _ in 0..shots {
             m.copy_from_slice(&cov);
             let mut x = 0u128;
-            for k in 0..n {
+            for (k, &qk) in qubit_of_mode.iter().enumerate() {
                 let (a, b) = (2 * k, 2 * k + 1);
                 let mab = m[a * dim + b].clamp(-1.0, 1.0);
                 let p0 = 0.5 * (1.0 + mab);
                 let one = rng.random::<f64>() >= p0;
                 let s = if one { -1.0 } else { 1.0 };
                 if one {
-                    x |= 1u128 << qubit_of_mode[k];
+                    x |= 1u128 << qk;
                 }
                 let den = 1.0 + s * mab;
                 if den <= 1e-300 {

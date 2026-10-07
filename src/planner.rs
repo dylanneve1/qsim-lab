@@ -925,7 +925,9 @@ fn gauss_secs(blocks: f64, n: usize, req: &PlanRequest, g: &GaussModel) -> f64 {
     let evolve = g.fixed + g.evolve * blocks * nn;
     evolve
         + match req {
-            PlanRequest::Expectation(obs) => g.pfaffian * (2.0 * odd_qubits(obs).len() as f64).powi(3),
+            PlanRequest::Expectation(obs) => {
+                g.pfaffian * (2.0 * odd_qubits(obs).len() as f64).powi(3)
+            }
             PlanRequest::Samples(s) => *s as f64 * g.shot * (2.0 * nn).powi(3),
             PlanRequest::Amplitudes(_) => f64::INFINITY,
         }
@@ -1724,7 +1726,9 @@ fn run_one(
             max_bytes: cfg.mem_bytes,
             ..GaussianOptions::default()
         };
-        return Ok(Outcome::Value(gaussian::expectation_z_product(c, obs, &opts)?));
+        return Ok(Outcome::Value(gaussian::expectation_z_product(
+            c, obs, &opts,
+        )?));
     }
     let t0 = Instant::now();
     let over = |t0: &Instant| deadline.is_some_and(|d| t0.elapsed().as_secs_f64() > d);
