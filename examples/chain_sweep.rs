@@ -466,6 +466,7 @@ fn main() {
         Some("tailinfo") => tailinfo(&a),
         Some("tailcheck") => tailcheck(&a),
         Some("run") => runloop(&a),
+        Some("tailbench") => tailbench(&a),
         _ => eprintln!(
             "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed|tailinfo|tailcheck|run [--n N --d D ...]"
         ),
@@ -906,6 +907,35 @@ fn tailcheck(a: &Args) {
             );
         }
     }
+}
+
+/// Times the tail pass alone on a synthetic register (hash values, no
+/// store): `--d D --m M`; prints seconds and complex MACs per second.
+fn tailbench(a: &Args) {
+    use qsim_lab::engines::chain_tail::{tail_amplitudes, TailPlan};
+    let c = circuit(a);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let m: usize = a.get("m", 8);
+    let tp = TailPlan::new(&cc, 0, m);
+    let reg = |i: usize| {
+        let h = (i as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+        Complex64::new(
+            (h >> 40) as f64 * 1e-7 - 0.8,
+            ((h >> 16) & 0xffffff) as f64 * 1e-7 - 0.8,
+        )
+    };
+    let t = Instant::now();
+    let v = tail_amplitudes(&tp, &reg);
+    let s = t.elapsed().as_secs_f64();
+    println!(
+        "tailbench d={} m={m} K={} cmacs={:.3e} t={s:.2}s rate={:.3e} cMAC/s threads={} amp0={:.3e}",
+        a.get::<usize>("d", 70),
+        tp.num_bonds(),
+        tp.tail_cost(),
+        tp.tail_cost() / s,
+        rayon::current_num_threads(),
+        v[0]
+    );
 }
 
 /// The sampling / calibration run loop (RUNPLAN §6 E3/E4). One process,
