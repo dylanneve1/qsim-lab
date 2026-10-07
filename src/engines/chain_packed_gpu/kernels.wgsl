@@ -431,10 +431,7 @@ fn unpack(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_index
     }
 }
 
-// ----- sub-stage: the ops of one cache block in workgroup memory ---------
-
-var<workgroup> sre: array<f32, MAXN>;
-var<workgroup> sim: array<f32, MAXN>;
+// ----- sub-stage: the ops of one cache block --------------------------------
 
 fn ins0(p: u32, t: u32) -> u32 {
     let lo = p & ((1u << t) - 1u);
@@ -472,161 +469,20 @@ fn mat(mo: u32, real: bool, x: vec2<f32>, y: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(a, b);
 }
 
-fn ld(i: u32) -> vec2<f32> {
-    return vec2<f32>(sre[i], sim[i]);
+// diagonal factor of buffer index j from the tables at `toff`, applied to z
+fn dfac(z: vec2<f32>, j: u32, lb: u32, nlo: u32, nhi: u32, toff: u32) -> vec2<f32> {
+    let x = j & (nlo - 1u);
+    let h = j >> lb;
+    let lr = tables[toff + x];
+    let li = tables[toff + nlo + x];
+    let hr = tables[toff + 2u * nlo + h];
+    let hi = tables[toff + 2u * nlo + nhi + h];
+    let fr = fma(lr, hr, -(li * hi));
+    let fi = fma(lr, hi, li * hr);
+    return vec2<f32>(fma(z.x, fr, -(z.y * fi)), fma(z.x, fi, z.y * fr));
 }
 
-fn st(i: u32, v: vec2<f32>) {
-    sre[i] = v.x;
-    sim[i] = v.y;
-}
-
-@compute @workgroup_size(WG)
-fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
-    let w = wid.y * P.nx + wid.x;
-    if (w >= P.total) {
-        return;
-    }
-    let per = 1u << (P.l - P.sl);
-    let gi = w / per;
-    let cc = w % per;
-    let n = 1u << P.sl;
-    let base = pdep(cc, P.outmask);
-    let cblk = P.c0 + gi;
-    // register index of the sub-block (64-bit: lo, hi)
-    let rlo = (cblk << P.l) | base;
-    var rhi = 0u;
-    if (P.l > 0u) {
-        rhi = cblk >> (32u - P.l);
-    }
-    let boff = gi << P.l;
-    let lowm = (1u << P.lowb) - 1u;
-    for (var j = lid; j < n; j += WG) {
-        let a = work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)];
-        sre[j] = a.x;
-        sim[j] = a.y;
-    }
-    workgroupBarrier();
-    var pc = 1u;
-    let nops = pw(0u);
-    for (var op = 0u; op < nops; op++) {
-        let kind = pw(pc);
-        if (kind == 1u) {
-            // U1: t, kind, cin, cout lo, cout hi, m[8]
-            let t = pw(pc + 1u);
-            let uk = pw(pc + 2u);
-            let cin = pw(pc + 3u);
-            let colo = pw(pc + 4u);
-            let cohi = pw(pc + 5u);
-            if ((rlo & colo) == colo && (rhi & cohi) == cohi) {
-                let s = 1u << t;
-                for (var p = lid; p < n / 2u; p += WG) {
-                    let i = ins0(p, t);
-                    if ((i & cin) == cin) {
-                        let x = ld(i);
-                        let y = ld(i | s);
-                        if (uk == 0u) {
-                            st(i, y);
-                            st(i | s, x);
-                        } else {
-                            let r = mat(pc + 6u, uk == 1u, x, y);
-                            st(i, r.xy);
-                            st(i | s, r.zw);
-                        }
-                    }
-                }
-            }
-            pc += 14u;
-        } else if (kind == 2u) {
-            // Swap a < b
-            let a = pw(pc + 1u);
-            let b = pw(pc + 2u);
-            let sa = 1u << a;
-            let sb = 1u << b;
-            for (var p = lid; p < n / 4u; p += WG) {
-                let i = ins0(ins0(p, a), b);
-                let x = ld(i | sa);
-                st(i | sa, ld(i | sb));
-                st(i | sb, x);
-            }
-            pc += 3u;
-        } else if (kind == 3u) {
-            // Pair: t1, t2, real1, real2, cx, m1[8], m2[8]
-            let t1 = pw(pc + 1u);
-            let t2 = pw(pc + 2u);
-            let r1 = pw(pc + 3u) != 0u;
-            let r2 = pw(pc + 4u) != 0u;
-            let cx = pw(pc + 5u);
-            let s1 = 1u << t1;
-            let s2 = 1u << t2;
-            for (var p = lid; p < n / 4u; p += WG) {
-                let i = ins0(ins0(p, t1), t2);
-                let b01 = mat(pc + 6u, r1, ld(i), ld(i | s1));
-                let b23 = mat(pc + 6u, r1, ld(i | s2), ld(i | s1 | s2));
-                let c02 = mat(pc + 14u, r2, b01.xy, b23.xy);
-                let c13 = mat(pc + 14u, r2, b01.zw, b23.zw);
-                var c1 = c13.xy;
-                var c2 = c02.zw;
-                var c3 = c13.zw;
-                if (cx == 1u) {
-                    let tmp = c1;
-                    c1 = c3;
-                    c3 = tmp;
-                } else if (cx == 2u) {
-                    let tmp = c2;
-                    c2 = c3;
-                    c3 = tmp;
-                }
-                st(i, c02.xy);
-                st(i | s1, c1);
-                st(i | s2, c2);
-                st(i | s1 | s2, c3);
-            }
-            pc += 22u;
-        } else {
-            // Diagonal group: cmask, cpat, lb, nconds, voff, conds[4 each]
-            let cmask = pw(pc + 1u);
-            let cpat = pw(pc + 2u);
-            let lb = pw(pc + 3u);
-            let nc = pw(pc + 4u);
-            let voff = pw(pc + 5u);
-            var pat = 0u;
-            for (var k = 0u; k < nc; k++) {
-                let q = pc + 6u + 4u * k;
-                if ((rlo & pw(q)) == pw(q + 2u) && (rhi & pw(q + 1u)) == pw(q + 3u)) {
-                    pat = pat | (1u << k);
-                }
-            }
-            let toff = bitcast<u32>(tables[voff + pat]);
-            if (toff != NONE) {
-                let nlo = 1u << lb;
-                let nhi = n >> lb;
-                let lom = nlo - 1u;
-                for (var j = lid; j < n; j += WG) {
-                    if ((j & cmask) == cpat) {
-                        let x = j & lom;
-                        let h = j >> lb;
-                        let lr = tables[toff + x];
-                        let li = tables[toff + nlo + x];
-                        let hr = tables[toff + 2u * nlo + h];
-                        let hi = tables[toff + 2u * nlo + nhi + h];
-                        let fr = fma(lr, hr, -(li * hi));
-                        let fi = fma(lr, hi, li * hr);
-                        let xr = sre[j];
-                        let xi = sim[j];
-                        sre[j] = fma(xr, fr, -(xi * fi));
-                        sim[j] = fma(xr, fi, xi * fr);
-                    }
-                }
-            }
-            pc += 6u + 4u * nc;
-        }
-        workgroupBarrier();
-    }
-    for (var j = lid; j < n; j += WG) {
-        work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)] = vec2<f32>(sre[j], sim[j]);
-    }
-}
+__SUBSTAGE__
 
 // ----- pack: one thread per pair of scale blocks -------------------------
 

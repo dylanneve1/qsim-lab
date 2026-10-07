@@ -825,6 +825,10 @@ fn packedgpu(a: &Args) {
             ps.max_table_bytes as f64 / 1024.0,
             t.elapsed().as_secs_f64()
         );
+        for rb in [3, 4, 5, 6] {
+            let (o, loc, ph) = qsim_lab::engines::chain_packed_gpu::reg_stats(&gp, rb);
+            println!("  register bits {rb}: {loc}/{o} ops register-local, {ph} shared phases");
+        }
         println!(
             "  store {:.2} GiB; PCIe per pass {:.2} GiB each way, per sweep {:.0} GiB each way; VRAM f32 traffic per pass {:.0} GiB",
             packed / gib,
@@ -841,6 +845,7 @@ fn packedgpu(a: &Args) {
         use qsim_lab::engines::chain_packed_gpu::gpu::{GpuOptions, GpuSweeper};
         let opts = GpuOptions {
             nested_bits: nb,
+            reg_bits: a.get("rb", 0),
             chunk_amps: 1usize << a.get("chunk", 27usize),
             slots: a.get("inflight", 3),
             progress: std::env::var_os("CS_PROGRESS").is_some(),

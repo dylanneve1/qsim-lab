@@ -40,6 +40,8 @@ use rayon::prelude::*;
 pub use crate::engines::blocked::gpu_export::cfg_exportable;
 
 #[cfg(feature = "wgpu")]
+pub mod gen;
+#[cfg(feature = "wgpu")]
 pub mod gpu;
 
 /// Number of 11-bit step mantissas (`1024..2048`) of the `:h` formats.
@@ -917,6 +919,49 @@ pub struct PlanStats {
     pub max_table_bytes: usize,
     /// Smallest contiguous run bits.
     pub min_bc: usize,
+}
+
+/// Register-residency analysis of `plans` for `rbits` register bits per
+/// thread chosen per sub-stage (the most targeted buffer bits): returns
+/// (ops, register-local ops, shared-memory phases).
+pub fn reg_stats(plans: &[GpuStagePlan], rbits: usize) -> (usize, usize, usize) {
+    use crate::engines::blocked::gpu_export::GpuOp;
+    let (mut ops, mut local, mut phases) = (0, 0, 0);
+    for p in plans {
+        for sub in &p.subs {
+            let mut hist = vec![0usize; sub.l];
+            let tmask = |op: &GpuOp| -> u32 {
+                match op {
+                    GpuOp::U1 { t, .. } => 1 << t,
+                    GpuOp::Swap { a, b } => (1 << a) | (1 << b),
+                    GpuOp::Pair { t1, t2, .. } => (1 << t1) | (1 << t2),
+                    GpuOp::Diag(_) => 0,
+                }
+            };
+            for op in &sub.ops {
+                let m = tmask(op);
+                for (b, h) in hist.iter_mut().enumerate() {
+                    *h += (m >> b & 1) as usize;
+                }
+            }
+            let mut order: Vec<usize> = (0..sub.l).collect();
+            order.sort_by_key(|&b| std::cmp::Reverse(hist[b]));
+            let rmask: u32 = order.iter().take(rbits).fold(0, |m, &b| m | 1 << b);
+            let mut in_shared = false;
+            for op in &sub.ops {
+                ops += 1;
+                let m = tmask(op);
+                if m & !rmask == 0 {
+                    local += 1;
+                    in_shared = false;
+                } else if !in_shared {
+                    phases += 1;
+                    in_shared = true;
+                }
+            }
+        }
+    }
+    (ops, local, phases)
 }
 
 /// Statistics of `plans`.

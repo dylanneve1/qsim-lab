@@ -105,28 +105,31 @@ fn gpu_is_bit_exact_with_cpu_packed() {
     let require = std::env::var_os("QSIM_WGPU_REQUIRE").is_some();
     let nb = 8;
     let cfg = gpu_cfg(nb);
-    let opts = GpuOptions {
-        nested_bits: nb,
-        chunk_amps: 1 << 13,
-        ..GpuOptions::default()
-    };
-    let gpu = match GpuSweeper::new(&opts) {
-        Ok(g) => g,
-        Err(e) => {
-            assert!(!require, "no GPU adapter: {e}");
-            eprintln!("skipping: no GPU adapter ({e})");
-            return;
-        }
-    };
-    eprintln!("adapter: {}", gpu.adapter_info());
-    for fuse in [false, true] {
-        for case in cases(42, 70, 2, 4, 3, fuse) {
-            for f in ["int4:b16:h", "int6:b64", "int5:b16"] {
-                let lp = LowPrec::parse(f).unwrap();
-                let cpu = run_packed(&case.plan, &case.stages, &lp, &cfg).unwrap();
-                let g = gpu.run(&case.plan, &case.stages, &lp, &cfg).unwrap();
-                assert_eq!(g.amp, cpu.amp, "{f} fuse={fuse}");
-                assert_eq!((g.underflow, g.overflow, g.inexact), (0, 0, 0));
+    for rb in [0, 4, 2, 6] {
+        let opts = GpuOptions {
+            nested_bits: nb,
+            reg_bits: rb,
+            chunk_amps: 1 << 13,
+            ..GpuOptions::default()
+        };
+        let gpu = match GpuSweeper::new(&opts) {
+            Ok(g) => g,
+            Err(e) => {
+                assert!(!require, "no GPU adapter: {e}");
+                eprintln!("skipping: no GPU adapter ({e})");
+                return;
+            }
+        };
+        eprintln!("adapter: {} (reg bits {rb})", gpu.adapter_info());
+        for fuse in [false, true] {
+            for case in cases(42, 70, 2, 4, 3, fuse) {
+                for f in ["int4:b16:h", "int6:b64", "int5:b16"] {
+                    let lp = LowPrec::parse(f).unwrap();
+                    let cpu = run_packed(&case.plan, &case.stages, &lp, &cfg).unwrap();
+                    let g = gpu.run(&case.plan, &case.stages, &lp, &cfg).unwrap();
+                    assert_eq!(g.amp, cpu.amp, "{f} fuse={fuse} rb={rb}");
+                    assert_eq!((g.underflow, g.overflow, g.inexact), (0, 0, 0));
+                }
             }
         }
     }
