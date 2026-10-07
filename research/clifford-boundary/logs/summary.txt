@@ -1,0 +1,40 @@
+# diag.py (single greedy run, 4 sweeps), M1 Pro
+SUMMARY dumps/cliff_d24_e34_0_L.bin m=12 mid_raw_S1=6.000 mid_dis_S1=-0.000 max_dis_rank=0.0 nullity_lb=0.0
+SUMMARY dumps/d24_e34_0_L.bin m=12 mid_raw_S1=5.306 mid_dis_S1=5.185 max_dis_rank=6.0 nullity_lb=12.0
+SUMMARY dumps/d24_e34_0_R.bin m=12 mid_raw_S1=5.442 mid_dis_S1=2.259 max_dis_rank=5.0 nullity_lb=12.0
+SUMMARY dumps/d24_e34_1_L.bin m=12 mid_raw_S1=5.278 mid_dis_S1=5.105 max_dis_rank=6.0 nullity_lb=12.0
+SUMMARY dumps/cliff_d32_e34_0_L.bin m=16 mid_raw_S1=8.000 mid_dis_S1=-0.000 max_dis_rank=0.0 nullity_lb=0.0
+SUMMARY dumps/d32_e34_0_L.bin m=16 mid_raw_S1=7.299 mid_dis_S1=7.248 max_dis_rank=8.0 nullity_lb=16.0
+SUMMARY dumps/d32_e34_0_R.bin m=16 mid_raw_S1=7.212 mid_dis_S1=4.584 max_dis_rank=8.0 nullity_lb=16.0
+SUMMARY dumps/d32_e34_1_L.bin m=16 mid_raw_S1=7.297 mid_dis_S1=7.232 max_dis_rank=8.0 nullity_lb=16.0
+SUMMARY dumps/cliff_d40_e34_0_L.bin m=20 mid_raw_S1=10.000 mid_dis_S1=2.000 max_dis_rank=2.0 nullity_lb=0.0
+SUMMARY dumps/d40_e34_0_L.bin m=20 mid_raw_S1=9.087 mid_dis_S1=9.024 max_dis_rank=10.0 nullity_lb=20.0
+SUMMARY dumps/d40_e34_0_R.bin m=20 mid_raw_S1=9.320 mid_dis_S1=7.643 max_dis_rank=10.0 nullity_lb=20.0
+# diag2.py (restarts 3-4, 8 sweeps, M2 400 samples)
+SUMMARY2 cliff_d24_e34_0_L m=12 M2=-0.00 midS1 raw=6.000 dis=-0.000 kept(j=.5,1,2,3) raw=0.703 0.500 0.250 0.125 dis=1 1 1 1
+SUMMARY2 d24_e34_0_L m=12 M2=9.94+-0.04 midS1 raw=5.306 dis=5.185 midS2 raw=5.040 dis=4.852 kept raw=0.976 0.889 0.612 0.365 dis=0.982 0.907 0.660 0.417
+SUMMARY2 d24_e34_0_R m=12 M2=6.42+-0.15 midS1 raw=5.442 dis=1.524 midS2 raw=5.237 dis=0.981 kept raw=0.968 0.856 0.550 0.311 dis=1.000 1.000 1.000 1.000
+SUMMARY2 d24_e34_1_L m=12 M2=9.94+-0.05 midS1 raw=5.278 dis=5.105 midS2 raw=5.006 dis=4.718 kept raw=0.979 0.896 0.621 0.372 dis=0.983 0.916 0.684 0.448
+SUMMARY2 d24_e34_1_R m=12 M2=6.61+-0.13 midS1 raw=5.442 dis=1.181 midS2 raw=5.237 dis=0.808 kept raw=0.968 0.856 0.550 0.311 dis=1.000 1.000 1.000 1.000
+SUMMARY2 cliff_d32_e34_0_L m=16 M2=-0.00 midS1 raw=8.000 dis=-0.000 kept raw=0.707 0.500 0.250 0.125 dis=1 1 1 1
+SUMMARY2 d32_e34_0_L m=16 M2=13.98+-0.04 midS1 raw=7.299 dis=7.195 midS2 raw=7.030 dis=6.868 kept raw=0.978 0.890 0.614 0.368 dis=0.982 0.906 0.656 0.412
+SUMMARY2 d32_e34_0_R m=16 M2=10.57+-0.36 midS1 raw=7.212 dis=3.961 midS2 raw=6.954 dis=2.855 kept raw=0.984 0.918 0.640 0.372 dis=1.000 1.000 0.996 0.961
+SUMMARY2 d32_e34_1_L m=16 M2=14.03+-0.05 midS1 raw=7.297 dis=7.203 midS2 raw=7.027 dis=6.890 kept raw=0.978 0.891 0.615 0.368 dis=0.982 0.907 0.653 0.406
+SUMMARY2 d32_e34_1_R m=16 M2=10.77+-0.24 midS1 raw=7.212 dis=4.063 midS2 raw=6.954 dis=2.916 kept raw=0.984 0.918 0.640 0.372 dis=1.000 1.000 0.994 0.954
+SUMMARY2 cliff_d40_e34_0_L m=20 M2=-0.00 midS1 raw=10.000 dis=-0.000 kept raw=0.707 0.500 0.250 0.125 dis=1 1 1 1 (70s)
+SUMMARY2 d40_e34_0_L m=20 M2=17.98+-0.05 midS1 raw=9.087 dis=9.018 midS2 raw=8.761 dis=8.661 kept raw=0.988 0.929 0.690 0.434 dis=0.990 0.937 0.713 0.461 (76s)
+SUMMARY2 d40_e34_0_R m=20 M2=13.38+-0.36 midS1 raw=9.320 dis=6.421 midS2 raw=9.073 dis=4.724 kept raw=0.978 0.889 0.604 0.350 dis=1.000 0.997 0.971 0.900 (78s)
+SUMMARY2 d40_e34_1_R m=20 M2=13.49+-0.30 midS1 raw=9.320 dis=6.488 midS2 raw=9.073 dis=4.675 kept raw=0.978 0.889 0.604 0.350 dis=1.000 0.996 0.964 0.888 (80s)
+# Haar calibration (VPS)
+SUMMARY2 haar_m12 m=12 M2=10.00+-0.05 midS1 raw=5.281 dis=5.213 kept raw=0.979 0.896 0.619 0.372 dis=0.979 0.903 0.649 0.406
+SUMMARY2 haar_m16 m=16 M2=14.01+-0.05 midS1 raw=7.278 dis=7.261 kept raw=0.979 0.894 0.623 0.376 dis=0.980 0.897 0.629 0.383
+# m2only.py (300 samples; D=48: 120)
+M2ONLY d40_e25 L 2.10+-0.08 | R 17.86+-0.06   (haar 18)
+M2ONLY d40_e30 L 11.38+-0.26 | R 18.08+-0.05
+M2ONLY d40_e40 L 18.05+-0.05 | R 3.24+-0.09
+M2ONLY d40_e45 L 18.02+-0.05 | R 1.56+-0.06
+M2ONLY d32_e30 L 9.62+-0.18 | R 14.03+-0.05  (haar 14)
+M2ONLY d32_e40 L 14.07+-0.05 | R 2.47+-0.08
+M2ONLY d24_e30 L 7.41+-0.14 | R 9.86+-0.05   (haar 10)
+M2ONLY d24_e40 L 10.02+-0.05 | R 1.11+-0.05
+M2ONLY d48_e34 L 22.00+-0.08 | R 18.95+-0.38 (haar 22)
