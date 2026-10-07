@@ -225,7 +225,7 @@ impl BoundaryMps {
                 }
             }
         }
-        let (u, sv, v) = robust_thin_svd(&t2);
+        let (u, sv, v) = svd(&t2);
         self.counters.svds += 1;
         let total: f64 = sv.iter().map(|s| s * s).sum();
         if total == 0.0 || !total.is_finite() {
@@ -422,6 +422,47 @@ impl BoundaryMps {
         }
         out
     }
+}
+
+/// Thin SVD for the truncation step. faer's SVD occasionally fails to
+/// converge on the exactly degenerate matrices this circuit produces
+/// (seen at D = 36, `128x128`, after `mps::robust_thin_svd`'s own retries);
+/// a relative perturbation of `1e-13` is far below the truncation error
+/// here, so it is tried before the exact reformulations.
+fn svd(m: &Mat<C>) -> (Mat<C>, Vec<f64>, Mat<C>) {
+    let finite = |s: &[f64], u: &Mat<C>, v: &Mat<C>| {
+        s.iter().all(|x| x.is_finite())
+            && (0..u.nrows()).all(|r| (0..u.ncols()).all(|c| u[(r, c)].re.is_finite()))
+            && (0..v.nrows()).all(|r| (0..v.ncols()).all(|c| v[(r, c)].re.is_finite()))
+    };
+    let try_svd = |m: &Mat<C>| -> Option<(Mat<C>, Vec<f64>, Mat<C>)> {
+        let svd = m.thin_svd().ok()?;
+        let k = svd.S().column_vector().nrows();
+        let s: Vec<f64> = (0..k).map(|i| svd.S().column_vector()[i].re).collect();
+        let (u, v) = (svd.U().to_owned(), svd.V().to_owned());
+        finite(&s, &u, &v).then_some((u, s, v))
+    };
+    if let Some(out) = try_svd(m) {
+        return out;
+    }
+    let scale = (0..m.nrows())
+        .flat_map(|r| (0..m.ncols()).map(move |c| (r, c)))
+        .map(|(r, c)| m[(r, c)].norm())
+        .fold(0.0f64, f64::max);
+    for salt in 1..=4u64 {
+        let noise = |r: usize, c: usize| {
+            let h = ((r * 7919 + c * 104_729 + 1) as u64)
+                .wrapping_mul(0x9E37_79B9_7F4A_7C15 ^ salt.wrapping_mul(0xD1B5_4A32_D192_ED03));
+            let x = (h >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
+            let y = ((h.rotate_left(29)) >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
+            C::new(x, y) * (1e-13 * scale)
+        };
+        let mp = Mat::from_fn(m.nrows(), m.ncols(), |r, c| m[(r, c)] + noise(r, c));
+        if let Some(out) = try_svd(&mp) {
+            return out;
+        }
+    }
+    robust_thin_svd(m)
 }
 
 /// Result of an approximate sweep.
