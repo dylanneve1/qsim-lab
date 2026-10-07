@@ -436,6 +436,16 @@ pub struct Features {
     pub secs_frame: f64,
     /// Seconds spent on the HSF features (0 if not computed).
     pub secs_hsf: f64,
+    /// Free-fermion detector ([`crate::engines::gaussian::detect`]):
+    /// fraction of the fused blocks that are Gaussian.
+    pub gauss_fraction: f64,
+    /// Largest residual of a non-interaction block (0: exactly Gaussian up
+    /// to interaction phases).
+    pub gauss_residual: f64,
+    /// `Σ |g|` over the diagonal interaction phases `exp(i g n_a n_b)`.
+    pub gauss_interaction: f64,
+    /// The circuit is exactly Gaussian (the free-fermion engine applies).
+    pub gauss_exact: bool,
 }
 
 fn log2sum(xs: impl Iterator<Item = f64>) -> f64 {
@@ -600,6 +610,13 @@ pub fn features_for(c: &Circuit, with_hsf: bool, obs: &[usize]) -> Result<Featur
     f.sup = support_bound(n, &gates);
     f.sparse_l = (f.gates.max(1) as f64).log2() + f.sup as f64;
     f.sv_l = (f.gates.max(1) as f64).log2() + n as f64;
+
+    // Free fermions: block fusion and the matchgate test, O(gates).
+    let gr = crate::engines::gaussian::detect(c, &Default::default());
+    f.gauss_fraction = gr.gaussian_fraction;
+    f.gauss_residual = gr.max_residual;
+    f.gauss_interaction = gr.interaction_total;
+    f.gauss_exact = gr.exact;
     f.secs = t0.elapsed().as_secs_f64();
     Ok(f)
 }
@@ -860,6 +877,14 @@ pub fn run_engine_obs(
     let t0 = Instant::now();
     let mut run = EngineRun::default();
     match engine {
+        "gauss" => {
+            let opts = crate::engines::gaussian::GaussianOptions {
+                max_bytes: mem_bytes,
+                ..Default::default()
+            };
+            run.value = crate::engines::gaussian::expectation_z_product(c, obs, &opts)?;
+            run.size = (4 * n * n) as f64;
+        }
         "sv" => {
             let bytes = 16u128 << n;
             if bytes > mem_bytes {
