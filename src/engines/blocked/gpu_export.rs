@@ -311,7 +311,12 @@ fn cmul2(m: [f32; 4], xr: f32, xi: f32, yr: f32, yi: f32) -> (f32, f32) {
 
 /// `(x, y) <- (m0 x + m1 y, m2 x + m3 y)` with the real or complex formula.
 #[inline]
-pub fn mat_apply_ref(m: &[f32; 8], real: bool, x: Complex32, y: Complex32) -> (Complex32, Complex32) {
+pub fn mat_apply_ref(
+    m: &[f32; 8],
+    real: bool,
+    x: Complex32,
+    y: Complex32,
+) -> (Complex32, Complex32) {
     let [m0r, m1r, m2r, m3r, m0i, m1i, m2i, m3i] = *m;
     if real {
         (

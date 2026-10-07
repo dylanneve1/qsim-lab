@@ -21,7 +21,7 @@
 //!   mantissa and exponent come from integer arithmetic on the block
 //!   maximum ([`step_parts`]), and the rounding `round(x · (1/step))` /
 //!   decode `q · (1/(1/step))` are tables over the 1024 step mantissas
-//!   ([`HalfCodec`]): thresholds and decoded values at a normalised step,
+//!   ([`Codec`]): thresholds and decoded values at a normalised step,
 //!   moved to the block's exponent by exact power-of-two scaling.
 //!
 //! [`emulate_packed`] runs exactly the GPU's pipeline on the CPU (same
@@ -42,24 +42,29 @@ pub use crate::engines::blocked::gpu_export::cfg_exportable;
 #[cfg(feature = "wgpu")]
 pub mod gpu;
 
-/// Number of 11-bit step mantissas (`1024..2048`).
+/// Number of 11-bit step mantissas (`1024..2048`) of the `:h` formats.
 pub const NMANT: usize = 1024;
 
-/// Encode / decode tables of an `intB:bN:h` format.
+/// Encode / decode tables of a packed format.
 #[derive(Clone, Debug)]
-pub struct HalfCodec {
+pub struct Codec {
     /// Bits per component.
     pub bits: u32,
     /// Amplitudes per scale block.
     pub block: usize,
     /// Largest stored magnitude, `2^(bits-1) - 1`.
     pub maxv: u32,
-    /// `dec[mant * (2 maxv + 1) + q + maxv]`: the CPU's decoded value of
-    /// `q` for the step `1024 + mant` (exponent 10).
+    /// `:h` scales (16-bit codes); else f32 steps.
+    pub half: bool,
+    /// `:h`: `dec[mant * (2 maxv + 1) + q + maxv]`, the CPU's decoded value
+    /// of `q` for the step `1024 + mant` (exponent 10).
     pub dec: Vec<f32>,
-    /// `thr[mant * maxv + n]`: smallest `x >= 0` (f32) that the CPU rounds
-    /// to at least `n + 1` for the step `1024 + mant`.
+    /// `:h`: `thr[mant * maxv + n]`, smallest `x >= 0` (f32) that the CPU
+    /// rounds to at least `n + 1` for the step `1024 + mant`.
     pub thr: Vec<f32>,
+    /// f32 steps: `k` of [`exact32::recip_back`] for each 24-bit step
+    /// mantissa, 2 bits each (16 per word).
+    pub ktab: Vec<u32>,
 }
 
 /// The CPU's integer for `x` at step `step` (`round_to(x * (1/step))`).
@@ -68,61 +73,344 @@ fn cpu_q(x: f32, step: f64, format: Format) -> f64 {
     round_to(x as f64 * s, format, None)
 }
 
-impl HalfCodec {
-    /// Tables for `lp`; fails unless it is `intB:bN:h` with `B` in 2..=8,
-    /// `N` a multiple of 16 and round to nearest.
+impl Codec {
+    /// Tables for `lp`; fails unless it is `intB:bN` or `intB:bN:h` with
+    /// `B` in 2..=8, `N` a multiple of 16 (at most 64) and round to nearest.
     pub fn new(lp: &LowPrec) -> Result<Self, SimError> {
         let (Format::Int(bits), Scaling::Block(block)) = (lp.format, lp.scaling) else {
             return Err(SimError::NotSupported {
-                what: "GPU packed storage needs an intB:bN:h format",
+                what: "GPU packed storage needs an intB:bN[:h] format",
             });
         };
-        if !(2..=8).contains(&bits) || block % 16 != 0 || !lp.half_scale || lp.stochastic {
+        if !(2..=8).contains(&bits) || block % 16 != 0 || block > 64 || lp.stochastic {
             return Err(SimError::NotSupported {
-                what: "GPU packed storage needs intB:bN:h with B in 2..=8, N a multiple of 16, no :sr",
+                what: "GPU packed storage needs intB:bN[:h] with B in 2..=8, N in {16, 32, 48, 64}, no :sr",
             });
         }
         let maxv = (1u32 << (bits - 1)) - 1;
-        let w = 2 * maxv as usize + 1;
-        let mut dec = vec![0f32; NMANT * w];
-        let mut thr = vec![0f32; NMANT * maxv as usize];
-        for mant in 0..NMANT {
-            let step = (1024 + mant) as f64;
-            // decode exactly as `PackedStore::unpack_run`
-            let s = 1.0 / step;
-            let inv = 1.0 / s;
-            for qi in 0..w {
-                let q = qi as i64 - maxv as i64;
-                dec[mant * w + qi] = (q as f64 * inv) as f32;
-            }
-            // encode: q(x) is monotone in x >= 0; binary search on the bits
-            for n in 0..maxv as usize {
-                let target = (n + 1) as f64;
-                let (mut lo, mut hi) = (0u32, 0x7f80_0000u32); // q(lo) < target <= q(hi)
-                debug_assert!(cpu_q(f32::from_bits(hi), step, lp.format) >= target);
-                while hi - lo > 1 {
-                    let mid = lo + (hi - lo) / 2;
-                    if cpu_q(f32::from_bits(mid), step, lp.format) >= target {
-                        hi = mid;
-                    } else {
-                        lo = mid;
-                    }
-                }
-                thr[mant * maxv as usize + n] = f32::from_bits(hi);
-            }
-        }
-        Ok(HalfCodec {
+        let mut c = Codec {
             bits,
             block,
             maxv,
-            dec,
-            thr,
-        })
+            half: lp.half_scale,
+            dec: Vec::new(),
+            thr: Vec::new(),
+            ktab: Vec::new(),
+        };
+        if lp.half_scale {
+            let w = 2 * maxv as usize + 1;
+            c.dec = vec![0f32; NMANT * w];
+            c.thr = vec![0f32; NMANT * maxv as usize];
+            for mant in 0..NMANT {
+                let step = (1024 + mant) as f64;
+                // decode exactly as `PackedStore::unpack_run`
+                let s = 1.0 / step;
+                let inv = 1.0 / s;
+                for qi in 0..w {
+                    let q = qi as i64 - maxv as i64;
+                    c.dec[mant * w + qi] = (q as f64 * inv) as f32;
+                }
+                // encode: q(x) is monotone in x >= 0; binary search on the bits
+                for n in 0..maxv as usize {
+                    let target = (n + 1) as f64;
+                    let (mut lo, mut hi) = (0u32, 0x7f80_0000u32);
+                    while hi - lo > 1 {
+                        let mid = lo + (hi - lo) / 2;
+                        if cpu_q(f32::from_bits(mid), step, lp.format) >= target {
+                            hi = mid;
+                        } else {
+                            lo = mid;
+                        }
+                    }
+                    c.thr[mant * maxv as usize + n] = f32::from_bits(hi);
+                }
+            }
+        } else {
+            c.ktab = exact32::k_table();
+        }
+        Ok(c)
     }
 
     /// Bytes of packed data per scale block.
     pub fn block_bytes(&self) -> usize {
         self.block * self.bits as usize / 4
+    }
+
+    /// Bytes of one block scale (2 for `:h` codes, 4 for f32 steps).
+    pub fn scale_bytes(&self) -> usize {
+        if self.half {
+            2
+        } else {
+            4
+        }
+    }
+
+    fn k_of(&self, sm: u32) -> i32 {
+        let i = (sm - (1 << 23)) as usize;
+        (((self.ktab[i >> 4] >> ((i & 15) * 2)) & 3) as i32) - 1
+    }
+}
+
+/// Exact integer emulation (u32 operations only, as in the shader) of the
+/// f32-step formats' f64 arithmetic: the step `(m / maxv) as f32`, the
+/// encode `round(x · (1/step))` and the decode `(q · (1/(1/step))) as f32`.
+pub mod exact32 {
+    /// `a · b` as `(hi, lo)`.
+    #[inline]
+    pub fn mul32(a: u32, b: u32) -> (u32, u32) {
+        let (a0, a1, b0, b1) = (a & 0xffff, a >> 16, b & 0xffff, b >> 16);
+        let (p00, p01, p10, p11) = (a0 * b0, a0 * b1, a1 * b0, a1 * b1);
+        let mid = (p00 >> 16) + (p01 & 0xffff) + (p10 & 0xffff);
+        let lo = (p00 & 0xffff) | (mid << 16);
+        let hi = p11 + (p01 >> 16) + (p10 >> 16) + (mid >> 16);
+        (hi, lo)
+    }
+
+    #[inline]
+    fn bitlen(x: u32) -> u32 {
+        32 - x.leading_zeros()
+    }
+
+    /// Bit length of a 3-limb number (limb 0 lowest).
+    #[inline]
+    pub fn bitlen3(p: [u32; 3]) -> u32 {
+        if p[2] != 0 {
+            64 + bitlen(p[2])
+        } else if p[1] != 0 {
+            32 + bitlen(p[1])
+        } else {
+            bitlen(p[0])
+        }
+    }
+
+    #[inline]
+    fn shr3(p: [u32; 3], d: u32) -> [u32; 3] {
+        let (w, s) = ((d / 32) as usize, d % 32);
+        let mut out = [0u32; 3];
+        for (i, o) in out.iter_mut().enumerate() {
+            let j = i + w;
+            if j < 3 {
+                let mut v = p[j] >> s;
+                if s > 0 && j + 1 < 3 {
+                    v |= p[j + 1] << (32 - s);
+                }
+                *o = v;
+            }
+        }
+        out
+    }
+
+    #[inline]
+    fn bit3(p: [u32; 3], i: u32) -> bool {
+        i < 96 && (p[(i / 32) as usize] >> (i % 32)) & 1 == 1
+    }
+
+    /// Whether any of the bits `0..n` of `p` is set.
+    #[inline]
+    fn low3(p: [u32; 3], n: u32) -> bool {
+        let mut any = false;
+        for (i, &v) in p.iter().enumerate() {
+            let lo = 32 * i as u32;
+            if n >= lo + 32 {
+                any |= v != 0;
+            } else if n > lo {
+                any |= v & ((1u32 << (n - lo)) - 1) != 0;
+            }
+        }
+        any
+    }
+
+    /// `p / 2^d` rounded to nearest, ties to even.
+    #[inline]
+    pub fn rne_shift3(p: [u32; 3], d: u32) -> [u32; 3] {
+        if d == 0 {
+            return p;
+        }
+        let mut q = shr3(p, d);
+        if bit3(p, d - 1) && (low3(p, d - 1) || q[0] & 1 == 1) {
+            q[0] = q[0].wrapping_add(1);
+            if q[0] == 0 {
+                q[1] = q[1].wrapping_add(1);
+                if q[1] == 0 {
+                    q[2] = q[2].wrapping_add(1);
+                }
+            }
+        }
+        q
+    }
+
+    /// The f32 step `(m / maxv) as f32` (via f64, as the CPU) of a block
+    /// with largest component `m > 0` (finite) as `(sm, es)`:
+    /// `step = sm · 2^es`, `sm` in `[2^23, 2^24)`. The f64 quotient never
+    /// lands on an f32 rounding tie unless it is exact (`maxv` is odd), so
+    /// this is the direct rounding of the exact quotient.
+    #[inline]
+    pub fn step32(m: f32, maxv: u32) -> (u32, i32) {
+        let b = m.to_bits();
+        let (ex, fr) = ((b >> 23) & 0xff, b & 0x7f_ffff);
+        let (mut mm, mut ee) = if ex == 0 {
+            (fr, -149)
+        } else {
+            (fr | 0x80_0000, ex as i32 - 150)
+        };
+        let sh = mm.leading_zeros();
+        mm <<= sh;
+        ee -= sh as i32;
+        let (q, r) = (mm / maxv, mm % maxv);
+        let s = bitlen(q) - 24;
+        let mut sm = q >> s;
+        let half = 1u32 << (s - 1);
+        let low = q & ((1u32 << s) - 1);
+        if low > half || (low == half && (r != 0 || sm & 1 == 1)) {
+            sm += 1;
+        }
+        let mut es = s as i32 + ee;
+        if sm == 1 << 24 {
+            sm = 1 << 23;
+            es += 1;
+        }
+        (sm, es)
+    }
+
+    /// f32 bits of `sm · 2^es` (`None` outside the normal range).
+    #[inline]
+    pub fn f32_bits(sm: u32, es: i32) -> Option<u32> {
+        let e = es + 23 + 127;
+        (1..=254)
+            .contains(&e)
+            .then(|| ((e as u32) << 23) | (sm & 0x7f_ffff))
+    }
+
+    /// `fl64(1 / sm)` for `sm` in `[2^23, 2^24)` as `([lo, hi], adj)`:
+    /// `R · 2^(adj - 76)`, `R` a 53-bit integer.
+    #[inline]
+    pub fn recip(sm: u32) -> ([u32; 2], i32) {
+        // floor(2^76 / sm) in 8-bit digits (2^76 = 16 · 256^9)
+        let mut rem = 16u32;
+        let (mut qh, mut ql) = (0u32, 0u32);
+        for _ in 0..9 {
+            rem <<= 8;
+            let d = rem / sm;
+            rem -= d * sm;
+            qh = (qh << 8) | (ql >> 24);
+            ql = (ql << 8) | d;
+        }
+        let twice = rem << 1;
+        if twice > sm || (twice == sm && ql & 1 == 1) {
+            ql = ql.wrapping_add(1);
+            if ql == 0 {
+                qh += 1;
+            }
+        }
+        if qh == 1 << 21 {
+            ([0, 1 << 20], 1)
+        } else {
+            ([ql, qh], 0)
+        }
+    }
+
+    /// The CPU's stored integer `round(x · fl64(1/step))` clamped to
+    /// `±maxv`, for `step = sm · 2^es` with `recip(sm) = (r, adj)`.
+    #[inline]
+    pub fn enc_q(x: f32, r: [u32; 2], adj: i32, es: i32, maxv: u32) -> i32 {
+        let b = x.to_bits();
+        let ax = b & 0x7fff_ffff;
+        if ax == 0 {
+            return 0;
+        }
+        let ex = ax >> 23;
+        let (xm, xe) = if ex == 0 {
+            (ax, -149)
+        } else {
+            ((ax & 0x7f_ffff) | 0x80_0000, ex as i32 - 150)
+        };
+        let (h0, l0) = mul32(xm, r[0]);
+        let (h1, l1) = mul32(xm, r[1]);
+        let p1 = h0.wrapping_add(l1);
+        let p2 = h1 + (p1 < h0) as u32;
+        let p = [l0, p1, p2];
+        // x · (1/step) = P · 2^t
+        let t = xe - 76 + adj - es;
+        let d1 = bitlen3(p).saturating_sub(53);
+        let p53 = rne_shift3(p, d1);
+        let f = -(t + d1 as i32);
+        let n = if f <= 0 {
+            maxv
+        } else if f >= 64 {
+            0
+        } else {
+            let q = rne_shift3(p53, f as u32);
+            if q[1] != 0 || q[2] != 0 {
+                maxv
+            } else {
+                q[0].min(maxv)
+            }
+        };
+        if b >> 31 == 1 {
+            -(n as i32)
+        } else {
+            n as i32
+        }
+    }
+
+    /// The CPU's decoded value `(q · fl64(1/fl64(1/step))) as f32` for
+    /// `step = sm · 2^es`, where `fl64(1/fl64(1/sm)) = (sm·2^29 + k)·2^-29`
+    /// ([`k_table`]). Also returns whether the result left the normal
+    /// range (then it may differ from the CPU's).
+    #[inline]
+    pub fn dec_v(q: i32, sm: u32, es: i32, k: i32) -> (f32, bool) {
+        if q == 0 {
+            return (0.0, false);
+        }
+        let aq = q.unsigned_abs();
+        let a = aq * sm;
+        // N = a · 2^29 + aq · k
+        let (mut hi, mut lo) = (a >> 3, a << 29);
+        let t = aq * k.unsigned_abs();
+        if k >= 0 {
+            let l2 = lo.wrapping_add(t);
+            hi += (l2 < lo) as u32;
+            lo = l2;
+        } else {
+            hi -= (lo < t) as u32;
+            lo = lo.wrapping_sub(t);
+        }
+        let n = [lo, hi, 0];
+        let d1 = bitlen3(n).saturating_sub(53);
+        let n53 = rne_shift3(n, d1);
+        let d2 = bitlen3(n53).saturating_sub(24);
+        let mut m = rne_shift3(n53, d2)[0];
+        let mut dd = (d1 + d2) as i32;
+        if m == 1 << 24 {
+            m = 1 << 23;
+            dd += 1;
+        }
+        let bl = bitlen(m);
+        let e = bl as i32 - 1 + dd + es - 29;
+        let field = (m << (24 - bl)) & 0x7f_ffff;
+        let bad = !(-126..=127).contains(&e);
+        let bits = ((q < 0) as u32) << 31 | (((e + 127).clamp(1, 254) as u32) << 23) | field;
+        (f32::from_bits(bits), bad)
+    }
+
+    /// `k` with `fl64(1/fl64(1/sm)) = (sm·2^29 + k)·2^-29` for every
+    /// `sm` in `[2^23, 2^24)`, stored as `k + 1` in 2 bits (16 per word).
+    pub fn k_table() -> Vec<u32> {
+        let n = 1usize << 23;
+        let mut t = vec![0u32; n / 16];
+        for (w, word) in t.iter_mut().enumerate() {
+            let mut v = 0u32;
+            for j in 0..16 {
+                let sm = (1u64 << 23) + (w * 16 + j) as u64;
+                let s = sm as f64;
+                let inv = 1.0 / (1.0 / s);
+                let k = (inv * (1u64 << 29) as f64) as i64 - ((sm as i64) << 29);
+                assert!((-1..=1).contains(&k), "k = {k} for sm = {sm}");
+                v |= ((k + 1) as u32) << (2 * j);
+            }
+            *word = v;
+        }
+        t
     }
 }
 
@@ -176,33 +464,36 @@ pub struct PassStats {
     pub underflow: u64,
     /// Blocks above it.
     pub overflow: u64,
-    /// Values whose exact power-of-two scaling would leave the normal f32
-    /// range (the GPU result could then differ from the CPU's; never on
-    /// the doped-Clifford circuit).
+    /// Values whose exact emulation would leave the normal f32 range (the
+    /// GPU result could then differ from the CPU's; never on the
+    /// doped-Clifford circuit).
     pub inexact: u64,
 }
 
 /// The packed register on the host: same layout as `PackedStore` (data
-/// block `k` at bytes `k·bpb..`, one 16-bit scale code per block).
+/// block `k` at bytes `k·bpb..`, one scale per block: a 16-bit code for
+/// `:h`, else the f32 step, little-endian).
 pub struct HostStore {
     /// Register qubits.
     pub width: usize,
     /// Packed data.
     pub data: Vec<u8>,
-    /// Scale codes.
-    pub codes: Vec<u16>,
+    /// Block scales (`scale_bytes` each).
+    pub scales: Vec<u8>,
+    /// Bytes per scale.
+    pub sb: usize,
     /// Still `|0..0>`.
     pub fresh: bool,
     /// `:h` exponent base of the stored blocks.
     pub base: i32,
-    /// Largest stored block exponent.
+    /// Largest stored block exponent (`:h`).
     pub maxexp: i32,
 }
 
 impl HostStore {
     /// A `width`-qubit register in `|0..0>`; fails cleanly when the memory
     /// is not available.
-    pub fn new(width: usize, codec: &HalfCodec) -> Result<Self, SimError> {
+    pub fn new(width: usize, codec: &Codec) -> Result<Self, SimError> {
         let n = 1usize << width;
         if n % codec.block != 0 {
             return Err(SimError::NotSupported {
@@ -210,22 +501,25 @@ impl HostStore {
             });
         }
         let nb = n / codec.block;
-        let total = (nb * codec.block_bytes() + 2 * nb) as u128;
+        let sb = codec.scale_bytes();
+        let total = (nb * (codec.block_bytes() + sb)) as u128;
         let alloc = |_| SimError::TooLarge {
             what: "packed chain-sweep store (allocation failed)",
             bytes: total,
             limit: 0,
         };
         let mut data = Vec::new();
-        data.try_reserve_exact(nb * codec.block_bytes()).map_err(alloc)?;
+        data.try_reserve_exact(nb * codec.block_bytes())
+            .map_err(alloc)?;
         data.resize(nb * codec.block_bytes(), 0u8);
-        let mut codes = Vec::new();
-        codes.try_reserve_exact(nb).map_err(alloc)?;
-        codes.resize(nb, 0u16);
+        let mut scales = Vec::new();
+        scales.try_reserve_exact(nb * sb).map_err(alloc)?;
+        scales.resize(nb * sb, 0u8);
         Ok(HostStore {
             width,
             data,
-            codes,
+            scales,
+            sb,
             fresh: true,
             base: 0,
             maxexp: (((1.0 / codec.maxv as f64).to_bits() >> 52) & 0x7ff) as i32 - 1023,
@@ -234,12 +528,27 @@ impl HostStore {
 
     /// Bytes held.
     pub fn bytes(&self) -> usize {
-        self.data.len() + 2 * self.codes.len()
+        self.data.len() + self.scales.len()
+    }
+
+    /// Scale of block `k`.
+    pub fn scale(&self, k: usize) -> u32 {
+        let s = &self.scales[k * self.sb..(k + 1) * self.sb];
+        if self.sb == 2 {
+            u16::from_le_bytes([s[0], s[1]]) as u32
+        } else {
+            u32::from_le_bytes([s[0], s[1], s[2], s[3]])
+        }
+    }
+
+    fn set_scale(&mut self, k: usize, v: u32) {
+        let sb = self.sb;
+        self.scales[k * sb..(k + 1) * sb].copy_from_slice(&v.to_le_bytes()[..sb]);
     }
 
     /// Decodes `out.len()` amplitudes from register index `start` (whole
     /// blocks), as the GPU's unpack kernel does.
-    pub fn decode(&self, codec: &HalfCodec, start: usize, out: &mut [Complex32]) {
+    pub fn decode(&self, codec: &Codec, start: usize, out: &mut [Complex32]) {
         if self.fresh {
             out.fill(Complex32::new(0.0, 0.0));
             if start == 0 {
@@ -253,7 +562,7 @@ impl HostStore {
             let mut flags = 0;
             decode_block(
                 codec,
-                self.codes[k],
+                self.scale(k),
                 self.base,
                 &self.data[k * bpb..(k + 1) * bpb],
                 o,
@@ -263,7 +572,7 @@ impl HostStore {
     }
 
     /// The amplitude at register index `i`.
-    pub fn amplitude(&self, codec: &HalfCodec, i: usize) -> Complex32 {
+    pub fn amplitude(&self, codec: &Codec, i: usize) -> Complex32 {
         let start = i / codec.block * codec.block;
         let mut v = vec![Complex32::new(0.0, 0.0); codec.block];
         self.decode(codec, start, &mut v);
@@ -271,107 +580,161 @@ impl HostStore {
     }
 }
 
-/// Decodes one block (the unpack kernel's per-block code).
-pub fn decode_block(
-    codec: &HalfCodec,
-    code: u16,
-    base: i32,
-    bytes: &[u8],
-    out: &mut [Complex32],
-    inexact: &mut u64,
-) {
-    if code == 0 {
-        out.fill(Complex32::new(0.0, 0.0));
-        return;
-    }
-    let e = (code >> 10) as i32 - 1 + base;
-    let mant = (code & 0x3ff) as usize;
-    let k = e - 10;
-    let w = 2 * codec.maxv as usize + 1;
-    let row = &codec.dec[mant * w..(mant + 1) * w];
-    let sc = if (-126..=127).contains(&k) {
-        pow2f(k)
-    } else {
-        *inexact += 1;
-        0.0
-    };
-    let (b, mask) = (codec.bits, (1u64 << codec.bits) - 1);
+/// Unpacks the `b`-bit offset-binary values of a block, LSB first.
+fn unpack_ints(bytes: &[u8], b: u32, n: usize) -> impl Iterator<Item = u32> + '_ {
+    let mask = (1u64 << b) - 1;
     let (mut acc, mut na, mut bi) = (0u64, 0u32, 0usize);
-    let mut next = || {
+    (0..n).map(move |_| {
         while na < b {
             acc |= (bytes[bi] as u64) << na;
             bi += 1;
             na += 8;
         }
-        let u = (acc & mask) as usize;
+        let u = (acc & mask) as u32;
         acc >>= b;
         na -= b;
-        let d = row[u];
-        let v = d * sc;
-        if d != 0.0 && v.abs() < f32::MIN_POSITIVE {
+        u
+    })
+}
+
+/// Decodes one block (the unpack kernel's per-block code).
+pub fn decode_block(
+    codec: &Codec,
+    sc: u32,
+    base: i32,
+    bytes: &[u8],
+    out: &mut [Complex32],
+    inexact: &mut u64,
+) {
+    if sc == 0 {
+        out.fill(Complex32::new(0.0, 0.0));
+        return;
+    }
+    let maxv = codec.maxv as i32;
+    let vals: Vec<f32> = if codec.half {
+        let e = (sc >> 10) as i32 - 1 + base;
+        let mant = (sc & 0x3ff) as usize;
+        let k = e - 10;
+        let w = 2 * codec.maxv as usize + 1;
+        let row = &codec.dec[mant * w..(mant + 1) * w];
+        let s = if (-126..=127).contains(&k) {
+            pow2f(k)
+        } else {
+            *inexact += 1;
+            0.0
+        };
+        unpack_ints(bytes, codec.bits, 2 * out.len())
+            .map(|u| {
+                let d = row[u as usize];
+                let v = d * s;
+                if d != 0.0 && v.abs() < f32::MIN_POSITIVE {
+                    *inexact += 1;
+                }
+                v
+            })
+            .collect()
+    } else {
+        let ex = (sc >> 23) & 0xff;
+        if ex == 0 {
             *inexact += 1;
         }
-        v
+        let sm = (sc & 0x7f_ffff) | 0x80_0000;
+        let es = ex as i32 - 127 - 23;
+        let k = codec.k_of(sm);
+        unpack_ints(bytes, codec.bits, 2 * out.len())
+            .map(|u| {
+                let (v, bad) = exact32::dec_v(u as i32 - maxv, sm, es, k);
+                *inexact += bad as u64;
+                v
+            })
+            .collect()
     };
-    for z in out.iter_mut() {
-        z.re = next();
-        z.im = next();
+    for (z, c) in out.iter_mut().zip(vals.chunks_exact(2)) {
+        *z = Complex32::new(c[0], c[1]);
     }
 }
 
 /// Quantizes and packs one block (the pack kernel's per-block code);
-/// returns the scale code.
+/// returns the scale.
 pub fn encode_block(
-    codec: &HalfCodec,
+    codec: &Codec,
     v: &[Complex32],
     base_out: i32,
     bytes: &mut [u8],
     st: &mut PassStats,
-) -> u16 {
+) -> u32 {
     let m = v
         .iter()
         .fold(0.0f32, |m, z| m.max(z.re.abs()).max(z.im.abs()));
-    let mut code = 0u16;
-    let mut zero = true;
-    let (mut mant, mut k) = (0usize, 0i32);
-    if m != 0.0 && m.is_finite() {
-        let (e, mt) = step_parts(m, codec.maxv);
-        st.maxexp = st.maxexp.max(e);
-        let ec = e - base_out + 1;
-        if ec < 1 {
-            st.underflow += 1;
-        } else if ec > 63 {
-            st.overflow += 1;
-        } else {
-            code = ((ec as u16) << 10) | mt as u16;
-            zero = false;
-            mant = mt as usize;
-            k = -(e - 10);
-        }
-    }
-    let maxv = codec.maxv as usize;
-    let thr = &codec.thr[mant * maxv..(mant + 1) * maxv];
-    // |x| · 2^k, exact (k may exceed the f32 exponent range: two steps)
-    let (k1, k2) = if k > 126 { (126, k - 126) } else { (k, 0) };
-    if !(-126..=126).contains(&k1) || !(-126..=126).contains(&k2) {
-        st.inexact += 1;
-    }
-    let (s1, s2) = (pow2f(k1.clamp(-126, 126)), pow2f(k2.clamp(-126, 126)));
-    let (b, off) = (codec.bits, codec.maxv as i64);
-    let (mut acc, mut na, mut bi) = (0u64, 0u32, 0usize);
-    let mut put = |x: f32| {
-        let q = if zero {
-            0
-        } else {
-            let a = x.abs() * s1 * s2;
-            let n = thr.iter().take_while(|&&t| a >= t).count() as i64;
-            if x < 0.0 {
-                -n
+    let maxv = codec.maxv;
+    let mut sc = 0u32;
+    let qs: Vec<i32> = if codec.half {
+        let mut zero = true;
+        let (mut mant, mut k) = (0usize, 0i32);
+        if m != 0.0 && m.is_finite() {
+            let (e, mt) = step_parts(m, maxv);
+            st.maxexp = st.maxexp.max(e);
+            let ec = e - base_out + 1;
+            if ec < 1 {
+                st.underflow += 1;
+            } else if ec > 63 {
+                st.overflow += 1;
             } else {
-                n
+                sc = ((ec as u32) << 10) | mt;
+                zero = false;
+                mant = mt as usize;
+                k = -(e - 10);
             }
-        };
-        acc |= ((q + off) as u64) << na;
+        }
+        let thr = &codec.thr[mant * maxv as usize..(mant + 1) * maxv as usize];
+        // |x| · 2^k, exact (k may exceed the f32 exponent range: two steps)
+        let (k1, k2) = if k > 126 { (126, k - 126) } else { (k, 0) };
+        if !(-126..=126).contains(&k1) || !(-126..=126).contains(&k2) {
+            st.inexact += 1;
+        }
+        let (s1, s2) = (pow2f(k1.clamp(-126, 126)), pow2f(k2.clamp(-126, 126)));
+        v.iter()
+            .flat_map(|z| [z.re, z.im])
+            .map(|x| {
+                if zero {
+                    return 0;
+                }
+                let a = x.abs() * s1 * s2;
+                let n = thr.iter().take_while(|&&t| a >= t).count() as i32;
+                if x < 0.0 {
+                    -n
+                } else {
+                    n
+                }
+            })
+            .collect()
+    } else if m != 0.0 && m.is_finite() {
+        let (sm, es) = exact32::step32(m, maxv);
+        match exact32::f32_bits(sm, es) {
+            Some(b) => sc = b,
+            None => {
+                st.inexact += 1;
+                sc = 0;
+            }
+        }
+        let (r, adj) = exact32::recip(sm);
+        v.iter()
+            .flat_map(|z| [z.re, z.im])
+            .map(|x| {
+                if sc == 0 {
+                    0
+                } else {
+                    exact32::enc_q(x, r, adj, es, maxv)
+                }
+            })
+            .collect()
+    } else {
+        vec![0; 2 * v.len()]
+    };
+    let (b, off) = (codec.bits, maxv as i64);
+    let (mut acc, mut na, mut bi) = (0u64, 0u32, 0usize);
+    for q in qs {
+        acc |= ((q as i64 + off) as u64) << na;
         na += b;
         while na >= 8 {
             bytes[bi] = acc as u8;
@@ -379,12 +742,8 @@ pub fn encode_block(
             na -= 8;
             bi += 1;
         }
-    };
-    for z in v {
-        put(z.re);
-        put(z.im);
     }
-    code
+    sc
 }
 
 /// `:h` exponent base of the next pass, from the largest exponent stored.
@@ -442,7 +801,7 @@ pub fn run_start(p: &GpuStagePlan, c: usize, r: usize) -> usize {
 }
 
 /// One pass of the GPU pipeline on the CPU (reference for the GPU).
-pub fn emulate_stage(store: &mut HostStore, codec: &HalfCodec, p: &GpuStagePlan) -> PassStats {
+pub fn emulate_stage(store: &mut HostStore, codec: &Codec, p: &GpuStagePlan) -> PassStats {
     let base_out = next_base(store.maxexp);
     let bpb = codec.block_bytes();
     let runlen = 1usize << p.bc;
@@ -473,7 +832,7 @@ pub fn emulate_stage(store: &mut HostStore, codec: &HalfCodec, p: &GpuStagePlan)
                     &mut store.data[k * bpb..(k + 1) * bpb],
                     &mut total,
                 );
-                store.codes[k] = code;
+                store.set_scale(k, code);
             }
         }
     }
@@ -514,7 +873,7 @@ pub fn emulate_packed(
     lp: &LowPrec,
     cfg: &BlockConfig,
 ) -> Result<GpuRun, SimError> {
-    let codec = HalfCodec::new(lp)?;
+    let codec = Codec::new(lp)?;
     let plans = gpu_plans(stages, plan.width, cfg)?;
     let mut store = HostStore::new(plan.width, &codec)?;
     let t = std::time::Instant::now();
@@ -599,77 +958,84 @@ pub fn subs(p: &GpuStagePlan) -> &[GpuSubStage] {
     &p.subs
 }
 
-/// Parallel host gather of the packed runs of gathered blocks
-/// `c0..c0 + g` into `data` / `codes` (block order, run order).
-pub fn gather_chunk(
-    store: &HostStore,
-    codec: &HalfCodec,
-    p: &GpuStagePlan,
-    c0: usize,
-    g: usize,
-    data: &mut [u8],
-    codes: &mut [u16],
-) {
-    let runlen = 1usize << p.bc;
-    let nruns = 1usize << (p.l - p.bc);
-    let bpr = runlen / codec.block * codec.block_bytes();
-    let cpr = runlen / codec.block;
-    data[..g * nruns * bpr]
-        .par_chunks_mut(bpr)
-        .zip(codes[..g * nruns * cpr].par_chunks_mut(cpr))
-        .enumerate()
-        .for_each(|(i, (d, cd))| {
-            let reg = run_start(p, c0 + i / nruns, i % nruns);
-            let k = reg / codec.block;
-            d.copy_from_slice(&store.data[k * codec.block_bytes()..][..bpr]);
-            cd.copy_from_slice(&store.codes[k..k + cpr]);
-        });
-}
-
-/// A raw pointer shared by the scatter workers (disjoint writes).
+/// A raw pointer shared by the gather / scatter workers (disjoint writes).
 #[derive(Clone, Copy)]
 struct SyncPtr<T>(*mut T);
-// SAFETY: only used for disjoint per-run writes in `scatter_chunk`.
+// SAFETY: only used for disjoint per-run writes in `gather_chunk` /
+// `scatter_chunk`.
 unsafe impl<T> Sync for SyncPtr<T> {}
 unsafe impl<T> Send for SyncPtr<T> {}
 
-/// Inverse of [`gather_chunk`].
+/// Bytes of packed data and of scales per run of `p` (staging layout:
+/// all runs' data, then all runs' scales).
+pub fn run_bytes(codec: &Codec, p: &GpuStagePlan) -> (usize, usize) {
+    let bpr = (1usize << p.bc) / codec.block;
+    (bpr * codec.block_bytes(), bpr * codec.scale_bytes())
+}
+
+/// Parallel host gather of the packed runs of gathered blocks
+/// `c0..c0 + g` (block order, run order): data to `data`, scales to `sc`.
+///
+/// # Safety
+/// `data` / `sc` must be valid for writes of `g · 2^(l-bc)` times
+/// [`run_bytes`] bytes each, and not accessed otherwise meanwhile (they may
+/// point to write-only mapped memory: only written, never read).
+pub unsafe fn gather_chunk(
+    store: &HostStore,
+    codec: &Codec,
+    p: &GpuStagePlan,
+    c0: usize,
+    g: usize,
+    data: *mut u8,
+    sc: *mut u8,
+) {
+    let nruns = 1usize << (p.l - p.bc);
+    let (bpr, spr) = run_bytes(codec, p);
+    let (bb, sb) = (codec.block_bytes(), codec.scale_bytes());
+    let (dp, sp) = (SyncPtr(data), SyncPtr(sc));
+    (0..g * nruns).into_par_iter().for_each(|i| {
+        let (dp, sp) = (dp, sp);
+        let k = run_start(p, c0 + i / nruns, i % nruns) / codec.block;
+        let (src_d, src_s) = (&store.data[k * bb..][..bpr], &store.scales[k * sb..][..spr]);
+        // SAFETY: run `i` writes bytes `i·bpr..` / `i·spr..` only (disjoint
+        // across `i`), inside the ranges the caller guarantees.
+        unsafe {
+            std::ptr::copy_nonoverlapping(src_d.as_ptr(), dp.0.add(i * bpr), bpr);
+            std::ptr::copy_nonoverlapping(src_s.as_ptr(), sp.0.add(i * spr), spr);
+        }
+    });
+}
+
+/// Inverse of [`gather_chunk`]: writes the runs back into the store.
 pub fn scatter_chunk(
     store: &mut HostStore,
-    codec: &HalfCodec,
+    codec: &Codec,
     p: &GpuStagePlan,
     c0: usize,
     g: usize,
     data: &[u8],
-    codes: &[u16],
+    sc: &[u8],
 ) {
-    let runlen = 1usize << p.bc;
     let nruns = 1usize << (p.l - p.bc);
-    let bb = codec.block_bytes();
-    let bpr = runlen / codec.block * bb;
-    let cpr = runlen / codec.block;
-    let (dp, cp) = (
+    let (bpr, spr) = run_bytes(codec, p);
+    let (bb, sb) = (codec.block_bytes(), codec.scale_bytes());
+    assert!(data.len() >= g * nruns * bpr && sc.len() >= g * nruns * spr);
+    let (dp, sp) = (
         SyncPtr(store.data.as_mut_ptr()),
-        SyncPtr(store.codes.as_mut_ptr()),
+        SyncPtr(store.scales.as_mut_ptr()),
     );
-    let (dl, cl) = (store.data.len(), store.codes.len());
-    data[..g * nruns * bpr]
-        .par_chunks(bpr)
-        .zip(codes[..g * nruns * cpr].par_chunks(cpr))
-        .enumerate()
-        .for_each(|(i, (d, cd))| {
-            let (dp, cp) = (dp, cp);
-            let reg = run_start(p, c0 + i / nruns, i % nruns);
-            let k = reg / codec.block;
-            assert!(k * bb + bpr <= dl && k + cpr <= cl);
-            // SAFETY: runs of different (block, run) pairs are disjoint
-            // register ranges, so these writes never overlap; bounds
-            // checked above.
-            unsafe {
-                std::ptr::copy_nonoverlapping(d.as_ptr(), dp.0.add(k * bb), bpr);
-                std::ptr::copy_nonoverlapping(cd.as_ptr(), cp.0.add(k), cpr);
-            }
-        });
+    let (dl, sl) = (store.data.len(), store.scales.len());
+    (0..g * nruns).into_par_iter().for_each(|i| {
+        let (dp, sp) = (dp, sp);
+        let k = run_start(p, c0 + i / nruns, i % nruns) / codec.block;
+        assert!(k * bb + bpr <= dl && k * sb + spr <= sl);
+        // SAFETY: runs of different (block, run) pairs are disjoint register
+        // ranges, so these writes never overlap; bounds checked above.
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr().add(i * bpr), dp.0.add(k * bb), bpr);
+            std::ptr::copy_nonoverlapping(sc.as_ptr().add(i * spr), sp.0.add(k * sb), spr);
+        }
+    });
 }
 
 #[cfg(test)]
@@ -679,12 +1045,20 @@ mod tests {
 
     #[test]
     fn step_parts_match_int_step() {
-        for f in ["int4:b16:h", "int5:b16:h", "int8:b32:h", "int2:b16:h", "int3:b64:h"] {
+        for f in [
+            "int4:b16:h",
+            "int5:b16:h",
+            "int8:b32:h",
+            "int2:b16:h",
+            "int3:b64:h",
+        ] {
             let lp = LowPrec::parse(f).unwrap();
-            let codec = HalfCodec::new(&lp).unwrap();
+            let codec = Codec::new(&lp).unwrap();
             let mut z = 12345u64;
             for i in 0..200_000u32 {
-                z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let m = match i % 4 {
                     0 => f32::from_bits((z >> 33) as u32 & 0x7f7f_ffff),
                     1 => f32::from_bits(((z >> 40) as u32 & 0x7f_ffff) | (100 << 23)),
@@ -706,10 +1080,12 @@ mod tests {
     #[test]
     fn codec_matches_cpu_rounding() {
         let lp = LowPrec::parse("int4:b16:h").unwrap();
-        let codec = HalfCodec::new(&lp).unwrap();
+        let codec = Codec::new(&lp).unwrap();
         let mut z = 99u64;
         for _ in 0..200_000 {
-            z = z.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            z = z
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let mant = (z >> 50) as usize % NMANT;
             let e = ((z >> 20) % 40) as i32 - 30;
             let step = (1024 + mant) as f64 * 2f64.powi(e - 10);
@@ -722,6 +1098,65 @@ mod tests {
                 .take_while(|&&t| a >= t)
                 .count() as f64;
             assert_eq!(if x < 0.0 { -n } else { n }, want, "x={x:e} step={step:e}");
+        }
+    }
+
+    #[test]
+    fn exact32_matches_cpu_f64() {
+        use super::exact32::*;
+        for f in ["int6:b64", "int4:b16", "int5:b32", "int8:b64", "int2:b16"] {
+            let lp = LowPrec::parse(f).unwrap();
+            let codec = Codec::new(&lp).unwrap();
+            let maxv = codec.maxv;
+            let mut z = 777u64;
+            let mut rnd = || {
+                z = z
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                z
+            };
+            for i in 0..300_000u32 {
+                let r0 = rnd();
+                let m = match i % 3 {
+                    0 => f32::from_bits(
+                        ((r0 >> 40) as u32 & 0x7f_ffff) | (((r0 >> 20) % 60 + 80) as u32) << 23,
+                    ),
+                    1 => ((r0 >> 11) as f64 / (1u64 << 53) as f64) as f32 * 1e-3 + 1e-30,
+                    _ => (maxv as f32) * f32::from_bits((((r0 >> 20) % 60 + 80) as u32) << 23), // exact quotients
+                };
+                let step = int_step(m as f64, &lp);
+                let (sm, es) = step32(m, maxv);
+                assert_eq!(sm as f64 * 2f64.powi(es), step, "{f} step m={m:e}");
+                assert_eq!(f32_bits(sm, es), Some((step as f32).to_bits()));
+                let (rr, adj) = recip(sm);
+                let rv = ((rr[1] as u64) << 32 | rr[0] as u64) as f64 * 2f64.powi(adj - 76);
+                assert_eq!(rv, 1.0 / sm as f64, "{f} recip sm={sm}");
+                // encode: random x in [-m, m], plus exact ties
+                for j in 0..4 {
+                    let r1 = rnd();
+                    let x = if j < 3 {
+                        (((r1 >> 11) as f64 / (1u64 << 53) as f64) * 2.0 - 1.0) as f32 * m
+                    } else {
+                        let n = (r1 >> 40) % maxv as u64;
+                        ((n as f64 + 0.5) * step * if r1 & 1 == 1 { -1.0 } else { 1.0 }) as f32
+                    };
+                    let want = cpu_q(x, step, lp.format);
+                    assert_eq!(
+                        enc_q(x, rr, adj, es, maxv) as f64,
+                        want,
+                        "{f} enc x={x:e} step={step:e}"
+                    );
+                }
+                // decode every q
+                let k = codec.k_of(sm);
+                let inv = 1.0 / (1.0 / step);
+                for q in -(maxv as i32)..=maxv as i32 {
+                    let want = (q as f64 * inv) as f32;
+                    let (got, bad) = dec_v(q, sm, es, k);
+                    assert!(!bad);
+                    assert_eq!(got.to_bits(), want.to_bits(), "{f} dec q={q} step={step:e}");
+                }
+            }
         }
     }
 }

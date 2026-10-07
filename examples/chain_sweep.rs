@@ -646,7 +646,13 @@ fn packed(a: &Args) {
         let st = stages_for(&plan);
         let minrun = st
             .iter()
-            .map(|s| s.inner.iter().enumerate().take_while(|(j, q)| j == *q).count())
+            .map(|s| {
+                s.inner
+                    .iter()
+                    .enumerate()
+                    .take_while(|(j, q)| j == *q)
+                    .count()
+            })
             .min()
             .unwrap_or(0);
         println!(
@@ -695,7 +701,10 @@ fn packed(a: &Args) {
                 *t += s;
             }
             if r.underflow + r.overflow > 0 {
-                println!("  WARNING fmt={f} underflow={} overflow={}", r.underflow, r.overflow);
+                println!(
+                    "  WARNING fmt={f} underflow={} overflow={}",
+                    r.underflow, r.overflow
+                );
             }
             if flag("--emul") {
                 let e = run_emulated_stages(&plan, &st, f, &cfg).unwrap();
@@ -762,7 +771,7 @@ fn packedgpu(a: &Args) {
     use qsim_lab::engines::blocked::fuse_1q;
     use qsim_lab::engines::chain_lowprec::LowPrec;
     use qsim_lab::engines::chain_packed::{packed_stages, run_packed};
-    use qsim_lab::engines::chain_packed_gpu::{emulate_packed, gpu_plans, plan_stats, HalfCodec};
+    use qsim_lab::engines::chain_packed_gpu::{emulate_packed, gpu_plans, plan_stats, Codec};
     let c = circuit(a);
     let n = c.num_qubits;
     let d: usize = a.get("d", 70);
@@ -797,9 +806,10 @@ fn packedgpu(a: &Args) {
         let t = Instant::now();
         let gp = gpu_plans(&st, plan.width, &cfg).expect("export");
         let ps = plan_stats(&gp);
-        let codec = HalfCodec::new(&lp).expect("format");
+        let codec = Codec::new(&lp).expect("format");
         let amps = (1u64 << plan.width) as f64;
-        let packed = amps * (codec.bits as f64 / 4.0 + 2.0 / codec.block as f64);
+        let packed =
+            amps * (codec.bits as f64 / 4.0 + codec.scale_bytes() as f64 / codec.block as f64);
         let gib = (1u64 << 30) as f64;
         println!(
             "packedgpu-count n={n} d={d} width={} ops={} l={l} slots={slots} nb={nb} passes={} subs={} (per pass {:.1}) ops_exported={} max_sub_l={} min_bc={} max_conds={} max_table={:.1} KiB export={:.2}s",
