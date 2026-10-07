@@ -1,0 +1,7 @@
+mpsfid n=70 d=32 bitstrings=256 cutoff=1e-13
+chi=32 F=0.00262 F_se=0.00611 norm_ratio=0.00000 fid_est_mean=3.0667e-13 log10_fid_est_mean=-12.531 max_err/rms=2.36e0 t_per_amp=0.503s wall=21.7s peak_chi=32 peak_mib=0.2 svds=1155 swaps=105
+chi=64 F=0.00706 F_se=0.00716 norm_ratio=0.00000 fid_est_mean=1.0083e-7 log10_fid_est_mean=-6.997 max_err/rms=2.36e0 t_per_amp=1.911s wall=82.1s peak_chi=64 peak_mib=0.7 svds=1155 swaps=105
+chi=96 F=0.00843 F_se=0.00905 norm_ratio=0.00009 fid_est_mean=8.3760e-5 log10_fid_est_mean=-4.077 max_err/rms=2.34e0 t_per_amp=3.510s wall=151.5s peak_chi=96 peak_mib=1.1 svds=1155 swaps=105
+chi=128 F=0.01078 F_se=0.00808 norm_ratio=0.01162 fid_est_mean=1.1218e-2 log10_fid_est_mean=-1.950 max_err/rms=2.42e0 t_per_amp=6.007s wall=262.4s peak_chi=128 peak_mib=1.7 svds=1155 swaps=105
+chi=192 F=0.30519 F_se=0.03504 norm_ratio=0.43521 fid_est_mean=3.8371e-1 log10_fid_est_mean=-0.416 max_err/rms=2.02e0 t_per_amp=9.488s wall=408.3s peak_chi=192 peak_mib=2.2 svds=1155 swaps=105
+chi=256 F=1.00000 F_se=0.00000 norm_ratio=1.00000 fid_est_mean=1.0000e0 log10_fid_est_mean=-0.000 max_err/rms=4.04e-5 t_per_amp=8.638s wall=371.6s peak_chi=256 peak_mib=2.7 svds=1155 swaps=105

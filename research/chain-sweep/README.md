@@ -160,7 +160,9 @@ Pro CPU.
    Macs' worth of RAM. Any route onto one machine has to be approximate in
    the boundary itself. One example is truncating the boundary tensor as an
    MPS along the time direction (a boundary-MPS / transverse contraction).
-   Its fidelity cost is unmeasured.
+   Measured in [BOUNDARY_MPS.md](BOUNDARY_MPS.md): at fidelity 0.1 the
+   truncated boundary MPS is larger than the exact register, so this route
+   is closed.
 2. Speed at D ≤ 58: (a) in-stage diagonal work (~65% of Metal time at
    width 25); (b) pass count, about 6 stages per qubit. A light-cone-aware
    stage planner could merge successive qubits' staircases (the paper's
