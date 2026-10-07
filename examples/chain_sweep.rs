@@ -1193,6 +1193,10 @@ fn packedgpu(a: &Args) {
             ps.max_table_bytes as f64 / 1024.0,
             t.elapsed().as_secs_f64()
         );
+        println!(
+            "  diagonal ops {} with {} groups in total",
+            ps.diag_ops, ps.diag_groups
+        );
         for rb in [3, 4, 5, 6] {
             let (o, loc, ph) = qsim_lab::engines::chain_packed_gpu::reg_stats(&gp, rb);
             println!("  register bits {rb}: {loc}/{o} ops register-local, {ph} shared phases");

@@ -563,7 +563,12 @@ impl GpuSweeper {
                 ));
             }
             let mut w = if self.opts.reg_bits == 0 {
-                super::gen::encode_sub_shared(s, &mut tables)
+                super::gen::encode_sub_shared(
+                    s,
+                    &mut tables,
+                    1 << self.opts.nested_bits,
+                    WG as usize,
+                )
             } else {
                 super::gen::encode_sub(s, self.opts.reg_bits as u32, &mut tables).0
             };

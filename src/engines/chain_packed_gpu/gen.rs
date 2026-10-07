@@ -592,13 +592,15 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
     }
     let boff = gi << P.l;
     let lowm = (1u << P.lowb) - 1u;
+    let glid = (lid & lowm) | pdep(lid >> P.lowb, P.himask);
     for (var j = lid; j < n; j += WG) {
-        let a = work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)];
+        // gaddr is bitwise linear: gaddr(lid + k WG) = gaddr(lid) | gaddr(k WG)
+        let a = work[boff | base | glid | pw(1u + j / WG)];
         sre[j] = a.x;
         sim[j] = a.y;
     }
     workgroupBarrier();
-    var pc = 1u;
+    var pc = 1u + MAXN / WG;
     let nops = pw(0u);
     for (var op = 0u; op < nops; op++) {
         let kind = pw(pc);
@@ -715,15 +717,28 @@ fn substage(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_ind
         workgroupBarrier();
     }
     for (var j = lid; j < n; j += WG) {
-        work[boff | base | (j & lowm) | pdep(j >> P.lowb, P.himask)] = vec2<f32>(sre[j], sim[j]);
+        work[boff | base | glid | pw(1u + j / WG)] = vec2<f32>(sre[j], sim[j]);
     }
 }
 
 "#;
 
 /// Encodes the ops of a cache block for [`substage_shared_wgsl`].
-pub fn encode_sub_shared(s: &GpuSubStage, tables: &mut Vec<u32>) -> Vec<u32> {
+pub fn encode_sub_shared(
+    s: &GpuSubStage,
+    tables: &mut Vec<u32>,
+    maxn: usize,
+    wg: usize,
+) -> Vec<u32> {
     let mut w = vec![0u32];
+    // gaddr(k WG) for k < MAXN / WG (the kernel adds gaddr(lid))
+    let lowb = s.inner_mask.trailing_ones() as usize;
+    let himask = s.inner_mask >> lowb << lowb;
+    let lowm = (1usize << lowb) - 1;
+    w.extend((0..maxn / wg).map(|k| {
+        let j = k * wg;
+        ((j & lowm) | pdep(j >> lowb, himask)) as u32
+    }));
     let mut nops = 0u32;
     let fb = |m: &[f32; 8]| m.map(f32::to_bits);
     for op in &s.ops {
