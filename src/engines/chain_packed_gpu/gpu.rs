@@ -585,7 +585,7 @@ impl GpuSweeper {
                 if k == 0 || k == nk - 1 {
                     let items = if k == 0 { nsb } else { nsb.div_ceil(2) };
                     groups = (items as u32).div_ceil(WG);
-                    q.total = if k == 0 { nsb as u32 } else { nsb as u32 };
+                    q.total = nsb as u32;
                 } else {
                     let s = &p.subs[k - 1];
                     let lowb = s.inner_mask.trailing_ones() as usize;
