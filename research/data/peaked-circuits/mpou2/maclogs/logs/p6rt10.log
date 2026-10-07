@@ -1,0 +1,413 @@
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=4s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=8s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=12s
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=17s
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    multi-ring cluster of 62 wires (rings [0, 1, 2]) via contraction
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 13), ('G', 13, 23), ('B', 23, 26), ('G', 26, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 52), ('G', 52, 62), ('B', 62, 64), ('G', 64, 75), ('B', 75, 77), ('G', 77, 88), ('B', 88, 91), ('G', 91, 101), ('B', 101, 105), ('G', 105, 114), ('B', 114, 118), ('G', 118, 127), ('B', 127, 131), ('G', 131, 140), ('B', 140, 143), ('G', 143, 153), ('B', 153, 156), ('G', 156, 166), ('B', 166, 170), ('G', 170, 179), ('B', 179, 182), ('G', 182, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 12
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=10s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=10s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=10s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=11s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=11s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=11s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=11s
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=11s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=20s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=20s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=20s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=20s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=21s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=21s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=21s
+  gap [13,23): TNO 800 elems, clusters [6, 5, 4, 4, 4, 4], cross clusters so far 2, ranks 2,1 t=21s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=27s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=27s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=27s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=28s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=28s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=28s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=28s
+  gap [26,36): TNO 876 elems, clusters [6, 5, 5, 5, 4, 3], cross clusters so far 2, ranks 2,1 t=28s
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 2 part: 2 tensors, contraction width 23.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 2 part: 2 tensors, contraction width 23.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=40s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=40s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=40s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=41s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=41s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=41s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=41s
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=41s
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62)]: multi-ring cluster needs 2^27 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75)]: multi-ring cluster needs 2^29 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    gap window [(52, 62), (62, 64), (64, 75), (75, 77), (77, 88)]: multi-ring cluster needs 2^36 elements -> extend by the next burst+gap
+    multi-ring cluster of 62 wires (rings [0, 1, 2]) via contraction
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 131, in _main
+    prepare(preparation_data)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 246, in prepare
+    _fixup_main_from_path(data['init_main_from_path'])
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 297, in _fixup_main_from_path
+    main_content = runpy.run_path(main_path,
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 286, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 464, in <module>
+    apply_tn_multi(c, Wt); nclus += 1; ncross += 1
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 284, in apply_tn_multi
+    R0, lead0 = ring_contract(0, cb[(0, 1)] + cb[(0, 2)])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 278, in ring_contract
+    tree = tn_.contraction_tree(optimize=OPT, output_inds=outi)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py", line 9506, in contraction_tree
+    return array_contract_tree(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/contraction.py", line 306, in array_contract_tree
+    return ctg.array_contract_tree(*args, optimize=optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 453, in array_contract_tree
+    tree = find_tree(inputs, output, size_dict, optimize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 391, in find_tree
+    return fn(inputs, output, size_dict, optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 333, in _find_tree_preset
+    return _PRESETS_TREE[optimize](inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 186, in auto_optimize_hq_tree
+    return optimizer.search(inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 109, in search
+    return self._get_optimizer_hyper_threadsafe().search(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 282, in search
+    searched, con = self._maybe_run_optimizer(inputs, output, size_dict)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 239, in _maybe_run_optimizer
+    con = self._run_optimizer(inputs, output, size_dict)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 273, in _run_optimizer
+    tree = opt.search(inputs, output, size_dict)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 901, in search
+    self._search(
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 871, in _search
+    for trial in trials:
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 802, in _gen_results_parallel
+    future = submit(
+             ^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/parallel.py", line 264, in submit
+    return pool.submit(_worker_call, fn, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 830, in submit
+    self._adjust_process_count()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 789, in _adjust_process_count
+    self._spawn_process()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 807, in _spawn_process
+    p.start()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 121, in start
+    self._popen = self._Popen(self)
+                  ^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/context.py", line 289, in _Popen
+    return Popen(process_obj)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_spawn_posix.py", line 32, in __init__
+    super().__init__(process_obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_fork.py", line 19, in __init__
+    self._launch(process_obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_spawn_posix.py", line 42, in _launch
+    prep_data = spawn.get_preparation_data(process_obj._name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 164, in get_preparation_data
+    _check_not_importing_main()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 140, in _check_not_importing_main
+    raise RuntimeError('''
+RuntimeError: 
+        An attempt has been made to start a new process before the
+        current process has finished its bootstrapping phase.
+
+        This probably means that you are not using fork to start your
+        child processes and you have forgotten to use the proper idiom
+        in the main module:
+
+            if __name__ == '__main__':
+                freeze_support()
+                ...
+
+        The "freeze_support()" line can be omitted if the program
+        is not going to be frozen to produce an executable.
+
+        To fix this issue, refer to the "Safe importing of main module"
+        section in https://docs.python.org/3/library/multiprocessing.html
+        
+    multi-ring cluster of 62 wires (rings [0, 1, 2]) via contraction
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 131, in _main
+    prepare(preparation_data)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 246, in prepare
+    _fixup_main_from_path(data['init_main_from_path'])
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 297, in _fixup_main_from_path
+    main_content = runpy.run_path(main_path,
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 286, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 464, in <module>
+    apply_tn_multi(c, Wt); nclus += 1; ncross += 1
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 284, in apply_tn_multi
+    R0, lead0 = ring_contract(0, cb[(0, 1)] + cb[(0, 2)])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 278, in ring_contract
+    tree = tn_.contraction_tree(optimize=OPT, output_inds=outi)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py", line 9506, in contraction_tree
+    return array_contract_tree(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/contraction.py", line 306, in array_contract_tree
+    return ctg.array_contract_tree(*args, optimize=optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 453, in array_contract_tree
+    tree = find_tree(inputs, output, size_dict, optimize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 391, in find_tree
+    return fn(inputs, output, size_dict, optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 333, in _find_tree_preset
+    return _PRESETS_TREE[optimize](inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 186, in auto_optimize_hq_tree
+    return optimizer.search(inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 109, in search
+    return self._get_optimizer_hyper_threadsafe().search(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 282, in search
+    searched, con = self._maybe_run_optimizer(inputs, output, size_dict)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 239, in _maybe_run_optimizer
+    con = self._run_optimizer(inputs, output, size_dict)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 273, in _run_optimizer
+    tree = opt.search(inputs, output, size_dict)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 901, in search
+    self._search(
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 871, in _search
+    for trial in trials:
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 802, in _gen_results_parallel
+    future = submit(
+             ^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/parallel.py", line 264, in submit
+    return pool.submit(_worker_call, fn, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 830, in submit
+    self._adjust_process_count()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 789, in _adjust_process_count
+    self._spawn_process()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/process.py", line 807, in _spawn_process
+    p.start()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 121, in start
+    self._popen = self._Popen(self)
+                  ^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/context.py", line 289, in _Popen
+    return Popen(process_obj)
+           ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_spawn_posix.py", line 32, in __init__
+    super().__init__(process_obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_fork.py", line 19, in __init__
+    self._launch(process_obj)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/popen_spawn_posix.py", line 42, in _launch
+    prep_data = spawn.get_preparation_data(process_obj._name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 164, in get_preparation_data
+    _check_not_importing_main()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/spawn.py", line 140, in _check_not_importing_main
+    raise RuntimeError('''
+RuntimeError: 
+        An attempt has been made to start a new process before the
+        current process has finished its bootstrapping phase.
+
+        This probably means that you are not using fork to start your
+        child processes and you have forgotten to use the proper idiom
+        in the main module:
+
+            if __name__ == '__main__':
+                freeze_support()
+                ...
+
+        The "freeze_support()" line can be omitted if the program
+        is not going to be frozen to produce an executable.
+
+        To fix this issue, refer to the "Safe importing of main module"
+        section in https://docs.python.org/3/library/multiprocessing.html
+        
+Traceback (most recent call last):
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 464, in <module>
+    apply_tn_multi(c, Wt); nclus += 1; ncross += 1
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 284, in apply_tn_multi
+    R0, lead0 = ring_contract(0, cb[(0, 1)] + cb[(0, 2)])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/peaked-mac/mpou2/ringsim.py", line 278, in ring_contract
+    tree = tn_.contraction_tree(optimize=OPT, output_inds=outi)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/tensor_core.py", line 9506, in contraction_tree
+    return array_contract_tree(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/quimb/tensor/contraction.py", line 306, in array_contract_tree
+    return ctg.array_contract_tree(*args, optimize=optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 453, in array_contract_tree
+    tree = find_tree(inputs, output, size_dict, optimize)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 391, in find_tree
+    return fn(inputs, output, size_dict, optimize, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/interface.py", line 333, in _find_tree_preset
+    return _PRESETS_TREE[optimize](inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 186, in auto_optimize_hq_tree
+    return optimizer.search(inputs, output, size_dict, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/presets.py", line 109, in search
+    return self._get_optimizer_hyper_threadsafe().search(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 282, in search
+    searched, con = self._maybe_run_optimizer(inputs, output, size_dict)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 239, in _maybe_run_optimizer
+    con = self._run_optimizer(inputs, output, size_dict)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/reusable.py", line 273, in _run_optimizer
+    tree = opt.search(inputs, output, size_dict)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 901, in search
+    self._search(
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 871, in _search
+    for trial in trials:
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 813, in _gen_results_parallel
+    yield self._get_and_report_next_future()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/peaked-venv/lib/python3.12/site-packages/cotengra/hyperoptimizers/hyper.py", line 789, in _get_and_report_next_future
+    trial = future.result()
+            ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.

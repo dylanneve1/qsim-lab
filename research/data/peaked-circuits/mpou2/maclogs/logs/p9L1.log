@@ -1,0 +1,22 @@
+order file: cut at unit 958, left depth 958 right depth 959
+n=56 units=1917 blocks=1885 depth=103 m=0.5 left=942 right=943 band=0.5,0.5 (phase1 0+0) eps0=1e-10 eps=0.0006 mode=rel maxb=512 sched=dist
+[20/1885] L 10 (lay -10) R 10 (lay 11) {'max_bond': 4, 'elems': 580, 'trunc': 1.3e-11} rs=421 t=0.1s rss=72MB
+[40/1885] L 20 (lay -20) R 20 (lay 21) {'max_bond': 8, 'elems': 1140, 'trunc': 2.08e-07} rs=616 t=0.1s rss=72MB
+[60/1885] L 30 (lay -30) R 30 (lay 31) {'max_bond': 16, 'elems': 3488, 'trunc': 9.95e-07} rs=860 t=0.4s rss=78MB
+[80/1885] L 40 (lay -40) R 40 (lay 41) {'max_bond': 32, 'elems': 22972, 'trunc': 1.15e-06} rs=1036 t=1.3s rss=84MB
+    full unswap at step 94: 345152 -> 272404 elems, max bond 128, 2 sweeps 4.3s
+[100/1885] L 50 (lay -50) R 50 (lay 51) {'max_bond': 64, 'elems': 88788, 'trunc': 1.3e-06} rs=1324 t=8.4s rss=173MB
+    full unswap at step 102: 510932 -> 362288 elems, max bond 256, 5 sweeps 10.4s
+    slow step 102 (dn): absorb 0.2s -> {'max_bond': 256, 'elems': 510932, 'trunc': 1.3e-06}, unswap 10.4s -> {'max_bond': 256, 'elems': 362288, 'trunc': 1.3e-06}
+    full unswap at step 104: 1206832 -> 112944 elems, max bond 128, 6 sweeps 7.1s
+    slow step 104 (dn): absorb 1.4s -> {'max_bond': 512, 'elems': 1206832, 'trunc': 0.23}, unswap 7.1s -> {'max_bond': 128, 'elems': 112944, 'trunc': 0.23}
+    full unswap at step 112: 248464 -> 213908 elems, max bond 128, 2 sweeps 2.7s
+    full unswap at step 116: 454804 -> 450196 elems, max bond 128, 2 sweeps 7.5s
+    slow step 116 (dn): absorb 0.4s -> {'max_bond': 128, 'elems': 454804, 'trunc': 0.23}, unswap 7.5s -> {'max_bond': 128, 'elems': 450196, 'trunc': 0.23}
+    full unswap at step 120: 1284628 -> 714272 elems, max bond 256, 4 sweeps 30.3s
+    slow step 120 (dn): absorb 1.2s -> {'max_bond': 256, 'elems': 1284628, 'trunc': 0.23}, unswap 30.3s -> {'max_bond': 256, 'elems': 714272, 'trunc': 0.23}
+[120/1885] L 60 (lay -60) R 60 (lay 61) {'max_bond': 256, 'elems': 714272, 'trunc': 0.23} rs=1442 t=71.1s rss=462MB
+    full unswap at step 128: 1568432 -> 1509324 elems, max bond 256, 3 sweeps 71.1s
+    slow step 128 (dn): absorb 0.9s -> {'max_bond': 256, 'elems': 1568432, 'trunc': 0.23}, unswap 71.1s -> {'max_bond': 256, 'elems': 1509324, 'trunc': 0.23}
+    full unswap at step 135: 1978220 -> 1965584 elems, max bond 256, 2 sweeps 83.4s
+    slow step 135 (up): absorb 0.6s -> {'max_bond': 256, 'elems': 1978220, 'trunc': 0.23}, unswap 83.4s -> {'max_bond': 256, 'elems': 1965584, 'trunc': 0.23}

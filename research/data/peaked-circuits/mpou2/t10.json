@@ -1,0 +1,63 @@
+{
+ "qasm": "t10.qasm",
+ "args": {
+  "qasm": "t10.qasm",
+  "m": null,
+  "order": "cutlayers",
+  "cut": 0.4,
+  "band": null,
+  "eps0": 1e-14,
+  "eps": 1e-14,
+  "mode": "sum2",
+  "maxb": 512,
+  "hot": 0.5,
+  "ubond": 8,
+  "match_lo": 24,
+  "match_hi": 96,
+  "match_every": 20,
+  "sched": "dist",
+  "ckpt": null,
+  "ckpt_every": 600.0,
+  "resume": null,
+  "out": "t10.json",
+  "rss_gb": 5.5,
+  "log_every": 50,
+  "stop_elems": 30000000.0,
+  "eps_centre": null,
+  "dense_centre": 0
+ },
+ "peak": "0000011011",
+ "p": 0.01735780699795303,
+ "max_flip": 0.012426479352732955,
+ "n_flips_higher": 0,
+ "min_abs_z": 0.05906960059567523,
+ "zs": [
+  0.1411,
+  0.1738,
+  0.103,
+  0.2812,
+  0.0591,
+  -0.309,
+  -0.0692,
+  0.1657,
+  -0.2018,
+  -0.9209
+ ],
+ "trunc": 7.524520984267714e-29,
+ "final": {
+  "max_bond": 16,
+  "elems": 2428,
+  "trunc": 7.52e-29
+ },
+ "seconds": 0,
+ "hist": [
+  [
+   18,
+   7,
+   11,
+   16,
+   2428,
+   0.2591841220855713
+  ]
+ ]
+}

@@ -1,0 +1,12 @@
+n=56 units=1917 blocks=1885 depth=103 m=49.5 left=947 right=938 band=49.5,49.5 (phase1 0+0) eps0=1e-10 eps=0.001 mode=rel maxb=1024 sched=dist
+[10/1885] L 5 (lay 49) R 5 (lay 50) {'max_bond': 4, 'elems': 424, 'trunc': 1.92e-31} t=0.0s rss=72MB
+[20/1885] L 10 (lay 49) R 10 (lay 50) {'max_bond': 4, 'elems': 860, 'trunc': 1.95e-30} t=0.0s rss=72MB
+[30/1885] L 15 (lay 49) R 15 (lay 50) {'max_bond': 8, 'elems': 2028, 'trunc': 1.88e-07} t=0.1s rss=72MB
+    match at step 33: skipped, score median 0.333 0.5s
+[40/1885] L 21 (lay 48) R 19 (lay 51) {'max_bond': 32, 'elems': 14604, 'trunc': 1.88e-07} t=0.7s rss=73MB
+[50/1885] L 26 (lay 48) R 24 (lay 51) {'max_bond': 16, 'elems': 10292, 'trunc': 2.96e-07} t=0.8s rss=74MB
+    match at step 53: skipped, score median 0.333 0.6s
+[60/1885] L 31 (lay 48) R 29 (lay 51) {'max_bond': 64, 'elems': 146120, 'trunc': 3.82e-07} t=6.3s rss=159MB
+    slow step 66 (dn): absorb 0.0s -> {'max_bond': 256, 'elems': 662728, 'trunc': 3.82e-07}, unswap 7.1s -> {'max_bond': 256, 'elems': 564424, 'trunc': 3.82e-07}
+    slow step 67 (up): absorb 1.0s -> {'max_bond': 256, 'elems': 711112, 'trunc': 3.82e-07}, unswap 6.8s -> {'max_bond': 256, 'elems': 645576, 'trunc': 3.82e-07}
+    slow step 68 (dn): absorb 2.5s -> {'max_bond': 512, 'elems': 2563464, 'trunc': 3.82e-07}, unswap 21.3s -> {'max_bond': 512, 'elems': 2563464, 'trunc': 3.82e-07}

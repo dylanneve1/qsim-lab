@@ -1,0 +1,4 @@
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+ABORT: middle block too large (12, 16, 1048576)
