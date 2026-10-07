@@ -8,6 +8,7 @@
 //! cargo run --release --example chain_sweep -- bench    --n 70 --d 40 --reps 3 --backend cpu32
 //! cargo run --release --example chain_sweep -- fidsv    --n 20 --d 20 --s 8 --trials 4
 //! cargo run --release --example chain_sweep -- fidmitm  --n 70 --d 40 --s 8 --k 400
+//! cargo run --release --example chain_sweep -- lowprec  --n 70 --d 40 --k 200 --formats bf16,fp16:b1024
 //! ```
 //! `--backend metal` needs `--features metal` on macOS. `--qasm PATH`
 //! overrides the circuit (default: the bundled nq70 depth-70 file).
@@ -48,6 +49,11 @@ fn circuit(a: &Args) -> Circuit {
         None => QASM.to_string(),
     };
     let c = Circuit::from_qasm(&src).expect("parse qasm");
+    if a.0.iter().any(|x| x == "--tail") {
+        // the last d CZ layers (of D_total = --dtot, default 70) instead of the first d
+        let (dt, d) = (a.get("dtot", 70usize), a.get("d", 70usize));
+        return chain_sweep::truncate_window(&c, a.get("n", 70), dt.saturating_sub(d), dt);
+    }
     truncate(&c, a.get("n", 70), a.get("d", 70))
 }
 
@@ -77,6 +83,12 @@ fn block_cfg() -> BlockConfig {
     }
     if let Some(v) = env("CS_FUSE") {
         cfg.fuse_1q = v != 0;
+    }
+    if let Some(v) = env("CS_SLOTS") {
+        cfg.slots = v;
+    }
+    if let Some(v) = env("CS_BLOCK_BYTES") {
+        cfg.block_bytes = v;
     }
     if let Some(v) = env("CS_DIAG") {
         cfg.schedule_diag = v != 0;
@@ -445,6 +457,144 @@ fn main() {
         Some("bench") => bench(&a),
         Some("fidsv") => fidsv(&a),
         Some("fidmitm") => fidmitm(&a),
-        _ => eprintln!("usage: chain_sweep info|validate|bench|fidsv|fidmitm [--n N --d D ...]"),
+        Some("lowprec") => lowprec(&a),
+        _ => eprintln!(
+            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec [--n N --d D ...]"
+        ),
     }
+}
+
+/// Fidelity of storing the bond register in a reduced-precision format:
+/// `k` uniform bitstrings, the exact f64 amplitude against the emulated
+/// low-precision sweep for every format in `--formats`, rounding after each
+/// pass (`--gran stage|op|qubit`). Prints the overlap fidelity
+/// `|Σ e* l|^2 / (Σ|e|^2 Σ|l|^2)`, the linear-XEB ratio of sampling from
+/// `|l|^2` (vs from `|e|^2`) and the rms relative error, with jackknife
+/// errors. `--trace J` also prints, for the first bitstring, the register
+/// fidelity against f64 every `J` passes.
+fn lowprec(a: &Args) {
+    use qsim_lab::engines::chain_lowprec::{passes, run_lowprec, Granularity, LowPrec};
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let d: usize = a.get("d", 70);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let k: usize = a.get("k", 50);
+    let trace: usize = a.get("trace", 0);
+    let report: usize = a.get("report", 25);
+    let gs = a.s("gran", "stage");
+    let gran = match gs.as_str() {
+        "op" => Granularity::Op,
+        "qubit" => Granularity::Qubit,
+        "stage" => Granularity::Stage,
+        g => Granularity::Every(
+            g.strip_prefix("every:")
+                .and_then(|m| m.parse().ok())
+                .expect("--gran op|qubit|stage|every:M"),
+        ),
+    };
+    let fmts: Vec<LowPrec> = a
+        .s("formats", "bf16,bf16:b1024,fp16:g,fp16:b1024")
+        .split(',')
+        .map(|f| LowPrec::parse(f).unwrap_or_else(|| panic!("bad format {f}")))
+        .collect();
+    let cfg = block_cfg();
+    if a.0.iter().any(|x| x == "--count") {
+        let plan = compile(&cc, 0, &HashMap::new());
+        for g in [Granularity::Op, Granularity::Stage, Granularity::Qubit] {
+            println!(
+                "passes n={n} d={d} width={} block_bytes={} gran={g:?} passes={}",
+                plan.width,
+                cfg.block_bytes,
+                passes(&plan, &cfg, g).len()
+            );
+        }
+        return;
+    }
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    let mut ex: Vec<Complex64> = Vec::new();
+    let mut lps: Vec<Vec<Complex64>> = vec![Vec::new(); fmts.len()];
+    let mut tsec = vec![0.0f64; fmts.len()];
+    let t0 = Instant::now();
+    for i in 0..k {
+        let x = rand_x(&mut rng, n);
+        let plan = compile(&cc, x, &HashMap::new());
+        let e = chain_sweep::amplitude_cpu::<f64>(&plan, &cfg).unwrap();
+        let ps = passes(&plan, &cfg, gran);
+        let npass = ps.len();
+        ex.push(e);
+        for (j, f) in fmts.iter().enumerate() {
+            let t = Instant::now();
+            let tr = if i == 0 { trace } else { 0 };
+            let r = run_lowprec(&plan, &ps, f, tr).unwrap();
+            tsec[j] += t.elapsed().as_secs_f64();
+            lps[j].push(r.amp);
+            if !r.trace.is_empty() {
+                let pts: Vec<String> = r
+                    .trace
+                    .iter()
+                    .map(|(p, fi)| format!("{p}:{:.6}", fi))
+                    .collect();
+                println!("trace d={d} fmt={f} passes={} {}", r.passes, pts.join(" "));
+            }
+        }
+        if (i + 1) % report == 0 || i + 1 == k {
+            println!(
+                "lowprec n={n} d={d} width={} gran={gran:?} passes={npass} k={} elapsed={:.0}s",
+                plan.width,
+                i + 1,
+                t0.elapsed().as_secs_f64()
+            );
+            for (j, f) in fmts.iter().enumerate() {
+                let st = lp_stats(&ex, &lps[j], n);
+                println!(
+                    "  fmt={:<16} bits={:.3} F={:.6} ±{:.6}  1-F={:.3e}  xeb_ratio={:.4} ±{:.4}  rms_rel={:.3e}  t/amp={:.2}s",
+                    f.to_string(),
+                    f.bits_per_component(),
+                    st[0],
+                    st[1],
+                    1.0 - st[0],
+                    st[2],
+                    st[3],
+                    st[4],
+                    tsec[j] / (i + 1) as f64
+                );
+            }
+        }
+    }
+}
+
+/// (F, jackknife se, xeb ratio, se, rms relative error).
+fn lp_stats(e: &[Complex64], l: &[Complex64], n: usize) -> [f64; 5] {
+    let k = e.len();
+    let two_n = 2f64.powi(n as i32);
+    let fid = |skip: usize| -> (f64, f64) {
+        let (mut ov, mut ne, mut nl) = (Complex64::new(0.0, 0.0), 0.0, 0.0);
+        let (mut pl, mut ple, mut pe2) = (0.0, 0.0, 0.0);
+        for i in (0..k).filter(|&i| i != skip) {
+            ov += e[i].conj() * l[i];
+            let (pe, pli) = (e[i].norm_sqr(), l[i].norm_sqr());
+            ne += pe;
+            nl += pli;
+            pl += pli;
+            ple += pli * pe;
+            pe2 += pe * pe;
+        }
+        let f = ov.norm_sqr() / (ne * nl);
+        let xl = two_n * ple / pl - 1.0;
+        let xi = two_n * pe2 / ne - 1.0;
+        (f, xl / xi)
+    };
+    let (f, x) = fid(usize::MAX);
+    let (mut sf, mut sx) = (0.0, 0.0);
+    if k > 1 {
+        let jk: Vec<(f64, f64)> = (0..k).map(fid).collect();
+        let mf = jk.iter().map(|v| v.0).sum::<f64>() / k as f64;
+        let mx = jk.iter().map(|v| v.1).sum::<f64>() / k as f64;
+        let c = (k - 1) as f64 / k as f64;
+        sf = (c * jk.iter().map(|v| (v.0 - mf).powi(2)).sum::<f64>()).sqrt();
+        sx = (c * jk.iter().map(|v| (v.1 - mx).powi(2)).sum::<f64>()).sqrt();
+    }
+    let num: f64 = e.iter().zip(l).map(|(a, b)| (a - b).norm_sqr()).sum();
+    let den: f64 = e.iter().map(|a| a.norm_sqr()).sum();
+    [f, sf, x, sx, (num / den).sqrt()]
 }

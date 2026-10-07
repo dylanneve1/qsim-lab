@@ -169,6 +169,15 @@ Pro CPU.
    `K·J` amplitudes for `K + J` half sweeps plus `K·J` dot products. Open
    output bits as in the paper (3-region scheme) are not implemented.
 
+## Reduced-precision register
+
+See [LOWPREC.md](LOWPREC.md). The loss compounds as F ≈ exp(−r·R) over R
+roundings and does not depend on the register width (tail windows,
+D = 24–48). With a big-buffer schedule of 71 passes at D = 70, the
+extrapolated F is bf16 0.9998, int8 0.996, int6 0.96, int5 0.83–0.87,
+int4 (4.5 bits incl. scales) 0.53, int3 0.02. So 4 bits gives a 36 GiB
+register at f ≈ 0.5. Stochastic rounding is worse than round-to-nearest.
+
 ## Reproduce
 
 ```text

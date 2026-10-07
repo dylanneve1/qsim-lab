@@ -22,11 +22,13 @@
 //! * [`tn`] — exact tensor-network contraction (amplitudes, batches, Pauli expectations).
 //! * [`chain_sweep`] — exact amplitudes of open-chain CZ circuits by sweeping a `D/2`-bit
 //!   bond register along the chain (runs on the blocked CPU and Metal executors).
+//! * [`chain_lowprec`] — emulated 16-bit / 8-bit storage of the chain-sweep register (fidelity cost).
 //! * [`spd`] — sparse Pauli dynamics for kicked-Ising Trotter circuits.
 //! * [`monitored`] — monitored Clifford+T circuits (measurement-induced transitions).
 
 pub mod adaptive;
 pub mod blocked;
+pub mod chain_lowprec;
 pub mod chain_sweep;
 pub mod dense_fusion;
 pub(crate) mod dense_kernels;
