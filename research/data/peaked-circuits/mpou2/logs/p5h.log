@@ -1,0 +1,40 @@
+n=44 units=1892 blocks=902 depth=86 m=41.0 left=446 right=456 band=36,48 (phase1 54+42) eps0=1e-10 eps=0.01 mode=rel maxb=512 sched=dist
+centre band: 96 blocks, group sizes [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  group [0, 5, 39, 40]: pairing [(0, 40), (5, 39), (39, 5), (40, 0)] scores min 0.974 ranks [1, 1, 1]
+  group [1, 21, 25, 38]: pairing [(1, 1), (21, 21), (25, 38), (38, 25)] scores min 0.994 ranks [1, 1, 1]
+  group [2, 13, 17, 29]: pairing [(2, 29), (13, 13), (17, 17), (29, 2)] scores min 0.980 ranks [1, 1, 1]
+  group [3, 15, 18, 23]: pairing [(3, 15), (15, 3), (18, 23), (23, 18)] scores min 0.982 ranks [1, 1, 1]
+  group [4, 8, 32, 42]: pairing [(4, 42), (8, 4), (32, 32), (42, 8)] scores min 0.976 ranks [1, 1, 1]
+  group [6, 14, 20, 33]: pairing [(6, 33), (14, 14), (20, 6), (33, 20)] scores min 0.970 ranks [1, 1, 1]
+  group [7, 11, 28, 37]: pairing [(7, 7), (11, 37), (28, 11), (37, 28)] scores min 0.972 ranks [1, 1, 1]
+  group [9, 22, 34, 43]: pairing [(9, 22), (22, 34), (34, 9), (43, 43)] scores min 0.964 ranks [1, 1, 1]
+  group [10, 12, 35, 41]: pairing [(10, 10), (12, 41), (35, 12), (41, 35)] scores min 0.974 ranks [1, 1, 1]
+  group [16, 19, 24, 30]: pairing [(16, 30), (19, 24), (24, 16), (30, 19)] scores min 0.977 ranks [1, 1, 1]
+  group [26, 27, 31, 36]: pairing [(26, 36), (27, 31), (31, 26), (36, 27)] scores min 0.969 ranks [1, 1, 1]
+dense centre block: {'max_bond': 1, 'elems': 176, 'trunc': 0.0} t=0.5s
+[100/902] L 104 (lay 30) R 92 (lay 52) {'max_bond': 9, 'elems': 5008, 'trunc': 0.00664} rs=727 t=2.2s rss=80MB
+[200/902] L 154 (lay 26) R 142 (lay 56) {'max_bond': 4, 'elems': 396, 'trunc': 0.0222} rs=1512 t=3.1s rss=80MB
+[300/902] L 204 (lay 22) R 192 (lay 60) {'max_bond': 2, 'elems': 196, 'trunc': 0.0235} rs=2402 t=4.0s rss=80MB
+[400/902] L 254 (lay 16) R 242 (lay 66) {'max_bond': 1, 'elems': 176, 'trunc': 0.0244} rs=3173 t=5.0s rss=80MB
+[500/902] L 304 (lay 12) R 292 (lay 70) {'max_bond': 1, 'elems': 176, 'trunc': 0.0247} rs=3884 t=5.4s rss=80MB
+[600/902] L 353 (lay 8) R 343 (lay 74) {'max_bond': 4, 'elems': 224, 'trunc': 0.0251} rs=4743 t=6.5s rss=80MB
+    full unswap at step 692: 210040 -> 108160 elems, max bond 122, 3 sweeps 28.5s
+    slow step 692 (dn): absorb 2.4s -> {'max_bond': 122, 'elems': 210040, 'trunc': 0.0287}, unswap 28.5s -> {'max_bond': 122, 'elems': 108160, 'trunc': 0.0296}
+    full unswap at step 693: 658568 -> 496764 elems, max bond 164, 2 sweeps 170.5s
+    slow step 693 (dn): absorb 5.7s -> {'max_bond': 164, 'elems': 658568, 'trunc': 0.0314}, unswap 170.5s -> {'max_bond': 164, 'elems': 496764, 'trunc': 0.0319}
+    slow step 694 (dn): absorb 25.1s -> {'max_bond': 138, 'elems': 395864, 'trunc': 0.0325}, unswap 0.0s -> {'max_bond': 138, 'elems': 395864, 'trunc': 0.0325}
+    slow step 695 (dn): absorb 30.7s -> {'max_bond': 134, 'elems': 382776, 'trunc': 0.0327}, unswap 0.0s -> {'max_bond': 134, 'elems': 382776, 'trunc': 0.0327}
+    full unswap at step 696: 879212 -> 815864 elems, max bond 188, 2 sweeps 214.9s
+    slow step 696 (dn): absorb 30.4s -> {'max_bond': 188, 'elems': 879212, 'trunc': 0.0351}, unswap 214.9s -> {'max_bond': 188, 'elems': 815864, 'trunc': 0.0356}
+    slow step 697 (dn): absorb 31.4s -> {'max_bond': 178, 'elems': 691420, 'trunc': 0.0361}, unswap 0.0s -> {'max_bond': 178, 'elems': 691420, 'trunc': 0.0361}
+    slow step 698 (dn): absorb 97.3s -> {'max_bond': 170, 'elems': 643096, 'trunc': 0.0361}, unswap 0.0s -> {'max_bond': 170, 'elems': 643096, 'trunc': 0.0361}
+    slow step 699 (dn): absorb 75.9s -> {'max_bond': 170, 'elems': 643120, 'trunc': 0.0361}, unswap 0.0s -> {'max_bond': 170, 'elems': 643120, 'trunc': 0.0361}
+    slow step 700 (dn): absorb 18.9s -> {'max_bond': 170, 'elems': 643180, 'trunc': 0.0361}, unswap 0.0s -> {'max_bond': 170, 'elems': 643180, 'trunc': 0.0361}
+[700/902] L 422 (lay 2) R 374 (lay 78) {'max_bond': 170, 'elems': 643180, 'trunc': 0.0361} rs=5927 t=744.0s rss=158MB
+    slow step 701 (dn): absorb 17.0s -> {'max_bond': 170, 'elems': 643240, 'trunc': 0.0361}, unswap 0.0s -> {'max_bond': 170, 'elems': 643240, 'trunc': 0.0361}
+    full unswap at step 702: 5053136 -> 3381640 elems, max bond 474, 2 sweeps 1352.5s
+    slow step 702 (dn): absorb 55.5s -> {'max_bond': 474, 'elems': 5053136, 'trunc': 0.0402}, unswap 1352.6s -> {'max_bond': 474, 'elems': 3381640, 'trunc': 0.0418}
+    full unswap at step 703: 3629160 -> 3604072 elems, max bond 512, 2 sweeps 959.9s
+    slow step 703 (dn): absorb 41.8s -> {'max_bond': 512, 'elems': 3629160, 'trunc': 0.0631}, unswap 959.9s -> {'max_bond': 512, 'elems': 3604072, 'trunc': 0.0633}
+    full unswap at step 707: 4464580 -> 3744396 elems, max bond 512, 3 sweeps 1244.0s
+    slow step 707 (dn): absorb 4.5s -> {'max_bond': 512, 'elems': 4464580, 'trunc': 0.066}, unswap 1244.0s -> {'max_bond': 512, 'elems': 3744396, 'trunc': 0.0676}

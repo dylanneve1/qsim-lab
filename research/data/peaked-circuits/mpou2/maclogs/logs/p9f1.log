@@ -1,0 +1,13 @@
+order file: cut at unit 958, left depth 958 right depth 959
+n=56 units=1917 blocks=1885 depth=103 m=0.5 left=942 right=943 band=0.5,0.5 (phase1 0+0) eps0=1e-10 eps=0.001 mode=rel maxb=512 sched=dist
+[20/1885] L 10 (lay -10) R 10 (lay 11) {'max_bond': 4, 'elems': 580, 'trunc': 1.3e-11} t=0.1s rss=72MB
+[40/1885] L 20 (lay -20) R 20 (lay 21) {'max_bond': 8, 'elems': 1140, 'trunc': 2.08e-07} t=0.1s rss=72MB
+[60/1885] L 30 (lay -30) R 30 (lay 31) {'max_bond': 32, 'elems': 8204, 'trunc': 9.95e-07} t=0.4s rss=75MB
+[80/1885] L 40 (lay -40) R 40 (lay 41) {'max_bond': 128, 'elems': 112824, 'trunc': 1.08e-06} t=3.4s rss=128MB
+[100/1885] L 50 (lay -50) R 50 (lay 51) {'max_bond': 64, 'elems': 48732, 'trunc': 1.08e-06} t=6.6s rss=146MB
+    full unswap at step 109: 234188 -> 101080 elems, max bond 64, 4 sweeps 2.3s
+    full unswap at step 112: 755236 -> 496740 elems, max bond 256, 3 sweeps 10.4s
+    slow step 112 (dn): absorb 0.3s -> {'max_bond': 256, 'elems': 755236, 'trunc': 1.22e-06}, unswap 10.4s -> {'max_bond': 256, 'elems': 496740, 'trunc': 1.22e-06}
+    full unswap at step 120: 856484 -> 657808 elems, max bond 256, 4 sweeps 20.1s
+    slow step 120 (dn): absorb 0.4s -> {'max_bond': 256, 'elems': 856484, 'trunc': 1.24e-06}, unswap 20.1s -> {'max_bond': 256, 'elems': 657808, 'trunc': 1.24e-06}
+[120/1885] L 60 (lay -60) R 60 (lay 61) {'max_bond': 256, 'elems': 657808, 'trunc': 1.24e-06} t=42.3s rss=276MB

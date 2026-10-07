@@ -1,0 +1,8 @@
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+[0/2593] cross 0 ranks 1,1 max (1, 1) t=0s rss=69MB
+[10/2593] cross 0 ranks 1,1 max (1, 1) t=0s rss=237MB
+[20/2593] cross 1 ranks 2,2 max (2, 2) t=1s rss=614MB
+[30/2593] cross 3 ranks 8,4 max (8, 4) t=6s rss=5159MB
+ABORT: middle block too large (16, 16, 1048576)

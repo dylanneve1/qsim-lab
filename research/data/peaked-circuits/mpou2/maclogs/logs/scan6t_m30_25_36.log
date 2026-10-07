@@ -1,0 +1,47 @@
+n=62 units=3494 blocks=2593 depth=208 m=30.0 left=387 right=2206 band=25,36 (phase1 64+67) eps0=1e-10 eps=0.01 mode=rel maxb=512 sched=pair
+  TNO band d=0.0: +0L +10R, unswaps 0, elems 320, max bond 2, nbonds 9, moved 0, 0.4s
+  TNO band d=1.0: +8L +10R, unswaps 0, elems 436, max bond 2, nbonds 19, moved 0, 0.4s
+  TNO band d=2.0: +14L +12R, unswaps 0, elems 544, max bond 4, nbonds 25, moved 0, 0.4s
+  TNO band d=3.0: +17L +9R, unswaps 0, elems 596, max bond 4, nbonds 26, moved 0, 0.4s
+  TNO band d=4.0: +10L +13R, unswaps 0, elems 712, max bond 8, nbonds 25, moved 0, 0.5s
+  TNO band d=5.0: +15L +13R, unswaps 0, elems 1532, max bond 8, nbonds 38, moved 0, 0.5s
+  TNO -> MPO: raw bonds [1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 1, 4, 8, 4, 2, 2, 1, 4, 4, 4, 4, 1, 2, 1, 4, 2, 1, 4, 4, 4, 1, 2, 2, 1, 4, 2, 2, 2, 4, 1, 2, 1, 3, 1, 2, 2, 1, 4, 4, 2, 4, 1, 2, 2, 1, 4, 1, 4]
+  TNO -> MPO: compressed {'max_bond': 8, 'elems': 1532, 'trunc': 4.26e-31}
+TNO centre block -> MPO: {'max_bond': 8, 'elems': 1532, 'trunc': 4.26e-31} t=0.5s
+[1/2593] L 64 (lay 24) R 68 (lay 36) {'max_bond': 8, 'elems': 1660, 'trunc': 4.33e-31} rs=0 pairs=0 res=1/0 t=0.5s rss=164MB
+[2/2593] L 65 (lay 24) R 68 (lay 36) {'max_bond': 8, 'elems': 1724, 'trunc': 4.4e-31} rs=0 pairs=0 res=1/1 t=0.5s rss=164MB
+[3/2593] L 65 (lay 24) R 69 (lay 36) {'max_bond': 8, 'elems': 1852, 'trunc': 4.49e-31} rs=0 pairs=1 res=1/0 t=0.5s rss=164MB
+[4/2593] L 66 (lay 24) R 69 (lay 36) {'max_bond': 8, 'elems': 1852, 'trunc': 4.49e-31} rs=0 pairs=1 res=1/1 t=0.5s rss=164MB
+[5/2593] L 66 (lay 24) R 70 (lay 36) {'max_bond': 8, 'elems': 1868, 'trunc': 4.49e-31} rs=0 pairs=1 res=2/1 t=0.5s rss=164MB
+[6/2593] L 67 (lay 24) R 70 (lay 36) {'max_bond': 8, 'elems': 2060, 'trunc': 4.61e-31} rs=0 pairs=1 res=2/2 t=0.5s rss=164MB
+[7/2593] L 67 (lay 24) R 71 (lay 36) {'max_bond': 8, 'elems': 2084, 'trunc': 4.61e-31} rs=0 pairs=1 res=3/2 t=0.5s rss=164MB
+[8/2593] L 68 (lay 24) R 71 (lay 36) {'max_bond': 8, 'elems': 2084, 'trunc': 4.61e-31} rs=0 pairs=2 res=2/2 t=0.5s rss=164MB
+[9/2593] L 68 (lay 24) R 72 (lay 36) {'max_bond': 8, 'elems': 2156, 'trunc': 4.61e-31} rs=0 pairs=2 res=3/2 t=0.5s rss=164MB
+[10/2593] L 69 (lay 24) R 72 (lay 36) {'max_bond': 8, 'elems': 2252, 'trunc': 4.61e-31} rs=0 pairs=3 res=2/2 t=0.5s rss=164MB
+[11/2593] L 69 (lay 24) R 73 (lay 36) {'max_bond': 8, 'elems': 2268, 'trunc': 4.61e-31} rs=0 pairs=3 res=3/2 t=0.5s rss=164MB
+[12/2593] L 70 (lay 24) R 73 (lay 36) {'max_bond': 8, 'elems': 2268, 'trunc': 4.61e-31} rs=0 pairs=3 res=3/3 t=0.5s rss=164MB
+[13/2593] L 71 (lay 24) R 73 (lay 36) {'max_bond': 16, 'elems': 2652, 'trunc': 4.87e-31} rs=0 pairs=4 res=2/3 t=0.5s rss=164MB
+[14/2593] L 72 (lay 24) R 73 (lay 36) {'max_bond': 16, 'elems': 2700, 'trunc': 4.87e-31} rs=0 pairs=4 res=2/4 t=0.5s rss=164MB
+[15/2593] L 72 (lay 24) R 74 (lay 36) {'max_bond': 16, 'elems': 2748, 'trunc': 5.15e-31} rs=0 pairs=4 res=3/4 t=0.5s rss=164MB
+[16/2593] L 73 (lay 24) R 74 (lay 36) {'max_bond': 16, 'elems': 2876, 'trunc': 5.27e-31} rs=0 pairs=4 res=3/5 t=0.5s rss=164MB
+[17/2593] L 73 (lay 24) R 75 (lay 36) {'max_bond': 16, 'elems': 3020, 'trunc': 5.27e-31} rs=0 pairs=4 res=4/5 t=0.5s rss=164MB
+[18/2593] L 74 (lay 24) R 75 (lay 36) {'max_bond': 16, 'elems': 3020, 'trunc': 5.27e-31} rs=0 pairs=5 res=3/5 t=0.5s rss=164MB
+[19/2593] L 74 (lay 24) R 76 (lay 36) {'max_bond': 16, 'elems': 3028, 'trunc': 5.27e-31} rs=0 pairs=5 res=4/5 t=0.5s rss=164MB
+[20/2593] L 75 (lay 24) R 76 (lay 36) {'max_bond': 16, 'elems': 3156, 'trunc': 5.37e-31} rs=0 pairs=5 res=4/6 t=0.5s rss=164MB
+[21/2593] L 75 (lay 24) R 77 (lay 36) {'max_bond': 16, 'elems': 3180, 'trunc': 5.37e-31} rs=0 pairs=5 res=5/6 t=0.5s rss=164MB
+[22/2593] L 76 (lay 24) R 77 (lay 36) {'max_bond': 16, 'elems': 3168, 'trunc': 2.23e-12} rs=0 pairs=5 res=5/7 t=0.5s rss=164MB
+[23/2593] L 76 (lay 24) R 78 (lay 36) {'max_bond': 16, 'elems': 3264, 'trunc': 2.23e-12} rs=1 pairs=5 res=6/7 t=0.6s rss=164MB
+[24/2593] L 77 (lay 24) R 78 (lay 36) {'max_bond': 16, 'elems': 3648, 'trunc': 2.23e-12} rs=1 pairs=6 res=5/7 t=0.6s rss=164MB
+[25/2593] L 77 (lay 24) R 79 (lay 36) {'max_bond': 16, 'elems': 3656, 'trunc': 2.23e-12} rs=4 pairs=6 res=6/7 t=0.6s rss=164MB
+[26/2593] L 78 (lay 24) R 79 (lay 36) {'max_bond': 16, 'elems': 3680, 'trunc': 2.23e-12} rs=6 pairs=6 res=6/8 t=0.6s rss=164MB
+[27/2593] L 78 (lay 24) R 80 (lay 36) {'max_bond': 16, 'elems': 4932, 'trunc': 2.23e-12} rs=11 pairs=6 res=7/8 t=0.6s rss=164MB
+[28/2593] L 79 (lay 24) R 80 (lay 36) {'max_bond': 16, 'elems': 5092, 'trunc': 3.82e-05} rs=12 pairs=6 res=7/9 t=0.6s rss=164MB
+[29/2593] L 79 (lay 24) R 81 (lay 36) {'max_bond': 32, 'elems': 9360, 'trunc': 5.88e-05} rs=30 pairs=6 res=8/9 t=0.7s rss=165MB
+[30/2593] L 80 (lay 23) R 81 (lay 36) {'max_bond': 80, 'elems': 49408, 'trunc': 0.000357} rs=64 pairs=6 res=8/10 t=0.8s rss=171MB
+[31/2593] L 80 (lay 23) R 82 (lay 36) {'max_bond': 80, 'elems': 49472, 'trunc': 0.000357} rs=64 pairs=7 res=8/9 t=0.8s rss=171MB
+[32/2593] L 80 (lay 23) R 83 (lay 36) {'max_bond': 80, 'elems': 85736, 'trunc': 0.000357} rs=87 pairs=7 res=9/9 t=1.1s rss=178MB
+    full unswap at step 33: 656456 -> 655976 elems, max bond 280, 2 sweeps 10.0s
+    slow step 33 (up): absorb 0.2s -> {'max_bond': 280, 'elems': 656456, 'trunc': 0.000568}, unswap 10.0s -> {'max_bond': 280, 'elems': 655976, 'trunc': 0.000568}
+[33/2593] L 80 (lay 23) R 84 (lay 36) {'max_bond': 280, 'elems': 655976, 'trunc': 0.000568} rs=110 pairs=7 res=10/9 t=11.3s rss=320MB
+STOP: elems {'max_bond': 280, 'elems': 655976, 'trunc': 0.000568}
+not finished

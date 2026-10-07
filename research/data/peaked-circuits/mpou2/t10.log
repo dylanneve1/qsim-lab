@@ -1,0 +1,9 @@
+n=10 units=28 blocks=18 depth=17 m=4.0 left=5 right=13 band=2,7 (phase1 2+3) eps0=1e-14 eps=1e-14 mode=sum2 maxb=512 sched=dist
+centre band: 5 blocks, group sizes [1, 1, 1, 2, 5]
+  group [0, 3]: pairing [(0, 0), (3, 3)] scores min 0.333 ranks [2]
+  group [2, 5, 6, 7, 8]: pairing [(2, 2), (5, 5), (6, 6), (7, 7), (8, 8)] scores min 0.072 ranks [4, 4, 2, 1]
+dense centre block: {'max_bond': 4, 'elems': 152, 'trunc': 0.0} t=0.1s
+    match at step 13: 4 swaps, score median 0.082 min 0.000; 9148 -> 5436 (kept) 0.1s
+[13/18] L 5 (lay -1) R 13 (lay -1) {'max_bond': 32, 'elems': 5436, 'trunc': 8.5e-29} t=0.4s rss=79MB
+final {'max_bond': 32, 'elems': 5436, 'trunc': 8.5e-29} t=0.5s
+PEAK sha 8d6974834f50 p=0.01736 maxflip=0.0124 higher=0 min|Z|=0.059 trunc=0.0000 0s

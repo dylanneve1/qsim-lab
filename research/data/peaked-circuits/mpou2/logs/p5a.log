@@ -1,0 +1,5 @@
+n=44 units=1892 blocks=902 depth=86 m=41.0 left=446 right=456 band=36,48 (phase1 54+42) eps0=1e-10 eps=1e-06 mode=sum2 maxb=256 sched=dist
+[10/902] L 5 (lay 40) R 5 (lay 42) {'max_bond': 4, 'elems': 416, 'trunc': 8.14e-31} t=0.0s rss=79MB
+    match at step 14: 0 swaps, score median 0.999 min 0.001; 10460 -> 10460 (kept) 2.2s
+[20/902] L 10 (lay 40) R 10 (lay 42) {'max_bond': 28, 'elems': 18668, 'trunc': 3.8e-09} t=12.6s rss=88MB
+[30/902] L 14 (lay 38) R 16 (lay 42) {'max_bond': 180, 'elems': 317400, 'trunc': 6.17e-09} t=78.8s rss=142MB

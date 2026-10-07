@@ -1,0 +1,10 @@
+n=56 units=1917 blocks=1885 depth=103 m=49.0 left=930 right=955 band=49.0,49.0 (phase1 0+0) eps0=1e-10 eps=0.001 mode=rel maxb=1024 sched=dist
+[10/1885] L 0 (lay 48) R 10 (lay 49) {'max_bond': 2, 'elems': 304, 'trunc': 6.07e-31} t=0.0s rss=72MB
+[20/1885] L 2 (lay 48) R 18 (lay 50) {'max_bond': 4, 'elems': 468, 'trunc': 3.25e-30} t=0.0s rss=72MB
+[30/1885] L 7 (lay 48) R 23 (lay 50) {'max_bond': 4, 'elems': 792, 'trunc': 2.96e-07} t=0.0s rss=72MB
+[40/1885] L 12 (lay 48) R 28 (lay 50) {'max_bond': 16, 'elems': 4536, 'trunc': 2.96e-07} t=0.1s rss=72MB
+    match at step 44: skipped, score median 0.333 1.0s
+[50/1885] L 17 (lay 48) R 33 (lay 51) {'max_bond': 64, 'elems': 64588, 'trunc': 3.22e-07} t=3.4s rss=83MB
+[60/1885] L 23 (lay 47) R 37 (lay 51) {'max_bond': 64, 'elems': 108920, 'trunc': 3.22e-07} t=7.4s rss=124MB
+[70/1885] L 28 (lay 47) R 42 (lay 51) {'max_bond': 64, 'elems': 97472, 'trunc': 3.22e-07} t=7.5s rss=124MB
+    match at step 72: skipped, score median 0.333 1.5s

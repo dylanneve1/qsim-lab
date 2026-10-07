@@ -1,0 +1,30 @@
+endgame: 44 input-side and 66 output-side blocks kept out of W
+n=44 units=1892 blocks=902 depth=86 m=41.0 left=402 right=390 band=36,48 (phase1 54+42) eps0=1e-10 eps=0.01 mode=rel maxb=512 sched=dist
+centre band: 96 blocks, group sizes [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  group [0, 5, 39, 40]: pairing [(0, 40), (5, 39), (39, 5), (40, 0)] scores min 0.974 ranks [1, 1, 1]
+  group [1, 21, 25, 38]: pairing [(1, 1), (21, 21), (25, 38), (38, 25)] scores min 0.994 ranks [1, 1, 1]
+  group [2, 13, 17, 29]: pairing [(2, 29), (13, 13), (17, 17), (29, 2)] scores min 0.980 ranks [1, 1, 1]
+  group [3, 15, 18, 23]: pairing [(3, 15), (15, 3), (18, 23), (23, 18)] scores min 0.982 ranks [1, 1, 1]
+  group [4, 8, 32, 42]: pairing [(4, 42), (8, 4), (32, 32), (42, 8)] scores min 0.976 ranks [1, 1, 1]
+  group [6, 14, 20, 33]: pairing [(6, 33), (14, 14), (20, 6), (33, 20)] scores min 0.970 ranks [1, 1, 1]
+  group [7, 11, 28, 37]: pairing [(7, 7), (11, 37), (28, 11), (37, 28)] scores min 0.972 ranks [1, 1, 1]
+  group [9, 22, 34, 43]: pairing [(9, 22), (22, 34), (34, 9), (43, 43)] scores min 0.964 ranks [1, 1, 1]
+  group [10, 12, 35, 41]: pairing [(10, 10), (12, 41), (35, 12), (41, 35)] scores min 0.974 ranks [1, 1, 1]
+  group [16, 19, 24, 30]: pairing [(16, 30), (19, 24), (24, 16), (30, 19)] scores min 0.977 ranks [1, 1, 1]
+  group [26, 27, 31, 36]: pairing [(26, 36), (27, 31), (31, 26), (36, 27)] scores min 0.969 ranks [1, 1, 1]
+dense centre block: {'max_bond': 1, 'elems': 176, 'trunc': 0.0} t=0.7s
+[100/902] L 104 (lay 30) R 92 (lay 52) {'max_bond': 9, 'elems': 5008, 'trunc': 0.00664} rs=727 t=3.5s rss=80MB
+[200/902] L 154 (lay 26) R 142 (lay 56) {'max_bond': 4, 'elems': 396, 'trunc': 0.0222} rs=1512 t=4.6s rss=80MB
+[300/902] L 204 (lay 22) R 192 (lay 60) {'max_bond': 2, 'elems': 196, 'trunc': 0.0235} rs=2402 t=6.0s rss=80MB
+[400/902] L 254 (lay 16) R 242 (lay 66) {'max_bond': 1, 'elems': 176, 'trunc': 0.0244} rs=3173 t=7.4s rss=80MB
+[500/902] L 304 (lay 12) R 292 (lay 70) {'max_bond': 1, 'elems': 176, 'trunc': 0.0247} rs=3884 t=8.5s rss=80MB
+[600/902] L 353 (lay 8) R 343 (lay 74) {'max_bond': 4, 'elems': 224, 'trunc': 0.0251} rs=4743 t=9.8s rss=80MB
+[696/902] L 402 (lay -1) R 390 (lay -1) {'max_bond': 1, 'elems': 176, 'trunc': 0.0254} rs=5575 t=10.5s rss=80MB
+endgame W {'max_bond': 1, 'elems': 176, 'trunc': 0.0254}
+    endgame marginal 0: <Z>=-0.7748 cone 6 gates
+    endgame marginal 8: <Z>=+0.3715 cone 6 gates
+    endgame marginal 16: <Z>=+0.7172 cone 6 gates
+    endgame marginal 24: <Z>=-0.7755 cone 6 gates
+    endgame marginal 32: <Z>=+0.5298 cone 6 gates
+    endgame marginal 40: <Z>=+0.6435 cone 6 gates
+PEAK sha 6f4e059f95df p=0.01088 maxflip=0.00123 higher=0 min|Z|=0.362 trunc=0.0254 22s (endgame 10s)

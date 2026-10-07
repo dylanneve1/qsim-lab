@@ -1,0 +1,51 @@
+n=62 units=3494 blocks=2593 depth=208 m=30.0 left=387 right=2206 band=26,35 (phase1 49+54) eps0=1e-10 eps=0.01 mode=rel maxb=512 sched=pair
+  TNO band d=0.0: +0L +10R, unswaps 0, elems 320, max bond 2, nbonds 9, moved 0, 0.4s
+  TNO band d=1.0: +8L +10R, unswaps 0, elems 436, max bond 2, nbonds 19, moved 0, 0.4s
+  TNO band d=2.0: +14L +12R, unswaps 0, elems 544, max bond 4, nbonds 25, moved 0, 0.4s
+  TNO band d=3.0: +17L +9R, unswaps 0, elems 596, max bond 4, nbonds 26, moved 0, 0.5s
+  TNO band d=4.0: +10L +13R, unswaps 0, elems 712, max bond 8, nbonds 25, moved 0, 0.5s
+  TNO -> MPO: raw bonds [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 8, 2, 4, 2, 2, 2, 2, 1, 4, 1, 4, 1, 4, 1, 4, 1, 2, 1, 4, 2, 1, 4, 1, 2, 1, 2, 2, 1, 4, 1, 2, 1, 2, 2]
+  TNO -> MPO: compressed {'max_bond': 8, 'elems': 736, 'trunc': 4.32e-31}
+TNO centre block -> MPO: {'max_bond': 8, 'elems': 736, 'trunc': 4.32e-31} t=0.5s
+[1/2593] L 49 (lay 25) R 55 (lay 35) {'max_bond': 8, 'elems': 728, 'trunc': 3.3e-13} rs=0 pairs=0 res=1/0 t=0.5s rss=167MB
+[2/2593] L 50 (lay 25) R 55 (lay 35) {'max_bond': 8, 'elems': 824, 'trunc': 3.3e-13} rs=0 pairs=0 res=1/1 t=0.5s rss=167MB
+[3/2593] L 50 (lay 25) R 56 (lay 35) {'max_bond': 8, 'elems': 952, 'trunc': 3.3e-13} rs=0 pairs=1 res=1/0 t=0.5s rss=167MB
+[4/2593] L 51 (lay 25) R 56 (lay 35) {'max_bond': 8, 'elems': 1024, 'trunc': 3.3e-13} rs=0 pairs=1 res=1/1 t=0.5s rss=167MB
+[5/2593] L 51 (lay 25) R 57 (lay 35) {'max_bond': 8, 'elems': 1012, 'trunc': 1.07e-09} rs=0 pairs=1 res=2/1 t=0.5s rss=167MB
+[6/2593] L 52 (lay 25) R 57 (lay 35) {'max_bond': 8, 'elems': 1108, 'trunc': 1.07e-09} rs=0 pairs=1 res=2/2 t=0.5s rss=167MB
+[7/2593] L 52 (lay 25) R 58 (lay 35) {'max_bond': 8, 'elems': 1124, 'trunc': 1.07e-09} rs=0 pairs=1 res=3/2 t=0.5s rss=167MB
+[8/2593] L 53 (lay 25) R 58 (lay 35) {'max_bond': 8, 'elems': 1148, 'trunc': 1.07e-09} rs=5 pairs=1 res=3/3 t=0.5s rss=167MB
+[9/2593] L 53 (lay 25) R 59 (lay 35) {'max_bond': 8, 'elems': 1140, 'trunc': 1.31e-09} rs=5 pairs=1 res=4/3 t=0.5s rss=167MB
+[10/2593] L 54 (lay 25) R 59 (lay 35) {'max_bond': 8, 'elems': 1272, 'trunc': 1.31e-09} rs=10 pairs=1 res=4/4 t=0.5s rss=167MB
+[11/2593] L 54 (lay 25) R 60 (lay 35) {'max_bond': 8, 'elems': 1256, 'trunc': 5.1e-08} rs=10 pairs=1 res=5/4 t=0.5s rss=167MB
+[12/2593] L 55 (lay 25) R 60 (lay 35) {'max_bond': 8, 'elems': 1316, 'trunc': 5.1e-08} rs=16 pairs=1 res=5/5 t=0.5s rss=167MB
+[13/2593] L 55 (lay 25) R 61 (lay 35) {'max_bond': 8, 'elems': 1268, 'trunc': 9.5e-08} rs=16 pairs=1 res=6/5 t=0.5s rss=167MB
+[14/2593] L 56 (lay 25) R 61 (lay 35) {'max_bond': 8, 'elems': 1312, 'trunc': 9.5e-08} rs=22 pairs=1 res=6/6 t=0.5s rss=167MB
+[15/2593] L 56 (lay 25) R 62 (lay 35) {'max_bond': 8, 'elems': 1376, 'trunc': 9.5e-08} rs=22 pairs=2 res=6/5 t=0.5s rss=167MB
+[16/2593] L 57 (lay 25) R 62 (lay 35) {'max_bond': 8, 'elems': 1384, 'trunc': 9.5e-08} rs=38 pairs=2 res=6/6 t=0.5s rss=167MB
+[17/2593] L 57 (lay 25) R 63 (lay 35) {'max_bond': 8, 'elems': 1372, 'trunc': 1.49e-07} rs=38 pairs=2 res=7/6 t=0.5s rss=167MB
+[18/2593] L 58 (lay 25) R 63 (lay 35) {'max_bond': 8, 'elems': 1432, 'trunc': 1.49e-07} rs=54 pairs=2 res=7/7 t=0.5s rss=167MB
+[19/2593] L 58 (lay 25) R 64 (lay 35) {'max_bond': 8, 'elems': 1492, 'trunc': 1.49e-07} rs=55 pairs=2 res=8/7 t=0.5s rss=167MB
+[20/2593] L 59 (lay 25) R 64 (lay 35) {'max_bond': 8, 'elems': 2312, 'trunc': 1.49e-07} rs=67 pairs=2 res=8/8 t=0.5s rss=167MB
+[21/2593] L 59 (lay 25) R 65 (lay 35) {'max_bond': 8, 'elems': 2408, 'trunc': 1.49e-07} rs=67 pairs=3 res=8/7 t=0.5s rss=167MB
+[22/2593] L 60 (lay 25) R 65 (lay 35) {'max_bond': 32, 'elems': 12924, 'trunc': 1.49e-07} rs=88 pairs=3 res=8/8 t=0.6s rss=168MB
+[23/2593] L 60 (lay 25) R 66 (lay 35) {'max_bond': 32, 'elems': 12960, 'trunc': 1.49e-07} rs=94 pairs=3 res=9/8 t=0.6s rss=168MB
+[24/2593] L 60 (lay 25) R 67 (lay 35) {'max_bond': 32, 'elems': 13000, 'trunc': 1.49e-07} rs=94 pairs=4 res=9/7 t=0.6s rss=168MB
+[25/2593] L 61 (lay 25) R 67 (lay 35) {'max_bond': 32, 'elems': 13000, 'trunc': 1.49e-07} rs=94 pairs=5 res=8/7 t=0.6s rss=168MB
+    full unswap at step 26: 172096 -> 171436 elems, max bond 128, 3 sweeps 2.9s
+[26/2593] L 62 (lay 25) R 67 (lay 35) {'max_bond': 128, 'elems': 171436, 'trunc': 1.49e-07} rs=125 pairs=5 res=8/8 t=3.5s rss=219MB
+[27/2593] L 63 (lay 25) R 67 (lay 35) {'max_bond': 128, 'elems': 160364, 'trunc': 0.000243} rs=143 pairs=6 res=7/8 t=3.8s rss=244MB
+[28/2593] L 63 (lay 25) R 68 (lay 35) {'max_bond': 128, 'elems': 169580, 'trunc': 0.000243} rs=143 pairs=7 res=7/7 t=3.8s rss=244MB
+[29/2593] L 63 (lay 25) R 69 (lay 35) {'max_bond': 128, 'elems': 173672, 'trunc': 0.000243} rs=148 pairs=7 res=8/7 t=3.8s rss=244MB
+[30/2593] L 64 (lay 25) R 69 (lay 35) {'max_bond': 128, 'elems': 173828, 'trunc': 0.000243} rs=188 pairs=7 res=8/8 t=4.1s rss=255MB
+[31/2593] L 64 (lay 25) R 70 (lay 35) {'max_bond': 128, 'elems': 184064, 'trunc': 0.000243} rs=203 pairs=7 res=9/8 t=4.4s rss=264MB
+[32/2593] L 65 (lay 25) R 70 (lay 35) {'max_bond': 128, 'elems': 184108, 'trunc': 0.000243} rs=252 pairs=7 res=9/9 t=4.8s rss=266MB
+[33/2593] L 65 (lay 25) R 71 (lay 35) {'max_bond': 128, 'elems': 184172, 'trunc': 0.000243} rs=252 pairs=8 res=9/8 t=4.8s rss=266MB
+[34/2593] L 66 (lay 24) R 71 (lay 35) {'max_bond': 128, 'elems': 184196, 'trunc': 0.000243} rs=304 pairs=8 res=9/9 t=5.5s rss=273MB
+[35/2593] L 66 (lay 24) R 72 (lay 35) {'max_bond': 128, 'elems': 184196, 'trunc': 0.000243} rs=304 pairs=9 res=9/8 t=5.5s rss=273MB
+[36/2593] L 66 (lay 24) R 73 (lay 35) {'max_bond': 128, 'elems': 184448, 'trunc': 0.000243} rs=343 pairs=9 res=10/8 t=5.8s rss=282MB
+    full unswap at step 37: 731264 -> 706688 elems, max bond 256, 2 sweeps 12.1s
+    slow step 37 (up): absorb 1.1s -> {'max_bond': 256, 'elems': 731264, 'trunc': 0.000243}, unswap 12.1s -> {'max_bond': 256, 'elems': 706688, 'trunc': 0.000243}
+[37/2593] L 66 (lay 24) R 74 (lay 36) {'max_bond': 256, 'elems': 706688, 'trunc': 0.000243} rs=396 pairs=9 res=11/8 t=19.0s rss=345MB
+STOP: elems {'max_bond': 256, 'elems': 706688, 'trunc': 0.000243}
+not finished
