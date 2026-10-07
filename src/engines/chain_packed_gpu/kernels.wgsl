@@ -325,6 +325,71 @@ fn dec_v(q: i32, sm: u32, es: i32, k: i32) -> vec2<u32> {
     return vec2<u32>(sign | (u32(clamp(e + 127, 1, 254)) << 23u) | field, bad);
 }
 
+// same as dec_v, cheaply (see `exact32::dec_fast`)
+fn dec_fast(q: i32, sm: u32, es: i32, k: i32) -> vec2<u32> {
+    if (q == 0) {
+        return vec2<u32>(0u, 0u);
+    }
+    let aq = u32(abs(q));
+    let a = aq * sm;
+    let bl = bitlen(a);
+    var e = i32(bl) - 1 + es;
+    var m = 0u;
+    if (bl > 24u) {
+        let d = bl - 24u;
+        let low = a & ((1u << d) - 1u);
+        let half = 1u << (d - 1u);
+        let t = aq * u32(abs(k));
+        var up = false;
+        if (low != half) {
+            up = low > half;
+        } else if (t > half) {
+            up = k > 0;
+        } else {
+            up = ((a >> d) & 1u) == 1u;
+        }
+        m = (a >> d) + select(0u, 1u, up);
+        if (m == 0x1000000u) {
+            m = 0x800000u;
+            e = e + 1;
+        }
+    } else {
+        m = a << (24u - bl);
+    }
+    var bad = 0u;
+    if (e < -126 || e > 127) {
+        bad = 1u;
+    }
+    var sign = 0u;
+    if (q < 0) {
+        sign = 0x80000000u;
+    }
+    return vec2<u32>(sign | (u32(clamp(e + 127, 1, 254)) << 23u) | (m & 0x7fffffu), bad);
+}
+
+// same as enc_q: f32 fast path away from ties and the clamp (see
+// `exact32::enc_fast`; `rinv` is any reciprocal of the step within a few ulp)
+fn enc_fast(x: f32, rinv: f32, r: vec3<u32>, es: i32, maxv: u32) -> i32 {
+    let margin = 1.0 / 4096.0;
+    let y = abs(x) * rinv;
+    let fm = f32(maxv);
+    var n = 0u;
+    if (y > fm + 0.5 + margin) {
+        n = maxv;
+    } else {
+        let f = y - floor(y);
+        if (abs(f - 0.5) > margin && y < fm + 0.5 - margin) {
+            n = u32(floor(y + 0.5));
+        } else {
+            return enc_q(x, r, es, maxv);
+        }
+    }
+    if ((bitcast<u32>(x) >> 31u) == 1u) {
+        return -i32(n);
+    }
+    return i32(n);
+}
+
 fn get_int(wbase: u32, i: u32, bits: u32) -> u32 {
     let bp = i * bits;
     let wi = wbase + (bp >> 5u);
@@ -374,8 +439,8 @@ fn unpack(@builtin(workgroup_id) wid: vec3<u32>, @builtin(local_invocation_index
         }
         let wb = kb * P.wpb;
         for (var j = 0u; j < P.block; j++) {
-            let re = dec_v(i32(get_int(wb, 2u * j, P.bits)) - i32(P.maxv), sm, es, k);
-            let im = dec_v(i32(get_int(wb, 2u * j + 1u, P.bits)) - i32(P.maxv), sm, es, k);
+            let re = dec_fast(i32(get_int(wb, 2u * j, P.bits)) - i32(P.maxv), sm, es, k);
+            let im = dec_fast(i32(get_int(wb, 2u * j + 1u, P.bits)) - i32(P.maxv), sm, es, k);
             badf = badf | re.y | im.y;
             work[a0 + j] = vec2<f32>(bitcast<f32>(re.x), bitcast<f32>(im.x));
         }
@@ -469,6 +534,30 @@ fn mat(mo: u32, real: bool, x: vec2<f32>, y: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(a, b);
 }
 
+// the matrix at `mo` as (re of m00 m01 m10 m11), (im of the same)
+fn ldm_r(mo: u32) -> vec4<f32> {
+    return vec4<f32>(pf(mo), pf(mo + 1u), pf(mo + 2u), pf(mo + 3u));
+}
+
+fn ldm_i(mo: u32) -> vec4<f32> {
+    return vec4<f32>(pf(mo + 4u), pf(mo + 5u), pf(mo + 6u), pf(mo + 7u));
+}
+
+// `mat` with the matrix already loaded (same arithmetic)
+fn matv(mr: vec4<f32>, mi: vec4<f32>, real: bool, x: vec2<f32>, y: vec2<f32>) -> vec4<f32> {
+    if (real) {
+        return vec4<f32>(
+            fma(mr.x, x.x, mr.y * y.x),
+            fma(mr.x, x.y, mr.y * y.y),
+            fma(mr.z, x.x, mr.w * y.x),
+            fma(mr.z, x.y, mr.w * y.y)
+        );
+    }
+    let a = cmul2(mr.x, mi.x, mr.y, mi.y, x.x, x.y, y.x, y.y);
+    let b = cmul2(mr.z, mi.z, mr.w, mi.w, x.x, x.y, y.x, y.y);
+    return vec4<f32>(a, b);
+}
+
 // diagonal factor of buffer index j from the tables at `toff`, applied to z
 fn dfac(z: vec2<f32>, j: u32, lb: u32, nlo: u32, nhi: u32, toff: u32) -> vec2<f32> {
     let x = j & (nlo - 1u);
@@ -536,8 +625,10 @@ fn pack_block32(kb: u32, m: f32) -> u32 {
         }
     }
     var r = vec3<u32>(0u, 0u, 0u);
+    var rinv = 0.0;
     if (sc != 0u) {
         r = recip(sm);
+        rinv = 1.0 / bitcast<f32>(sc);
     }
     let bits = P.bits;
     var acc = 0u;
@@ -548,7 +639,7 @@ fn pack_block32(kb: u32, m: f32) -> u32 {
         for (var c = 0u; c < 2u; c++) {
             var qi = 0;
             if (sc != 0u) {
-                qi = enc_q(v[c], r, es, maxv);
+                qi = enc_fast(v[c], rinv, r, es, maxv);
             }
             let q = u32(qi + i32(maxv));
             acc = acc | (q << na);
