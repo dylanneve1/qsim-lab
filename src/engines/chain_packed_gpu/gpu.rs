@@ -265,7 +265,7 @@ impl GpuSweeper {
                     }
                 };
             let al = adapter.limits();
-            if al.max_compute_workgroup_storage_size < need_wg + 64 {
+            if al.max_compute_workgroup_storage_size < need_wg {
                 last = format!(
                     "{b:?}: workgroup memory {} < {}",
                     al.max_compute_workgroup_storage_size, need_wg
