@@ -178,7 +178,7 @@ impl PackedStore {
         }
         let n = 1usize << width;
         let block = block.min(n);
-        if n % block != 0 || block % 4 != 0 {
+        if !n.is_multiple_of(block) || !block.is_multiple_of(4) {
             return Err(SimError::NotSupported {
                 what: "packed storage: the scale block does not tile the register",
             });
@@ -809,6 +809,8 @@ pub fn run_emulated_stages(
         let ex = StageExec::new(st, plan.width, cfg);
         let amps = SyncPtr(sv.amplitudes_mut().as_mut_ptr());
         (0..ex.nblocks()).into_par_iter().for_each(|c| {
+            // Rebind so the closure captures the whole Sync wrapper, not its raw-pointer field.
+            #[allow(clippy::redundant_locals)]
             let amps = amps;
             with_block_buf(ex.l, |buf| {
                 // SAFETY: blocks are disjoint sets of register indices.
