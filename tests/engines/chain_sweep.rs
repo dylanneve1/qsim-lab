@@ -224,7 +224,13 @@ fn packed_storage_is_bit_exact_with_emulation() {
     use qsim_lab::engines::chain_lowprec::{passes, run_lowprec, Granularity, LowPrec};
     use qsim_lab::engines::chain_packed::{packed_stages, run_emulated_stages, run_packed};
     let full = Circuit::from_qasm(QASM).unwrap();
-    let fmts = ["int4:b16:h", "int5:b64", "int5:b16:h", "int6:b64", "int8:b64"];
+    let fmts = [
+        "int4:b16:h",
+        "int5:b64",
+        "int5:b16:h",
+        "int6:b64",
+        "int8:b64",
+    ];
     let mut rng = StdRng::seed_from_u64(11);
 
     // (a) small register (one block per pass, as in run_lowprec)
@@ -267,7 +273,9 @@ fn packed_storage_is_bit_exact_with_emulation() {
         let ex = chain_sweep::amplitude_cpu::<f64>(&plan, &Default::default()).unwrap();
         let stages = packed_stages(&plan.ops, plan.width, plan.width - 4, 3);
         assert!(stages.len() > plan.width);
-        assert!(stages.iter().any(|s| s.inner != (0..s.inner.len()).collect::<Vec<_>>()));
+        assert!(stages
+            .iter()
+            .any(|s| s.inner != (0..s.inner.len()).collect::<Vec<_>>()));
         // direct: the stage runs as one block; nested: re-planned inside the
         // gather buffer with 2^6-amplitude cache blocks
         let nested = BlockConfig {
@@ -298,5 +306,182 @@ fn packed_storage_is_bit_exact_with_emulation() {
         // int8 is nearly exact; int4 loses the most
         assert!(fid[4] > 0.99, "{fid:?}");
         assert!(fid[0] < fid[4], "{fid:?}");
+    }
+}
+
+// ----- tail-open batches (chain_tail) -------------------------------------
+
+use qsim_lab::engines::chain_tail::{run_tail, tail_amplitudes, CpuExact, CpuPacked, TailPlan};
+
+/// Little-endian `x` with the suffix of `x` and tail completion `j`
+/// (`j` = bits q0..q(m-1), q0 the most significant).
+fn with_tail(x: u128, m: usize, j: usize) -> u128 {
+    let mut y = x & !((1u128 << m) - 1);
+    for i in 0..m {
+        y |= (((j >> (m - 1 - i)) & 1) as u128) << i;
+    }
+    y
+}
+
+fn rand_bits(rng: &mut StdRng, n: usize) -> u128 {
+    (0..n).fold(0, |a, i| a | ((rng.random_bool(0.5) as u128) << i))
+}
+
+fn tail_f64(cc: &ChainCircuit, x: u128, m: usize) -> Vec<Complex64> {
+    let tp = TailPlan::new(cc, x, m);
+    let mut be = CpuExact::<f64>::new(Default::default());
+    run_tail(&mut be, &tp, &mut |_, _| {}).unwrap().0
+}
+
+/// Every tail size m = 1..=8 against the dense state vector (random
+/// brickwork and the truncated IBM circuit), to f64 round-off.
+#[test]
+fn tail_batch_matches_statevector() {
+    let mut rng = StdRng::seed_from_u64(21);
+    let full = Circuit::from_qasm(QASM).unwrap();
+    let mut cases = vec![truncate(&full, 14, 24), truncate(&full, 12, 40)];
+    for _ in 0..2 {
+        cases.push(brickwork(13, 18, &mut rng));
+    }
+    for c in &cases {
+        let n = c.num_qubits;
+        let mut sv = StateVector::<f64>::new(n);
+        sv.apply_circuit(c).unwrap();
+        let cc = ChainCircuit::from_circuit(c).unwrap();
+        let rms = (1.0 / (1u64 << n) as f64).sqrt();
+        for m in 1..=8 {
+            let x = rand_bits(&mut rng, n);
+            let got = tail_f64(&cc, x, m);
+            assert_eq!(got.len(), 1 << m);
+            for (j, a) in got.iter().enumerate() {
+                let e = sv.amplitude(with_tail(x, m, j) as usize);
+                assert!(
+                    (a - e).norm() < 1e-10 * rms,
+                    "n={n} m={m} j={j}: {a} vs {e}"
+                );
+            }
+        }
+    }
+}
+
+/// n = 70: the tail batch against the plain chain sweep's amplitude of each
+/// completion (exact f64 engine), and the f32 register to f32 round-off.
+#[test]
+fn tail_batch_matches_chain_sweep_n70() {
+    let full = Circuit::from_qasm(QASM).unwrap();
+    let mut rng = StdRng::seed_from_u64(5);
+    for (d, m, every) in [(16, 8, 1), (24, 6, 1), (30, 8, 37)] {
+        let c = truncate(&full, 70, d);
+        let cc = ChainCircuit::from_circuit(&c).unwrap();
+        let x = rand_bits(&mut rng, 70);
+        let got = tail_f64(&cc, x, m);
+        let tp = TailPlan::new(&cc, x, m);
+        let mut be32 = CpuExact::<f32>::new(Default::default());
+        let got32 = run_tail(&mut be32, &tp, &mut |_, _| {}).unwrap().0;
+        let norm: f64 = got.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
+        let mut max_rel32 = 0f64;
+        for j in (0..1usize << m).step_by(every) {
+            let e = chain_sweep::amplitude(&cc, with_tail(x, m, j)).unwrap();
+            assert!(
+                (got[j] - e).norm() < 1e-9 * norm,
+                "d={d} m={m} j={j}: {} vs {e}",
+                got[j]
+            );
+        }
+        for (a, b) in got.iter().zip(&got32) {
+            max_rel32 = max_rel32.max((a - b).norm() / norm);
+        }
+        assert!(max_rel32 < 1e-5, "d={d} f32 rel err {max_rel32}");
+    }
+}
+
+/// Packed store: random reads (`get`) equal the block decoder bit for bit,
+/// the tail batch over the packed store equals the batch over its decoded
+/// copy, and the batch fidelity is sane per format.
+#[test]
+fn tail_batch_packed_is_consistent() {
+    use qsim_lab::engines::chain_lowprec::LowPrec;
+    let full = Circuit::from_qasm(QASM).unwrap();
+    let c = chain_sweep::truncate_window(&full, 70, 40, 70);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let mut rng = StdRng::seed_from_u64(9);
+    let x = rand_bits(&mut rng, 70);
+    let tp = TailPlan::new(&cc, x, 6);
+    let exact = tail_f64(&cc, x, 6);
+    let w = tp.sweep.width;
+    for f in [
+        "int4:b16:h",
+        "int5:b16:h",
+        "int5:b64",
+        "int6:b64",
+        "int3:b16",
+        "int7:b64",
+        "int8:b64",
+    ] {
+        let lp = LowPrec::parse(f).unwrap();
+        let mut be = CpuPacked::new(lp, Default::default(), w.saturating_sub(3), 2);
+        let (got, st, _) = run_tail(&mut be, &tp, &mut |_, _| {}).unwrap();
+        assert!(st.passes > 1);
+        let s = be.store().unwrap();
+        let blk = s.decode_all();
+        let rnd: Vec<_> = (0..1usize << w).map(|i| s.get(i)).collect();
+        assert_eq!(rnd, blk, "{f}: get vs block decode");
+        let copy: Vec<Complex64> = blk
+            .iter()
+            .map(|a| Complex64::new(a.re as f64, a.im as f64))
+            .collect();
+        assert_eq!(tail_amplitudes(&tp, &|i| copy[i]), got, "{f}");
+        let ov: Complex64 = exact.iter().zip(&got).map(|(e, l)| e.conj() * l).sum();
+        let ne: f64 = exact.iter().map(|a| a.norm_sqr()).sum();
+        let nl: f64 = got.iter().map(|a| a.norm_sqr()).sum();
+        let fid = ov.norm_sqr() / (ne * nl);
+        // loose sanity bounds at R passes (rates r = -ln F / R from LOWPREC.md)
+        let r = match &f[..4] {
+            "int3" => 0.06,
+            "int4" => 0.02,
+            "int5" => 0.005,
+            "int6" => 0.0015,
+            "int7" => 5e-4,
+            _ => 1e-4,
+        };
+        eprintln!("{f}: R={} F={fid:.6}", st.passes);
+        assert!(
+            fid > (-r * st.passes as f64).exp(),
+            "{f}: R={} F = {fid}",
+            st.passes
+        );
+    }
+}
+
+/// The GEMM tail pass equals the depth-first one (every split point h).
+#[test]
+fn tail_gemm_matches_dfs() {
+    use qsim_lab::engines::chain_tail::{tail_amplitudes_dfs, tail_amplitudes_gemm, SweepBackend};
+    let full = Circuit::from_qasm(QASM).unwrap();
+    let mut rng = StdRng::seed_from_u64(77);
+    for (d, m) in [(24, 8), (30, 6), (20, 1), (26, 3)] {
+        let c = truncate(&full, 70, d);
+        let cc = ChainCircuit::from_circuit(&c).unwrap();
+        let x = rand_bits(&mut rng, 70);
+        let tp = TailPlan::new(&cc, x, m);
+        assert_eq!(
+            tp.slots,
+            (0..tp.num_bonds()).collect::<Vec<_>>(),
+            "d={d} m={m}"
+        );
+        let mut be = CpuExact::<f64>::new(Default::default());
+        be.sweep(&tp.sweep, &mut |_, _| {}).unwrap();
+        let reg = |i: usize| be.amp(i);
+        let r = tail_amplitudes_dfs(&tp, &reg);
+        let norm: f64 = r.iter().map(|a| a.norm_sqr()).sum::<f64>().sqrt();
+        for h in [0, 1, tp.num_bonds() / 2, tp.num_bonds()] {
+            let g = tail_amplitudes_gemm(&tp, &reg, Some(h));
+            let err = r
+                .iter()
+                .zip(&g)
+                .map(|(a, b)| (a - b).norm())
+                .fold(0.0, f64::max);
+            assert!(err < 1e-12 * norm, "d={d} m={m} h={h}: {err:e}");
+        }
     }
 }

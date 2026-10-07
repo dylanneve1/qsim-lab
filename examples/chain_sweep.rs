@@ -10,6 +10,9 @@
 //! cargo run --release --example chain_sweep -- fidmitm  --n 70 --d 40 --s 8 --k 400
 //! cargo run --release --example chain_sweep -- lowprec  --n 70 --d 40 --k 200 --formats bf16,fp16:b1024
 //! cargo run --release --example chain_sweep -- packed   --n 70 --d 44 --tail --k 100 --formats int4:b16:h,int5:b64
+//! cargo run --release --example chain_sweep -- tailinfo  --n 70 --d 70 --m 8 --format int4:b64
+//! cargo run --release --example chain_sweep -- tailcheck --n 20 --d 40 --m 8 --backends cpu64,cpu32,int6:b64
+//! cargo run --release --example chain_sweep -- run --d 70 --format int6:b64 --jobs cal_jobs.jsonl --out cal.jsonl --heartbeat hb.txt
 //! ```
 //! `--backend metal` needs `--features metal` on macOS. `--qasm PATH`
 //! overrides the circuit (default: the bundled nq70 depth-70 file).
@@ -460,8 +463,11 @@ fn main() {
         Some("fidmitm") => fidmitm(&a),
         Some("lowprec") => lowprec(&a),
         Some("packed") => packed(&a),
+        Some("tailinfo") => tailinfo(&a),
+        Some("tailcheck") => tailcheck(&a),
+        Some("run") => runloop(&a),
         _ => eprintln!(
-            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed [--n N --d D ...]"
+            "usage: chain_sweep info|validate|bench|fidsv|fidmitm|lowprec|packed|tailinfo|tailcheck|run [--n N --d D ...]"
         ),
     }
 }
@@ -644,7 +650,13 @@ fn packed(a: &Args) {
         let st = stages_for(&plan);
         let minrun = st
             .iter()
-            .map(|s| s.inner.iter().enumerate().take_while(|(j, q)| j == *q).count())
+            .map(|s| {
+                s.inner
+                    .iter()
+                    .enumerate()
+                    .take_while(|(j, q)| j == *q)
+                    .count()
+            })
             .min()
             .unwrap_or(0);
         println!(
@@ -693,7 +705,10 @@ fn packed(a: &Args) {
                 *t += s;
             }
             if r.underflow + r.overflow > 0 {
-                println!("  WARNING fmt={f} underflow={} overflow={}", r.underflow, r.overflow);
+                println!(
+                    "  WARNING fmt={f} underflow={} overflow={}",
+                    r.underflow, r.overflow
+                );
             }
             if flag("--emul") {
                 let e = run_emulated_stages(&plan, &st, f, &cfg).unwrap();
@@ -745,4 +760,319 @@ fn packed(a: &Args) {
             }
         }
     }
+}
+
+// ----- tail-open batches and the sampling run (RUNPLAN §2.1, §6) ----------
+
+#[cfg(windows)]
+mod keepawake {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetThreadExecutionState(flags: u32) -> u32;
+    }
+    /// Keeps the machine from sleeping while this thread lives (ES_CONTINUOUS | ES_SYSTEM_REQUIRED).
+    pub fn on() {
+        // SAFETY: plain Win32 call with constant flags.
+        unsafe {
+            SetThreadExecutionState(0x8000_0000 | 0x0000_0001);
+        }
+    }
+}
+#[cfg(not(windows))]
+mod keepawake {
+    pub fn on() {}
+}
+
+/// The register backend named by `--format`: `cpu64`, `cpu32`, or a packed
+/// `intB:bN[:h]` format (with `--l`, `--slots`).
+fn tail_backend(a: &Args) -> Box<dyn qsim_lab::engines::chain_tail::SweepBackend> {
+    use qsim_lab::engines::chain_lowprec::LowPrec;
+    use qsim_lab::engines::chain_tail::{CpuExact, CpuPacked};
+    let f = a.s("format", "int6:b64");
+    let cfg = block_cfg();
+    match f.as_str() {
+        "cpu64" => Box::new(CpuExact::<f64>::new(cfg)),
+        "cpu32" => Box::new(CpuExact::<f32>::new(cfg)),
+        f => {
+            let lp = LowPrec::parse(f).unwrap_or_else(|| panic!("bad format {f}"));
+            let mut be = CpuPacked::new(lp, cfg, a.get("l", 22), a.get("slots", 14));
+            be.fuse = std::env::var("CS_FUSE").map(|v| v != "0").unwrap_or(true);
+            Box::new(be)
+        }
+    }
+}
+
+/// Plan facts for a tail-open run: register width, open bonds and their
+/// register bits, passes R of the chosen backend, tail-pass cost.
+fn tailinfo(a: &Args) {
+    use qsim_lab::engines::chain_tail::TailPlan;
+    let c = circuit(a);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let m: usize = a.get("m", 6);
+    let tp = TailPlan::new(&cc, 0, m);
+    let be = tail_backend(a);
+    let r = be.count_passes(&tp.sweep);
+    println!(
+        "tailinfo n={} d={} m={m} width={} ops={} open_bonds={} R={} backend=\"{}\" tail_cmacs={:.3e}",
+        cc.n,
+        a.get::<usize>("d", 70),
+        tp.sweep.width,
+        tp.sweep.ops.len(),
+        tp.num_bonds(),
+        r,
+        be.describe(),
+        tp.tail_cost()
+    );
+    println!("  open bond slots (time order): {:?}", tp.slots);
+    if let Some(lp) = qsim_lab::engines::chain_lowprec::LowPrec::parse(&a.s("format", "int6:b64")) {
+        if let Some(b) =
+            qsim_lab::engines::chain_packed::PackedStore::bytes_for(tp.sweep.width, &lp)
+        {
+            println!("  store {:.3} GiB", b as f64 / (1u64 << 30) as f64);
+        }
+    }
+}
+
+/// Validation of the tail batch: `--k` random suffixes, every backend in
+/// `--backends` (cpu64, cpu32, packed formats) against the dense state
+/// vector (n <= 26) or, at larger n, the exact chain sweep of every
+/// `--every`-th completion. Prints max relative error and batch fidelity.
+fn tailcheck(a: &Args) {
+    use qsim_lab::engines::chain_tail::{run_tail, CpuExact, CpuPacked, SweepBackend, TailPlan};
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let m: usize = a.get("m", 6);
+    let k: usize = a.get("k", 3);
+    let every: usize = a.get("every", 1);
+    let mut rng = StdRng::seed_from_u64(a.get("seed", 1));
+    let sv = (n <= 26).then(|| {
+        let mut sv = StateVector::<f64>::new(n);
+        sv.apply_circuit(&c).unwrap();
+        sv
+    });
+    let full = |x: u128, j: usize| -> u128 {
+        let mut y = x & !((1u128 << m) - 1);
+        for i in 0..m {
+            y |= (((j >> (m - 1 - i)) & 1) as u128) << i;
+        }
+        y
+    };
+    let backends = a.s("backends", "cpu64,cpu32");
+    for t in 0..k {
+        let x = rand_x(&mut rng, n);
+        let tp = TailPlan::new(&cc, x, m);
+        let js: Vec<usize> = (0..1usize << m).step_by(every).collect();
+        let reference: Vec<Complex64> = js
+            .iter()
+            .map(|&j| match &sv {
+                Some(sv) => sv.amplitude(full(x, j) as usize),
+                None => chain_sweep::amplitude(&cc, full(x, j)).unwrap(),
+            })
+            .collect();
+        let refnorm = reference.iter().map(|z| z.norm_sqr()).sum::<f64>().sqrt();
+        for b in backends.split(',') {
+            let mut be: Box<dyn SweepBackend> = match b {
+                "cpu64" => Box::new(CpuExact::<f64>::new(block_cfg())),
+                "cpu32" => Box::new(CpuExact::<f32>::new(block_cfg())),
+                f => {
+                    let lp = qsim_lab::engines::chain_lowprec::LowPrec::parse(f).expect("format");
+                    Box::new(CpuPacked::new(
+                        lp,
+                        block_cfg(),
+                        a.get("l", 22),
+                        a.get("slots", 14),
+                    ))
+                }
+            };
+            let (amps, st, ttail) = run_tail(be.as_mut(), &tp, &mut |_, _| {}).unwrap();
+            let got: Vec<Complex64> = js.iter().map(|&j| amps[j]).collect();
+            let err = got
+                .iter()
+                .zip(&reference)
+                .map(|(g, e)| (g - e).norm())
+                .fold(0.0f64, f64::max)
+                / (refnorm / (js.len() as f64).sqrt());
+            let ov: Complex64 = reference.iter().zip(&got).map(|(e, l)| e.conj() * l).sum();
+            let nl: f64 = got.iter().map(|z| z.norm_sqr()).sum();
+            let fid = ov.norm_sqr() / (refnorm * refnorm * nl);
+            println!(
+                "tailcheck n={n} d={} m={m} trial={t} backend={b} width={} R={} max|err|/rms={err:.3e} F={fid:.9} t_sweep={:.2}s t_tail={ttail:.2}s ref={}",
+                a.get::<usize>("d", 70),
+                tp.sweep.width,
+                st.passes,
+                st.secs,
+                if sv.is_some() { "statevector" } else { "chain-sweep" }
+            );
+        }
+    }
+}
+
+/// The sampling / calibration run loop (RUNPLAN §6 E3/E4). One process,
+/// one register allocation; for every job not yet done in `--out` (resume
+/// by key, in job order, a crashed job is redone): append a `start` line,
+/// sweep, tail pass, append the result record (fsync); `--heartbeat FILE`
+/// is rewritten after every pass. Jobs come from `--jobs FILE` (lines of
+/// `analyze.py prefixes` / `calrows`) or from `--seed-file F --count N
+/// [--start S] --m M` (the same prefixes as `analyze.py prefixes`).
+/// `--take K` stops after K new jobs.
+fn runloop(a: &Args) {
+    use qsim_lab::engines::chain_run::{
+        bitstring, draw, hex, jamps, jnum, json_field, parse_job, read_seed, seed_jobs, sha256, Job,
+    };
+    use qsim_lab::engines::chain_tail::{tail_amplitudes, TailPlan};
+    use std::io::Write;
+    keepawake::on();
+    let c = circuit(a);
+    let n = c.num_qubits;
+    let d: usize = a.get("d", 70);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let out = a.s("out", "run.jsonl");
+    let hb = a.s("heartbeat", "heartbeat.txt");
+    let take: usize = a.get("take", usize::MAX);
+    let mut seed_hash = String::new();
+    let jobs: Vec<Job> = if let Some(p) = a.0.iter().position(|x| x == "--jobs") {
+        let txt = std::fs::read_to_string(&a.0[p + 1]).expect("read jobs");
+        txt.lines().filter_map(parse_job).collect()
+    } else {
+        let p =
+            a.0.iter()
+                .position(|x| x == "--seed-file")
+                .expect("--jobs FILE or --seed-file F --count N --m M");
+        let seed = read_seed(&std::fs::read(&a.0[p + 1]).expect("read seed"));
+        seed_hash = hex(&sha256(&seed));
+        seed_jobs(
+            &seed,
+            a.get("m", 6),
+            n,
+            a.get("start", 0u64),
+            a.get("count", 0u64),
+        )
+    };
+    for j in &jobs {
+        j.validate(n).unwrap_or_else(|e| panic!("{e}"));
+    }
+    let mut keys = std::collections::HashSet::new();
+    for j in &jobs {
+        assert!(keys.insert(j.key()), "duplicate job {}", j.key());
+    }
+    // resume: keys with a result record
+    let mut done = std::collections::HashSet::new();
+    if let Ok(txt) = std::fs::read_to_string(&out) {
+        for l in txt.lines() {
+            match json_field(l, "kind") {
+                Some("sample") => {
+                    done.insert(format!("s{}", json_field(l, "i").unwrap_or("?")));
+                }
+                Some("calib") => {
+                    done.insert(format!("c{}", json_field(l, "row").unwrap_or("?")));
+                }
+                _ => {}
+            }
+        }
+    }
+    let todo: Vec<&Job> = jobs
+        .iter()
+        .filter(|j| !done.contains(&j.key()))
+        .take(take)
+        .collect();
+    let mut be = tail_backend(a);
+    let host = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_default();
+    eprintln!(
+        "run: n={n} d={d} jobs={} done={} todo={} backend=\"{}\" out={out}",
+        jobs.len(),
+        done.len(),
+        todo.len(),
+        be.describe()
+    );
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&out)
+        .expect("open out");
+    let now = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64()
+    };
+    let write_line = |f: &mut std::fs::File, s: &str| {
+        writeln!(f, "{s}").expect("write record");
+        f.sync_all().expect("fsync record");
+    };
+    let beat = |job: &str, phase: &str, pass: usize, total: usize, t0: f64| {
+        let tmp = format!("{hb}.tmp");
+        let txt = format!(
+            "time_unix={:.0} pid={} job={job} phase={phase} pass={pass}/{total} elapsed_s={:.0}\n",
+            now(),
+            std::process::id(),
+            now() - t0
+        );
+        if std::fs::write(&tmp, txt).is_ok() {
+            let _ = std::fs::rename(&tmp, &hb);
+        }
+    };
+    for job in todo {
+        let m = job.tail_m();
+        let key = job.key();
+        let t0 = now();
+        beat(&key, "compile", 0, 0, t0);
+        let tp = TailPlan::new(&cc, job.x(), m);
+        let id = match (job.i, job.row) {
+            (Some(i), _) => format!("\"i\":{i}"),
+            (None, Some(r)) => format!("\"row\":{r}"),
+            _ => unreachable!(),
+        };
+        write_line(
+            &mut f,
+            &format!(
+                "{{\"kind\":\"start\",{id},\"t_unix\":{:.0},\"pid\":{}}}",
+                t0,
+                std::process::id()
+            ),
+        );
+        let ts = Instant::now();
+        let st = be
+            .sweep(&tp.sweep, &mut |p, tot| beat(&key, "sweep", p, tot, t0))
+            .unwrap_or_else(|e| panic!("sweep {key}: {e}"));
+        beat(&key, "tail", st.passes, st.passes, t0);
+        let tt = Instant::now();
+        let bref: &dyn qsim_lab::engines::chain_tail::SweepBackend = be.as_ref();
+        let amps = tail_amplitudes(&tp, &|i| bref.amp(i));
+        let ttail = tt.elapsed().as_secs_f64();
+        let tsweep = ts.elapsed().as_secs_f64();
+        let fmt = a.s("format", "int6:b64");
+        let mut rec = if job.i.is_some() {
+            let u = job.u_tail.unwrap();
+            let jj = draw(&amps, u);
+            format!(
+                "{{\"kind\":\"sample\",{id},\"u_tail\":{},\"bitstring_q0_first\":\"{}\",\"j_tail\":{jj},",
+                jnum(u),
+                bitstring(job, jj)
+            )
+        } else {
+            format!("{{\"kind\":\"calib\",{id},")
+        };
+        rec += &format!(
+            "\"tail_m\":{m},\"prefix_bits\":\"{}\",\"format\":\"{fmt}\",\"R\":{},\"n\":{n},\"d\":{d},\"t_sweep_s\":{:.1},\"t_tail_s\":{:.1},\"underflow\":{},\"overflow\":{},\"backend\":\"{}\",\"host\":\"{host}\",\"seed_sha256\":\"{seed_hash}\",\"t_end_unix\":{:.0},\"amps\":{}}}",
+            job.prefix_bits,
+            st.passes,
+            tsweep,
+            ttail,
+            st.underflow,
+            st.overflow,
+            be.describe(),
+            now(),
+            jamps(&amps)
+        );
+        write_line(&mut f, &rec);
+        beat(&key, "done", st.passes, st.passes, t0);
+        eprintln!(
+            "run: {key} done R={} t_sweep={:.1}s (passes {:.1}s, tail {ttail:.1}s) underflow={} overflow={}",
+            st.passes, tsweep, st.secs, st.underflow, st.overflow
+        );
+    }
+    beat("-", "idle", 0, 0, now());
 }
