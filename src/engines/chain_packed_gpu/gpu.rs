@@ -301,10 +301,22 @@ impl GpuSweeper {
             let src = SHADER
                 .replace("__MAXN__", &(1u32 << nb).to_string())
                 .replace("__WG__", &WG.to_string());
-            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            let desc = wgpu::ShaderModuleDescriptor {
                 label: Some("packed kernels"),
                 source: wgpu::ShaderSource::Wgsl(src.into()),
-            });
+            };
+            let module = if std::env::var_os("QSIM_GPU_CHECKS").is_some() {
+                device.create_shader_module(desc)
+            } else {
+                // SAFETY: every index the kernels compute is in bounds by
+                // construction (buffers sized for the chunk; the tests run
+                // the same plans with checks on via QSIM_GPU_CHECKS too) and
+                // every loop is bounded by a uniform count.
+                unsafe {
+                    device
+                        .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
+                }
+            };
             let st = |ro: bool| wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: ro },
                 has_dynamic_offset: false,
@@ -350,7 +362,11 @@ impl GpuSweeper {
                     layout: Some(&pl),
                     module: &module,
                     entry_point: Some(entry),
-                    compilation_options: Default::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        // every kernel writes its workgroup memory before reading it
+                        zero_initialize_workgroup_memory: false,
+                        ..Default::default()
+                    },
                     cache: None,
                 })
             };
@@ -566,7 +582,10 @@ impl GpuSweeper {
         let mut prog: Vec<u8> = Vec::new();
         let mut prog_off = Vec::new();
         for s in &p.subs {
-            let w = encode_sub(s, &mut tables);
+            let mut w = encode_sub(s, &mut tables);
+            if std::env::var_os("QSIM_GPU_NOOPS").is_some() {
+                w[0] = 0; // timing experiments only: load / store, no ops
+            }
             if w.len() > PROG_WORDS {
                 return Err(err("GPU packed sweep: a cache block has too many ops"));
             }
@@ -694,6 +713,10 @@ impl GpuSweeper {
             })
             .collect();
 
+        // timing experiments only (wrong results): QSIM_GPU_SKIP=sub,pack,...
+        let skip: Vec<String> = std::env::var("QSIM_GPU_SKIP")
+            .map(|v| v.split(',').map(str::to_string).collect())
+            .unwrap_or_default();
         let ns = slots.len();
         let finish = |slot: &mut Slot, store: &mut HostStore| {
             let Some((ci, idx)) = slot.busy.take() else {
@@ -750,6 +773,16 @@ impl GpuSweeper {
                     } else {
                         prog_off[k - 1]
                     };
+                    let kind = if k == 0 {
+                        "unpack"
+                    } else if k == nk - 1 {
+                        "pack"
+                    } else {
+                        "sub"
+                    };
+                    if skip.iter().any(|s| s == kind) {
+                        continue;
+                    }
                     cp.set_pipeline(pipe);
                     cp.set_bind_group(0, &groups[si], &[po, gofs]);
                     cp.dispatch_workgroups(nx, ny, 1);
