@@ -213,3 +213,84 @@ fn lowprec_storage_fidelity() {
     assert!(fid[3] < 0.5, "unscaled fp16 should underflow: {fid:?}");
     assert!(fid[4] > 0.8, "{fid:?}");
 }
+
+/// Packed storage reproduces the emulated low-precision sweep bit for bit:
+/// (a) against `run_lowprec` itself, one full-register pass per worldline;
+/// (b) against the emulator run on the same gathered stages, with stage
+/// blocks smaller than the register (real gather / scatter of packed runs).
+#[test]
+fn packed_storage_is_bit_exact_with_emulation() {
+    use qsim_lab::engines::blocked::{BlockConfig, Stage};
+    use qsim_lab::engines::chain_lowprec::{passes, run_lowprec, Granularity, LowPrec};
+    use qsim_lab::engines::chain_packed::{packed_stages, run_emulated_stages, run_packed};
+    let full = Circuit::from_qasm(QASM).unwrap();
+    let fmts = ["int4:b16:h", "int5:b64", "int5:b16:h", "int6:b64", "int8:b64"];
+    let mut rng = StdRng::seed_from_u64(11);
+
+    // (a) small register (one block per pass, as in run_lowprec)
+    let c = truncate(&full, 70, 20);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let cfg = BlockConfig {
+        fuse_1q: false,
+        ..BlockConfig::default()
+    };
+    for _ in 0..3 {
+        let x: u128 = (0..70).fold(0, |a, i| a | ((rng.random_bool(0.5) as u128) << i));
+        let plan = compile(&cc, x, &HashMap::new());
+        assert!(plan.width <= cfg.small_n);
+        let ps = passes(&plan, &cfg, Granularity::Qubit);
+        let stages: Vec<Stage> = ps
+            .iter()
+            .map(|p| Stage {
+                inner: (0..plan.width).collect(),
+                ops: p.clone(),
+            })
+            .collect();
+        for f in fmts {
+            let lp = LowPrec::parse(f).unwrap();
+            let e = run_lowprec(&plan, &ps, &lp, 0).unwrap().amp;
+            let p = run_packed(&plan, &stages, &lp, &cfg).unwrap();
+            assert_eq!(p.amp, e, "{f}");
+            assert_eq!((p.underflow, p.overflow), (0, 0));
+        }
+    }
+
+    // (b) gathered stages on a wider register (last 28 layers)
+    let c = chain_sweep::truncate_window(&full, 70, 42, 70);
+    let cc = ChainCircuit::from_circuit(&c).unwrap();
+    let mut acc = vec![(Complex64::new(0.0, 0.0), 0.0, 0.0); fmts.len()];
+    for _ in 0..4 {
+        let x: u128 = (0..70).fold(0, |a, i| a | ((rng.random_bool(0.5) as u128) << i));
+        let plan = compile(&cc, x, &HashMap::new());
+        assert!(plan.width >= 13, "width {}", plan.width);
+        let ex = chain_sweep::amplitude_cpu::<f64>(&plan, &Default::default()).unwrap();
+        let stages = packed_stages(&plan.ops, plan.width, plan.width - 4, 3);
+        assert!(stages.len() > plan.width);
+        assert!(stages.iter().any(|s| s.inner != (0..s.inner.len()).collect::<Vec<_>>()));
+        // direct: the stage runs as one block; nested: re-planned inside the
+        // gather buffer with 2^6-amplitude cache blocks
+        let nested = BlockConfig {
+            block_bytes: 8 << 6,
+            ..cfg.clone()
+        };
+        for (j, f) in fmts.iter().enumerate() {
+            let lp = LowPrec::parse(f).unwrap();
+            let e = run_emulated_stages(&plan, &stages, &lp, &cfg).unwrap();
+            let p = run_packed(&plan, &stages, &lp, &cfg).unwrap();
+            assert_eq!(p.amp, e, "{f}");
+            let en = run_emulated_stages(&plan, &stages, &lp, &nested).unwrap();
+            let pn = run_packed(&plan, &stages, &lp, &nested).unwrap();
+            assert_eq!(pn.amp, en, "{f} nested");
+            // the two compute paths agree to f32 rounding (amplified a little
+            // by the requantization)
+            assert!((pn.amp - p.amp).norm() <= 0.05 * ex.norm().max(p.amp.norm()), "{f}");
+            acc[j].0 += ex.conj() * p.amp;
+            acc[j].1 += ex.norm_sqr();
+            acc[j].2 += p.amp.norm_sqr();
+        }
+    }
+    let fid: Vec<f64> = acc.iter().map(|(o, a, b)| o.norm_sqr() / (a * b)).collect();
+    // int8 is nearly exact; int4 loses the most
+    assert!(fid[4] > 0.99, "{fid:?}");
+    assert!(fid[0] < fid[4], "{fid:?}");
+}

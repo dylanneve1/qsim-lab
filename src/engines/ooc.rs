@@ -56,7 +56,55 @@ use num_traits::Zero;
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io;
+#[cfg(unix)]
 use std::os::unix::fs::FileExt;
+#[cfg(windows)]
+use win_file_ext::FileExt;
+
+/// Positional file I/O on Windows with the Unix `FileExt` names (so the
+/// crate builds there; the out-of-core engine was only tuned on Unix).
+#[cfg(windows)]
+mod win_file_ext {
+    use std::fs::File;
+    use std::io;
+    use std::os::windows::fs::FileExt as WinExt;
+
+    pub trait FileExt {
+        fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()>;
+        fn write_all_at(&self, buf: &[u8], offset: u64) -> io::Result<()>;
+    }
+
+    impl FileExt for File {
+        fn read_exact_at(&self, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> {
+            while !buf.is_empty() {
+                match self.seek_read(buf, offset) {
+                    Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+                    Ok(n) => {
+                        buf = &mut buf[n..];
+                        offset += n as u64;
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(())
+        }
+        fn write_all_at(&self, mut buf: &[u8], mut offset: u64) -> io::Result<()> {
+            while !buf.is_empty() {
+                match self.seek_write(buf, offset) {
+                    Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+                    Ok(n) => {
+                        buf = &buf[n..];
+                        offset += n as u64;
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(())
+        }
+    }
+}
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::sync_channel;
