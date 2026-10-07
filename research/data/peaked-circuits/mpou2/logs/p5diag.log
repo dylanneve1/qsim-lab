@@ -1,0 +1,36 @@
+n=44 units=1892 blocks=902 depth=86 m=41.0 left=446 right=456 band=36,48 (phase1 54+42) eps0=1e-10 eps=0.001 mode=rel maxb=512 sched=dist
+centre band: 96 blocks, group sizes [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+  group [0, 5, 39, 40]: pairing [(0, 40), (5, 39), (39, 5), (40, 0)] scores min 0.974 ranks [1, 1, 1]
+  group [1, 21, 25, 38]: pairing [(1, 1), (21, 21), (25, 38), (38, 25)] scores min 0.994 ranks [1, 1, 1]
+  group [2, 13, 17, 29]: pairing [(2, 29), (13, 13), (17, 17), (29, 2)] scores min 0.980 ranks [1, 1, 1]
+  group [3, 15, 18, 23]: pairing [(3, 15), (15, 3), (18, 23), (23, 18)] scores min 0.982 ranks [1, 1, 1]
+  group [4, 8, 32, 42]: pairing [(4, 42), (8, 4), (32, 32), (42, 8)] scores min 0.976 ranks [1, 1, 1]
+  group [6, 14, 20, 33]: pairing [(6, 33), (14, 14), (20, 6), (33, 20)] scores min 0.970 ranks [1, 1, 1]
+  group [7, 11, 28, 37]: pairing [(7, 7), (11, 37), (28, 11), (37, 28)] scores min 0.972 ranks [1, 1, 1]
+  group [9, 22, 34, 43]: pairing [(9, 22), (22, 34), (34, 9), (43, 43)] scores min 0.964 ranks [1, 1, 1]
+  group [10, 12, 35, 41]: pairing [(10, 10), (12, 41), (35, 12), (41, 35)] scores min 0.974 ranks [1, 1, 1]
+  group [16, 19, 24, 30]: pairing [(16, 30), (19, 24), (24, 16), (30, 19)] scores min 0.977 ranks [1, 1, 1]
+  group [26, 27, 31, 36]: pairing [(26, 36), (27, 31), (31, 26), (36, 27)] scores min 0.969 ranks [1, 1, 1]
+dense centre block: {'max_bond': 1, 'elems': 176, 'trunc': 0.0} t=0.5s
+[10/902] L 59 (lay 34) R 47 (lay 48) {'max_bond': 4, 'elems': 280, 'trunc': 3.63e-07} rs=25 t=0.5s rss=79MB
+[20/902] L 64 (lay 34) R 52 (lay 48) {'max_bond': 4, 'elems': 384, 'trunc': 1.53e-06} rs=83 t=0.6s rss=79MB
+    diag step 22: smax assigned median 1.000 min 0.998 | current pairing median 1.000; 44/44 already paired; mismatch distances [] (0.5s) bonds [1, 4, 1, 1, 1, 1, 1, 3, 1, 3, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 3, 1, 4, 1, 4, 1, 3, 1, 4, 1, 4, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[30/902] L 69 (lay 34) R 57 (lay 48) {'max_bond': 4, 'elems': 488, 'trunc': 2.45e-06} rs=171 t=1.1s rss=79MB
+[40/902] L 74 (lay 34) R 62 (lay 48) {'max_bond': 4, 'elems': 616, 'trunc': 2.99e-06} rs=361 t=1.3s rss=79MB
+    diag step 44: smax assigned median 1.000 min 0.998 | current pairing median 1.000; 44/44 already paired; mismatch distances [] (1.1s) bonds [4, 1, 4, 1, 3, 1, 4, 1, 3, 1, 4, 1, 3, 1, 3, 1, 4, 1, 3, 1, 4, 1, 4, 1, 3, 1, 3, 1, 4, 1, 3, 1, 4, 1, 4, 1, 3, 1, 4, 1, 4, 1, 4]
+[50/902] L 79 (lay 32) R 67 (lay 50) {'max_bond': 7, 'elems': 1076, 'trunc': 4.8e-06} rs=401 t=2.5s rss=80MB
+[60/902] L 84 (lay 32) R 72 (lay 50) {'max_bond': 7, 'elems': 2288, 'trunc': 8.48e-06} rs=414 t=2.5s rss=80MB
+    diag step 66: smax assigned median 0.999 min 0.995 | current pairing median 0.999; 32/44 already paired; mismatch distances [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] (0.8s) bonds [4, 7, 4, 1, 3, 4, 4, 6, 3, 5, 7, 6, 3, 5, 3, 6, 3, 1, 4, 6, 3, 6, 3, 4, 3, 1, 3, 4, 4, 4, 3, 1, 4, 6, 4, 4, 4, 1, 3, 4, 4, 7, 4]
+[70/902] L 89 (lay 32) R 77 (lay 50) {'max_bond': 11, 'elems': 6028, 'trunc': 2.63e-05} rs=475 t=4.9s rss=80MB
+[80/902] L 94 (lay 32) R 82 (lay 50) {'max_bond': 21, 'elems': 31800, 'trunc': 6.32e-05} rs=592 t=8.5s rss=81MB
+    diag step 88: smax assigned median 0.999 min 0.995 | current pairing median 0.999; 44/44 already paired; mismatch distances [] (2.3s) bonds [4, 13, 8, 12, 9, 11, 13, 10, 12, 15, 16, 14, 16, 18, 21, 18, 21, 18, 21, 23, 21, 18, 20, 19, 20, 18, 22, 18, 17, 14, 17, 14, 15, 15, 13, 10, 12, 11, 13, 11, 9, 6, 4]
+[90/902] L 99 (lay 30) R 87 (lay 52) {'max_bond': 23, 'elems': 41020, 'trunc': 9.62e-05} rs=664 t=19.1s rss=82MB
+    slow step 95 (up): absorb 1.1s -> {'max_bond': 84, 'elems': 65476, 'trunc': 0.000116}, unswap 4.4s -> {'max_bond': 42, 'elems': 55708, 'trunc': 0.000117}
+    slow step 99 (up): absorb 0.7s -> {'max_bond': 54, 'elems': 76548, 'trunc': 0.000167}, unswap 7.2s -> {'max_bond': 54, 'elems': 75612, 'trunc': 0.00017}
+[100/902] L 104 (lay 30) R 92 (lay 52) {'max_bond': 39, 'elems': 71616, 'trunc': 0.000173} rs=807 t=40.2s rss=86MB
+    slow step 101 (up): absorb 0.1s -> {'max_bond': 61, 'elems': 74740, 'trunc': 0.00018}, unswap 5.9s -> {'max_bond': 61, 'elems': 74740, 'trunc': 0.00018}
+    slow step 103 (up): absorb 1.3s -> {'max_bond': 47, 'elems': 111760, 'trunc': 0.000199}, unswap 15.7s -> {'max_bond': 47, 'elems': 110000, 'trunc': 0.000201}
+    slow step 109 (up): absorb 0.7s -> {'max_bond': 67, 'elems': 89336, 'trunc': 0.000224}, unswap 10.0s -> {'max_bond': 66, 'elems': 88680, 'trunc': 0.000226}
+[110/902] L 109 (lay 30) R 97 (lay 52) {'max_bond': 41, 'elems': 81816, 'trunc': 0.000234} rs=924 t=75.4s rss=87MB
+    diag step 110: smax assigned median 0.998 min 0.989 | current pairing median 0.998; 44/44 already paired; mismatch distances [] (8.1s) bonds [4, 7, 16, 22, 15, 20, 16, 19, 20, 21, 13, 16, 30, 22, 25, 23, 21, 24, 33, 28, 32, 28, 33, 28, 32, 41, 29, 26, 23, 25, 32, 20, 23, 15, 12, 20, 14, 10, 9, 13, 9, 6, 4]
+[120/902] L 114 (lay 30) R 102 (lay 52) {'max_bond': 48, 'elems': 118032, 'trunc': 0.000322} rs=1015 t=91.3s rss=88MB

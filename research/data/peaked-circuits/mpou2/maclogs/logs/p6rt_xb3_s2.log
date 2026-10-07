@@ -1,0 +1,16 @@
+groups [20, 20, 22]
+cross-group blocks {(1, 2): 349, (0, 1): 323, (0, 2): 326}
+chain [20, 20, 22]
+slabs [('B', 0, 2), ('G', 2, 10), ('B', 10, 14), ('G', 14, 23), ('B', 23, 27), ('G', 27, 36), ('B', 36, 39), ('G', 39, 49), ('B', 49, 53), ('G', 53, 62), ('B', 62, 66), ('G', 66, 75), ('B', 75, 78), ('G', 78, 79), ('B', 79, 80), ('G', 80, 88), ('B', 88, 93), ('G', 93, 101), ('B', 101, 106), ('G', 106, 114), ('B', 114, 119), ('G', 119, 127), ('B', 127, 132), ('G', 132, 140), ('B', 140, 144), ('G', 144, 153), ('B', 153, 157), ('G', 157, 165), ('B', 165, 170), ('G', 170, 179), ('B', 179, 183), ('G', 183, 192), ('B', 192, 196), ('G', 196, 206), ('B', 206, 208)]
+cross units moved from bursts into gaps: 48
+  gap [2,10): TNO 596 elems, clusters [7, 6, 2, 2, 2, 2], cross clusters so far 1, ranks 2,1 t=4s
+  gap [14,23): TNO 552 elems, clusters [4, 4, 3, 3, 3, 3], cross clusters so far 2, ranks 2,1 t=8s
+  gap [27,36): TNO 548 elems, clusters [4, 3, 2, 2, 2, 2], cross clusters so far 2, ranks 2,1 t=11s
+    multi-ring cluster of 14 wires (rings [0, 2]) via contraction
+      ring 0 part: 12 tensors, contraction width 22.0
+      ring 2 part: 2 tensors, contraction width 23.0
+      ring 1 part: 0 tensors, contraction width 2097152.0
+  gap [39,49): TNO 800 elems, clusters [14, 3, 3, 2, 2, 2], cross clusters so far 3, ranks 4,2 t=16s
+  gap [53,62): TNO 804 elems, clusters [9, 6, 2, 2, 2, 2], cross clusters so far 5, ranks 2,1 t=25s
+  gap [66,75): TNO 588 elems, clusters [6, 5, 5, 3, 3, 3], cross clusters so far 7, ranks 2,1 t=33s
+ABORT: block too large [(32, 1048576), (32, 16, 1048576), (16, 4194304)] cluster [11, 15, 36, 44, 48]

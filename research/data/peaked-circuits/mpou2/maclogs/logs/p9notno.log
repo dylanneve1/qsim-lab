@@ -1,0 +1,4 @@
+n=56 units=1917 blocks=1885 depth=103 m=49.0 left=930 right=955 band=49.0,49.0 (phase1 0+0) eps0=1e-10 eps=0.001 mode=rel maxb=512 sched=pair
+    full unswap at step 78: 269356 -> 144916 elems, max bond 64, 3 sweeps 2.8s
+    full unswap at step 82: 389036 -> 316500 elems, max bond 128, 3 sweeps 10.0s
+    slow step 82 (pair-dn): absorb 0.4s -> {'max_bond': 128, 'elems': 389036, 'trunc': 5.9e-07}, unswap 10.0s -> {'max_bond': 128, 'elems': 316500, 'trunc': 5.9e-07}

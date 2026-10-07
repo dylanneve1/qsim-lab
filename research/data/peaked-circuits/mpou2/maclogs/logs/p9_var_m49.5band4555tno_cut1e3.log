@@ -1,0 +1,16 @@
+n=56 units=1917 blocks=1885 depth=103 m=49.5 left=947 right=938 band=45,55 (phase1 86+90) eps0=1e-10 eps=0.001 mode=rel maxb=512 sched=pair
+  TNO band d=0.5: +17L +16R, unswaps 0, elems 576, max bond 2, nbonds 33, moved 0, 0.3s
+  TNO band d=1.5: +19L +17R, unswaps 3, elems 984, max bond 4, nbonds 46, moved 12, 0.4s
+  TNO band d=2.5: +18L +17R, unswaps 1, elems 1396, max bond 4, nbonds 49, moved 14, 0.4s
+  TNO band d=3.5: +16L +21R, unswaps 3, elems 1476, max bond 4, nbonds 48, moved 20, 0.5s
+  TNO band d=4.5: +16L +19R, unswaps 9, elems 696, max bond 4, nbonds 32, moved 52, 0.6s
+  TNO -> MPO: raw bonds [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 16, 4, 2, 2, 2, 2, 2, 2, 2, 4, 8, 4, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 2, 2, 1, 2, 1, 2]
+  TNO -> MPO: compressed {'max_bond': 8, 'elems': 808, 'trunc': 4.64e-22}
+TNO centre block -> MPO: {'max_bond': 8, 'elems': 808, 'trunc': 4.64e-22} t=0.6s
+[500/1885] L 344 (lay 32) R 332 (lay 67) {'max_bond': 2, 'elems': 312, 'trunc': 6.59e-05} rs=4227 pairs=229 res=13/29 t=1.2s rss=162MB
+[1000/1885] L 592 (lay 19) R 584 (lay 80) {'max_bond': 2, 'elems': 232, 'trunc': 0.000131} rs=9020 pairs=477 res=17/29 t=1.8s rss=162MB
+[1500/1885] L 842 (lay 4) R 834 (lay 94) {'max_bond': 2, 'elems': 300, 'trunc': 0.000197} rs=13432 pairs=723 res=21/33 t=2.4s rss=162MB
+== input side complete at step 1706: W -> W|0> as an MPS, 320 -> 128 elems {'max_bond': 2, 'elems': 128, 'trunc': 0.000223}
+[1709/1885] L 947 (lay -1) R 938 (lay -1) {'max_bond': 1, 'elems': 112, 'trunc': 0.000223} rs=15856 pairs=826 res=22/35 t=2.7s rss=162MB
+final {'max_bond': 1, 'elems': 112, 'trunc': 0.000223} t=2.7s
+PEAK sha 9e4d6f27f3c4 p=0.10005 maxflip=0.00422 higher=0 min|Z|=0.919 trunc=0.0002 3s
