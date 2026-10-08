@@ -1,6 +1,6 @@
 # SU(2) hadron dynamics at l_i = 300 (tracker issue 254): investigation log
 
-This instance uses the same 120-qubit circuit as l_i = 12, but the rung interaction phase is 22× stronger: g = θ = 0.226125, against 0.0101 before. The instance was built to sit beyond the perturbative regime. Status: **in progress**. The numbers below are interim and are not submitted.
+This instance uses the same 120-qubit circuit as l_i = 12, but the rung interaction phase is 22× stronger: g = θ = 0.226125, against 0.0101 before. The instance was built to sit beyond the perturbative regime. Status: **solved classically**: n_f(20) = 0.10285 ± 1e-5, stag_SCV(20) = −2.03280 ± 3e-5 (U(1)×U(1) TEBD, χ up to 2800). See `tebd-u1u1/RESULTS.md`.
 
 ## What was tried
 
@@ -14,14 +14,15 @@ This instance uses the same 120-qubit circuit as l_i = 12, but the rung interact
 | Folded / temporal-entanglement contraction | `tebd-u1u1/` | **Negative.** Temporal entropy ≈ spatial entropy (step 4: 1.44 vs 1.17 nats), and it is identical at g = 0. Free-fermion dominated, so it is no better than TEBD. |
 | **U(1)×U(1) TEBD (TeNPy)** on 60 rung sites, d = 4 | `tebd-u1u1/tebd_sym.py` | **Works.** The circuit is compiled exactly into two-site gates; the only error is SVD truncation. χ = 2048: 14 min, 1.0 GB. |
 
-## Interim U(1)×U(1) TEBD results at step 20
+## U(1)×U(1) TEBD results at step 20
 
 | χ | discarded weight | stag_SCV | stag_MID | n_f |
 |---|---|---|---|---|
 | 512 | 7.8e-2 | −2.0939 | −1.9817 | 0.1121 |
 | 1024 | 2.8e-3 | −2.0341 | −1.9309 | 0.1032 |
-| 2048 | 1.2e-4 | −2.0328 | −1.9299 | 0.1029 |
+| 2048 | 1.2e-4 | −2.03279 | −1.92994 | 0.10285 |
+| 2800 | 1.2e-5 | −2.03280 | −1.92995 | 0.10285 |
 
-The g = 0 control at χ = 1024 reproduces exact free fermions to 9.6e-4 (stag) and 5e-5 (n_f). Note that the issue text reports Pauli propagation with n_f(20) = 0.0798 (atol 1e-5, 101M terms, Q drift 0.08–0.12) and a hardware value of 0.0995 (3 Aug). The 0.023 gap to Pauli propagation is being investigated before any claim is made.
+The g = 0 control at χ = 1024 reproduces exact free fermions to 9.6e-4 (stag) and 5e-5 (n_f). Note that the issue text reports Pauli propagation with n_f(20) = 0.0798 (atol 1e-5, 101M terms, Q drift 0.08–0.12) and a hardware value of 0.0995 (3 Aug). The 0.023 gap to Pauli propagation is on the PP side: their single-circuit totals still move by 0.69 between their last two tolerances (toward ours), their charge drifts by 0.08–0.12, and their SCV and MID errors differ (−0.010 vs −0.033), so their n_f looks stable without having converged. The 3 Aug hardware value (0.0995) is 0.003 from ours.
 
 Dependencies: TeNPy (vendored locally, not committed), numpy. Large outputs (npy/pkl, TEBD JSON over 2 MB) are not committed.
