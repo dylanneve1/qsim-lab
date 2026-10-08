@@ -1,0 +1,138 @@
+### Circuit ID
+
+fermi_hubbard_1d_dynamical_quench
+
+### Circuit file
+
+[Archive.zip](https://github.com/user-attachments/files/30198836/Archive.zip)
+
+### Qubits
+
+60
+
+### Gates
+
+9057 (2Q gates)
+
+### Problem category
+
+Active candidates
+
+### Problem description
+
+# Fast, accurate, high-resolution simulation of large-scale Fermi-Hubbard models on a digital quantum processor
+
+## Problem Statement
+Simulate the time evolution of Fock space number operators of the form $\langle n_{i,\sigma}\rangle$ (1-pt), $\langle n_{i,\sigma} n_{j,\sigma'}\rangle$ (2-pt) and so on, under the action of the 1D Fermi-Hubbard model Hamiltonian. For the sake of the paper and this submission, we focus on 1- and 2-pt observables, use open boundary conditions, and uniform/translationally-invariant couplings.
+
+## Abstract
+The Fermi-Hubbard model provides a paradigmatic description of strongly correlated electrons relevant to various problems in materials science.  Despite its importance, simulating its non-equilibrium dynamics exactly is extremely challenging beyond modest scales due to exponential expansion of the Hilbert space with increasing system size.  Quantum computers have been postulated as useful tools to address these computational bottlenecks, but have been limited by both machine size and the impact of hardware noise and error.  Here, we report experimental digital quantum simulation of the one-dimensional Fermi-Hubbard model on a superconducting quantum processor at a scale beyond the reach of exact statevector simulation and challenging for state-of-the-art tensor-network methods.  We encode this problem using up to 120 qubits through an efficient mapping that reduces circuit complexity, and we improve accuracy through error suppression to simulate dynamical evolution using up to 90 Trotter steps. From a vacancy defect introduced in the middle of an $L=31$-site (62-qubit) N\'{e}el initial state, we directly observe spin-charge separation to $t=9$ in natural units using up to 90 Trotter steps, and quantitatively extract velocities $v_c$, $v_s$, which match classical simulations across a range of model parameters, and analytics in appropriate regimes.  We then extend experiments to $L=60$ fermions (120 qubits) and evolution times to $t=6$ using 30 Trotter steps. Quantum-processor outputs agree quantitatively with approximate classical simulations performed using a time-dependent variational principle (TDVP) solver and we observe that increasing the TDVP bond dimension through $\chi = 4096$ expands the range of evolution times within which agreement has RMSE $\sim 1\%$ before the approaches diverge.  Owing to the large scale of the simulation and the use of efficient overhead-free error-suppression techniques, for simulated evolution times at the limit of quantum/classical agreement ($t\gtrsim 5$ in natural hopping units), the wall-clock runtime of the quantum processor is approximately three orders of magnitude faster than TDVP simulations with $\chi = 4096$, and implemented with the publicly-available \texttt{ITensor} and \texttt{TeNPy} packages. These results establish contemporary digital quantum processors as a versatile, quantitatively accurate, and competitive platform for the study of fermionic many-body dynamics in regimes where leading classical methods can become prohibitively expensive.
+
+## Summary of Methods
+To overcome NISQ hardware limitations without full quantum error correction, this submission utilizes an optimized digital quantum simulation:
+
+1. **Hardware Mapping:** The 1D fermionic lattice was mapped to an IBM heavy-hex superconducting processor using the Jordan-Wigner transformation and a pair-interleaved local tiling ordering of the fermions.
+2. **Time Evolution:** The continuous time-evolution operator was approximated via Trotterization. 
+3. **Software-Defined Error Suppression:** The experiment applied deterministic, compiler-level optimizations (Q-CTRL). This included optimized qubit routing to minimize baseline noise, dynamic decoupling to mitigate crosstalk, and native circuit compilation to reduce total gate duration.
+
+## Main Results and Performance Comparison
+We find a runtime advantage over a number of classical methods. We considered TDVP (implemented via ITensor and TeNPy) and three Heisenberg-picture simulation methods (Pauli Path Propagation, Majorana Propagation, and MPO evolution). For a complete discussion of our results and comparisons to each classical simulation method, see the [preprint](https://arxiv.org/abs/2605.04025).
+
+<img width="2040" height="695" alt="Image" src="https://github.com/user-attachments/assets/bf779e6e-ff00-4ce5-b3c4-c372d004a334" />
+
+<img width="3804" height="1177" alt="Image" src="https://github.com/user-attachments/assets/7a3a60c3-e9b6-41be-9165-e0c43f470318" />
+
+<img width="3804" height="1177" alt="Image" src="https://github.com/user-attachments/assets/f45bf4c8-5954-4060-b45c-c5ae288951a6" />
+
+### Uploaded data
+We are uploading all 1- and 2-pt operator expectation values (EVs) of the form <n> and <nn> for each Trotter step considered for a system of L=60 and U=-2. Our Trotterization uses 1 + 30 steps (including the initial Fock state at $t=0$), each with a Trotter step size of $\Delta t = 0.2$.
+
+There are 120 such 1-pt EVs (60 sites x 2 spins per site = 120) and 7140 such 2-pt EVs ($\binom{60}{2} \times 4=7080$ for the case where the two sites are distinct, plus $60$ for the case where the two sites are the same and the two spins are different -- if the two sites are the same and the two spins are the same, then $n^2 = n$ and the operator reduces to a 1-pt operator).
+
+Three variants of the quantum hardware-computed expectation values are included: raw (no post-processing), mm (readout error mitigation/measurement mitigation), and mm+dr (measurement mitigation plus decay recovery). The data is formatted in terms of `pkl` files:
+- `raw_hw_data_1_pt.pkl`
+- `mm_data_1_pt.pkl`
+- `mm_and_dr_data_1_pt.pkl`
+- `raw_hw_data_2_pt.pkl`
+- `mm_data_2_pt.pkl`
+- `mm_and_dr_data_2_pt.pkl`
+
+Each pickle file contains a dictionary where the keys specify the observable, and the values are length-31 numpy arrays containing the values at each Trotter step. The keys are formatted like so:
+- 1-pt: `(site_idx, spin)`
+- 2-pt: `(site_idx_1, spin_1, site_idx_2, spin_2)`
+
+where `spin` is either `'up'` or `'down'`.
+
+And these may be loaded via
+```python
+import pickle
+
+with open("raw_hw_data_1_pt.pkl", "rb") as f:
+    data = pickle.load(f)
+
+# data is a dict, e.g.:
+# data[(30, "up")]   → np.ndarray of shape (31,)  # site 30, spin-up
+# data[(0, "down")]  → np.ndarray of shape (31,)  # site 0, spin-down
+```
+
+We also include the TDVP data as a reference, stored in the same format:
+- `tdvp_data_1_pt.pkl`
+- `tdvp_data_2_pt.pkl`
+
+The figures below show comparisons of this data against an ITensor TDVP simulation with bond dimension $\chi = 2048$. The first plot shows the per time-step RMSE (averaged over all observables), and the next two plots show the time evolution of randomly selected observables. Data is shown for all 3 variants (raw, mm, and mm+dr). 
+
+### Circuits
+The quantum hardware data was produced by running multiple circuits. The data for time-step $k$ required running a circuit with $k$ Trotter layers, so obtaining data for all 31 time-steps required running 31 circuits of increasing depth. Additional executions were required for the measurement mitigation and decay recovery. Moreover, these circuits were compiled using our Fire Opal error suppression pipeline for the IBM Boston device. We therefore refrain from uploading all these circuits as part of this submission. For a detailed treatment of how these circuits were obtained, see the preprint.
+
+
+### Name
+
+Q-CTRL Error-Suppressed Fermi-Hubbard (arXiv:2605.04025)
+
+### Observable value
+
+Thousands of values included; see above
+
+### Error bound (low)
+
+_No response_
+
+### Error bound (high)
+
+_No response_
+
+### Method
+
+Digital Quantum Simulation with Q-CTRL Error Suppression
+
+### Method proof
+
+Preprint: https://arxiv.org/abs/2605.04025
+
+### Quantum runtime (seconds)
+
+_No response_
+
+### Classical runtime (seconds)
+
+_No response_
+
+### Compute resources (quantum)
+
+IBM Boston
+
+### Compute resources (classical)
+
+_No response_
+
+### Notes
+
+https://arxiv.org/abs/2605.04025
+
+### Authors
+
+Gavin S. Hartnett, Khadijeh Sona Najafi, Aleksei Khindanov, Haoran Liao, Michael Schutzman, Michael R. Hush, Michael J. Biercuk, Yuval Baum
+
+### Institutions
+
+Q-CTRL
