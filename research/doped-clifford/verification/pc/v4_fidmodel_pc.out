@@ -1,0 +1,156 @@
+{
+ "D40_gpu5": {
+  "batches": 8,
+  "amplitudes": 512,
+  "R": 65,
+  "F": 0.8501245969289137,
+  "F_se_jk": 0.012227193594037419,
+  "F_se_boot_batches": 0.01152440264459715,
+  "F_phase_aligned": 0.8514015534272519,
+  "F_per_batch_mean": 0.8490637194810673,
+  "r=-lnF/R": 0.002498036240276914,
+  "r_se": 0.00020855590211724812,
+  "pred_F_D70_R65": 0.8501245969289137,
+  "xeb_ratio": 0.8721432066933306,
+  "t_sweep_s_mean": 0.1,
+  "underflow+overflow": 0,
+  "backend": "gpu-packed int5:b16:h l=18 slots=14 nb=12 rb=0 on NVIDIA GeForce RTX 4090 (Vulkan, DiscreteGpu, driver NVIDIA 591.86)"
+ },
+ "D40_cpuM": {
+  "batches": 8,
+  "amplitudes": 512,
+  "R": 65,
+  "F": 0.8501245969289137,
+  "F_se_jk": 0.012227193594037419,
+  "F_se_boot_batches": 0.011512568048612924,
+  "F_phase_aligned": 0.8514015534272519,
+  "F_per_batch_mean": 0.8490637194810673,
+  "r=-lnF/R": 0.002498036240276914,
+  "r_se": 0.00020834173267890064,
+  "pred_F_D70_R65": 0.8501245969289137,
+  "xeb_ratio": 0.8721432066933306,
+  "t_sweep_s_mean": 0.3,
+  "underflow+overflow": 0,
+  "backend": "cpu-packed int5:b16:h l=18 slots=14"
+ },
+ "D40_cpu5": {
+  "batches": 8,
+  "amplitudes": 512,
+  "R": 65,
+  "F": 0.8521950550910525,
+  "F_se_jk": 0.008926112260880994,
+  "F_se_boot_batches": 0.008596900998505548,
+  "F_phase_aligned": 0.8525218119287954,
+  "F_per_batch_mean": 0.8512206617907613,
+  "r=-lnF/R": 0.0024606129300739532,
+  "r_se": 0.00015519922882853684,
+  "pred_F_D70_R65": 0.8521950550910525,
+  "xeb_ratio": 0.8903699484176191,
+  "t_sweep_s_mean": 0.3,
+  "underflow+overflow": 0,
+  "backend": "cpu-packed int5:b16:h l=18 slots=14"
+ },
+ "D40_gpu_vs_cpuM": {
+  "batches": 8,
+  "bit_identical_batches": 8,
+  "max_abs_diff_over_rms": 0.0,
+  "F_between": 1.0
+ },
+ "D40_gpu_vs_cpu5": {
+  "batches": 8,
+  "bit_identical_batches": 0,
+  "max_abs_diff_over_rms": 1.3533841213080342,
+  "F_between": 0.7575661500720948
+ },
+ "D40_ref": {
+  "batches": 8,
+  "R": 1,
+  "backend": "cpu-64",
+  "t_sweep_s_mean": 0.1
+ },
+ "D48_gpu5": {
+  "batches": 16,
+  "amplitudes": 1024,
+  "R": 65,
+  "F": 0.8694428163887409,
+  "F_se_jk": 0.00651614490318945,
+  "F_se_boot_batches": 0.006314636433356577,
+  "F_phase_aligned": 0.8701673844359978,
+  "F_per_batch_mean": 0.8686415724782521,
+  "r=-lnF/R": 0.002152349437475193,
+  "r_se": 0.00011173621886299419,
+  "pred_F_D70_R65": 0.8694428163887409,
+  "xeb_ratio": 0.8814835868599394,
+  "t_sweep_s_mean": 0.6125,
+  "underflow+overflow": 0,
+  "backend": "gpu-packed int5:b16:h l=18 slots=14 nb=12 rb=0 on NVIDIA GeForce RTX 4090 (Vulkan, DiscreteGpu, driver NVIDIA 591.86)"
+ },
+ "D48_cpuM": {
+  "batches": 16,
+  "amplitudes": 1024,
+  "R": 65,
+  "F": 0.8694428163887409,
+  "F_se_jk": 0.00651614490318945,
+  "F_se_boot_batches": 0.006269195326333904,
+  "F_phase_aligned": 0.8701673844359978,
+  "F_per_batch_mean": 0.8686415724782521,
+  "r=-lnF/R": 0.002152349437475193,
+  "r_se": 0.00011093214763367669,
+  "pred_F_D70_R65": 0.8694428163887409,
+  "xeb_ratio": 0.8814835868599394,
+  "t_sweep_s_mean": 1.75625,
+  "underflow+overflow": 0,
+  "backend": "cpu-packed int5:b16:h l=18 slots=14"
+ },
+ "D48_cpu5": {
+  "batches": 16,
+  "amplitudes": 1024,
+  "R": 65,
+  "F": 0.8756114520726433,
+  "F_se_jk": 0.006813751100736674,
+  "F_se_boot_batches": 0.006493894228511364,
+  "F_phase_aligned": 0.8765108546019528,
+  "F_per_batch_mean": 0.875472263447628,
+  "r=-lnF/R": 0.0020435820662226883,
+  "r_se": 0.00011409862767045271,
+  "pred_F_D70_R65": 0.8756114520726433,
+  "xeb_ratio": 0.8643990973126771,
+  "t_sweep_s_mean": 1.475,
+  "underflow+overflow": 0,
+  "backend": "cpu-packed int5:b16:h l=18 slots=14"
+ },
+ "D48_gpu_vs_cpuM": {
+  "batches": 16,
+  "bit_identical_batches": 16,
+  "max_abs_diff_over_rms": 0.0,
+  "F_between": 1.0
+ },
+ "D48_gpu_vs_cpu5": {
+  "batches": 16,
+  "bit_identical_batches": 0,
+  "max_abs_diff_over_rms": 1.4119790270848471,
+  "F_between": 0.789994614224658
+ },
+ "D48_ref": {
+  "batches": 16,
+  "R": 1,
+  "backend": "cpu-64",
+  "t_sweep_s_mean": 1.4
+ },
+ "tailcheck_D40_cpu64": {
+  "batches": 3,
+  "R": 1,
+  "F_mean_of_batches": 1.0,
+  "se": 0.0,
+  "r": -0.0,
+  "pred_F_D70_R65": 1.0
+ },
+ "tailcheck_D40_int5:b16:h": {
+  "batches": 3,
+  "R": 65,
+  "F_mean_of_batches": 0.839589036,
+  "se": 0.00640787856550312,
+  "r": 0.0026898884572347133,
+  "pred_F_D70_R65": 0.839589036
+ }
+}

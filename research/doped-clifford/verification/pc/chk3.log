@@ -1,0 +1,28 @@
+run: n=70 d=40 jobs=8 done=0 todo=8 backend="cpu-64" out=ref_d40.jsonl
+run: s0 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s1 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s2 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s3 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s4 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s5 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s6 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s7 done R=1 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: n=70 d=40 jobs=8 done=0 todo=8 backend="gpu-packed int5:b16:h l=18 slots=14 nb=12 rb=0 on NVIDIA GeForce RTX 4090 (Vulkan, DiscreteGpu, driver NVIDIA 591.86)" out=gpu5_d40.jsonl
+run: s0 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s1 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s2 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s3 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s4 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s5 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s6 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: s7 done R=65 t_sweep=0.1s (passes 0.1s, tail 0.0s) underflow=0 overflow=0
+run: n=70 d=40 jobs=8 done=0 todo=8 backend="cpu-packed int5:b16:h l=18 slots=14" out=cpu5_d40.jsonl
+run: s0 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s1 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+run: s2 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+run: s3 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+run: s4 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s5 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+run: s6 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+run: s7 done R=65 t_sweep=0.3s (passes 0.2s, tail 0.0s) underflow=0 overflow=0
+done 

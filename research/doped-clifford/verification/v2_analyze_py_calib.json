@@ -1,0 +1,38 @@
+{
+ "records": 4,
+ "amplitudes": 256,
+ "F_hat": 0.879467878257196,
+ "F_se_jackknife": 0.015202929925763397,
+ "F_se_bootstrap_amplitudes": 0.0093873663463911,
+ "X_hat_sampler_xeb": 0.6224005585997822,
+ "X_se_jackknife": 0.09752134621359222,
+ "X_exact_sampler_same_prefixes": 0.7338589127747785,
+ "X_ratio_ours_over_exact": 0.84812018736195,
+ "X_ratio_se_jackknife": 0.061607231457495255,
+ "predicted_production_xeb_uniform_prefix": [
+  0.822024181596967
+ ],
+ "F_per_record": [
+  0.8448,
+  0.9021,
+  0.9089,
+  0.8601
+ ],
+ "phase_of_overlap_rad": [
+  -1.507,
+  -1.573,
+  -1.519,
+  -1.549
+ ],
+ "convention_diagnostics": {
+  "F_if_conjugated": 0.007646312897798057,
+  "F_if_tail_index_bit_reversed": 0.009748234884747582,
+  "F_if_both": 0.005261634201584835
+ },
+ "formats": [
+  "int5:b16:h"
+ ],
+ "R_passes": [
+  65
+ ]
+}
