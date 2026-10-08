@@ -81,7 +81,8 @@ def cmd_calib(a):
         row = r['row']
         assert s[8:] == assign[row], f'record row {row}: q8..q69 do not match SUTD row'
         sub = int(s[m:8], 2) if m < 8 else 0
-        E.append(S[row, sub * B:(sub + 1) * B]); L.append(amps_of(r))
+        # SUTD index j = int(q0..q7), q0 MSB: open q0..q(m-1) are the HIGH bits, fixed q_m..q7 the low bits
+        E.append(S[row, sub::2 ** (8 - m)][:B]); L.append(amps_of(r))
     k = len(E)
     if not k:
         sys.exit('no calib records')
@@ -232,7 +233,7 @@ def cmd_synth(a):
     with open(a.out, 'w') as f:
         for i, r in enumerate(rng.choice(len(assign), a.k, replace=False)):
             sub = int(rng.integers(0, 256 // B))
-            e = S[r, sub * B:(sub + 1) * B]
+            e = S[r, sub::256 // B][:B]
             sig = np.sqrt((abs(e) ** 2).mean())
             g = sig * (rng.standard_normal(B) + 1j * rng.standard_normal(B)) / np.sqrt(2)
             l = (np.sqrt(a.F) * e + np.sqrt(1 - a.F) * g) * 3.7 * np.exp(0.4j)  # arbitrary common scale/phase
