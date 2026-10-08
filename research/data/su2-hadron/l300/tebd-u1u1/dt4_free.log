@@ -1,0 +1,13 @@
+T=4 lam=0.0 chi=128 cut 0|1: S_t=1.539 chi_t=16 disc=0.0e+00
+T=4 lam=0.0 chi=128 cut 1|2: S_t=1.327 chi_t=128 disc=2.2e-09
+T=4 lam=0.0 chi=128 cut 2|3: S_t=1.438 chi_t=128 disc=5.8e-11
+T=4 lam=0.0 chi=128 cut 3|4: S_t=1.332 chi_t=128 disc=2.1e-09
+T=4 lam=0.0 chi=128 cut 4|5: S_t=1.438 chi_t=128 disc=5.9e-11
+T=4 lam=0.0 chi=128 cut 5|6: S_t=1.332 chi_t=128 disc=2.1e-09
+T=4 lam=0.0 chi=128 cut 6|7: S_t=1.438 chi_t=128 disc=5.9e-11
+T=4 lam=0.0 chi=128 cut 7|8: S_t=1.332 chi_t=128 disc=2.1e-09
+T=4 lam=0.0 chi=128 cut 8|9: S_t=1.438 chi_t=128 disc=5.9e-11
+T=4 lam=0.0 chi=128 cut 9|10: S_t=1.332 chi_t=128 disc=2.1e-09
+T=4 lam=0.0 chi=128 cut 10|11: S_t=1.438 chi_t=128 disc=5.9e-11
+T=4 lam=0.0 chi=128 cut 11|12: S_t=1.332 chi_t=128 disc=2.1e-09
+time 347.5203845500946
