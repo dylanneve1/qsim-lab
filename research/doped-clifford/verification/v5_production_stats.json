@@ -1,0 +1,26 @@
+{
+ "norm_ratio_l_over_e_per_calib_record": [
+  1.221,
+  0.9999,
+  1.2174,
+  1.1753
+ ],
+ "pooled_norm_ratio": 1.14766744793913,
+ "production_mean_ztilde": 0.9967848509221013,
+ "production_mean_ztilde_se": 0.016000737107964926,
+ "E[z~^2]/E[z~]^2 (PT: 2)": 2.015555992434275,
+ "E[z~^3]/E[z~]^3 (PT: 6)": 6.093345098169275,
+ "batch_weight_sd (Gamma(64)/64: 0.125)": 0.13808751706832487,
+ "per_session_mean_ztilde": {
+  "s0-41": 0.9934946118002139,
+  "s42-73": 1.0011032897695782
+ },
+ "mean_64q_of_drawn_j (PT: 2B/(B+1)=1.969)": 2.210487692941319,
+ "se": 0.19543367924351007,
+ "u_tail KS statistic (n=74; 5% crit 0.155)": 0.14070445463668046,
+ "prefix_ones_fraction_mean": 0.48986486486486486,
+ "prefix_ones_fraction_min_max_per_qubit": [
+  0.32432432432432434,
+  0.6081081081081081
+ ]
+}

@@ -1,0 +1,81 @@
+{
+ "per_record_X_ours_obs_vs_modelA": [
+  {
+   "obs": 0.4318,
+   "modelA_mean": 0.5377,
+   "modelA_sd": 0.0673,
+   "X_exact": 0.6406
+  },
+  {
+   "obs": 0.8344,
+   "modelA_mean": 0.794,
+   "modelA_sd": 0.0593,
+   "X_exact": 0.8778
+  },
+  {
+   "obs": 0.7394,
+   "modelA_mean": 0.7338,
+   "modelA_sd": 0.0568,
+   "X_exact": 0.8095
+  },
+  {
+   "obs": 0.484,
+   "modelA_mean": 0.504,
+   "modelA_sd": 0.0621,
+   "X_exact": 0.6075
+  }
+ ],
+ "X_ratio_obs": 0.84812018736195,
+ "X_ratio_modelA_on_these_prefixes": 0.8753504583124422,
+ "X_ratio_modelA_sd_on_these_prefixes": 0.04189629720116658,
+ "modelA_c_fit": {
+  "c": 0.12926394326186946,
+  "xeb": 0.8582933561545862,
+  "var_z": 1.9357848571078269,
+  "P74(<0.044)": {
+   "chernoff_bound": 1.6383779651692243e-08,
+   "lugannani_rice": 1.270534795700825e-09,
+   "equiv_sigma_LR": 5.9587934915716225,
+   "gaussian_sigma": 5.034637509905378
+  },
+  "P74(<0.342)": {
+   "chernoff_bound": 0.001969919968060678,
+   "lugannani_rice": 0.00023117561477094432,
+   "equiv_sigma_LR": 3.5016703869840824,
+   "gaussian_sigma": 3.1921541264759545
+  }
+ },
+ "modelA_c_fit+2se": {
+  "c": 0.14746682111772938,
+  "xeb": 0.8479583731933429,
+  "var_z": 1.9328856492160182,
+  "P74(<0.044)": {
+   "chernoff_bound": 2.8316862587434555e-08,
+   "lugannani_rice": 2.223246635134022e-09,
+   "equiv_sigma_LR": 5.866664418222765,
+   "gaussian_sigma": 4.974464567341421
+  },
+  "P74(<0.342)": {
+   "chernoff_bound": 0.00258471338223174,
+   "lugannani_rice": 0.00030872404276930407,
+   "equiv_sigma_LR": 3.4238318708804254,
+   "gaussian_sigma": 3.130599896612697
+  }
+ },
+ "modelA_tuned_to_xeb_0.822": {
+  "c": 0.18,
+  "xeb": 0.8232203531650015,
+  "P74(<0.044)": {
+   "chernoff_bound": 9.355476100280719e-08,
+   "lugannani_rice": 7.569134711702165e-09,
+   "equiv_sigma_LR": 5.65998900426597,
+   "gaussian_sigma": 4.82095880171525
+  },
+  "P74(<0.342)": {
+   "chernoff_bound": 0.004778675908469951,
+   "lugannani_rice": 0.000596347122769465,
+   "equiv_sigma_LR": 3.24062151920671,
+   "gaussian_sigma": 2.977262449231844
+  }
+ }
+}
