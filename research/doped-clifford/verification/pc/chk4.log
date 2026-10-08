@@ -1,0 +1,27 @@
+run: n=70 d=40 jobs=8 done=0 todo=8 backend="cpu-packed int5:b16:h l=18 slots=14" out=cpuM_d40.jsonl
+run: s0 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s1 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s2 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s3 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s4 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s5 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s6 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: s7 done R=65 t_sweep=0.3s (passes 0.3s, tail 0.0s) underflow=0 overflow=0
+run: n=70 d=48 jobs=16 done=0 todo=16 backend="cpu-packed int5:b16:h l=18 slots=14" out=cpuM_d48.jsonl
+run: s0 done R=65 t_sweep=1.8s (passes 1.8s, tail 0.0s) underflow=0 overflow=0
+run: s1 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s2 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s3 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s4 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s5 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s6 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s7 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s8 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s9 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s10 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s11 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s12 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s13 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s14 done R=65 t_sweep=1.7s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+run: s15 done R=65 t_sweep=1.8s (passes 1.7s, tail 0.0s) underflow=0 overflow=0
+done 

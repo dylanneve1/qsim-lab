@@ -1,0 +1,7 @@
+tailcheck n=70 d=40 m=6 trial=0 backend=cpu64 width=20 R=1 max|err|/rms=1.385e-14 F=1.000000000 t_sweep=0.08s t_tail=0.02s ref=chain-sweep
+tailcheck n=70 d=40 m=6 trial=0 backend=int5:b16:h width=20 R=65 max|err|/rms=8.454e-1 F=0.846540745 t_sweep=0.35s t_tail=0.02s ref=chain-sweep
+tailcheck n=70 d=40 m=6 trial=1 backend=cpu64 width=20 R=1 max|err|/rms=1.349e-14 F=1.000000000 t_sweep=0.08s t_tail=0.02s ref=chain-sweep
+tailcheck n=70 d=40 m=6 trial=1 backend=int5:b16:h width=20 R=65 max|err|/rms=9.150e-1 F=0.845437238 t_sweep=0.34s t_tail=0.02s ref=chain-sweep
+tailcheck n=70 d=40 m=6 trial=2 backend=cpu64 width=20 R=1 max|err|/rms=1.308e-14 F=1.000000000 t_sweep=0.07s t_tail=0.02s ref=chain-sweep
+tailcheck n=70 d=40 m=6 trial=2 backend=int5:b16:h width=20 R=65 max|err|/rms=9.903e-1 F=0.826789125 t_sweep=0.35s t_tail=0.02s ref=chain-sweep
+done 

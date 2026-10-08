@@ -1,0 +1,35 @@
+PASS sha256(prod seed) == published b9d2c126...2cf2
+PASS sha256(s1 cal seed) == bbf15613... (SESSION1.md)
+PASS sha256(s2 cal seed) == 0635c3a9... (SESSION2.md)
+PASS own stream implementation == analyze.py stream/unif for i=0..199
+PASS 200 production prefixes are distinct
+PASS session1 jobs.jsonl production jobs == seed-derived prefixes/u_tail, i=0..199 in order
+PASS jobs_s2.jsonl = 2 new calib jobs + session1 jobs.jsonl unchanged
+  s1 cal rows [555, 1784]  s2 cal rows [1180, 495]
+PASS session1 calibration jobs == calrows(s1 seed, m=6, k=2)
+PASS session2 calibration jobs == calrows(s2 seed) + calrows(s1 seed)
+PASS cal row 555: q8..q69 == SUTD assignment == IBM bitstring tail
+PASS cal row 1784: q8..q69 == SUTD assignment == IBM bitstring tail
+PASS cal row 1180: q8..q69 == SUTD assignment == IBM bitstring tail
+PASS cal row 495: q8..q69 == SUTD assignment == IBM bitstring tail
+PASS out_final74: 4 calib + 74 sample records
+PASS calib rows in order 555, 1784, 1180, 495
+PASS every calib record prefix_bits == seed-derived calibration job
+PASS sample indices exactly 0..73, in file order, no gaps or duplicates
+PASS every sample prefix_bits == its committed prefix
+PASS every sample u_tail == committed u (bit-exact float)
+PASS all records: m=6, R=65, int5:b16:h, n=70, d=70
+PASS no underflow/overflow flagged in any record
+PASS every record has 64 amplitudes
+PASS j_tail and bitstring_q0_first re-derived from amps + u for all samples (mismatches: [])
+PASS 74 distinct sample bitstrings
+PASS result records strictly increasing in t_end_unix (calib555,1784,s0..s41,c1180,c495,s42..)
+  result order head: [('calib', 555), ('calib', 1784), ('sample', 0), ('sample', 1)] ... around 46: [('sample', 41), ('calib', 1180), ('calib', 495), ('sample', 42), ('sample', 43)]
+  jobs with more than one start line (redone after kill/outage): {(19, None): 2, (42, None): 2}
+  start lines without a result (in progress at stop): [74]
+PASS all 44 session-1 result records identical in out_final74
+PASS out_final74 begins with session1 out.jsonl verbatim (append-only)
+PASS no production sample equals an IBM sample bitstring
+PASS workspace circuit qasm == SUTD copy of the IBM circuit (sha256)
+sha256 out_final74.jsonl c221f294295a3bb3c31476a78520c3746db7b8432791eb89135e6932051fb7f6
+ALL PASS
