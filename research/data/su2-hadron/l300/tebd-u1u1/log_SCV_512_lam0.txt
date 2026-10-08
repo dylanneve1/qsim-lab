@@ -1,0 +1,21 @@
+perm [0 2 1 3]
+SCV chi=512 lam=0.0 k= 1 Smax=0.214 chi=16 terr=0.00e+00 stag=-54.8454058 t=0s rss=0.11GB
+SCV chi=512 lam=0.0 k= 2 Smax=0.588 chi=76 terr=6.38e-19 stag=-40.7393583 t=1s rss=0.11GB
+SCV chi=512 lam=0.0 k= 3 Smax=0.949 chi=121 terr=4.50e-18 stag=-21.3585699 t=2s rss=0.12GB
+SCV chi=512 lam=0.0 k= 4 Smax=1.211 chi=204 terr=8.71e-18 stag=-1.6308393 t=4s rss=0.12GB
+SCV chi=512 lam=0.0 k= 5 Smax=1.474 chi=306 terr=1.56e-17 stag=13.6778450 t=8s rss=0.13GB
+SCV chi=512 lam=0.0 k= 6 Smax=1.784 chi=442 terr=2.68e-17 stag=21.2927526 t=19s rss=0.15GB
+SCV chi=512 lam=0.0 k= 7 Smax=2.097 chi=512 terr=2.31e-16 stag=20.2800711 t=36s rss=0.18GB
+SCV chi=512 lam=0.0 k= 8 Smax=2.361 chi=512 terr=4.44e-14 stag=12.1752324 t=54s rss=0.18GB
+SCV chi=512 lam=0.0 k= 9 Smax=2.573 chi=512 terr=4.28e-12 stag=0.3754620 t=71s rss=0.18GB
+SCV chi=512 lam=0.0 k=10 Smax=2.785 chi=512 terr=1.97e-10 stag=-10.9912275 t=110s rss=0.18GB
+SCV chi=512 lam=0.0 k=11 Smax=2.999 chi=512 terr=5.49e-09 stag=-18.3536452 t=154s rss=0.18GB
+SCV chi=512 lam=0.0 k=12 Smax=3.232 chi=512 terr=1.14e-07 stag=-19.7391919 t=192s rss=0.18GB
+SCV chi=512 lam=0.0 k=13 Smax=3.481 chi=512 terr=1.57e-06 stag=-15.2594138 t=213s rss=0.18GB
+SCV chi=512 lam=0.0 k=14 Smax=3.736 chi=512 terr=1.58e-05 stag=-6.9159179 t=230s rss=0.18GB
+SCV chi=512 lam=0.0 k=15 Smax=3.992 chi=512 terr=1.18e-04 stag=2.1772613 t=245s rss=0.19GB
+SCV chi=512 lam=0.0 k=16 Smax=4.252 chi=512 terr=6.81e-04 stag=8.8779444 t=262s rss=0.19GB
+SCV chi=512 lam=0.0 k=17 Smax=4.513 chi=512 terr=3.19e-03 stag=11.0441602 t=281s rss=0.19GB
+SCV chi=512 lam=0.0 k=18 Smax=4.760 chi=512 terr=1.23e-02 stag=8.1752136 t=309s rss=0.19GB
+SCV chi=512 lam=0.0 k=19 Smax=4.978 chi=512 terr=3.91e-02 stag=1.4652766 t=331s rss=0.19GB
+SCV chi=512 lam=0.0 k=20 Smax=5.166 chi=512 terr=1.03e-01 stag=-6.7367494 t=352s rss=0.19GB

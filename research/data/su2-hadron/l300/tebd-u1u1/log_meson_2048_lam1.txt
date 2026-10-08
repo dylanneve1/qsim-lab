@@ -1,0 +1,21 @@
+perm [0 2 1 3]
+meson chi=2048 lam=1.0 k= 1 Smax=0.214 chi=16 terr=0.00e+00 stag=-51.1947346 t=0s rss=0.11GB
+meson chi=2048 lam=1.0 k= 2 Smax=0.585 chi=76 terr=7.36e-19 stag=-38.3766152 t=1s rss=0.11GB
+meson chi=2048 lam=1.0 k= 3 Smax=0.944 chi=138 terr=4.47e-18 stag=-21.5887034 t=1s rss=0.12GB
+meson chi=2048 lam=1.0 k= 4 Smax=1.210 chi=206 terr=9.02e-18 stag=-5.5520771 t=2s rss=0.12GB
+meson chi=2048 lam=1.0 k= 5 Smax=1.391 chi=316 terr=1.86e-17 stag=6.0792290 t=4s rss=0.14GB
+meson chi=2048 lam=1.0 k= 6 Smax=1.664 chi=496 terr=3.14e-17 stag=11.6436510 t=6s rss=0.16GB
+meson chi=2048 lam=1.0 k= 7 Smax=1.943 chi=623 terr=5.37e-17 stag=11.4527776 t=14s rss=0.20GB
+meson chi=2048 lam=1.0 k= 8 Smax=2.186 chi=935 terr=7.86e-17 stag=7.1860924 t=25s rss=0.29GB
+meson chi=2048 lam=1.0 k= 9 Smax=2.415 chi=1383 terr=1.16e-16 stag=1.1122654 t=39s rss=0.41GB
+meson chi=2048 lam=1.0 k=10 Smax=2.634 chi=1913 terr=1.78e-16 stag=-4.6260980 t=73s rss=0.69GB
+meson chi=2048 lam=1.0 k=11 Smax=2.858 chi=2048 terr=1.24e-15 stag=-8.5531483 t=140s rss=1.02GB
+meson chi=2048 lam=1.0 k=12 Smax=3.087 chi=2048 terr=8.07e-14 stag=-10.1284140 t=217s rss=1.04GB
+meson chi=2048 lam=1.0 k=13 Smax=3.305 chi=2048 terr=3.62e-12 stag=-9.6709318 t=296s rss=1.04GB
+meson chi=2048 lam=1.0 k=14 Smax=3.503 chi=2048 terr=1.02e-10 stag=-7.9924160 t=376s rss=1.04GB
+meson chi=2048 lam=1.0 k=15 Smax=3.716 chi=2048 terr=1.92e-09 stag=-5.9449951 t=456s rss=1.04GB
+meson chi=2048 lam=1.0 k=16 Smax=3.932 chi=2048 terr=2.62e-08 stag=-4.1176799 t=537s rss=1.04GB
+meson chi=2048 lam=1.0 k=17 Smax=4.156 chi=2048 terr=2.82e-07 stag=-2.7797716 t=612s rss=1.04GB
+meson chi=2048 lam=1.0 k=18 Smax=4.381 chi=2048 terr=2.44e-06 stag=-1.9905175 t=689s rss=1.04GB
+meson chi=2048 lam=1.0 k=19 Smax=4.600 chi=2048 terr=1.72e-05 stag=-1.7247262 t=769s rss=1.04GB
+meson chi=2048 lam=1.0 k=20 Smax=4.810 chi=2048 terr=1.00e-04 stag=-1.9299441 t=854s rss=1.04GB

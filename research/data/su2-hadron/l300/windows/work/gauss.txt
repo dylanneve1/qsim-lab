@@ -1,0 +1,46 @@
+free SCV gauss-check 3.3e-16 {'hop': 2360, 'onsite': 1200, 'gmax': 0.22612500000000013}
+free meson gauss-check 3.3e-16 {'hop': 2360, 'onsite': 1200, 'gmax': 0.22612500000000013}
+hartree SCV gauss-check 3.3e-16 {'hop': 2360, 'onsite': 1200, 'gmax': 0.22612500000000013}
+hartree meson gauss-check 3.3e-16 {'hop': 2360, 'onsite': 1200, 'gmax': 0.22612500000000013}
+free
+  step  1 Q=60.0000000000 stag_SCV=-54.845406 stag_meson=-51.194735 n_f=3.650671
+  step  2 Q=60.0000000000 stag_SCV=-40.739358 stag_meson=-38.043628 n_f=2.695731
+  step  3 Q=60.0000000000 stag_SCV=-21.358570 stag_meson=-19.971673 n_f=1.386897
+  step  4 Q=60.0000000000 stag_SCV=-1.630839 stag_meson=-1.570053 n_f=0.060787
+  step  5 Q=60.0000000000 stag_SCV=13.677845 stag_meson=12.719342 n_f=-0.958503
+  step  6 Q=60.0000000000 stag_SCV=21.292753 stag_meson=19.842092 n_f=-1.450660
+  step  7 Q=60.0000000000 stag_SCV=20.280071 stag_meson=18.923221 n_f=-1.356850
+  step  8 Q=60.0000000000 stag_SCV=12.175232 stag_meson=11.387941 n_f=-0.787292
+  step  9 Q=60.0000000000 stag_SCV=0.375462 stag_meson=0.397394 n_f=0.021932
+  step 10 Q=60.0000000000 stag_SCV=-10.991227 stag_meson=-10.203494 n_f=0.787734
+  step 11 Q=60.0000000000 stag_SCV=-18.353645 stag_meson=-17.084819 n_f=1.268827
+  step 12 Q=60.0000000000 stag_SCV=-19.739192 stag_meson=-18.402642 n_f=1.336549
+  step 13 Q=60.0000000000 stag_SCV=-15.259413 stag_meson=-14.252948 n_f=1.006465
+  step 14 Q=60.0000000000 stag_SCV=-6.915911 stag_meson=-6.493184 n_f=0.422727
+  step 15 Q=60.0000000000 stag_SCV=2.177268 stag_meson=1.979811 n_f=-0.197457
+  step 16 Q=60.0000000000 stag_SCV=8.877732 stag_meson=8.238228 n_f=-0.639504
+  step 17 Q=60.0000000000 stag_SCV=11.042748 stag_meson=10.280877 n_f=-0.761871
+  step 18 Q=60.0000000000 stag_SCV=8.172922 stag_meson=7.634292 n_f=-0.538630
+  step 19 Q=60.0000000000 stag_SCV=1.482272 stag_meson=1.420612 n_f=-0.061660
+  step 20 Q=60.0000000000 stag_SCV=-6.599659 stag_meson=-6.103331 n_f=0.496329
+hartree
+  step  1 Q=60.0000000000 stag_SCV=-54.845406 stag_meson=-51.194735 n_f=3.650671
+  step  2 Q=60.0000000000 stag_SCV=-41.062321 stag_meson=-38.349116 n_f=2.713205
+  step  3 Q=60.0000000000 stag_SCV=-22.772070 stag_meson=-21.312109 n_f=1.459961
+  step  4 Q=60.0000000000 stag_SCV=-4.701736 stag_meson=-4.493566 n_f=0.208169
+  step  5 Q=60.0000000000 stag_SCV=9.212110 stag_meson=8.442174 n_f=-0.769936
+  step  6 Q=60.0000000000 stag_SCV=16.530138 stag_meson=15.233059 n_f=-1.297078
+  step  7 Q=60.0000000000 stag_SCV=16.629610 stag_meson=15.311182 n_f=-1.318429
+  step  8 Q=60.0000000000 stag_SCV=10.685532 stag_meson=9.779671 n_f=-0.905860
+  step  9 Q=60.0000000000 stag_SCV=1.228577 stag_meson=0.995642 n_f=-0.232935
+  step 10 Q=60.0000000000 stag_SCV=-8.609916 stag_meson=-8.136571 n_f=0.473345
+  step 11 Q=60.0000000000 stag_SCV=-15.944108 stag_meson=-14.949489 n_f=0.994619
+  step 12 Q=60.0000000000 stag_SCV=-18.901119 stag_meson=-17.714817 n_f=1.186302
+  step 13 Q=60.0000000000 stag_SCV=-17.117551 stag_meson=-16.094994 n_f=1.022557
+  step 14 Q=60.0000000000 stag_SCV=-11.742124 stag_meson=-11.145822 n_f=0.596302
+  step 15 Q=60.0000000000 stag_SCV=-4.916905 stag_meson=-4.841913 n_f=0.074992
+  step 16 Q=60.0000000000 stag_SCV=1.007862 stag_meson=0.645985 n_f=-0.361877
+  step 17 Q=60.0000000000 stag_SCV=4.205668 stag_meson=3.627251 n_f=-0.578417
+  step 18 Q=60.0000000000 stag_SCV=3.854541 stag_meson=3.336245 n_f=-0.518297
+  step 19 Q=60.0000000000 stag_SCV=0.283234 stag_meson=0.068500 n_f=-0.214733
+  step 20 Q=60.0000000000 stag_SCV=-5.221163 stag_meson=-4.994886 n_f=0.226278

@@ -1,0 +1,21 @@
+perm [0 2 1 3]
+meson chi=512 lam=1.0 k= 1 Smax=0.214 chi=16 terr=0.00e+00 stag=-51.1947346 t=0s rss=0.11GB
+meson chi=512 lam=1.0 k= 2 Smax=0.585 chi=76 terr=7.36e-19 stag=-38.3766152 t=1s rss=0.12GB
+meson chi=512 lam=1.0 k= 3 Smax=0.944 chi=138 terr=4.47e-18 stag=-21.5887034 t=1s rss=0.12GB
+meson chi=512 lam=1.0 k= 4 Smax=1.210 chi=206 terr=9.02e-18 stag=-5.5520771 t=3s rss=0.13GB
+meson chi=512 lam=1.0 k= 5 Smax=1.391 chi=316 terr=1.86e-17 stag=6.0792290 t=8s rss=0.14GB
+meson chi=512 lam=1.0 k= 6 Smax=1.664 chi=496 terr=3.14e-17 stag=11.6436510 t=16s rss=0.16GB
+meson chi=512 lam=1.0 k= 7 Smax=1.943 chi=512 terr=1.46e-15 stag=11.4527776 t=42s rss=0.19GB
+meson chi=512 lam=1.0 k= 8 Smax=2.186 chi=512 terr=2.42e-13 stag=7.1860924 t=86s rss=0.19GB
+meson chi=512 lam=1.0 k= 9 Smax=2.415 chi=512 terr=1.38e-11 stag=1.1122654 t=137s rss=0.19GB
+meson chi=512 lam=1.0 k=10 Smax=2.634 chi=512 terr=3.89e-10 stag=-4.6260980 t=181s rss=0.19GB
+meson chi=512 lam=1.0 k=11 Smax=2.858 chi=512 terr=8.19e-09 stag=-8.5531483 t=217s rss=0.19GB
+meson chi=512 lam=1.0 k=12 Smax=3.087 chi=512 terr=1.38e-07 stag=-10.1284141 t=257s rss=0.19GB
+meson chi=512 lam=1.0 k=13 Smax=3.305 chi=512 terr=1.68e-06 stag=-9.6709329 t=295s rss=0.19GB
+meson chi=512 lam=1.0 k=14 Smax=3.503 chi=512 terr=1.54e-05 stag=-7.9924258 t=330s rss=0.19GB
+meson chi=512 lam=1.0 k=15 Smax=3.716 chi=512 terr=1.10e-04 stag=-5.9450583 t=368s rss=0.19GB
+meson chi=512 lam=1.0 k=16 Smax=3.931 chi=512 terr=6.11e-04 stag=-4.1180098 t=417s rss=0.19GB
+meson chi=512 lam=1.0 k=17 Smax=4.154 chi=512 terr=2.69e-03 stag=-2.7812049 t=464s rss=0.19GB
+meson chi=512 lam=1.0 k=18 Smax=4.375 chi=512 terr=9.57e-03 stag=-1.9958857 t=502s rss=0.19GB
+meson chi=512 lam=1.0 k=19 Smax=4.583 chi=512 terr=2.79e-02 stag=-1.7424284 t=552s rss=0.19GB
+meson chi=512 lam=1.0 k=20 Smax=4.773 chi=512 terr=6.81e-02 stag=-1.9817477 t=587s rss=0.19GB

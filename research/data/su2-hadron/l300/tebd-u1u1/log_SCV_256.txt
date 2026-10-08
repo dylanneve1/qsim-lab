@@ -1,0 +1,21 @@
+perm [0 2 1 3]
+SCV chi=256 lam=1.0 k= 1 Smax=0.214 chi=16 terr=0.00e+00 stag=-54.8454058 t=0s rss=0.11GB
+SCV chi=256 lam=1.0 k= 2 Smax=0.580 chi=76 terr=7.74e-19 stag=-41.0918199 t=2s rss=0.12GB
+SCV chi=256 lam=1.0 k= 3 Smax=0.922 chi=138 terr=4.97e-18 stag=-23.0688534 t=3s rss=0.12GB
+SCV chi=256 lam=1.0 k= 4 Smax=1.166 chi=206 terr=9.32e-18 stag=-5.8385381 t=5s rss=0.13GB
+SCV chi=256 lam=1.0 k= 5 Smax=1.391 chi=256 terr=9.29e-17 stag=6.6691892 t=13s rss=0.13GB
+SCV chi=256 lam=1.0 k= 6 Smax=1.664 chi=256 terr=3.78e-14 stag=12.6516461 t=16s rss=0.14GB
+SCV chi=256 lam=1.0 k= 7 Smax=1.943 chi=256 terr=5.77e-12 stag=12.4262626 t=22s rss=0.14GB
+SCV chi=256 lam=1.0 k= 8 Smax=2.186 chi=256 terr=3.75e-10 stag=7.7964204 t=34s rss=0.14GB
+SCV chi=256 lam=1.0 k= 9 Smax=2.412 chi=256 terr=1.24e-08 stag=1.2197069 t=41s rss=0.14GB
+SCV chi=256 lam=1.0 k=10 Smax=2.624 chi=256 terr=2.29e-07 stag=-4.9717652 t=47s rss=0.14GB
+SCV chi=256 lam=1.0 k=11 Smax=2.837 chi=256 terr=2.65e-06 stag=-9.1713908 t=56s rss=0.14GB
+SCV chi=256 lam=1.0 k=12 Smax=3.060 chi=256 terr=2.32e-05 stag=-10.7997758 t=63s rss=0.14GB
+SCV chi=256 lam=1.0 k=13 Smax=3.284 chi=256 terr=1.60e-04 stag=-10.2221268 t=71s rss=0.14GB
+SCV chi=256 lam=1.0 k=14 Smax=3.501 chi=256 terr=8.73e-04 stag=-8.3416686 t=76s rss=0.14GB
+SCV chi=256 lam=1.0 k=15 Smax=3.712 chi=256 terr=3.59e-03 stag=-6.0996092 t=82s rss=0.14GB
+SCV chi=256 lam=1.0 k=16 Smax=3.925 chi=256 terr=1.19e-02 stag=-4.1401425 t=88s rss=0.14GB
+SCV chi=256 lam=1.0 k=17 Smax=4.139 chi=256 terr=3.30e-02 stag=-2.7469445 t=92s rss=0.14GB
+SCV chi=256 lam=1.0 k=18 Smax=4.342 chi=256 terr=8.15e-02 stag=-1.9645203 t=101s rss=0.14GB
+SCV chi=256 lam=1.0 k=19 Smax=4.516 chi=256 terr=1.80e-01 stag=-1.7463212 t=108s rss=0.14GB
+SCV chi=256 lam=1.0 k=20 Smax=4.652 chi=256 terr=3.58e-01 stag=-2.0298512 t=117s rss=0.14GB
