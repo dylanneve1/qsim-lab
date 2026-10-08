@@ -493,7 +493,7 @@ impl PackedStore {
     /// (same values as [`Self::get`]); whole blocks are decoded at once.
     pub fn read_run(&self, start: usize, out: &mut [Complex64]) {
         let b = self.block;
-        if start % b != 0 || out.len() % b != 0 {
+        if !start.is_multiple_of(b) || !out.len().is_multiple_of(b) {
             for (k, o) in out.iter_mut().enumerate() {
                 let z = self.get(start + k);
                 *o = Complex64::new(z.re as f64, z.im as f64);
