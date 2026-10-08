@@ -129,3 +129,13 @@ jobs:
           python -m pytest -q --doctest-modules --pyargs qsimlab -o doctest_optionflags="NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
           # README + docs/*.md tutorials are executable: a doc example that stops working fails CI
           python -m pytest -q -p no:cacheprovider --doctest-glob='*.md' python/README.md python/docs -o doctest_optionflags="NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
+      - name: Execute tutorial notebooks
+        if: ${{ matrix.platform == 'linux-x86_64' && matrix.python == '3.12' }}
+        shell: bash
+        env:
+          RAYON_NUM_THREADS: "2"
+          MPLBACKEND: Agg
+        run: |
+          python -m pip install nbmake matplotlib
+          # every python/notebooks/*.ipynb must run top to bottom against the installed wheel
+          python -m pytest -q -p no:cacheprovider --nbmake --nbmake-timeout=600 python/notebooks
