@@ -1,0 +1,21 @@
+perm [0 2 1 3]
+meson chi=256 lam=1.0 k= 1 Smax=0.214 chi=16 terr=0.00e+00 stag=-51.1947346 t=1s rss=0.11GB
+meson chi=256 lam=1.0 k= 2 Smax=0.585 chi=76 terr=7.36e-19 stag=-38.3766152 t=2s rss=0.12GB
+meson chi=256 lam=1.0 k= 3 Smax=0.944 chi=138 terr=4.47e-18 stag=-21.5887034 t=5s rss=0.12GB
+meson chi=256 lam=1.0 k= 4 Smax=1.210 chi=206 terr=9.02e-18 stag=-5.5520771 t=7s rss=0.13GB
+meson chi=256 lam=1.0 k= 5 Smax=1.391 chi=256 terr=8.51e-17 stag=6.0792290 t=11s rss=0.13GB
+meson chi=256 lam=1.0 k= 6 Smax=1.664 chi=256 terr=3.29e-14 stag=11.6436510 t=19s rss=0.14GB
+meson chi=256 lam=1.0 k= 7 Smax=1.943 chi=256 terr=4.91e-12 stag=11.4527776 t=26s rss=0.14GB
+meson chi=256 lam=1.0 k= 8 Smax=2.186 chi=256 terr=3.18e-10 stag=7.1860924 t=31s rss=0.14GB
+meson chi=256 lam=1.0 k= 9 Smax=2.415 chi=256 terr=1.06e-08 stag=1.1122654 t=39s rss=0.14GB
+meson chi=256 lam=1.0 k=10 Smax=2.634 chi=256 terr=1.98e-07 stag=-4.6260981 t=47s rss=0.14GB
+meson chi=256 lam=1.0 k=11 Smax=2.858 chi=256 terr=2.31e-06 stag=-8.5531490 t=53s rss=0.14GB
+meson chi=256 lam=1.0 k=12 Smax=3.087 chi=256 terr=2.04e-05 stag=-10.1284258 t=60s rss=0.14GB
+meson chi=256 lam=1.0 k=13 Smax=3.305 chi=256 terr=1.41e-04 stag=-9.6710310 t=68s rss=0.14GB
+meson chi=256 lam=1.0 k=14 Smax=3.503 chi=256 terr=7.65e-04 stag=-7.9928861 t=77s rss=0.14GB
+meson chi=256 lam=1.0 k=15 Smax=3.714 chi=256 terr=3.16e-03 stag=-5.9466278 t=88s rss=0.14GB
+meson chi=256 lam=1.0 k=16 Smax=3.926 chi=256 terr=1.05e-02 stag=-4.1214915 t=94s rss=0.14GB
+meson chi=256 lam=1.0 k=17 Smax=4.140 chi=256 terr=2.94e-02 stag=-2.7850915 t=105s rss=0.14GB
+meson chi=256 lam=1.0 k=18 Smax=4.342 chi=256 terr=7.29e-02 stag=-1.9931779 t=112s rss=0.14GB
+meson chi=256 lam=1.0 k=19 Smax=4.516 chi=256 terr=1.61e-01 stag=-1.7217121 t=121s rss=0.14GB
+meson chi=256 lam=1.0 k=20 Smax=4.652 chi=256 terr=3.21e-01 stag=-1.9304175 t=132s rss=0.14GB
