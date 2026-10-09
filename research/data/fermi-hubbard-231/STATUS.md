@@ -1,4 +1,7 @@
-# Fermi-Hubbard quench (tracker issue 231): status, PARKED
+# Fermi-Hubbard quench (tracker issue 231): status, SOLVED for the Trotter circuit (centre site, t=1…6)
+
+**Final:** see `tenpy-mim/MIM_RESULTS.md`. Forward U(1)×U(1) TEBD for t ≤ 3 (χ=3072), and meet-in-the-middle (forward state at t=2 sandwiched with the Heisenberg MPO of the remaining layers) for t ≥ 4. The result is converged to ~1e-4 at t=4–6, validated to 2e-14 against the exact statevector. The TDVP-vs-circuit gap is Trotter error, since TDVP is continuous-time. The notes below describe the earlier Gemini attempt and are kept for the record.
+
 
 **Problem.** 1D Fermi-Hubbard quench from a Néel state with U/t = −2. The circuit is a second-order Trotter product with dt = 0.2 and 30 steps (T = 6). The paper's system is 60 sites (120 qubits). The observables are ⟨n_{c,σ}⟩ and ⟨n_{c↑} n_{c↓}⟩ at the centre site.
 

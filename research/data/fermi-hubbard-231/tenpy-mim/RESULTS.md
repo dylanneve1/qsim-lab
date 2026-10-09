@@ -1,0 +1,192 @@
+> **UPDATE (later work, see MIM_RESULTS.md):** the "NOT converged" status of t=5 and t=6 below is superseded. A Heisenberg-MPO / meet-in-the-middle
+> method (forward state at t=2 + backward-evolved operator MPO) gives converged centre-site values at t=4,5,6 (error ≈1e-4): ⟨n↑⟩_29 = 0.52294, 0.48619, 0.50903 and
+> ⟨n↑n↓⟩_29 = 0.18452, 0.18706, 0.18707 at t=4,5,6 (final numbers and error bars in MIM_RESULTS.md). The forward-TEBD tables below remain valid as a cross-check for t≤4.
+
+# RESULTS — Issue 231, 1D Fermi-Hubbard Fock-state quench: converged TEBD of the exact Trotter circuit (L=60, U=-2, Δt=0.2, 30 layers)
+
+**Bottom line.** The ideal output of the paper's 30-layer Trotter circuit (Néel |↓↑↓↑…⟩, open chain, 60 sites, 120 qubits) was computed with a
+U(1)×U(1) charge-conserving d=4 TEBD (TeNPy), validated against a literal-circuit exact statevector (≤1.1e-13, L=4,6,8, all 30 steps).
+Convergence in bond dimension χ (spread between the two largest χ at the centre sites i=29/30):
+
+| t | step | status | error bar on n_{29,σ} | error bar on ⟨n↑n↓⟩_{29} |
+|---|---|---|---|---|
+| 1 | 5 | exact (any χ ≥ 64) | < 1e-10 | < 1e-10 |
+| 2 | 10 | exact (χ ≥ 256) | 1e-13 (χ2048→3072) | 3e-13 |
+| 3 | 15 | converged | 1e-6 (χ2048→3072) | 7e-6 |
+| 4 | 20 | converged for n; dd converging | 3e-4 | 6e-3 (spread sequence 2.4e-2 → 5.7e-3, ratio ≈4; remaining error plausibly ≲2e-3) |
+| 5 | 25 | **NOT converged** (χ≤2048) | ≳ 7e-2 (spread 1024→2048 = 6.6e-2, not shrinking) | ≳ 1e-2 |
+| 6 | 30 | **NOT converged** (χ≤2048) | ≳ 4e-2 | ≳ 1e-2 |
+
+Sites: i=29 (initially ↑) and i=30 (initially ↓) are the centre pair (paper's defect site is i=29). Full tables for both sites in §2.
+TEBD runtime/memory: χ=2048 → 3477 s, 1.17 GB RSS (2 threads, nice 10); χ=3072 (to t=4) → 4295 s, 2.14 GB; entanglement max entropy
+(nats) 1.80, 3.38, 4.89, 6.4 at t=1..4 (≈7.0 at t=5,6 with χ=2048, truncated).
+
+## 1. Centre site 29: headline table (best χ = 3072 for t≤4, 2048 for t=5,6)
+
+| t | quantity | TEBD best | ± err (spread) | TDVP (paper, χ=2048, continuous t) | HW mm+dr | HW − TEBD | TDVP − TEBD |
+|---|---|---|---|---|---|---|---|
+| 1 | ⟨n↑⟩ | 0.381606 | <1e-10 | 0.388595 | 0.385336 | +0.0037 | +0.0070 |
+| 1 | ⟨n↓⟩ | 0.618394 | <1e-10 | 0.611405 | 0.608219 | −0.0102 | −0.0070 |
+| 1 | ⟨n↑n↓⟩ | 0.178244 | <1e-10 | 0.177560 | 0.179281 | +0.0010 | −0.0007 |
+| 2 | ⟨n↑⟩ | 0.535107 | 1e-13 | 0.527211 | 0.533754 | −0.0014 | −0.0079 |
+| 2 | ⟨n↓⟩ | 0.464893 | 4e-14 | 0.472789 | 0.463756 | −0.0011 | +0.0079 |
+| 2 | ⟨n↑n↓⟩ | 0.195278 | 3e-13 | 0.197408 | 0.194505 | −0.0008 | +0.0021 |
+| 3 | ⟨n↑⟩ | 0.472562 | 1e-6 | 0.477674 | 0.489801 | +0.0172 | +0.0051 |
+| 3 | ⟨n↓⟩ | 0.527438 | 1e-6 | 0.522326 | 0.515734 | −0.0117 | −0.0051 |
+| 3 | ⟨n↑n↓⟩ | 0.190683 | 7e-6 | 0.192203 | 0.203463 | +0.0128 | +0.0015 |
+| 4 | ⟨n↑⟩ | 0.522901 | 3e-4 | 0.517328 | 0.519818 | −0.0031 | −0.0056 |
+| 4 | ⟨n↓⟩ | 0.477090 | 3e-4 | 0.482672 | 0.479959 | +0.0029 | +0.0056 |
+| 4 | ⟨n↑n↓⟩ | 0.184937 | 6e-3 | 0.185598 | 0.196395 | +0.0115 | +0.0007 |
+| 5 | ⟨n↑⟩ | (0.4710) | ≳7e-2 — unconverged | 0.477373 | 0.511717 | n/a | n/a |
+| 5 | ⟨n↓⟩ | (0.5291) | ≳7e-2 — unconverged | 0.522627 | 0.487290 | n/a | n/a |
+| 5 | ⟨n↑n↓⟩ | (0.1328) | ≳1e-2 — unconverged | 0.159058 | 0.200440 | n/a | n/a |
+| 6 | ⟨n↑⟩ | (0.3945) | ≳4e-2 — unconverged | — (no TDVP value at t=6) | 0.509610 | n/a | n/a |
+| 6 | ⟨n↓⟩ | (0.6056) | ≳4e-2 — unconverged | — | 0.501069 | n/a | n/a |
+| 6 | ⟨n↑n↓⟩ | (0.1456) | ≳1e-2 — unconverged | — | 0.205978 | n/a | n/a |
+
+(Values in brackets are the χ=2048 numbers, shown only for completeness; they are not trustworthy.)
+
+**Do we beat the paper's TDVP accuracy?** It depends on the target:
+* *Target = ideal output of the Trotter circuit that the hardware actually runs* (the right benchmark for the hardware): **yes for t ≤ 4.**
+  Our error ≤ 3e-4 (≤1e-6 for t≤3) for ⟨n⟩ — vs. the ITensor-TDVP pickles, which are continuous-time and miss the circuit's value by
+  0.005–0.008 on ⟨n⟩ (0.66–0.94 % all-site RMSE) at t=1…4 purely because of Trotter error. For ⟨n↑n↓⟩ at t=4 our bar is 6e-3 (still ~TDVP-sized, so
+  no advantage there). At t=5,6 we are not converged and have no claim.
+* *Target = continuous-time Fermi-Hubbard dynamics*: **no.** A Δt Richardson extrapolation of our TEBD at t=1,2 (χ=256) matches the TDVP
+  values to 1.6e-4 (t=1, ⟨n⟩), 4e-5 (⟨n↑n↓⟩), 3e-5 (t=2) — so the paper's TDVP is already ≲1e-4 accurate there, and we did no Δt scan at t≥3.
+* Hardware vs the exact circuit: all-site RMSE (120 observables) of HW mm+dr = 1.2 %, 0.9 %, 1.2 %, 1.1 % at t=1,2,3,4 (raw/mm: 1.2–1.8 %),
+  of the same size as the (continuous) TDVP-vs-circuit RMSE 0.66–0.94 %. Centre ⟨n↑n↓⟩ is the worst hardware observable (+0.013 at t=3, +0.012 at t=4 vs
+  exact circuit).
+* For comparison with the paper's claim ("RMSE ≈1 % out to t≳5"): against the exact circuit the hardware RMSE is ≈1–1.2 % up to t=4; t=5,6
+  cannot be certified from this work.
+
+## 2. Full tables (generated by make_results.py; χ columns are the raw TEBD values; ‘—’ = run not performed to that step)
+TEBD chi values available: [128, 256, 512, 1024, 2048, 3072]; steps completed: {128: 30, 256: 30, 512: 30, 1024: 30, 2048: 30, 3072: 20}
+
+## Centre site i=29 (initially up)
+
+### <n_up>, site 29
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.0e+00 (chi 2048→3072) | 0.388595 | 0.385336 | 0.394912 | 0.395200 | +0.0037 | +0.0070 |
+| 2 (10) | 0.535255 | 0.535107 | 0.535107 | 0.535107 | 0.535107 | 0.535107 | 1.1e-14 (chi 2048→3072) | 0.527211 | 0.533754 | 0.528578 | 0.527750 | -0.0014 | -0.0079 |
+| 3 (15) | 0.449955 | 0.466327 | 0.472428 | 0.472577 | 0.472561 | 0.472562 | 9.3e-07 (chi 2048→3072) | 0.477674 | 0.489801 | 0.492218 | 0.491900 | +0.0172 | +0.0051 |
+| 4 (20) | 0.369000 | 0.467261 | 0.547363 | 0.532466 | 0.523230 | 0.522901 | 3.3e-04 (chi 2048→3072) | 0.517328 | 0.519818 | 0.513596 | 0.512850 | -0.0031 | -0.0056 |
+| 5 (25) | 0.425241 | 0.559822 | 0.613532 | 0.537447 | 0.471031 | — | 6.6e-02 (chi 1024→2048) | 0.477373 | 0.511717 | 0.507312 | 0.506900 | +0.0407 | +0.0063 |
+| 6 (30) | 0.574031 | 0.542441 | 0.545125 | 0.438555 | 0.394516 | — | 4.4e-02 (chi 1024→2048) | nan | 0.509610 | 0.505451 | 0.504750 | +0.1151 | +nan |
+
+### <n_dn>, site 29
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.0e+00 (chi 2048→3072) | 0.611405 | 0.608219 | 0.601026 | 0.599800 | -0.0102 | -0.0070 |
+| 2 (10) | 0.464741 | 0.464894 | 0.464893 | 0.464893 | 0.464893 | 0.464893 | 3.8e-14 (chi 2048→3072) | 0.472789 | 0.463756 | 0.468973 | 0.468800 | -0.0011 | +0.0079 |
+| 3 (15) | 0.551057 | 0.533843 | 0.527734 | 0.527422 | 0.527439 | 0.527438 | 1.2e-06 (chi 2048→3072) | 0.522326 | 0.515734 | 0.512188 | 0.511450 | -0.0117 | -0.0051 |
+| 4 (20) | 0.630750 | 0.533214 | 0.452995 | 0.467840 | 0.476825 | 0.477090 | 2.6e-04 (chi 2048→3072) | 0.482672 | 0.479959 | 0.485979 | 0.485700 | +0.0029 | +0.0056 |
+| 5 (25) | 0.574773 | 0.440013 | 0.387179 | 0.463419 | 0.529126 | — | 6.6e-02 (chi 1024→2048) | 0.522627 | 0.487290 | 0.492028 | 0.491400 | -0.0418 | -0.0065 |
+| 6 (30) | 0.425295 | 0.456442 | 0.453757 | 0.560753 | 0.605558 | — | 4.5e-02 (chi 1024→2048) | nan | 0.501069 | 0.500620 | 0.500250 | -0.1045 | +nan |
+
+### <n_up n_dn>, site 29
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.0e+00 (chi 2048→3072) | 0.177560 | 0.179281 | 0.187378 | 0.187650 | +0.0010 | -0.0007 |
+| 2 (10) | 0.194258 | 0.195279 | 0.195278 | 0.195278 | 0.195278 | 0.195278 | 3.4e-13 (chi 2048→3072) | 0.197408 | 0.194505 | 0.204321 | 0.204350 | -0.0008 | +0.0021 |
+| 3 (15) | 0.174433 | 0.181550 | 0.186660 | 0.190705 | 0.190676 | 0.190683 | 6.9e-06 (chi 2048→3072) | 0.192203 | 0.203463 | 0.215498 | 0.215400 | +0.0128 | +0.0015 |
+| 4 (20) | 0.125301 | 0.136651 | 0.154023 | 0.155221 | 0.179229 | 0.184937 | 5.7e-03 (chi 2048→3072) | 0.185598 | 0.196395 | 0.213534 | 0.213450 | +0.0115 | +0.0007 |
+| 5 (25) | 0.155473 | 0.164510 | 0.141693 | 0.144440 | 0.132794 | — | 1.2e-02 (chi 1024→2048) | 0.159058 | 0.200440 | 0.219114 | 0.218950 | +0.0676 | +0.0263 |
+| 6 (30) | 0.156481 | 0.163446 | 0.148536 | 0.159753 | 0.145610 | — | 1.4e-02 (chi 1024→2048) | nan | 0.205978 | 0.224252 | 0.224050 | +0.0604 | +nan |
+
+## Centre site i=30 (initially down)
+
+### <n_up>, site 30
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.618394 | 0.0e+00 (chi 2048→3072) | 0.611405 | 0.608384 | 0.598713 | 0.601050 | -0.0100 | -0.0070 |
+| 2 (10) | 0.464741 | 0.464894 | 0.464893 | 0.464893 | 0.464893 | 0.464893 | 3.9e-14 (chi 2048→3072) | 0.472789 | 0.468658 | 0.473989 | 0.473650 | +0.0038 | +0.0079 |
+| 3 (15) | 0.551058 | 0.533843 | 0.527734 | 0.527422 | 0.527439 | 0.527438 | 1.2e-06 (chi 2048→3072) | 0.522326 | 0.515886 | 0.511870 | 0.515400 | -0.0116 | -0.0051 |
+| 4 (20) | 0.630764 | 0.533210 | 0.452997 | 0.467841 | 0.476825 | 0.477090 | 2.6e-04 (chi 2048→3072) | 0.482672 | 0.487187 | 0.491389 | 0.490950 | +0.0101 | +0.0056 |
+| 5 (25) | 0.574925 | 0.440040 | 0.386036 | 0.463407 | 0.529128 | — | 6.6e-02 (chi 1024→2048) | 0.522626 | 0.509152 | 0.505635 | 0.509250 | -0.0200 | -0.0065 |
+| 6 (30) | 0.425280 | 0.456574 | 0.454859 | 0.560856 | 0.605559 | — | 4.5e-02 (chi 1024→2048) | nan | 0.492934 | 0.496015 | 0.495550 | -0.1126 | +nan |
+
+### <n_dn>, site 30
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.381606 | 0.0e+00 (chi 2048→3072) | 0.388595 | 0.386667 | 0.396796 | 0.396900 | +0.0051 | +0.0070 |
+| 2 (10) | 0.535255 | 0.535107 | 0.535107 | 0.535107 | 0.535107 | 0.535107 | 1.4e-14 (chi 2048→3072) | 0.527211 | 0.541412 | 0.534075 | 0.537300 | +0.0063 | -0.0079 |
+| 3 (15) | 0.449955 | 0.466327 | 0.472428 | 0.472577 | 0.472561 | 0.472562 | 9.3e-07 (chi 2048→3072) | 0.477674 | 0.470703 | 0.477962 | 0.477600 | -0.0019 | +0.0051 |
+| 4 (20) | 0.368975 | 0.467240 | 0.547359 | 0.532466 | 0.523230 | 0.522901 | 3.3e-04 (chi 2048→3072) | 0.517328 | 0.518538 | 0.512428 | 0.515950 | -0.0044 | -0.0056 |
+| 5 (25) | 0.425056 | 0.559779 | 0.612090 | 0.537464 | 0.471030 | — | 6.6e-02 (chi 1024→2048) | 0.477374 | 0.494715 | 0.496770 | 0.496300 | +0.0237 | +0.0063 |
+| 6 (30) | 0.573975 | 0.542284 | 0.545626 | 0.438424 | 0.394346 | — | 4.4e-02 (chi 1024→2048) | nan | 0.500918 | 0.500514 | 0.504200 | +0.1066 | +nan |
+
+### <n_up n_dn>, site 30
+
+| t (step) | chi=128 | chi=256 | chi=512 | chi=1024 | chi=2048 | chi=3072 | err bar = |best chi - next chi| | TDVP paper (cont. time) | HW mm+dr | HW mm | HW raw | HW(mm+dr)-TEBD(best) | TDVP-TEBD(best) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (5) | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.178244 | 0.0e+00 (chi 2048→3072) | 0.177560 | 0.184352 | 0.191364 | 0.193250 | +0.0061 | -0.0007 |
+| 2 (10) | 0.194258 | 0.195279 | 0.195278 | 0.195278 | 0.195278 | 0.195278 | 3.4e-13 (chi 2048→3072) | 0.197408 | 0.199772 | 0.209508 | 0.211700 | +0.0045 | +0.0021 |
+| 3 (15) | 0.174433 | 0.181550 | 0.186660 | 0.190705 | 0.190676 | 0.190683 | 6.9e-06 (chi 2048→3072) | 0.192203 | 0.193497 | 0.208396 | 0.210600 | +0.0028 | +0.0015 |
+| 4 (20) | 0.125290 | 0.136639 | 0.154022 | 0.155222 | 0.179229 | 0.184937 | 5.7e-03 (chi 2048→3072) | 0.185598 | 0.206020 | 0.220693 | 0.222800 | +0.0211 | +0.0007 |
+| 5 (25) | 0.155414 | 0.164508 | 0.140354 | 0.144452 | 0.132794 | — | 1.2e-02 (chi 1024→2048) | 0.159059 | 0.205678 | 0.222640 | 0.224750 | +0.0729 | +0.0263 |
+| 6 (30) | 0.156389 | 0.163426 | 0.149299 | 0.159706 | 0.145458 | — | 1.4e-02 (chi 1024→2048) | nan | 0.202745 | 0.223119 | 0.225200 | +0.0573 | +nan |
+
+## All-site 1-point observables (120 values n_{i,sigma}), per step
+
+conv = max/rms over all 120 observables of |best chi - next chi| (best chi = 3072 for t<=4, 2048 for t=5,6); RMSE vs best TEBD of hardware (mm+dr, mm, raw) and TDVP.
+
+| t (step) | conv max | conv rms | RMSE HW mm+dr | RMSE HW mm | RMSE HW raw | RMSE TDVP |
+|---|---|---|---|---|---|---|
+| 1 (5) | 0.0e+00 | 0.0e+00 | 0.0117 | 0.0174 | 0.0185 | 0.0075 |
+| 2 (10) | 1.0e-13 | 3.4e-14 | 0.0094 | 0.0121 | 0.0122 | 0.0094 |
+| 3 (15) | 1.2e-06 | 9.5e-07 | 0.0124 | 0.0155 | 0.0156 | 0.0066 |
+| 4 (20) | 4.6e-04 | 2.9e-04 | 0.0113 | 0.0152 | 0.0151 | 0.0073 |
+| 5 (25) | 7.4e-02 | 5.9e-02 | 0.0224 | 0.0247 | 0.0245 | 0.0076 |
+| 6 (30) | 6.6e-02 | 4.1e-02 | 0.0943 | 0.0933 | 0.0936 | nan |
+
+## Per-chi run statistics (centre-bond entropy max, max bond dim, sum of discarded weights, wall, RSS)
+
+| chi | steps | Smax@t=1..6 (nats) | sum discarded weight @t=1..6 | wall (s) | peak RSS GB |
+|---|---|---|---|---|---|
+| 128 | 30 | [1.8, 3.37, 4.38, 4.48, 4.37, 4.15] | ['9.3e-09', '3.2e-02', '1.8e+00', '7.3e+00', '1.2e+01', '1.4e+01'] | 39 | 0.11 |
+| 256 | 30 | [1.8, 3.38, 4.73, 5.14, 5.08, 4.94] | ['6.8e-13', '4.3e-04', '4.3e-01', '4.2e+00', '8.5e+00', '1.2e+01'] | 97 | 0.13 |
+| 512 | 30 | [1.8, 3.38, 4.85, 5.72, 5.77, 5.59] | ['2.0e-17', '8.4e-06', '1.0e-01', '1.9e+00', '6.7e+00', '1.0e+01'] | 271 | 0.19 |
+| 1024 | 30 | [1.8, 3.38, 4.89, 6.08, 6.42, 6.4] | ['2.0e-17', '1.2e-08', '3.6e-03', '7.3e-01', '3.9e+00', '7.4e+00'] | 937 | 0.41 |
+| 2048 | 30 | [1.8, 3.38, 4.89, 6.3, 7.02, 7.03] | ['2.0e-17', '1.9e-11', '2.3e-04', '1.5e-01', '2.1e+00', '5.9e+00'] | 3477 | 1.17 |
+| 3072 | 20 | [1.8, 3.38, 4.89, 6.36] | ['2.0e-17', '6.8e-14', '4.6e-06', '3.2e-02'] | 4295 | 2.14 |
+
+## 3. Caution on internal diagnostics
+The all-site RMSE rows for t=5,6 above compare against an *unconverged* TEBD and are not meaningful (HW "0.094" at t=6 is mostly TEBD error).
+Symmetry/charge diagnostics for the centre site (|n↑+n↓−1|, zero for exact dynamics) are far smaller than the real χ-errors at t=5,6 and
+must not be used as error bars:
+
+| chi | t | max_i |n_up(i)-n_dn(59-i)| | |n_up+n_dn-1| at site 29 |
+|---|---|---|---|
+| 512 | 1 | 1.4e-02 | 2.2e-16 |
+| 512 | 2 | 2.3e-02 | 3.2e-08 |
+| 512 | 3 | 2.2e-02 | 1.6e-04 |
+| 512 | 4 | 2.1e-02 | 3.6e-04 |
+| 512 | 5 | 2.3e-02 | 7.1e-04 |
+| 512 | 6 | 2.2e-02 | 1.1e-03 |
+| 1024 | 1 | 1.4e-02 | 2.2e-16 |
+| 1024 | 2 | 2.3e-02 | 2.3e-11 |
+| 1024 | 3 | 2.2e-02 | 8.6e-07 |
+| 1024 | 4 | 2.0e-02 | 3.1e-04 |
+| 1024 | 5 | 2.3e-02 | 8.7e-04 |
+| 1024 | 6 | 2.1e-02 | 6.9e-04 |
+| 2048 | 1 | 1.4e-02 | 2.2e-16 |
+| 2048 | 2 | 2.3e-02 | 1.6e-14 |
+| 2048 | 3 | 2.2e-02 | 2.8e-07 |
+| 2048 | 4 | 2.0e-02 | 5.5e-05 |
+| 2048 | 5 | 2.0e-02 | 1.6e-04 |
+| 2048 | 6 | 2.0e-02 | 7.4e-05 |
+| 3072 | 1 | 1.4e-02 | 2.2e-16 |
+| 3072 | 2 | 2.3e-02 | 1.0e-14 |
+| 3072 | 3 | 2.2e-02 | 6.7e-09 |
+| 3072 | 4 | 2.0e-02 | 8.9e-06 |
+
+## 4. Reproducibility
+`tebd_fh.py` (TEBD), `exact_circuit.py` + `validate.py` (independent exact checks), `queue.sh`/`queue2.sh` (jobs), `make_results.py` (tables),
+`runs/*.json` (all 60 sites × 3 observables × every step), `runs/log_chi*.txt` (per-step logs: t, centre observables, Smax, chimax,
+cumulative discarded weight, wall, RSS). See NOTES.md for spec derivation and validation details.

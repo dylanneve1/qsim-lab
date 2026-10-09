@@ -1,0 +1,30 @@
+L=60 c=29 nu k=30 chi=128 j= 1 Smax=0.194 chimax=10 eps=1.08e-31 wall=0s rss=0.11GB
+L=60 c=29 nu k=30 chi=128 j= 2 Smax=0.502 chimax=28 eps=3.18e-31 wall=0s rss=0.11GB
+L=60 c=29 nu k=30 chi=128 j= 3 Smax=0.746 chimax=128 eps=5.36e-13 wall=0s rss=0.11GB
+L=60 c=29 nu k=30 chi=128 j= 4 Smax=0.929 chimax=128 eps=8.65e-09 wall=0s rss=0.11GB
+L=60 c=29 nu k=30 chi=128 j= 5 Smax=1.073 chimax=128 eps=3.55e-07 wall=1s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j= 6 Smax=1.191 chimax=128 eps=4.08e-06 wall=2s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j= 7 Smax=1.297 chimax=128 eps=2.99e-05 wall=3s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j= 8 Smax=1.393 chimax=128 eps=1.42e-04 wall=4s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j= 9 Smax=1.481 chimax=128 eps=4.81e-04 wall=6s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j=10 Smax=1.569 chimax=128 eps=1.34e-03 wall=8s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j=11 Smax=1.646 chimax=128 eps=3.06e-03 wall=11s rss=0.13GB
+L=60 c=29 nu k=30 chi=128 j=12 Smax=1.711 chimax=128 eps=6.12e-03 wall=14s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=13 Smax=1.765 chimax=128 eps=1.08e-02 wall=17s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=14 Smax=1.803 chimax=128 eps=1.75e-02 wall=22s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=15 Smax=1.828 chimax=128 eps=2.64e-02 wall=26s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=16 Smax=1.840 chimax=128 eps=3.79e-02 wall=31s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=17 Smax=1.839 chimax=128 eps=5.18e-02 wall=37s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=18 Smax=1.830 chimax=128 eps=6.82e-02 wall=43s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=19 Smax=1.811 chimax=128 eps=8.71e-02 wall=49s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=20 Smax=1.783 chimax=128 eps=1.08e-01 wall=55s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=21 Smax=1.745 chimax=128 eps=1.31e-01 wall=63s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=22 Smax=1.698 chimax=128 eps=1.56e-01 wall=70s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=23 Smax=1.639 chimax=128 eps=1.82e-01 wall=77s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=24 Smax=1.572 chimax=128 eps=2.09e-01 wall=84s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=25 Smax=1.510 chimax=128 eps=2.36e-01 wall=91s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=26 Smax=1.440 chimax=128 eps=2.63e-01 wall=98s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=27 Smax=1.363 chimax=128 eps=2.90e-01 wall=106s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=28 Smax=1.285 chimax=128 eps=3.17e-01 wall=114s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=29 Smax=1.214 chimax=128 eps=3.42e-01 wall=122s rss=0.14GB
+L=60 c=29 nu k=30 chi=128 j=30 Smax=1.137 chimax=128 eps=3.66e-01 wall=131s rss=0.14GB VAL=0.51400471
