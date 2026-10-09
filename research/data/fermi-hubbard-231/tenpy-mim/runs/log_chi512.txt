@@ -1,0 +1,30 @@
+L=60 chi=512 k= 1 t=0.2 Smax=0.328 chimax=8 terr=0.00e+00 n_up[29]=0.924177 n_dn[29]=0.075823 dd[29]=0.070074 wall=0s rss=0.11GB
+L=60 chi=512 k= 2 t=0.4 Smax=0.788 chimax=32 terr=2.94e-31 n_up[29]=0.746498 n_dn[29]=0.253502 dd[29]=0.182957 wall=1s rss=0.11GB
+L=60 chi=512 k= 3 t=0.6 Smax=1.135 chimax=109 terr=1.56e-18 n_up[29]=0.552056 n_dn[29]=0.447944 dd[29]=0.220448 wall=2s rss=0.11GB
+L=60 chi=512 k= 4 t=0.8 Smax=1.452 chimax=256 terr=5.48e-18 n_up[29]=0.421284 n_dn[29]=0.578716 dd[29]=0.190185 wall=3s rss=0.12GB
+L=60 chi=512 k= 5 t=1.0 Smax=1.801 chimax=482 terr=2.03e-17 n_up[29]=0.381606 n_dn[29]=0.618394 dd[29]=0.178244 wall=7s rss=0.16GB
+L=60 chi=512 k= 6 t=1.2 Smax=2.141 chimax=512 terr=7.16e-14 n_up[29]=0.407141 n_dn[29]=0.592859 dd[29]=0.197901 wall=16s rss=0.17GB
+L=60 chi=512 k= 7 t=1.4 Smax=2.441 chimax=512 terr=4.13e-11 n_up[29]=0.456014 n_dn[29]=0.543986 dd[29]=0.202526 wall=26s rss=0.18GB
+L=60 chi=512 k= 8 t=1.6 Smax=2.747 chimax=512 terr=5.72e-09 n_up[29]=0.496874 n_dn[29]=0.503126 dd[29]=0.187128 wall=36s rss=0.18GB
+L=60 chi=512 k= 9 t=1.8 Smax=3.066 chimax=512 terr=3.21e-07 n_up[29]=0.522057 n_dn[29]=0.477943 dd[29]=0.184511 wall=46s rss=0.18GB
+L=60 chi=512 k=10 t=2.0 Smax=3.384 chimax=512 terr=8.42e-06 n_up[29]=0.535107 n_dn[29]=0.464893 dd[29]=0.195278 wall=56s rss=0.18GB
+L=60 chi=512 k=11 t=2.2 Smax=3.686 chimax=512 terr=1.29e-04 n_up[29]=0.540236 n_dn[29]=0.459764 dd[29]=0.194695 wall=66s rss=0.18GB
+L=60 chi=512 k=12 t=2.4 Smax=3.985 chimax=512 terr=1.21e-03 n_up[29]=0.535393 n_dn[29]=0.464611 dd[29]=0.185406 wall=77s rss=0.18GB
+L=60 chi=512 k=13 t=2.6 Smax=4.291 chimax=512 terr=7.74e-03 n_up[29]=0.519009 n_dn[29]=0.481000 dd[29]=0.186046 wall=88s rss=0.18GB
+L=60 chi=512 k=14 t=2.8 Smax=4.584 chimax=512 terr=3.33e-02 n_up[29]=0.494577 n_dn[29]=0.505481 dd[29]=0.191681 wall=99s rss=0.18GB
+L=60 chi=512 k=15 t=3.0 Smax=4.850 chimax=512 terr=1.04e-01 n_up[29]=0.472428 n_dn[29]=0.527734 dd[29]=0.186660 wall=110s rss=0.18GB
+L=60 chi=512 k=16 t=3.2 Smax=5.092 chimax=512 terr=2.40e-01 n_up[29]=0.462843 n_dn[29]=0.537644 dd[29]=0.176126 wall=120s rss=0.18GB
+L=60 chi=512 k=17 t=3.4 Smax=5.315 chimax=512 terr=4.55e-01 n_up[29]=0.470617 n_dn[29]=0.529593 dd[29]=0.174523 wall=132s rss=0.18GB
+L=60 chi=512 k=18 t=3.6 Smax=5.504 chimax=512 terr=7.69e-01 n_up[29]=0.492869 n_dn[29]=0.507793 dd[29]=0.179414 wall=143s rss=0.18GB
+L=60 chi=512 k=19 t=3.8 Smax=5.640 chimax=512 terr=1.22e+00 n_up[29]=0.521109 n_dn[29]=0.478804 dd[29]=0.173564 wall=154s rss=0.18GB
+L=60 chi=512 k=20 t=4.0 Smax=5.723 chimax=512 terr=1.86e+00 n_up[29]=0.547363 n_dn[29]=0.452995 dd[29]=0.154023 wall=166s rss=0.18GB
+L=60 chi=512 k=21 t=4.2 Smax=5.765 chimax=512 terr=2.72e+00 n_up[29]=0.566996 n_dn[29]=0.432924 dd[29]=0.130566 wall=177s rss=0.18GB
+L=60 chi=512 k=22 t=4.4 Smax=5.788 chimax=512 terr=3.73e+00 n_up[29]=0.580172 n_dn[29]=0.420119 dd[29]=0.117670 wall=189s rss=0.18GB
+L=60 chi=512 k=23 t=4.6 Smax=5.796 chimax=512 terr=4.79e+00 n_up[29]=0.590703 n_dn[29]=0.409594 dd[29]=0.119431 wall=201s rss=0.18GB
+L=60 chi=512 k=24 t=4.8 Smax=5.793 chimax=512 terr=5.79e+00 n_up[29]=0.601954 n_dn[29]=0.398901 dd[29]=0.131197 wall=209s rss=0.18GB
+L=60 chi=512 k=25 t=5.0 Smax=5.774 chimax=512 terr=6.68e+00 n_up[29]=0.613532 n_dn[29]=0.387179 dd[29]=0.141693 wall=217s rss=0.18GB
+L=60 chi=512 k=26 t=5.2 Smax=5.740 chimax=512 terr=7.48e+00 n_up[29]=0.622034 n_dn[29]=0.378879 dd[29]=0.146525 wall=226s rss=0.18GB
+L=60 chi=512 k=27 t=5.4 Smax=5.713 chimax=512 terr=8.19e+00 n_up[29]=0.620005 n_dn[29]=0.380482 dd[29]=0.149917 wall=238s rss=0.18GB
+L=60 chi=512 k=28 t=5.6 Smax=5.673 chimax=512 terr=8.84e+00 n_up[29]=0.606257 n_dn[29]=0.394250 dd[29]=0.152882 wall=249s rss=0.18GB
+L=60 chi=512 k=29 t=5.8 Smax=5.630 chimax=512 terr=9.44e+00 n_up[29]=0.579786 n_dn[29]=0.420044 dd[29]=0.152557 wall=261s rss=0.18GB
+L=60 chi=512 k=30 t=6.0 Smax=5.593 chimax=512 terr=9.98e+00 n_up[29]=0.545125 n_dn[29]=0.453757 dd[29]=0.148536 wall=271s rss=0.19GB
