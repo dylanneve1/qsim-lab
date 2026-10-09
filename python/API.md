@@ -254,6 +254,21 @@ r = logical_error_rate(c, shots, *, decoder="bposd", seed=None, max_errors=None,
 * `LogicalErrorRate` extends `sim.Result` with `errors, shots, rate, ci` (Wilson 95%),
   `decoder, rounds, per_round, per_round_ci, stats`; a shot fails if any observable is wrong.
 
+* Also exported:
+  - `NOISE_MODELS = ("cnot", "uniform", "si1000")` and `DECODERS = ("bposd", "pymatching", "tesseract")`:
+    the accepted `noise=` and `decoder=` strings.
+  - `color_code_schedule(d, schedule="kf") -> (rows, flag_mask)`: resolves a colour-code
+    schedule spec (`kf|tri|global|path|array`) to the CNOT layer rows and per-check flag mask that
+    `color_code_memory` uses.
+  - `Decoder` base class (`decode(dets, *, packed=None, threads=None) -> bool[shots, num_observables]`)
+    and its implementations `BpOsdDecoder` (built in, ≤ 64 observables), `PyMatchingDecoder`
+    (graphlike decomposition; `dropped` counts mechanisms that could not be decomposed) and
+    `TesseractDecoder` (optional `tesseract-decoder` + `stim`).
+  - `make_decoder(dem, decoder="bposd", **options) -> Decoder`: constructs one of the above;
+    `options` go to the constructor; `MissingDependencyError` if the package is absent.
+  - `wilson_interval(errors, shots, z=1.96) -> (lo, hi)`: Wilson score interval, as used for
+    `LogicalErrorRate.ci`; `(0.0, 1.0)` when `shots <= 0`.
+
 ## `qsimlab.shor` (phase 2, provisional)
 
 Tutorial, oracle table, performance and limitations: [`docs/shor.md`](docs/shor.md).
