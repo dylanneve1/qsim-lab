@@ -1,0 +1,5 @@
+Trotter-step scan at centre site 29, chi=256 (t<=2 converged in chi), dt in {0.2,0.1,0.05}; Richardson (dt^2) of the dt=0.1,0.05 pair vs ITensor-TDVP (continuous time)
+t=1 n_up: dt0.2=0.38161 dt0.1=0.38693 dt0.05=0.38830 Richardson=0.38875 TDVP=0.38860 (TDVP-Rich=-1.6e-04)
+t=1 n_up n_dn: dt0.2=0.17824 dt0.1=0.17765 dt0.05=0.17762 Richardson=0.17760 TDVP=0.17756 (TDVP-Rich=-4.4e-05)
+t=2 n_up: dt0.2=0.53511 dt0.1=0.52906 dt0.05=0.52765 Richardson=0.52718 TDVP=0.52721 (TDVP-Rich=+3.2e-05)
+t=2 n_up n_dn: dt0.2=0.19528 dt0.1=0.19673 dt0.05=0.19723 Richardson=0.19740 TDVP=0.19741 (TDVP-Rich=+6.6e-06)

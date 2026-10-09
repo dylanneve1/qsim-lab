@@ -1,0 +1,5 @@
+L=60 c=29 nu k=5 chi=512 j= 1 Smax=0.194 chimax=10 eps=5.85e-32 wall=0s rss=0.11GB
+L=60 c=29 nu k=5 chi=512 j= 2 Smax=0.502 chimax=28 eps=1.74e-31 wall=0s rss=0.11GB
+L=60 c=29 nu k=5 chi=512 j= 3 Smax=0.746 chimax=148 eps=6.55e-31 wall=0s rss=0.11GB
+L=60 c=29 nu k=5 chi=512 j= 4 Smax=0.929 chimax=496 eps=2.09e-20 wall=0s rss=0.12GB
+L=60 c=29 nu k=5 chi=512 j= 5 Smax=1.073 chimax=512 eps=5.97e-12 wall=2s rss=0.17GB VAL=0.38160639
