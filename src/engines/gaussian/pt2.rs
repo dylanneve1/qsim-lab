@@ -245,7 +245,10 @@ impl Wick<'_> {
     fn corr(&self, seq: &[Option<usize>], perms: &[(f64, Vec<usize>, Vec<usize>)]) -> C {
         let nn = seq.len();
         debug_assert!(nn <= 5);
-        let p = seq.iter().position(|x| x.is_none()).expect("one observable");
+        let p = seq
+            .iter()
+            .position(|x| x.is_none())
+            .expect("one observable");
         let dim = self.dim;
         let mut gt = [[CZ; 5]; 5];
         let mut xm = [[CZ; 5]; 5];
@@ -386,7 +389,10 @@ pub fn pt2(
     };
     let apply = |w: &mut Vec<C>, mode: usize, u: &[[C; 2]; 2], k: usize| {
         for c in 0..n {
-            let old = [w[mode * n + c], if k == 2 { w[(mode + 1) * n + c] } else { CZ }];
+            let old = [
+                w[mode * n + c],
+                if k == 2 { w[(mode + 1) * n + c] } else { CZ },
+            ];
             for (rr, row) in u.iter().enumerate().take(k) {
                 w[(mode + rr) * n + c] = row[0] * old[0] + row[1] * old[1];
             }
