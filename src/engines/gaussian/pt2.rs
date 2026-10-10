@@ -146,11 +146,11 @@ pub fn split_initial_x(c: &Circuit) -> (Circuit, Vec<bool>) {
                 for q in g.qubits() {
                     touched[q] = true;
                 }
-                rest.ops.push(op.clone());
+                rest.ops.push(*op);
             }
             _ => {
                 touched.iter_mut().for_each(|t| *t = true);
-                rest.ops.push(op.clone());
+                rest.ops.push(*op);
             }
         }
     }
@@ -167,15 +167,15 @@ fn sp_map(q: &[f64], k: usize) -> ([[C; 2]; 2], f64) {
     let at = |i: usize, j: usize| q[i * d + j];
     let mut w = [[CZ; 2]; 2];
     let mut leak: f64 = 0.0;
-    for r in 0..k {
-        for s in 0..k {
+    for (r, row) in w.iter_mut().enumerate().take(k) {
+        for (s, entry) in row.iter_mut().enumerate().take(k) {
             let (a, b, c, e) = (
                 at(2 * r, 2 * s),
                 at(2 * r, 2 * s + 1),
                 at(2 * r + 1, 2 * s),
                 at(2 * r + 1, 2 * s + 1),
             );
-            w[r][s] = C::new(0.5 * (a + e), 0.5 * (c - b));
+            *entry = C::new(0.5 * (a + e), 0.5 * (c - b));
             leak = leak.max(0.5 * C::new(a - e, c + b).norm());
         }
     }
