@@ -53,7 +53,13 @@ enum Item {
 /// (plain, with a complex phase, iSWAP), one-site phases, and `n_int`
 /// weak interaction phases on random pairs. The initial basis state is a
 /// random half-filling, prepared by `X` gates.
-fn random_circuit(n: usize, depth: usize, n_int: usize, gscale: f64, rng: &mut StdRng) -> Vec<Item> {
+fn random_circuit(
+    n: usize,
+    depth: usize,
+    n_int: usize,
+    gscale: f64,
+    rng: &mut StdRng,
+) -> Vec<Item> {
     let mut v = Vec::new();
     let mut sites: Vec<usize> = (0..n).collect();
     for i in (1..n).rev() {
@@ -73,12 +79,17 @@ fn random_circuit(n: usize, depth: usize, n_int: usize, gscale: f64, rng: &mut S
             if b >= a {
                 b += 1;
             }
-            let g = gscale * rng.random_range(0.5..1.5) * if rng.random_bool(0.5) { 1.0 } else { -1.0 };
+            let g =
+                gscale * rng.random_range(0.5..1.5) * if rng.random_bool(0.5) { 1.0 } else { -1.0 };
             v.push(Item::Int(a, b, g));
             next += 1;
         }
         let a = rng.random_range(0..n - 1);
-        let (a, b) = if rng.random_bool(0.5) { (a, a + 1) } else { (a + 1, a) };
+        let (a, b) = if rng.random_bool(0.5) {
+            (a, a + 1)
+        } else {
+            (a + 1, a)
+        };
         let t = rng.random_range(-PI..PI);
         match rng.random_range(0..8) {
             0 => v.push(Item::G(Gate::Rz(a, t))),
@@ -214,7 +225,10 @@ fn the_truncation_error_scales_as_lambda_cubed() {
     let n = 8;
     let (items, run) = loop {
         let items = random_circuit(n, 40, 15, 0.3, &mut rng);
-        let obs = vec![OneBody::new().n(3, 1.0), OneBody::new().z(5, 1.0).n(1, -0.5)];
+        let obs = vec![
+            OneBody::new().n(3, 1.0),
+            OneBody::new().z(5, 1.0).n(1, -0.5),
+        ];
         if let Ok(run) = pt2::pt2_circuit(&build(&items, n, 1.0), &obs, &Pt2Options::default()) {
             break (items, (run, obs));
         }
@@ -233,7 +247,10 @@ fn the_truncation_error_scales_as_lambda_cubed() {
             let ((l0, e0), (l1, e1)) = (w[0], w[1]);
             assert!(e0 > 1e-13, "error {e0} at λ = {l0} lost in round-off");
             // λ³ (or faster): halving λ divides the error by >= ~8
-            assert!(e1 <= e0 / 6.5, "obs {i}: error {e0} at λ = {l0}, {e1} at λ = {l1}");
+            assert!(
+                e1 <= e0 / 6.5,
+                "obs {i}: error {e0} at λ = {l0}, {e1} at λ = {l1}"
+            );
         }
     }
 }
@@ -242,7 +259,10 @@ fn the_truncation_error_scales_as_lambda_cubed() {
 fn circuits_that_do_not_conserve_the_particle_number_are_refused() {
     let mut c = Circuit::new(4);
     c.x(0).x(2);
-    for g in hop(0, 1, 0.4, false).into_iter().chain(hop(1, 2, 0.3, true)) {
+    for g in hop(0, 1, 0.4, false)
+        .into_iter()
+        .chain(hop(1, 2, 0.3, true))
+    {
         c.ops.push(Op::Gate(g));
     }
     c.cphase(0, 2, 0.05);
@@ -252,7 +272,9 @@ fn circuits_that_do_not_conserve_the_particle_number_are_refused() {
     }
     let obs = [OneBody::new().n(1, 1.0)];
     match pt2::pt2_circuit(&c, &obs, &Pt2Options::default()) {
-        Err(SimError::NotSupported { what }) => assert!(what.contains("number-conserving"), "{what}"),
+        Err(SimError::NotSupported { what }) => {
+            assert!(what.contains("number-conserving"), "{what}")
+        }
         other => panic!("{:?}", other.map(|r| r.results)),
     }
     // an X in the middle of the circuit is not part of the initial state
@@ -352,6 +374,10 @@ fn su2_hadron_pt2_reproduces_the_reference() {
     // research/data/su2-hadron/results_summary.json: PT2 at step 20
     let nf = meson.total - scv.total;
     eprintln!("su2: stag_SCV(20) = {:.9}, n_f(20) = {nf:.9}", scv.total);
-    assert!((scv.total - (-2.6238502)).abs() < 1e-6, "stag_SCV {}", scv.total);
+    assert!(
+        (scv.total - (-2.6238502)).abs() < 1e-6,
+        "stag_SCV {}",
+        scv.total
+    );
     assert!((nf - 0.1168633).abs() < 1e-6, "n_f {nf}");
 }
