@@ -1106,7 +1106,14 @@ def wilson_interval(errors: int, shots: int, z: float = 1.959963984540054) -> Tu
     den = 1 + z * z / shots
     c = (ph + z * z / (2 * shots)) / den
     h = z * math.sqrt(ph * (1 - ph) / shots + z * z / (4 * shots * shots)) / den
-    return (max(0.0, c - h), min(1.0, c + h))
+    lo, hi = max(0.0, c - h), min(1.0, c + h)
+    # Float rounding can leave the bound one ulp inside the estimate at the
+    # edges, so the interval would exclude p-hat itself.
+    if errors <= 0:
+        lo = 0.0
+    if errors >= shots:
+        hi = 1.0
+    return (lo, hi)
 
 
 def _per_round(p: float, rounds: int) -> float:
