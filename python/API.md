@@ -43,7 +43,9 @@ c.detector([3, 7]); c.observable_include(0, [7])   # QEC metadata (absolute meas
 
 Gates (every gate of the Rust IR; `GATES` maps name → `(num_qubits, num_params)`):
 `i h x y z s sdg t tdg sx sxdg rx ry rz p u` (1 qubit), `cx cz swap iswap iswapdg cp` (2),
-`ccx` (3). Aliases: `cnot=cx`, `phase=p`, `cphase=cp`, `toffoli=ccx`, `id=i`.
+`ccx` (3). Aliases: `cnot=cx`, `phase=p`, `cphase=cp`, `toffoli=ccx`, `id=i`; `GATE_ALIASES`
+maps each alias → canonical name. `NOISE_CHANNELS` is the tuple of accepted channel names
+(`x_error y_error z_error depolarize1 depolarize2`).
 Generic form: `c.append(name, qubits, params=(), *, c_if=None)`.
 
 Other members: `num_qubits`, `num_measurements`, `global_phase` (float, radians, settable),
@@ -63,7 +65,9 @@ simulate(circuit, request, *, engine="auto", precision="f64", seed=None,
 plan(circuit, request, *, budget=None) -> Explanation     # predict only, run nothing
 ```
 
-Requests (plain frozen dataclasses):
+Requests (plain frozen dataclasses, all subclasses of `Request`; the constructors below
+return `StatevectorRequest`, `AmplitudesRequest(bitstrings)`, `SamplesRequest(shots)` and
+`ExpectationRequest(paulis)`, which may also be built directly):
 
 | constructor | needs | result | payload |
 |---|---|---|---|
