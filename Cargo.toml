@@ -135,6 +135,10 @@ name = "gaussian"
 path = "tests/engines/gaussian.rs"
 
 [[test]]
+name = "gaussian_pt2"
+path = "tests/engines/gaussian_pt2.rs"
+
+[[test]]
 name = "hsf"
 path = "tests/engines/hsf.rs"
 

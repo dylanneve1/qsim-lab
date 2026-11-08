@@ -13,6 +13,9 @@
 //!   (Pfaffians), basis-state probabilities (Pfaffians, O(n^3)) and samples
 //!   (O(n^3) per shot). Amplitudes are not available: the covariance matrix
 //!   does not carry the global phase.
+//! * [`pt2`] treats weak interaction phases `exp(i λ g n_a n_b)` of a
+//!   number-conserving circuit by exact second-order perturbation theory in
+//!   `λ` (Wick's theorem on the single-particle correlation matrix).
 //!
 //! The planner ([`crate::planner::Engine::Gaussian`]) chooses this engine
 //! when the circuit is exactly Gaussian.
@@ -31,6 +34,7 @@
 //! ```
 
 mod detect;
+pub mod pt2;
 mod state;
 
 pub use detect::{
